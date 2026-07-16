@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  /* Paleta basada en el azul institucional #073763 */
+  --color-primary-50: #f3f5f7;
+  --color-primary-100: #e6ebef;
+  --color-primary-200: #c1cdd8;
+  --color-primary-300: #9cafc1;
+  --color-primary-400: #6a87a1;
+  --color-primary-500: #395f82;
+  --color-primary-600: #13416b;
+  --color-primary-700: #073763; /* color base */
+  --color-primary-800: #062c4f;
+  --color-primary-900: #04213b;
+
+  /* Tipografías */
+  --font-heading: "Playfair Display", serif;
+  --font-body: "Times New Roman", Times, serif;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-body);
+  color: var(--color-primary-900);
+}
