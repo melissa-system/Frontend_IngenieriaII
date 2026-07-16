@@ -12,7 +12,7 @@ const SERVICE_LINKS = [
 
 function Footer() {
   return (
-    <footer className="relative mt-24 bg-primary-900 pt-20 pb-10 text-white">
+    <footer className="relative mt-16 bg-primary-900 pt-16 pb-10 text-white sm:mt-24 sm:pt-20">
       {/* Borde ondulado de transición */}
       <svg
         viewBox="0 0 1440 120"
