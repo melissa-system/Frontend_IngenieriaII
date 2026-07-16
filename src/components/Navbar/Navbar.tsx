@@ -17,18 +17,18 @@ function Navbar() {
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
         <a
           href="#inicio"
-          className="font-heading text-xl font-semibold tracking-wide sm:text-2xl"
+          className="font-heading text-lg font-semibold tracking-wide sm:text-xl lg:text-2xl"
         >
           ASADA Pueblo Nuevo
         </a>
 
         {/* Links desktop */}
-        <nav className="hidden items-center gap-6 lg:flex">
+        <nav className="hidden items-center gap-5 xl:flex">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
               href={link.href}
-              className="text-sm font-medium text-primary-100 transition-colors hover:text-white"
+              className="relative pb-1 text-sm font-medium text-primary-100 transition-colors after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-primary-300 after:transition-all after:duration-300 hover:text-white hover:after:w-full"
             >
               {link.label}
             </a>
@@ -44,7 +44,7 @@ function Navbar() {
         {/* Botón hamburguesa mobile */}
         <button
           type="button"
-          className="flex flex-col gap-1.5 lg:hidden"
+          className="flex flex-col gap-1.5 xl:hidden"
           aria-label="Abrir menú"
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
@@ -57,7 +57,7 @@ function Navbar() {
 
       {/* Menú mobile */}
       {open && (
-        <nav className="flex flex-col gap-1 border-t border-primary-600 bg-primary-700 px-4 pb-4 lg:hidden">
+        <nav className="flex flex-col gap-1 border-t border-primary-600 bg-primary-700 px-4 pb-4 xl:hidden">
           {NAV_LINKS.map((link) => (
             <a
               key={link.href}
