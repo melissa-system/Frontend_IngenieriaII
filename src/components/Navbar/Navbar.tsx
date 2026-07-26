@@ -63,7 +63,7 @@ function Navbar() {
               key={link.href}
               href={link.href}
               onClick={() => setOpen(false)}
-              className="rounded px-2 py-2 text-sm font-medium text-primary-100 hover:bg-primary-600 hover:text-white"
+              className="rounded px-3 py-3 text-sm font-medium text-primary-100 hover:bg-primary-600 hover:text-white"
             >
               {link.label}
             </a>
@@ -71,7 +71,7 @@ function Navbar() {
           <a
             href="#"
             onClick={() => setOpen(false)}
-            className="mt-2 rounded-full bg-white px-4 py-2 text-center text-sm font-semibold text-primary-700"
+            className="mt-2 rounded-full bg-white px-4 py-3 text-center text-sm font-semibold text-primary-700"
           >
             Acceder al sistema
           </a>

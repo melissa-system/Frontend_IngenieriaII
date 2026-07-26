@@ -4,7 +4,7 @@ function Services() {
   return (
     <section
       id="servicios"
-      className="scroll-mt-20 bg-primary-50 px-4 py-20 sm:px-6 lg:px-8"
+      className="scroll-mt-20 bg-primary-50 px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
@@ -20,7 +20,7 @@ function Services() {
         </p>
       </div>
 
-      <div className="mx-auto mt-12 max-w-3xl rounded-2xl bg-white p-8 shadow-md sm:p-10">
+      <div className="mx-auto mt-8 max-w-3xl rounded-2xl bg-white p-6 shadow-md sm:mt-12 sm:p-10">
         <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
           <span className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-primary-700 text-white">
             <svg
