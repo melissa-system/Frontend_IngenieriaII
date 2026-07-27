@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 
 interface AfiliacionForm {
   nombre: string
@@ -17,44 +18,22 @@ const INITIAL_FORM: AfiliacionForm = {
   observaciones: '',
 }
 
-type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
-
-interface HaciendaResponse {
-  nombre?: string
-}
-
 function Afiliacion() {
-  const [cedula, setCedula] = useState('')
-  const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
+  const {
+    cedula, setCedula,
+    lookupStatus, setLookupStatus,
+    datosListos,
+    nombreEncontrado,
+    buscarCedula,
+  } = useCedulaLookup()
   const [form, setForm] = useState<AfiliacionForm>(INITIAL_FORM)
   const [submitted, setSubmitted] = useState(false)
 
-  const datosListos = lookupStatus === 'found' || lookupStatus === 'not-found'
-
-  const handleBuscarCedula = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!cedula.trim()) return
-
-    setLookupStatus('loading')
-    try {
-      const res = await fetch(
-        `https://api.hacienda.go.cr/fe/ae?identificacion=${cedula.trim()}`,
-      )
-      const text = await res.text()
-      const data: HaciendaResponse = text ? JSON.parse(text) : {}
-
-      if (data.nombre) {
-        setForm((prev) => ({ ...prev, nombre: data.nombre ?? '' }))
-        setLookupStatus('found')
-      } else {
-        setLookupStatus('not-found')
-      }
-    } catch {
-      // Puede fallar por CORS o problemas de red: dejamos continuar
-      // al usuario ingresando su nombre manualmente.
-      setLookupStatus('error')
+  useEffect(() => {
+    if (nombreEncontrado) {
+      setForm((prev) => ({ ...prev, nombre: nombreEncontrado }))
     }
-  }
+  }, [nombreEncontrado])
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -109,7 +88,7 @@ function Afiliacion() {
       ) : (
         <div className="mt-10 space-y-8">
           {/* Paso 1: cédula */}
-          <form onSubmit={handleBuscarCedula} className="space-y-4">
+          <form onSubmit={buscarCedula} className="space-y-4">
             <div>
               <label
                 htmlFor="cedula"
