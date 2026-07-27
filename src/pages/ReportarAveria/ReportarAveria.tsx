@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
+import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -11,16 +12,14 @@ const TIPOS_AVERIA = [
   'Otro',
 ]
 
-type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
-
-interface HaciendaResponse {
-  nombre?: string
-}
-
 function ReportarAveria() {
-  const [cedula, setCedula] = useState('')
-  const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
-  const [nombre, setNombre] = useState('')
+  const {
+    cedula, setCedula,
+    lookupStatus, setLookupStatus,
+    datosListos,
+    nombreEncontrado,
+    buscarCedula,
+  } = useCedulaLookup()
   const [manualNombre, setManualNombre] = useState('')
 
   const [tipoAveria, setTipoAveria] = useState('')
@@ -33,31 +32,6 @@ function ReportarAveria() {
   // Estados para controlar el envío al backend
   const [submitting, setSubmitting] = useState(false)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
-
-  const datosListos = lookupStatus === 'found' || lookupStatus === 'not-found'
-
-  const handleBuscarCedula = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!cedula.trim()) return
-
-    setLookupStatus('loading')
-    try {
-      const res = await fetch(
-        `https://api.hacienda.go.cr/fe/ae?identificacion=${cedula.trim()}`,
-      )
-      const text = await res.text()
-      const data: HaciendaResponse = text ? JSON.parse(text) : {}
-
-      if (data.nombre) {
-        setNombre(data.nombre)
-        setLookupStatus('found')
-      } else {
-        setLookupStatus('not-found')
-      }
-    } catch {
-      setLookupStatus('error')
-    }
-  }
 
   const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null
@@ -72,7 +46,7 @@ function ReportarAveria() {
 
     // Concatenamos para enviar los campos que el backend en NestJS espera (tipo_averia y descripcion)
     const tipoFinal = tipoAveria === 'Otro' ? otroDescripcion : tipoAveria
-    const descripcionFinal = `Reportado por: ${nombre || manualNombre} (Cédula: ${cedula}). Detalle: ${detalle}`
+    const descripcionFinal = `Reportado por: ${nombreEncontrado || manualNombre} (Cédula: ${cedula}). Detalle: ${detalle}`
 
     try {
       await crearAveria({
@@ -88,7 +62,7 @@ function ReportarAveria() {
     }
   }
 
-  const nombreFinal = nombre || manualNombre
+  const nombreFinal = nombreEncontrado || manualNombre
 
   return (
     <section className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8">
@@ -126,7 +100,7 @@ function ReportarAveria() {
       ) : (
         <div className="mt-10 space-y-8">
           {/* Paso 1: cédula */}
-          <form onSubmit={handleBuscarCedula} className="space-y-4">
+          <form onSubmit={buscarCedula} className="space-y-4">
             <div>
               <label
                 htmlFor="cedula"
@@ -159,7 +133,7 @@ function ReportarAveria() {
 
             {lookupStatus === 'found' && (
               <p className="rounded-lg bg-primary-50 px-4 py-3 text-primary-800">
-                Nombre: <span className="font-semibold">{nombre}</span>
+                Nombre: <span className="font-semibold">{nombreEncontrado}</span>
               </p>
             )}
 
@@ -206,7 +180,7 @@ function ReportarAveria() {
           </form>
 
           {/* Paso 2: detalles de la avería */}
-          {datosListos && (nombre || manualNombre) && (
+          {datosListos && (nombreEncontrado || manualNombre) && (
             <form onSubmit={handleSubmit} className="space-y-6 border-t border-primary-100 pt-8">
               <div>
                 <label

@@ -59,7 +59,7 @@ function Location() {
               <p className="text-primary-800">
                 100 metros norte de la Iglesia San Francisco de Asís
                 <br />
-                Pueblo Nuevo, Cartago
+                Pueblo Nuevo, Puntarenas, Costa Rica
               </p>
             </div>
 
