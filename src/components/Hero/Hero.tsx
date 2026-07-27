@@ -1,13 +1,23 @@
 import { Link } from 'react-router-dom'
 import heroImg from '../../assets/hero.jpg'
+import heroImgMobile from '../../assets/hero-mobile.jpg'
 
 function Hero() {
   return (
     <section
       id="inicio"
-      className="relative flex min-h-[90vh] scroll-mt-20 items-center bg-cover bg-center text-white"
-      style={{ backgroundImage: `url(${heroImg})` }}
+      className="relative flex min-h-[90vh] scroll-mt-20 items-center text-white"
     >
+      {/* Foto: una versión recortada en vertical para mobile, la panorámica para sm+ */}
+      <div
+        className="absolute inset-0 bg-cover bg-center sm:hidden"
+        style={{ backgroundImage: `url(${heroImgMobile})` }}
+      />
+      <div
+        className="absolute inset-0 hidden bg-cover bg-center sm:block"
+        style={{ backgroundImage: `url(${heroImg})` }}
+      />
+
       {/* Overlay: más oscuro a la izquierda (donde va el texto), deja ver la foto a la derecha */}
       <div className="absolute inset-0 bg-gradient-to-r from-primary-900/90 via-primary-900/70 to-primary-900/30" />
 

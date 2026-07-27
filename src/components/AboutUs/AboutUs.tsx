@@ -7,7 +7,7 @@ function AboutUs() {
   return (
     <section
       id="sobre-nosotros"
-      className="scroll-mt-20 bg-white px-4 py-20 sm:px-6 lg:px-8"
+      className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
@@ -23,13 +23,13 @@ function AboutUs() {
         </p>
 
         {/* Stats */}
-        <div className="mt-12 grid grid-cols-1 gap-6 sm:grid-cols-2">
+        <div className="mt-8 grid grid-cols-1 gap-4 sm:mt-12 sm:grid-cols-2 sm:gap-6">
           {STATS.map((stat) => (
             <div
               key={stat.label}
-              className="rounded-2xl bg-primary-50 px-6 py-8"
+              className="rounded-2xl bg-primary-50 px-6 py-6 sm:py-8"
             >
-              <p className="font-heading text-5xl font-semibold text-primary-700">
+              <p className="font-heading text-4xl font-semibold text-primary-700 sm:text-5xl">
                 {stat.value}
               </p>
               <p className="mt-2 text-sm text-primary-800">{stat.label}</p>
@@ -38,8 +38,8 @@ function AboutUs() {
         </div>
 
         {/* Misión y Visión */}
-        <div className="mt-12 grid grid-cols-1 gap-6 text-left md:grid-cols-2">
-          <div className="rounded-2xl border border-primary-100 px-6 py-8">
+        <div className="mt-8 grid grid-cols-1 gap-4 text-left sm:mt-12 sm:gap-6 md:grid-cols-2">
+          <div className="rounded-2xl border border-primary-100 px-6 py-6 sm:py-8">
             <h3 className="font-heading text-xl font-semibold text-primary-700">
               Misión
             </h3>
@@ -50,7 +50,7 @@ function AboutUs() {
               beneficio de nuestros abonados.
             </p>
           </div>
-          <div className="rounded-2xl border border-primary-100 px-6 py-8">
+          <div className="rounded-2xl border border-primary-100 px-6 py-6 sm:py-8">
             <h3 className="font-heading text-xl font-semibold text-primary-700">
               Visión
             </h3>

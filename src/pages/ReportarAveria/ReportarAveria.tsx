@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { crearAveria } from '../../components/Services/averias.service'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -28,6 +29,10 @@ function ReportarAveria() {
   const [imagen, setImagen] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  
+  // Estados para controlar el envío al backend
+  const [submitting, setSubmitting] = useState(false)
+  const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
 
   const datosListos = lookupStatus === 'found' || lookupStatus === 'not-found'
 
@@ -50,8 +55,6 @@ function ReportarAveria() {
         setLookupStatus('not-found')
       }
     } catch {
-      // Puede fallar por CORS o problemas de red: dejamos continuar
-      // al usuario ingresando su nombre manualmente.
       setLookupStatus('error')
     }
   }
@@ -62,26 +65,33 @@ function ReportarAveria() {
     setImagenPreview(file ? URL.createObjectURL(file) : null)
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    // TODO: conectar a un backend real (SIAP) para guardar el reporte
-    // y subir la imagen a un almacenamiento definitivo.
-    const reporte = {
-      cedula,
-      nombre: nombre || manualNombre,
-      tipoAveria,
-      otroDescripcion,
-      detalle,
-      imagen,
+    setSubmitting(true)
+    setErrorSubmit(null)
+
+    // Concatenamos para enviar los campos que el backend en NestJS espera (tipo_averia y descripcion)
+    const tipoFinal = tipoAveria === 'Otro' ? otroDescripcion : tipoAveria
+    const descripcionFinal = `Reportado por: ${nombre || manualNombre} (Cédula: ${cedula}). Detalle: ${detalle}`
+
+    try {
+      await crearAveria({
+        tipo_averia: tipoFinal,
+        descripcion: descripcionFinal,
+      })
+      setSubmitted(true)
+    } catch (error) {
+      console.error('Error al enviar la avería:', error)
+      setErrorSubmit('No se pudo guardar el reporte en la base de datos. Inténtalo de nuevo.')
+    } finally {
+      setSubmitting(false)
     }
-    console.log('Reporte de avería (mock):', reporte)
-    setSubmitted(true)
   }
 
   const nombreFinal = nombre || manualNombre
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-16 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8">
       <Link
         to="/"
         className="text-sm font-medium text-primary-700 hover:underline"
@@ -195,7 +205,7 @@ function ReportarAveria() {
             )}
           </form>
 
-          {/* Paso 2: detalles de la avería, solo si ya tenemos datos */}
+          {/* Paso 2: detalles de la avería */}
           {datosListos && (nombre || manualNombre) && (
             <form onSubmit={handleSubmit} className="space-y-6 border-t border-primary-100 pt-8">
               <div>
@@ -283,11 +293,18 @@ function ReportarAveria() {
                 )}
               </div>
 
+              {errorSubmit && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  {errorSubmit}
+                </p>
+              )}
+
               <button
                 type="submit"
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+                disabled={submitting}
+                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
               >
-                Enviar reporte
+                {submitting ? 'Enviando...' : 'Enviar reporte'}
               </button>
             </form>
           )}

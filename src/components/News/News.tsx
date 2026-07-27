@@ -4,7 +4,7 @@ function News() {
   return (
     <section
       id="noticias"
-      className="scroll-mt-20 bg-white px-4 py-20 sm:px-6 lg:px-8"
+      className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
@@ -19,7 +19,7 @@ function News() {
         </p>
       </div>
 
-      <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-6 md:grid-cols-3">
+      <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 gap-5 sm:mt-12 sm:gap-6 md:grid-cols-3">
         {NEWS.map((item) => (
           <article
             key={item.id}

@@ -6,7 +6,7 @@ function Location() {
   return (
     <section
       id="ubicacion"
-      className="scroll-mt-20 bg-white px-4 py-20 sm:px-6 lg:px-8"
+      className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
@@ -21,18 +21,18 @@ function Location() {
         </p>
       </div>
 
-      <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 gap-6 sm:mt-12 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl shadow-md">
           <iframe
             src={MAPS_EMBED_SRC}
             title="Ubicación de ASADA Pueblo Nuevo"
-            className="h-80 w-full border-0 lg:h-full"
+            className="h-64 w-full border-0 sm:h-80 lg:h-full"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
 
-        <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-8">
+        <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-6 sm:p-8">
           <h3 className="font-heading text-xl font-semibold text-primary-900">
             Ubicación y contacto
           </h3>

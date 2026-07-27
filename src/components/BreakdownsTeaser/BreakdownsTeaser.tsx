@@ -4,7 +4,7 @@ function BreakdownsTeaser() {
   return (
     <section
       id="averias"
-      className="scroll-mt-20 bg-white px-4 py-20 sm:px-6 lg:px-8"
+      className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
