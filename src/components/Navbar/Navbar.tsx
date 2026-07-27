@@ -1,13 +1,14 @@
 import { useState } from 'react'
+import { Link } from 'react-router-dom'
 import logo from '../../assets/logo.svg'
 
 const NAV_LINKS = [
-  { label: 'Inicio', href: '#inicio' },
-  { label: 'Sobre nosotros', href: '#sobre-nosotros' },
-  { label: 'Servicios', href: '#servicios' },
-  { label: 'Noticias', href: '#noticias' },
-  { label: 'Averías', href: '#averias' },
-  { label: 'Ubicación', href: '#ubicacion' },
+  { label: 'Inicio', to: '/' },
+  { label: 'Sobre nosotros', to: '/#sobre-nosotros' },
+  { label: 'Servicios', to: '/afiliacion' },
+  { label: 'Noticias', to: '/#noticias' },
+  { label: 'Averías', to: '/reportar-averia' },
+  { label: 'Ubicación', to: '/#ubicacion' },
 ]
 
 function Navbar() {
@@ -16,7 +17,7 @@ function Navbar() {
   return (
     <header className="sticky top-0 z-50 bg-white text-gray-900 shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
-        <a href="#inicio" className="flex items-center gap-3" aria-label="Inicio">
+        <Link to="/" className="flex items-center gap-3" aria-label="Inicio">
           <img
             src={logo}
             alt="Logo ASADA Pueblo Nuevo"
@@ -30,18 +31,18 @@ function Navbar() {
               Pueblo Nuevo
             </div>
           </div>
-        </a>
+        </Link>
 
         {/* Links desktop */}
         <nav className="hidden items-center gap-5 xl:flex">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <Link
+              key={link.to}
+              to={link.to}
               className="relative pb-1 text-base font-medium text-gray-600 transition-colors after:absolute after:bottom-0 after:left-0 after:h-0.5 after:w-0 after:bg-primary-600 after:transition-all after:duration-300 hover:text-primary-700 hover:after:w-full"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
           <a
             href="#"
@@ -69,14 +70,14 @@ function Navbar() {
       {open && (
         <nav className="flex flex-col gap-1 border-t border-gray-200 bg-white px-4 pb-4 xl:hidden">
           {NAV_LINKS.map((link) => (
-            <a
-              key={link.href}
-              href={link.href}
+            <Link
+              key={link.to}
+              to={link.to}
               onClick={() => setOpen(false)}
               className="rounded px-3 py-3 text-sm font-medium text-primary-100 hover:bg-primary-600 hover:text-white"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
           <a
             href="#"

@@ -4,7 +4,6 @@ const NAV_LINKS = [
   { label: 'Inicio', href: '#inicio' },
   { label: 'Sobre nosotros', href: '#sobre-nosotros' },
   { label: 'Ubicación', href: '#ubicacion' },
-  { label: 'Reportar avería', href: '#averias' },
 ]
 
 function Footer() {

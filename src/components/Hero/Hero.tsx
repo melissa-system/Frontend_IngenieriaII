@@ -32,12 +32,12 @@ function Hero() {
             transparencia todos los días.
           </p>
           <div className="mt-8 flex flex-wrap gap-4">
-            <a
-              href="#servicios"
+            <Link
+              to="/afiliacion"
               className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
             >
               Ver servicios
-            </a>
+            </Link>
             <Link
               to="/reportar-averia"
               className="rounded-full border border-white px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-primary-700"
