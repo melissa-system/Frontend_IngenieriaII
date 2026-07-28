@@ -1,13 +1,9 @@
-import { useEffect, type ReactNode } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Outlet, useLocation } from 'react-router-dom'
 import Navbar from '../../components/Navbar/Navbar'
 import Footer from '../../components/Footer/Footer'
 
-interface MainLayoutProps {
-  children: ReactNode
-}
-
-function MainLayout({ children }: MainLayoutProps) {
+function MainLayout() {
   const { hash, pathname } = useLocation()
 
   useEffect(() => {
@@ -24,7 +20,9 @@ function MainLayout({ children }: MainLayoutProps) {
   return (
     <>
       <Navbar />
-      <main>{children}</main>
+      <main>
+        <Outlet />
+      </main>
       <Footer />
     </>
   )
