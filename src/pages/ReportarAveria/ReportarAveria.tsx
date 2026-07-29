@@ -25,7 +25,7 @@ function ReportarAveria() {
   const [tipoAveria, setTipoAveria] = useState('')
   const [otroDescripcion, setOtroDescripcion] = useState('')
   const [detalle, setDetalle] = useState('')
-  const [imagen, setImagen] = useState<File | null>(null)
+  const [_imagen, setImagen] = useState<File | null>(null)
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const [submitted, setSubmitted] = useState(false)
   

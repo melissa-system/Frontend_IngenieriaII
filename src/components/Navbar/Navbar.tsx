@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import logo from '../../assets/logo.svg'
 
 const NAV_LINKS = [
@@ -13,6 +14,8 @@ const NAV_LINKS = [
 
 function Navbar() {
   const [open, setOpen] = useState(false)
+  const { isAuthenticated } = useAuth()
+  const navigate = useNavigate()
 
   return (
     <header className="sticky top-0 z-50 bg-white text-gray-900 shadow-md">
@@ -44,12 +47,13 @@ function Navbar() {
               {link.label}
             </Link>
           ))}
-          <a
-            href="#"
+          <button
+            type="button"
+            onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')}
             className="rounded-full bg-primary-700 px-5 py-2.5 text-base font-semibold text-white transition-colors hover:bg-primary-600"
           >
-            Acceder al sistema
-          </a>
+            {isAuthenticated ? 'Ir al Dashboard' : 'Acceder al sistema'}
+          </button>
         </nav>
 
         {/* Botón hamburguesa mobile */}
@@ -79,13 +83,16 @@ function Navbar() {
               {link.label}
             </Link>
           ))}
-          <a
-            href="#"
-            onClick={() => setOpen(false)}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              navigate(isAuthenticated ? '/dashboard' : '/login')
+            }}
             className="mt-2 rounded-full bg-white px-4 py-3 text-center text-sm font-semibold text-primary-700"
           >
-            Acceder al sistema
-          </a>
+            {isAuthenticated ? 'Ir al Dashboard' : 'Acceder al sistema'}
+          </button>
         </nav>
       )}
     </header>
