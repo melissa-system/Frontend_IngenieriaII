@@ -14,21 +14,21 @@ function Login() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setLoading(true)
 
     try {
-      const ok = await login(username, password)
+      const ok = login(username, password)
       if (ok) {
         navigate(from, { replace: true })
       } else {
         setError('Usuario o contraseña incorrectos.')
+        setLoading(false)
       }
     } catch {
       setError('Ocurrió un error. Intenta de nuevo.')
-    } finally {
       setLoading(false)
     }
   }

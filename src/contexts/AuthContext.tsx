@@ -11,7 +11,7 @@ interface User {
 interface AuthContextType {
   user: User | null
   isAuthenticated: boolean
-  login: (username: string, password: string) => Promise<boolean>
+  login: (username: string, password: string) => boolean
   logout: () => void
 }
 
@@ -42,7 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return stored ? JSON.parse(stored) : null
   })
 
-  const login = useCallback(async (username: string, password: string) => {
+  const login = useCallback((username: string, password: string): boolean => {
     const found = MOCK_USERS.find(
       (u) => u.username === username && u.password === password,
     )

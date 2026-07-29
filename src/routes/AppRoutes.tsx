@@ -14,6 +14,7 @@ import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
 import Administrativo from '../pages/Dashboard/Administrativo'
 import Seguridad from '../pages/Dashboard/Seguridad'
 import Perfil from '../pages/Dashboard/Perfil'
+import Reportes from '../pages/Dashboard/Reportes'
 
 function AppRoutes() {
   return (
@@ -39,6 +40,7 @@ function AppRoutes() {
         <Route path="solicitudes" element={<Solicitudes />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="averias" element={<AveriasAdmin />} />
+        <Route path="reportes" element={<Reportes />} />
         <Route path="administrativo" element={<Administrativo />} />
         <Route path="seguridad" element={<Seguridad />} />
         <Route path="perfil" element={<Perfil />} />
