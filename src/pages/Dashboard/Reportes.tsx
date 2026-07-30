@@ -112,7 +112,7 @@ export default function Reportes() {
               <ResponsiveContainer>
                 <PieChart>
                   <Pie data={data} dataKey="pastel" nameKey="name" outerRadius={80} fill="#8884d8" label>
-                    {data.map((entry, index) => (
+                    {data.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={pieColors[index % pieColors.length]} />
                     ))}
                   </Pie>

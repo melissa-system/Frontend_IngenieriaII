@@ -52,6 +52,8 @@ function ReportarAveria() {
       await crearAveria({
         tipo_averia: tipoFinal,
         descripcion: descripcionFinal,
+        cedula_reportante: cedula,
+        nombre_reportante: nombreFinal,
       })
       setSubmitted(true)
     } catch (error) {
