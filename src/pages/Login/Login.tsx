@@ -8,7 +8,8 @@ function Login() {
   const navigate = useNavigate()
   const location = useLocation()
   const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname || '/'
+    (location.state as { from?: { pathname: string } })?.from?.pathname ||
+    '/dashboard'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -38,7 +39,11 @@ function Login() {
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
       <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-gray-50 p-6">
         <div className="mb-6 text-center">
-          <img src={logo} alt="ASADA Pueblo Nuevo" className="mx-auto h-14 w-auto object-contain" />
+          <img
+            src={logo}
+            alt="ASADA Pueblo Nuevo"
+            className="mx-auto h-14 w-auto object-contain"
+          />
           <h1 className="mt-4 font-heading text-2xl font-semibold text-primary-900">
             SIAPB
           </h1>

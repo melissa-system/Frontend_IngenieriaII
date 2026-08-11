@@ -1,5 +1,6 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 
 interface SolicitudForm {
   nombre: string
@@ -20,18 +21,20 @@ const INITIAL_FORM: SolicitudForm = {
 }
 
 type TipoIdentificacion = 'nacional' | 'extranjero' | ''
-type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
-
-interface HaciendaResponse {
-  nombre?: string
-}
 
 function Afiliacion() {
   const [tipoId, setTipoId] = useState<TipoIdentificacion>('')
 
-  // Flujo nacional / DIMEX
-  const [cedula, setCedula] = useState('')
-  const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
+  // Flujo nacional / DIMEX (hook compartido con Reportar Avería)
+  const {
+    cedula,
+    setCedula,
+    lookupStatus,
+    setLookupStatus,
+    datosListos: datosListosNacional,
+    nombreEncontrado,
+    buscarCedula,
+  } = useCedulaLookup()
 
   // Flujo extranjero
   const [pasaporte, setPasaporte] = useState('')
@@ -44,41 +47,24 @@ function Afiliacion() {
   const [cartaSolicitud, setCartaSolicitud] = useState<File | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
+  useEffect(() => {
+    if (nombreEncontrado) {
+      setForm((prev) => ({ ...prev, nombre: nombreEncontrado }))
+    }
+  }, [nombreEncontrado])
+
   const datosListos =
     tipoId === 'nacional'
-      ? lookupStatus === 'found' || lookupStatus === 'not-found'
+      ? datosListosNacional
       : tipoId === 'extranjero'
         ? pasaporte.trim() !== '' && nombreManual.trim() !== ''
         : false
 
   const nombreFinal =
-    tipoId === 'nacional' ? form.nombre || 'vecino/a' : nombreManual || 'vecino/a'
+    tipoId === 'nacional'
+      ? form.nombre || 'vecino/a'
+      : nombreManual || 'vecino/a'
   const identificacionFinal = tipoId === 'nacional' ? cedula : pasaporte
-
-  const handleBuscarCedula = async (e: FormEvent) => {
-    e.preventDefault()
-    if (!cedula.trim()) return
-
-    setLookupStatus('loading')
-    try {
-      const res = await fetch(
-        `https://api.hacienda.go.cr/fe/ae?identificacion=${cedula.trim()}`,
-      )
-      const text = await res.text()
-      const data: HaciendaResponse = text ? JSON.parse(text) : {}
-
-      if (data.nombre) {
-        setForm((prev) => ({ ...prev, nombre: data.nombre ?? '' }))
-        setLookupStatus('found')
-      } else {
-        setLookupStatus('not-found')
-      }
-    } catch {
-      // Puede fallar por CORS o problemas de red: dejamos continuar
-      // al usuario ingresando su nombre manualmente.
-      setLookupStatus('error')
-    }
-  }
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
@@ -173,7 +159,7 @@ function Afiliacion() {
 
           {/* Paso 1a: cédula (nacional/DIMEX) */}
           {tipoId === 'nacional' && (
-            <form onSubmit={handleBuscarCedula} className="space-y-4">
+            <form onSubmit={buscarCedula} className="space-y-4">
               <div>
                 <label
                   htmlFor="cedula"
