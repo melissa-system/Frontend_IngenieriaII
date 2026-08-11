@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import puebloImg from '../../assets/PuebloN.png'
 
 const STATS = [
@@ -109,6 +110,8 @@ const VALUES = [
 ]
 
 function AboutUs() {
+  const [expanded, setExpanded] = useState(false)
+
   return (
     <section
       id="sobre-nosotros"
@@ -134,7 +137,7 @@ function AboutUs() {
           {STATS.map((stat) => (
             <div
               key={stat.label}
-              className="rounded-2xl bg-primary-50 px-6 py-6 sm:py-8"
+              className="rounded-2xl bg-primary-50 px-6 py-6 shadow-sm sm:py-8"
             >
               <p className="font-heading text-4xl font-semibold text-primary-700 sm:text-5xl">
                 {stat.value}
@@ -167,84 +170,103 @@ function AboutUs() {
           </div>
         </div>
 
-        {/* Valores */}
-        <div className="mt-8 sm:mt-12">
-          <h3 className="text-center font-heading text-2xl font-semibold text-primary-900">
-            Nuestros valores
-          </h3>
-          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {VALUES.map((v) => (
-              <div
-                key={v.title}
-                className="group cursor-default rounded-2xl border border-primary-100 bg-white px-5 py-6 text-center transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg"
-              >
-                <span className="inline-flex items-center justify-center text-primary-600 transition-colors duration-300 group-hover:text-primary-700">
-                  {v.icon}
-                </span>
-                <h4 className="mt-3 font-heading text-lg font-semibold text-primary-700">
-                  {v.title}
-                </h4>
-                <p className="mt-2 text-sm leading-relaxed text-primary-800">
-                  {v.desc}
+        {/* Botón ver más / ver menos */}
+        <div className="mt-8 flex justify-center sm:mt-12">
+          <button
+            type="button"
+            onClick={() => setExpanded((prev) => !prev)}
+            aria-expanded={expanded}
+            className="rounded-full border border-primary-300 px-6 py-2.5 text-sm font-semibold text-primary-700 shadow-sm transition-colors hover:border-primary-700 hover:bg-primary-700 hover:text-white"
+          >
+            {expanded ? 'Ver menos' : 'Más información'}
+          </button>
+        </div>
+
+        {expanded && (
+          <>
+            {/* Valores */}
+            <div className="mt-8 sm:mt-12">
+              <h3 className="text-center font-heading text-2xl font-semibold text-primary-900">
+                Nuestros valores
+              </h3>
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                {VALUES.map((v) => (
+                  <div
+                    key={v.title}
+                    className="group cursor-default rounded-2xl border border-primary-200 bg-white px-5 py-6 text-center shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg"
+                  >
+                    <span className="inline-flex items-center justify-center text-primary-600 transition-colors duration-300 group-hover:text-primary-700">
+                      {v.icon}
+                    </span>
+                    <h4 className="mt-3 font-heading text-lg font-semibold text-primary-700">
+                      {v.title}
+                    </h4>
+                    <p className="mt-2 text-sm leading-relaxed text-primary-800">
+                      {v.desc}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Misión y Visión */}
+            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 sm:mt-12">
+              <div className="flex flex-col items-center justify-center bg-primary-900 px-10 py-16 text-center text-white">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  className="mb-5 h-12 w-12"
+                >
+                  <circle cx="12" cy="12" r="10" />
+                  <circle cx="12" cy="12" r="6" />
+                  <circle cx="12" cy="12" r="2" fill="currentColor" />
+                  <path
+                    strokeLinecap="round"
+                    d="M2 12h4m12 0h4M12 2v4m0 12v4"
+                  />
+                </svg>
+                <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
+                  Nuestra Misión
+                </h3>
+                <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
+                  Brindar un servicio de agua potable eficiente, continuo y de
+                  calidad a la comunidad de Pueblo Nuevo, garantizando el buen
+                  uso y la administración responsable de los recursos
+                  hídricos en beneficio de nuestros abonados.
                 </p>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Misión y Visión */}
-        <div className="mt-8 grid grid-cols-1 md:grid-cols-2 sm:mt-12">
-          <div className="flex flex-col items-center justify-center bg-primary-900 px-10 py-16 text-center text-white">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              className="mb-5 h-12 w-12"
-            >
-              <circle cx="12" cy="12" r="10" />
-              <circle cx="12" cy="12" r="6" />
-              <circle cx="12" cy="12" r="2" fill="currentColor" />
-              <path strokeLinecap="round" d="M2 12h4m12 0h4M12 2v4m0 12v4" />
-            </svg>
-            <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
-              Nuestra Misión
-            </h3>
-            <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
-              Brindar un servicio de agua potable eficiente, continuo y de
-              calidad a la comunidad de Pueblo Nuevo, garantizando el buen uso
-              y la administración responsable de los recursos hídricos en
-              beneficio de nuestros abonados.
-            </p>
-          </div>
-          <div className="flex flex-col items-center justify-center bg-primary-600 px-10 py-16 text-center text-white">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-              className="mb-5 h-12 w-12"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
-              />
-              <circle cx="12" cy="12" r="3" />
-            </svg>
-            <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
-              Nuestra Visión
-            </h3>
-            <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
-              Ser una ASADA modelo, reconocida por la gestión responsable del
-              recurso hídrico, la mejora continua de su infraestructura y el
-              compromiso con el desarrollo sostenible de la comunidad.
-            </p>
-          </div>
-        </div>
-
+              <div className="flex flex-col items-center justify-center bg-primary-600 px-10 py-16 text-center text-white">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={1.5}
+                  className="mb-5 h-12 w-12"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"
+                  />
+                  <circle cx="12" cy="12" r="3" />
+                </svg>
+                <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
+                  Nuestra Visión
+                </h3>
+                <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
+                  Ser una ASADA modelo, reconocida por la gestión responsable
+                  del recurso hídrico, la mejora continua de su
+                  infraestructura y el compromiso con el desarrollo
+                  sostenible de la comunidad.
+                </p>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </section>
   )

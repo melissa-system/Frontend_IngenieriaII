@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { MENU_CONFIG, filterMenuByRole, type MenuItemConfig } from '../../lib/menuConfig'
-import logo from '../../assets/logo.svg'
+import logo from '../../assets/logo.png'
 
 function Sidebar() {
   const { user } = useAuth()
@@ -114,13 +114,15 @@ function Sidebar() {
 
   return (
     <aside className="flex h-screen w-64 flex-col bg-primary-900 text-white">
-      <div className="flex items-center gap-3 border-b border-primary-700 px-5 py-4">
-        <img
-          src={logo}
-          alt="Logo SIAPB"
-          className="h-10 w-10 rounded-full bg-white object-cover"
-        />
-        <span className="font-heading text-xl font-semibold tracking-wide">
+      <div className="flex items-center gap-2 border-b border-primary-700 px-5 py-4">
+        <div className="rounded-lg bg-white px-2 py-1.5">
+          <img
+            src={logo}
+            alt="ASADA Pueblo Nuevo"
+            className="h-7 w-auto object-contain"
+          />
+        </div>
+        <span className="font-heading text-lg font-semibold tracking-wide">
           SIAPB
         </span>
       </div>

@@ -36,7 +36,7 @@ function Hero() {
               to="/afiliacion"
               className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
             >
-              Ver servicios
+              Solicitar paja de agua
             </Link>
             <Link
               to="/reportar-averia"

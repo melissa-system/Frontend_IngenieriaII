@@ -51,9 +51,16 @@ function AppRoutes() {
         element={
           <div className="flex min-h-screen items-center justify-center bg-gray-50">
             <div className="text-center">
-              <h1 className="font-heading text-6xl font-bold text-primary-700">404</h1>
-              <p className="mt-4 text-lg text-primary-600">Página no encontrada</p>
-              <a href="/" className="mt-6 inline-block rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-800">
+              <h1 className="font-heading text-6xl font-bold text-primary-700">
+                404
+              </h1>
+              <p className="mt-4 text-lg text-primary-600">
+                Página no encontrada
+              </p>
+              <a
+                href="/"
+                className="mt-6 inline-block rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-800"
+              >
                 Volver al inicio
               </a>
             </div>

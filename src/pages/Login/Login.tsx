@@ -1,13 +1,15 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
-import logo from '../../assets/logo.svg'
+import logo from '../../assets/logo.png'
 
 function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: { pathname: string } })?.from?.pathname || '/dashboard'
+  const from =
+    (location.state as { from?: { pathname: string } })?.from?.pathname ||
+    '/dashboard'
 
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
@@ -39,8 +41,8 @@ function Login() {
         <div className="mb-6 text-center">
           <img
             src={logo}
-            alt="SIAPB"
-            className="mx-auto h-14 w-14 rounded-full bg-primary-100 object-cover"
+            alt="ASADA Pueblo Nuevo"
+            className="mx-auto h-14 w-auto object-contain"
           />
           <h1 className="mt-4 font-heading text-2xl font-semibold text-primary-900">
             SIAPB
@@ -52,7 +54,10 @@ function Login() {
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-primary-900">
+            <label
+              htmlFor="username"
+              className="block text-sm font-medium text-primary-900"
+            >
               Usuario
             </label>
             <input
@@ -67,7 +72,10 @@ function Login() {
           </div>
 
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-primary-900">
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-primary-900"
+            >
               Contraseña
             </label>
             <input
@@ -94,13 +102,12 @@ function Login() {
           >
             {loading ? 'Ingresando...' : 'Ingresar'}
           </button>
-
         </form>
 
-          <Link
-            to="/"
-            className="mt-5 block text-center text-sm font-medium text-primary-600 hover:text-primary-700"
-          >
+        <Link
+          to="/"
+          className="mt-5 block text-center text-sm font-medium text-primary-600 hover:text-primary-700"
+        >
           ← Volver al sitio
         </Link>
       </div>
