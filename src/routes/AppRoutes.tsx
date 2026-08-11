@@ -3,16 +3,37 @@ import MainLayout from '../layouts/MainLayout/MainLayout'
 import Home from '../pages/Home/Home'
 import Afiliacion from '../pages/Afiliacion/Afiliacion'
 import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
+import Login from '../pages/Login/Login'
 
 function AppRoutes() {
   return (
-    <MainLayout>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/afiliacion" element={<Afiliacion />} />
-        <Route path="/reportar-averia" element={<ReportarAveria />} />
-      </Routes>
-    </MainLayout>
+    <Routes>
+      <Route
+        path="/"
+        element={
+          <MainLayout>
+            <Home />
+          </MainLayout>
+        }
+      />
+      <Route
+        path="/afiliacion"
+        element={
+          <MainLayout>
+            <Afiliacion />
+          </MainLayout>
+        }
+      />
+      <Route
+        path="/reportar-averia"
+        element={
+          <MainLayout>
+            <ReportarAveria />
+          </MainLayout>
+        }
+      />
+      <Route path="/login" element={<Login />} />
+    </Routes>
   )
 }
 

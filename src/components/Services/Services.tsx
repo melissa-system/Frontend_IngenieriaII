@@ -11,16 +11,16 @@ function Services() {
           Servicios
         </p>
         <h2 className="mt-2 font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
-          Afíliate al servicio de agua potable
+          Solicita tu paja de agua
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">
           ¿Necesitas una nueva conexión de agua para tu propiedad? Completa la
-          solicitud de afiliación y verificaremos la disponibilidad de paja de
-          agua para tu ubicación.
+          solicitud de paja de agua y verificaremos la disponibilidad para tu
+          ubicación.
         </p>
       </div>
 
-      <div className="mx-auto mt-8 max-w-3xl rounded-2xl bg-white p-6 shadow-md sm:mt-12 sm:p-10">
+      <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-primary-100 bg-white p-6 shadow-md sm:mt-12 sm:p-10">
         <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
           <span className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-primary-700 text-white">
             <svg
@@ -41,10 +41,10 @@ function Services() {
           </span>
           <div className="flex-1">
             <h3 className="font-heading text-xl font-semibold text-primary-900">
-              Solicitud de afiliación
+              Solicitud de paja de agua
             </h3>
             <p className="mt-2 text-primary-700">
-              Nueva conexión de paja de agua para tu propiedad. Llena el
+              Nueva conexión de agua potable para tu propiedad. Llena el
               formulario con tus datos y nos pondremos en contacto para
               confirmar la disponibilidad.
             </p>
@@ -53,7 +53,7 @@ function Services() {
             to="/afiliacion"
             className="w-full flex-none rounded-full bg-primary-700 px-6 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
           >
-            Solicitar afiliación
+            Hacer la solicitud de paja de agua
           </Link>
         </div>
       </div>

@@ -32,7 +32,7 @@ function Location() {
           />
         </div>
 
-        <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-6 sm:p-8">
+        <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-6 shadow-sm sm:p-8">
           <h3 className="font-heading text-xl font-semibold text-primary-900">
             Ubicación y contacto
           </h3>
@@ -59,7 +59,7 @@ function Location() {
               <p className="text-primary-800">
                 100 metros norte de la Iglesia San Francisco de Asís
                 <br />
-                Pueblo Nuevo, Cartago
+                Pueblo Nuevo, Paquera
               </p>
             </div>
 

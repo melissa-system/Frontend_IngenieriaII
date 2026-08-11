@@ -15,7 +15,7 @@
 
   /* Tipografías */
   --font-heading: "Playfair Display", serif;
-  --font-body: "Times New Roman", Times, serif;
+  --font-body: "Inter", system-ui, sans-serif;
 }
 
 body {
