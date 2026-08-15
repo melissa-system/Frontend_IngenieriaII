@@ -51,7 +51,7 @@ function AppRoutes() {
         element={
           <div className="flex min-h-screen items-center justify-center bg-gray-50">
             <div className="text-center">
-              <h1 className="font-heading text-6xl font-bold text-primary-700">
+              <h1 className="text-6xl font-bold text-primary-700">
                 404
               </h1>
               <p className="mt-4 text-lg text-primary-600">

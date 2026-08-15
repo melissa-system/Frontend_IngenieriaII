@@ -115,17 +115,17 @@ function AboutUs() {
   return (
     <section
       id="sobre-nosotros"
-      className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
+      className="flex min-h-screen scroll-mt-20 flex-col justify-center bg-white px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
     >
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl">
         <div className="text-center">
           <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
             Sobre nosotros
           </p>
-          <h2 className="mt-2 font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-4xl">
             Conócenos
           </h2>
-          <p className="mx-auto mt-4 max-w-2xl text-primary-800">
+          <p className="mx-auto mt-3 max-w-2xl text-sm text-primary-800 sm:text-base">
             ASADA Pueblo Nuevo es la asociación encargada de administrar el
             acueducto comunitario, llevando agua potable de forma continua y de
             calidad a las familias de Pueblo Nuevo.
@@ -133,34 +133,36 @@ function AboutUs() {
         </div>
 
         {/* Stats */}
-        <div className="mt-8 grid grid-cols-1 gap-4 text-center sm:mt-12 sm:grid-cols-2 sm:gap-6">
+        <div className="mt-5 grid grid-cols-2 gap-3 text-center sm:mt-6 sm:gap-4">
           {STATS.map((stat) => (
             <div
               key={stat.label}
-              className="rounded-2xl bg-primary-50 px-6 py-6 shadow-sm sm:py-8"
+              className="rounded-2xl bg-primary-50 px-4 py-3 shadow-sm sm:py-4"
             >
-              <p className="font-heading text-4xl font-semibold text-primary-700 sm:text-5xl">
+              <p className="text-2xl font-semibold text-primary-700 sm:text-3xl">
                 {stat.value}
               </p>
-              <p className="mt-2 text-sm text-primary-800">{stat.label}</p>
+              <p className="mt-1 text-xs text-primary-800 sm:text-sm">
+                {stat.label}
+              </p>
             </div>
           ))}
         </div>
 
         {/* Imagen + Historia */}
-        <div className="mt-8 flex flex-col items-center gap-6 sm:mt-12 md:flex-row">
+        <div className="mt-5 flex flex-col items-stretch gap-4 sm:mt-6 md:flex-row">
           <div className="w-full overflow-hidden rounded-2xl shadow-md md:w-1/2">
             <img
               src={puebloImg}
               alt="Comunidad de Pueblo Nuevo"
-              className="h-72 w-full object-cover sm:h-80"
+              className="h-[32vh] w-full object-cover sm:h-[38vh]"
             />
           </div>
-          <div className="w-full md:w-1/2">
-            <h3 className="font-heading text-2xl font-semibold text-primary-900">
+          <div className="flex w-full flex-col justify-center md:w-1/2">
+            <h3 className="text-lg font-semibold text-primary-900 sm:text-xl">
               Nuestra historia
             </h3>
-            <p className="mt-3 leading-relaxed text-primary-800">
+            <p className="mt-2 text-sm leading-relaxed text-primary-800">
               Desde nuestros inicios, hemos trabajado incansablemente para
               garantizar el acceso al agua potable a cada hogar de Pueblo Nuevo,
               adaptándonos a los desafíos y creciendo junto a nuestra comunidad.
@@ -171,7 +173,7 @@ function AboutUs() {
         </div>
 
         {/* Botón ver más / ver menos */}
-        <div className="mt-8 flex justify-center sm:mt-12">
+        <div className="mt-5 flex justify-center sm:mt-6">
           <button
             type="button"
             onClick={() => setExpanded((prev) => !prev)}
@@ -186,7 +188,7 @@ function AboutUs() {
           <>
             {/* Valores */}
             <div className="mt-8 sm:mt-12">
-              <h3 className="text-center font-heading text-2xl font-semibold text-primary-900">
+              <h3 className="text-center text-2xl font-semibold text-primary-900">
                 Nuestros valores
               </h3>
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -198,7 +200,7 @@ function AboutUs() {
                     <span className="inline-flex items-center justify-center text-primary-600 transition-colors duration-300 group-hover:text-primary-700">
                       {v.icon}
                     </span>
-                    <h4 className="mt-3 font-heading text-lg font-semibold text-primary-700">
+                    <h4 className="mt-3 text-lg font-semibold text-primary-700">
                       {v.title}
                     </h4>
                     <p className="mt-2 text-sm leading-relaxed text-primary-800">
@@ -210,8 +212,8 @@ function AboutUs() {
             </div>
 
             {/* Misión y Visión */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 sm:mt-12">
-              <div className="flex flex-col items-center justify-center bg-primary-900 px-10 py-16 text-center text-white">
+            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 sm:mt-12">
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-primary-900 px-10 py-16 text-center text-white shadow-sm">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -228,7 +230,7 @@ function AboutUs() {
                     d="M2 12h4m12 0h4M12 2v4m0 12v4"
                   />
                 </svg>
-                <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
+                <h3 className="text-xl font-semibold uppercase tracking-wide">
                   Nuestra Misión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
@@ -238,7 +240,7 @@ function AboutUs() {
                   hídricos en beneficio de nuestros abonados.
                 </p>
               </div>
-              <div className="flex flex-col items-center justify-center bg-primary-600 px-10 py-16 text-center text-white">
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-primary-600 px-10 py-16 text-center text-white shadow-sm">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -254,7 +256,7 @@ function AboutUs() {
                   />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
-                <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
+                <h3 className="text-xl font-semibold uppercase tracking-wide">
                   Nuestra Visión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">

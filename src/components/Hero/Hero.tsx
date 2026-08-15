@@ -23,7 +23,7 @@ function Hero() {
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-2xl text-left">
-          <h1 className="font-heading text-4xl font-semibold sm:text-5xl md:text-6xl">
+          <h1 className="text-4xl font-title font-bold tracking-wider uppercase sm:text-5xl md:text-6xl">
             Llevando agua potable a cada hogar de Pueblo Nuevo
           </h1>
           <p className="mt-5 text-lg text-primary-100">
@@ -34,13 +34,13 @@ function Hero() {
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
               to="/afiliacion"
-              className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+              className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-700 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-primary-50 hover:shadow-lg"
             >
               Solicitar paja de agua
             </Link>
             <Link
               to="/reportar-averia"
-              className="rounded-full border border-white px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-primary-700"
+              className="rounded-full border border-white px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-white hover:text-primary-700 hover:shadow-lg"
             >
               Reportar avería
             </Link>

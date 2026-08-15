@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
-import logo from '../../assets/logo.png'
+import logoFooter from '../../assets/logo-footer.png'
 
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
   { label: 'Sobre nosotros', to: '/#sobre-nosotros' },
-  { label: 'Servicios', to: '/afiliacion' },
+  { label: 'Servicios', to: '/#servicios' },
   { label: 'Noticias', to: '/#noticias' },
   { label: 'Averías', to: '/reportar-averia' },
   { label: 'Ubicación', to: '/#ubicacion' },
@@ -26,13 +26,11 @@ function Footer() {
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
         <div className="flex flex-col items-start gap-4">
-          <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
-            <img
-              src={logo}
-              alt="ASADA Pueblo Nuevo"
-              className="h-12 w-auto object-contain"
-            />
-          </div>
+          <img
+            src={logoFooter}
+            alt="ASADA Pueblo Nuevo"
+            className="h-14 w-auto object-contain"
+          />
           <p className="text-sm leading-relaxed text-primary-200">
             Comprometidos con la distribución de agua potable de calidad para
             nuestras comunidades.
@@ -40,7 +38,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">
+          <p className="text-xl font-semibold">
             Navegación del sistema
           </p>
           <ul className="mt-4 space-y-2">
@@ -58,7 +56,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">
+          <p className="text-xl font-semibold">
             Horario de atención
           </p>
           <ul className="mt-4 space-y-2 text-primary-200">
@@ -69,7 +67,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">Contacto</p>
+          <p className="text-xl font-semibold">Contacto</p>
           <ul className="mt-4 space-y-3 text-primary-200">
             <li className="flex items-start gap-2">
               <svg

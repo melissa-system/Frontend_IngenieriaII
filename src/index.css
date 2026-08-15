@@ -14,12 +14,22 @@
   --color-primary-900: #04213b;
 
   /* Tipografías */
-  --font-heading: "Playfair Display", serif;
   --font-body: "Inter", system-ui, sans-serif;
+  --font-title: "Poppins", "Inter", system-ui, sans-serif;
 }
 
 body {
   margin: 0;
   font-family: var(--font-body);
   color: var(--color-primary-900);
+}
+
+/* Oculta la barra de scroll visible mientras se mantiene el scroll funcional */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge (Chromium) */
 }
