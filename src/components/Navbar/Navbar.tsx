@@ -6,7 +6,7 @@ import logo from '../../assets/logo.png'
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
   { label: 'Sobre nosotros', to: '/#sobre-nosotros' },
-  { label: 'Servicios', to: '/afiliacion' },
+  { label: 'Servicios', to: '/#servicios' },
   { label: 'Noticias', to: '/#noticias' },
   { label: 'Averías', to: '/reportar-averia' },
   { label: 'Ubicación', to: '/#ubicacion' },
