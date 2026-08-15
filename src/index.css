@@ -23,3 +23,13 @@ body {
   font-family: var(--font-body);
   color: var(--color-primary-900);
 }
+
+/* Oculta la barra de scroll visible mientras se mantiene el scroll funcional */
+html {
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+html::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Edge (Chromium) */
+}
