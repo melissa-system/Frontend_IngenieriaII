@@ -15,6 +15,7 @@
 
   /* Tipografías */
   --font-body: "Inter", system-ui, sans-serif;
+  --font-title: "Poppins", "Inter", system-ui, sans-serif;
 }
 
 body {

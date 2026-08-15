@@ -139,14 +139,14 @@ function Services() {
   return (
     <section
       id="servicios"
-      className="flex min-h-screen scroll-mt-20 flex-col justify-center bg-primary-50 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
+      className="scroll-mt-20 bg-primary-50 px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
     >
       <div className="mx-auto w-full max-w-5xl">
         <div className="text-center">
           <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
             Servicios
           </p>
-          <h2 className="mt-2 text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-title font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
             Solicita tu paja de agua
           </h2>
           <p className="mx-auto mt-4 max-w-2xl text-primary-800">

@@ -12,12 +12,17 @@ const TIPOS_AVERIA = [
   'Otro',
 ]
 
-type TipoIdentificacion = 'nacional' | 'extranjero' | ''
+type TipoIdentificacion = 'nacional' | 'dimex' | ''
+
+// El DIMEX no tiene una API pública de consulta (a diferencia de la cédula
+// nacional vía Hacienda), así que validamos el formato: solo números,
+// 11 o 12 dígitos (formato estándar del documento en Costa Rica).
+const DIMEX_REGEX = /^\d{11,12}$/
 
 function ReportarAveria() {
   const [tipoId, setTipoId] = useState<TipoIdentificacion>('')
 
-  // Flujo nacional / DIMEX (hook compartido con Solicitud de paja de agua)
+  // Flujo nacional (API de Hacienda)
   const {
     cedula,
     setCedula,
@@ -29,9 +34,10 @@ function ReportarAveria() {
   } = useCedulaLookup()
   const [manualNombre, setManualNombre] = useState('')
 
-  // Flujo extranjero
-  const [pasaporte, setPasaporte] = useState('')
-  const [nombreExtranjero, setNombreExtranjero] = useState('')
+  // Flujo DIMEX (registro manual, validado por formato)
+  const [numeroDimex, setNumeroDimex] = useState('')
+  const [nombreDimex, setNombreDimex] = useState('')
+  const dimexValido = DIMEX_REGEX.test(numeroDimex.trim())
 
   const [tipoAveria, setTipoAveria] = useState('')
   const [otroDescripcion, setOtroDescripcion] = useState('')
@@ -47,8 +53,8 @@ function ReportarAveria() {
   const datosListos =
     tipoId === 'nacional'
       ? datosListosNacional
-      : tipoId === 'extranjero'
-        ? pasaporte.trim() !== '' && nombreExtranjero.trim() !== ''
+      : tipoId === 'dimex'
+        ? dimexValido && nombreDimex.trim() !== ''
         : false
 
   const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -65,9 +71,7 @@ function ReportarAveria() {
   }
 
   const nombreFinal =
-    tipoId === 'nacional'
-      ? nombreEncontrado || manualNombre
-      : nombreExtranjero
+    tipoId === 'nacional' ? nombreEncontrado || manualNombre : nombreDimex
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
@@ -77,7 +81,7 @@ function ReportarAveria() {
     // Concatenamos para enviar los campos que el backend en NestJS espera (tipo_averia y descripcion)
     const tipoFinal = tipoAveria === 'Otro' ? otroDescripcion : tipoAveria
     const identificacionReportante =
-      tipoId === 'nacional' ? cedula : `Pasaporte ${pasaporte}`
+      tipoId === 'nacional' ? cedula : `DIMEX ${numeroDimex}`
     const descripcionFinal = `Reportado por: ${nombreFinal} (${identificacionReportante}). Detalle: ${detalle}`
 
     try {
@@ -107,7 +111,7 @@ function ReportarAveria() {
         ← Volver al inicio
       </Link>
 
-      <h1 className="mt-4 text-center text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
+      <h1 className="mt-4 text-center text-3xl font-title font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
         Reportar avería
       </h1>
       <p className="mt-3 text-center text-primary-700">
@@ -152,16 +156,16 @@ function ReportarAveria() {
                 setCedula('')
                 setLookupStatus('idle')
                 setManualNombre('')
-                setPasaporte('')
-                setNombreExtranjero('')
+                setNumeroDimex('')
+                setNombreDimex('')
               }}
               className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecciona una opción
               </option>
-              <option value="nacional">Cédula nacional / DIMEX</option>
-              <option value="extranjero">Extranjero (pasaporte)</option>
+              <option value="nacional">Cédula nacional</option>
+              <option value="dimex">DIMEX</option>
             </select>
           </div>
 
@@ -248,39 +252,45 @@ function ReportarAveria() {
             </form>
           )}
 
-          {/* Paso 1b: pasaporte (extranjero) */}
-          {tipoId === 'extranjero' && (
+          {/* Paso 1b: DIMEX (registro manual, sin API de consulta) */}
+          {tipoId === 'dimex' && (
             <div className="space-y-4">
               <div>
                 <label
-                  htmlFor="pasaporte"
+                  htmlFor="numeroDimex"
                   className="block text-sm font-medium text-primary-900"
                 >
-                  Número de pasaporte / identificación
+                  Número de DIMEX
                 </label>
                 <input
-                  id="pasaporte"
+                  id="numeroDimex"
                   type="text"
+                  inputMode="numeric"
                   required
-                  value={pasaporte}
-                  onChange={(e) => setPasaporte(e.target.value)}
-                  placeholder="Número de pasaporte"
+                  value={numeroDimex}
+                  onChange={(e) => setNumeroDimex(e.target.value)}
+                  placeholder="11 o 12 dígitos"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
+                {numeroDimex.trim() !== '' && !dimexValido && (
+                  <p className="mt-1 text-xs text-red-600">
+                    El DIMEX debe tener 11 o 12 dígitos numéricos.
+                  </p>
+                )}
               </div>
               <div>
                 <label
-                  htmlFor="nombreExtranjero"
+                  htmlFor="nombreDimex"
                   className="block text-sm font-medium text-primary-900"
                 >
                   Nombre completo
                 </label>
                 <input
-                  id="nombreExtranjero"
+                  id="nombreDimex"
                   type="text"
                   required
-                  value={nombreExtranjero}
-                  onChange={(e) => setNombreExtranjero(e.target.value)}
+                  value={nombreDimex}
+                  onChange={(e) => setNombreDimex(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
               </div>
