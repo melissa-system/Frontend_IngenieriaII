@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom'
-import logo from '../../assets/logo.png'
+import logoFooter from '../../assets/logo-footer.png'
 
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
@@ -26,13 +26,11 @@ function Footer() {
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
         <div className="flex flex-col items-start gap-4">
-          <div className="rounded-xl bg-white px-4 py-3 shadow-sm">
-            <img
-              src={logo}
-              alt="ASADA Pueblo Nuevo"
-              className="h-12 w-auto object-contain"
-            />
-          </div>
+          <img
+            src={logoFooter}
+            alt="ASADA Pueblo Nuevo"
+            className="h-14 w-auto object-contain"
+          />
           <p className="text-sm leading-relaxed text-primary-200">
             Comprometidos con la distribución de agua potable de calidad para
             nuestras comunidades.
