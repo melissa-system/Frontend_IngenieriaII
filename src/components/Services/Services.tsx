@@ -4,13 +4,13 @@ function Services() {
   return (
     <section
       id="servicios"
-      className="scroll-mt-20 bg-primary-50 px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
+      className="scroll-mt-20 bg-primary-50 px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
           Servicios
         </p>
-        <h2 className="mt-2 font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
+        <h2 className="mt-2 text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
           Solicita tu paja de agua
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">
@@ -20,42 +20,29 @@ function Services() {
         </p>
       </div>
 
-      <div className="mx-auto mt-8 max-w-3xl rounded-2xl border border-primary-100 bg-white p-6 shadow-md sm:mt-12 sm:p-10">
-        <div className="flex flex-col items-center gap-6 text-center sm:flex-row sm:text-left">
-          <span className="flex h-14 w-14 flex-none items-center justify-center rounded-full bg-primary-700 text-white">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={2}
-              className="h-7 w-7"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M12 21c-4.5-4.2-7.5-7.9-7.5-11.3A7.5 7.5 0 0 1 12 2a7.5 7.5 0 0 1 7.5 7.7C19.5 13.1 16.5 16.8 12 21Z"
-              />
-              <circle cx="12" cy="9.7" r="2.6" />
-            </svg>
-          </span>
-          <div className="flex-1">
-            <h3 className="font-heading text-xl font-semibold text-primary-900">
-              Solicitud de paja de agua
-            </h3>
-            <p className="mt-2 text-primary-700">
-              Nueva conexión de agua potable para tu propiedad. Llena el
-              formulario con tus datos y nos pondremos en contacto para
-              confirmar la disponibilidad.
-            </p>
-          </div>
-          <Link
-            to="/afiliacion"
-            className="w-full flex-none rounded-full bg-primary-700 px-6 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+      <div className="mx-auto mt-8 flex max-w-2xl flex-col items-center gap-6 rounded-2xl border border-primary-100 bg-white p-8 text-center shadow-md sm:mt-12 sm:p-10">
+        <span className="flex h-16 w-16 flex-none items-center justify-center rounded-full bg-primary-700 text-white">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth={2}
+            className="h-8 w-8"
           >
-            Hacer la solicitud de paja de agua
-          </Link>
-        </div>
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              d="M12 2.5s7 8.6 7 13.3a7 7 0 1 1-14 0c0-4.7 7-13.3 7-13.3Z"
+            />
+          </svg>
+        </span>
+        <Link
+          to="/afiliacion"
+          className="rounded-full bg-primary-700 px-8 py-3 text-sm font-semibold text-white shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-primary-800 hover:shadow-lg"
+        >
+          Hacer la solicitud de paja de agua
+        </Link>
       </div>
     </section>
   )

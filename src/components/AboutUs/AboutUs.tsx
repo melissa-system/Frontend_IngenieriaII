@@ -115,14 +115,14 @@ function AboutUs() {
   return (
     <section
       id="sobre-nosotros"
-      className="scroll-mt-20 bg-white px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
+      className="flex min-h-screen scroll-mt-20 flex-col justify-center bg-white px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
     >
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto w-full max-w-5xl">
         <div className="text-center">
           <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
             Sobre nosotros
           </p>
-          <h2 className="mt-2 font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
             Conócenos
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-primary-800 sm:text-base">
@@ -150,15 +150,15 @@ function AboutUs() {
         </div>
 
         {/* Imagen + Historia */}
-        <div className="mt-5 flex flex-col items-center gap-4 sm:mt-6 md:flex-row">
+        <div className="mt-5 flex flex-col items-stretch gap-4 sm:mt-6 md:flex-row">
           <div className="w-full overflow-hidden rounded-2xl shadow-md md:w-1/2">
             <img
               src={puebloImg}
               alt="Comunidad de Pueblo Nuevo"
-              className="h-36 w-full object-cover sm:h-44"
+              className="h-[32vh] w-full object-cover sm:h-[38vh]"
             />
           </div>
-          <div className="w-full md:w-1/2">
+          <div className="flex w-full flex-col justify-center md:w-1/2">
             <h3 className="font-heading text-lg font-semibold text-primary-900 sm:text-xl">
               Nuestra historia
             </h3>

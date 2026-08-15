@@ -97,7 +97,7 @@ function Afiliacion() {
         ← Volver al inicio
       </Link>
 
-      <h1 className="mt-4 text-center font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
+      <h1 className="mt-4 text-center text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
         Solicitud de paja de agua
       </h1>
       <p className="mt-3 text-center text-primary-700">
