@@ -34,13 +34,13 @@ function Hero() {
           <div className="mt-8 flex flex-wrap gap-4">
             <Link
               to="/afiliacion"
-              className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50"
+              className="rounded-full bg-white px-6 py-3 text-sm font-semibold text-primary-700 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:bg-primary-50 hover:shadow-lg"
             >
               Solicitar paja de agua
             </Link>
             <Link
               to="/reportar-averia"
-              className="rounded-full border border-white px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-white hover:text-primary-700"
+              className="rounded-full border border-white px-6 py-3 text-sm font-semibold text-white transition-all duration-300 hover:-translate-y-1 hover:bg-white hover:text-primary-700 hover:shadow-lg"
             >
               Reportar avería
             </Link>
