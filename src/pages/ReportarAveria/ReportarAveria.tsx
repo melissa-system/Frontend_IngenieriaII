@@ -107,7 +107,7 @@ function ReportarAveria() {
         ← Volver al inicio
       </Link>
 
-      <h1 className="mt-4 text-center text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
+      <h1 className="mt-4 text-center text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
         Reportar avería
       </h1>
       <p className="mt-3 text-center text-primary-700">
@@ -117,7 +117,7 @@ function ReportarAveria() {
 
       {submitted ? (
         <div className="mt-10 rounded-2xl bg-primary-50 p-8 text-center">
-          <h2 className="font-heading text-xl font-semibold text-primary-900">
+          <h2 className="text-xl font-semibold text-primary-900">
             ¡Reporte enviado!
           </h2>
           <p className="mt-3 text-primary-700">

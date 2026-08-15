@@ -114,7 +114,7 @@ function Sidebar() {
   return (
     <aside className="flex h-screen w-64 flex-col bg-primary-900 text-white">
       <div className="border-b border-primary-700 px-5 py-5">
-        <span className="text-2xl font-black tracking-tight uppercase">
+        <span className="text-2xl font-black tracking-normal uppercase">
           SIAPB
         </span>
       </div>

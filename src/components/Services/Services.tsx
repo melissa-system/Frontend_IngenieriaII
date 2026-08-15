@@ -10,7 +10,7 @@ function Services() {
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
           Servicios
         </p>
-        <h2 className="mt-2 text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
+        <h2 className="mt-2 text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
           Solicita tu paja de agua
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">

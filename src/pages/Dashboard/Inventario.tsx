@@ -169,7 +169,7 @@ function Inventario() {
       <div className={modalBgCls}>
         <div className={modalCls}>
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">Agregar Item</h2>
+            <h2 className="text-xl font-semibold text-primary-900">Agregar Item</h2>
             <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,7 +235,7 @@ function Inventario() {
       <div className={modalBgCls}>
         <div className={modalCls}>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">Editar: {editItem.nombre}</h2>
+            <h2 className="text-xl font-semibold text-primary-900">Editar: {editItem.nombre}</h2>
             <button type="button" onClick={() => setEditItem(null)}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -286,7 +286,7 @@ function Inventario() {
           </div>
 
           <div className="mt-5 border-t border-primary-100 pt-4">
-            <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">Historial de Movimientos</h3>
+            <h3 className="mb-3 text-base font-semibold text-primary-900">Historial de Movimientos</h3>
             {form.historial.length === 0 ? (
               <p className="text-sm text-primary-400">Sin movimientos registrados.</p>
             ) : (
@@ -327,7 +327,7 @@ function Inventario() {
       <div className={modalBgCls}>
         <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">Nuevo Proveedor</h2>
+            <h2 className="text-xl font-semibold text-primary-900">Nuevo Proveedor</h2>
             <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -393,7 +393,7 @@ function Inventario() {
       <div className={modalBgCls}>
         <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">Editar Proveedor</h2>
+            <h2 className="text-xl font-semibold text-primary-900">Editar Proveedor</h2>
             <button type="button" onClick={() => setEditProv(null)}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -456,7 +456,7 @@ function Inventario() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-primary-900">
+          <h1 className="text-2xl font-semibold text-primary-900">
             Inventario
           </h1>
           <p className="mt-1 text-sm text-primary-500">

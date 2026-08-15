@@ -122,7 +122,7 @@ function AboutUs() {
           <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
             Sobre nosotros
           </p>
-          <h2 className="mt-2 text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
             Conócenos
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-primary-800 sm:text-base">
@@ -139,7 +139,7 @@ function AboutUs() {
               key={stat.label}
               className="rounded-2xl bg-primary-50 px-4 py-3 shadow-sm sm:py-4"
             >
-              <p className="font-heading text-2xl font-semibold text-primary-700 sm:text-3xl">
+              <p className="text-2xl font-semibold text-primary-700 sm:text-3xl">
                 {stat.value}
               </p>
               <p className="mt-1 text-xs text-primary-800 sm:text-sm">
@@ -159,7 +159,7 @@ function AboutUs() {
             />
           </div>
           <div className="flex w-full flex-col justify-center md:w-1/2">
-            <h3 className="font-heading text-lg font-semibold text-primary-900 sm:text-xl">
+            <h3 className="text-lg font-semibold text-primary-900 sm:text-xl">
               Nuestra historia
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-primary-800">
@@ -188,7 +188,7 @@ function AboutUs() {
           <>
             {/* Valores */}
             <div className="mt-8 sm:mt-12">
-              <h3 className="text-center font-heading text-2xl font-semibold text-primary-900">
+              <h3 className="text-center text-2xl font-semibold text-primary-900">
                 Nuestros valores
               </h3>
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -200,7 +200,7 @@ function AboutUs() {
                     <span className="inline-flex items-center justify-center text-primary-600 transition-colors duration-300 group-hover:text-primary-700">
                       {v.icon}
                     </span>
-                    <h4 className="mt-3 font-heading text-lg font-semibold text-primary-700">
+                    <h4 className="mt-3 text-lg font-semibold text-primary-700">
                       {v.title}
                     </h4>
                     <p className="mt-2 text-sm leading-relaxed text-primary-800">
@@ -230,7 +230,7 @@ function AboutUs() {
                     d="M2 12h4m12 0h4M12 2v4m0 12v4"
                   />
                 </svg>
-                <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
+                <h3 className="text-xl font-semibold uppercase tracking-wide">
                   Nuestra Misión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
@@ -256,7 +256,7 @@ function AboutUs() {
                   />
                   <circle cx="12" cy="12" r="3" />
                 </svg>
-                <h3 className="font-heading text-xl font-semibold uppercase tracking-wide">
+                <h3 className="text-xl font-semibold uppercase tracking-wide">
                   Nuestra Visión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">

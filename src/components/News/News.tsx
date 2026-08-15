@@ -37,7 +37,7 @@ function News() {
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
           Noticias
         </p>
-        <h2 className="mt-2 text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
+        <h2 className="mt-2 text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
           Últimas noticias y avisos
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">
@@ -62,7 +62,7 @@ function News() {
                   <span className="inline-block w-fit rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700 uppercase">
                     {item.categoria}
                   </span>
-                  <h3 className="mt-4 font-heading text-lg font-semibold text-primary-900">
+                  <h3 className="mt-4 text-lg font-semibold text-primary-900">
                     {item.titulo}
                   </h3>
                   <p className="mt-2 flex-1 text-sm text-primary-700">

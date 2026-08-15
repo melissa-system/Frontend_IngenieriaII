@@ -40,7 +40,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">
+          <p className="text-xl font-semibold">
             Navegación del sistema
           </p>
           <ul className="mt-4 space-y-2">
@@ -58,7 +58,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">
+          <p className="text-xl font-semibold">
             Horario de atención
           </p>
           <ul className="mt-4 space-y-2 text-primary-200">
@@ -69,7 +69,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">Contacto</p>
+          <p className="text-xl font-semibold">Contacto</p>
           <ul className="mt-4 space-y-3 text-primary-200">
             <li className="flex items-start gap-2">
               <svg

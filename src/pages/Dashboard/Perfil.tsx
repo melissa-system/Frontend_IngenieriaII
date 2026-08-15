@@ -8,7 +8,7 @@ function Perfil() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="font-heading text-2xl font-semibold text-primary-900">
+        <h1 className="text-2xl font-semibold text-primary-900">
           Mi Perfil
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -22,7 +22,7 @@ function Perfil() {
             {user.nombre.charAt(0).toUpperCase()}
           </div>
           <div>
-            <h2 className="font-heading text-xl font-semibold text-primary-900">
+            <h2 className="text-xl font-semibold text-primary-900">
               {user.nombre}
             </h2>
             <p className="text-sm text-primary-500">{user.rol}</p>

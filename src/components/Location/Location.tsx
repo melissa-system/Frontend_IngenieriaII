@@ -12,7 +12,7 @@ function Location() {
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
           Visítanos
         </p>
-        <h2 className="mt-2 text-3xl font-black tracking-tight text-primary-900 uppercase sm:text-4xl">
+        <h2 className="mt-2 text-3xl font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
           Dónde encontrarnos
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">
@@ -33,7 +33,7 @@ function Location() {
         </div>
 
         <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-6 shadow-sm sm:p-8">
-          <h3 className="font-heading text-xl font-semibold text-primary-900">
+          <h3 className="text-xl font-semibold text-primary-900">
             Ubicación y contacto
           </h3>
 

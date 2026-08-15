@@ -54,7 +54,7 @@ function StatCard({ title, value, subtitle }: { title: string; value: string; su
   return (
     <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
       <p className="text-sm font-medium text-primary-500">{title}</p>
-      <p className="mt-1 font-heading text-3xl font-semibold text-primary-900">{value}</p>
+      <p className="mt-1 text-3xl font-semibold text-primary-900">{value}</p>
       <p className="mt-1 text-xs text-primary-400">{subtitle}</p>
     </div>
   )
@@ -143,7 +143,7 @@ function DashboardHome() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-primary-900">
+          <h1 className="text-2xl font-semibold text-primary-900">
             Panel de control
           </h1>
           <p className="mt-1 text-sm text-primary-500">
@@ -207,7 +207,7 @@ function DashboardHome() {
       </div>
 
       <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
-        <h2 className="font-heading text-base font-semibold text-yellow-800">
+        <h2 className="text-base font-semibold text-yellow-800">
           Alertas r&aacute;pidas
         </h2>
         <p className="mb-4 mt-1 text-sm text-yellow-600">
@@ -247,7 +247,7 @@ function DashboardHome() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-heading text-lg font-semibold text-primary-900">
+          <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Solicitudes por Tipo
           </h2>
           <ResponsiveContainer width="100%" height={280}>
@@ -269,7 +269,7 @@ function DashboardHome() {
         </div>
 
         <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
-          <h2 className="mb-4 font-heading text-lg font-semibold text-primary-900">
+          <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Aver&iacute;as por Tipo
           </h2>
           <ResponsiveContainer width="100%" height={280}>
