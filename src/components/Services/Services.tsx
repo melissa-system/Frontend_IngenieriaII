@@ -65,8 +65,8 @@ const SERVICIOS = [
     ),
   },
   {
-    title: 'Lectura de medidores y facturación',
-    desc: 'Control periódico del consumo y gestión del cobro del servicio.',
+    title: 'Desinfección y control de calidad del agua',
+    desc: 'Cloración y monitoreo constante para garantizar agua potable segura.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -76,8 +76,12 @@ const SERVICIOS = [
         strokeWidth={1.8}
         className="h-8 w-8"
       >
-        <circle cx="12" cy="13" r="7" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 13V9m0 0 3 1M4 4l2 2M20 4l-2 2" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M9 2h6M10 2v5.5L5.5 15a3 3 0 0 0 2.6 4.5h7.8a3 3 0 0 0 2.6-4.5L14 7.5V2"
+        />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m9 14 2 2 4-4" />
       </svg>
     ),
   },
