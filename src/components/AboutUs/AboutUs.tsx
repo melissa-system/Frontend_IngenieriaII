@@ -212,8 +212,8 @@ function AboutUs() {
             </div>
 
             {/* Misión y Visión */}
-            <div className="mt-8 grid grid-cols-1 md:grid-cols-2 sm:mt-12">
-              <div className="flex flex-col items-center justify-center bg-primary-900 px-10 py-16 text-center text-white">
+            <div className="mt-8 grid grid-cols-1 gap-4 md:grid-cols-2 sm:mt-12">
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-primary-900 px-10 py-16 text-center text-white shadow-sm">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
@@ -240,7 +240,7 @@ function AboutUs() {
                   hídricos en beneficio de nuestros abonados.
                 </p>
               </div>
-              <div className="flex flex-col items-center justify-center bg-primary-600 px-10 py-16 text-center text-white">
+              <div className="flex flex-col items-center justify-center rounded-2xl bg-primary-600 px-10 py-16 text-center text-white shadow-sm">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   viewBox="0 0 24 24"
