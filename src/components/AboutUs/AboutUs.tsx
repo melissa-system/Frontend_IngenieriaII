@@ -122,7 +122,7 @@ function AboutUs() {
           <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
             Sobre nosotros
           </p>
-          <h2 className="mt-2 text-3xl font-title font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
+          <h2 className="mt-2 text-3xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-4xl">
             Conócenos
           </h2>
           <p className="mx-auto mt-3 max-w-2xl text-sm text-primary-800 sm:text-base">

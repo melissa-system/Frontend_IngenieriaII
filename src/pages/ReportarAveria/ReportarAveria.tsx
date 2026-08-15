@@ -111,7 +111,7 @@ function ReportarAveria() {
         ← Volver al inicio
       </Link>
 
-      <h1 className="mt-4 text-center text-3xl font-title font-black tracking-normal text-primary-900 uppercase sm:text-4xl">
+      <h1 className="mt-4 text-center text-3xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-4xl">
         Reportar avería
       </h1>
       <p className="mt-3 text-center text-primary-700">
