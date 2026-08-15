@@ -31,7 +31,7 @@ function News() {
   return (
     <section
       id="noticias"
-      className="scroll-mt-20 bg-white px-4 py-10 sm:px-6 sm:py-14 lg:px-8"
+      className="scroll-mt-20 bg-white px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">

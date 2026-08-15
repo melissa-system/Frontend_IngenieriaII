@@ -139,7 +139,7 @@ function Services() {
   return (
     <section
       id="servicios"
-      className="scroll-mt-20 bg-primary-50 px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
+      className="scroll-mt-20 bg-primary-50 px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
     >
       <div className="mx-auto w-full max-w-5xl">
         <div className="text-center">
