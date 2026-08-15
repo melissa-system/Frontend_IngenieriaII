@@ -2,7 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 
-interface SolicitudForm {
+interface SolicitudFisicaForm {
   nombre: string
   telefono: string
   correo: string
@@ -11,7 +11,7 @@ interface SolicitudForm {
   observaciones: string
 }
 
-const INITIAL_FORM: SolicitudForm = {
+const INITIAL_FISICA: SolicitudFisicaForm = {
   nombre: '',
   telefono: '',
   correo: '',
@@ -20,12 +20,38 @@ const INITIAL_FORM: SolicitudForm = {
   observaciones: '',
 }
 
-type TipoIdentificacion = 'nacional' | 'extranjero' | ''
+interface SolicitudJuridicaForm {
+  nombreEmpresa: string
+  cedulaJuridica: string
+  nombreRepresentante: string
+  cedulaRepresentante: string
+  telefono: string
+  correo: string
+  direccion: string
+  numeroPlano: string
+  observaciones: string
+}
+
+const INITIAL_JURIDICA: SolicitudJuridicaForm = {
+  nombreEmpresa: '',
+  cedulaJuridica: '',
+  nombreRepresentante: '',
+  cedulaRepresentante: '',
+  telefono: '',
+  correo: '',
+  direccion: '',
+  numeroPlano: '',
+  observaciones: '',
+}
+
+type TipoPersona = 'fisica' | 'juridica' | ''
+type TipoIdentificacion = 'nacional' | 'dimex' | ''
 
 function Afiliacion() {
+  const [tipoPersona, setTipoPersona] = useState<TipoPersona>('')
   const [tipoId, setTipoId] = useState<TipoIdentificacion>('')
 
-  // Flujo nacional / DIMEX (hook compartido con Reportar Avería)
+  // Flujo persona física: cédula nacional (API de Hacienda)
   const {
     cedula,
     setCedula,
@@ -36,11 +62,14 @@ function Afiliacion() {
     buscarCedula,
   } = useCedulaLookup()
 
-  // Flujo extranjero
-  const [pasaporte, setPasaporte] = useState('')
-  const [nombreManual, setNombreManual] = useState('')
+  // Flujo persona física: DIMEX (registro manual)
+  const [numeroDimex, setNumeroDimex] = useState('')
+  const [nombreDimex, setNombreDimex] = useState('')
 
-  const [form, setForm] = useState<SolicitudForm>(INITIAL_FORM)
+  const [formFisica, setFormFisica] = useState<SolicitudFisicaForm>(INITIAL_FISICA)
+  const [formJuridica, setFormJuridica] =
+    useState<SolicitudJuridicaForm>(INITIAL_JURIDICA)
+
   const [permisosMunicipales, setPermisosMunicipales] = useState<File | null>(
     null,
   )
@@ -49,42 +78,77 @@ function Afiliacion() {
 
   useEffect(() => {
     if (nombreEncontrado) {
-      setForm((prev) => ({ ...prev, nombre: nombreEncontrado }))
+      setFormFisica((prev) => ({ ...prev, nombre: nombreEncontrado }))
     }
   }, [nombreEncontrado])
 
-  const datosListos =
+  const resetTodo = () => {
+    setTipoId('')
+    setCedula('')
+    setLookupStatus('idle')
+    setNumeroDimex('')
+    setNombreDimex('')
+    setFormFisica(INITIAL_FISICA)
+    setFormJuridica(INITIAL_JURIDICA)
+    setPermisosMunicipales(null)
+    setCartaSolicitud(null)
+  }
+
+  const datosListosFisica =
     tipoId === 'nacional'
       ? datosListosNacional
-      : tipoId === 'extranjero'
-        ? pasaporte.trim() !== '' && nombreManual.trim() !== ''
+      : tipoId === 'dimex'
+        ? numeroDimex.trim() !== '' && nombreDimex.trim() !== ''
+        : false
+
+  const datosListos =
+    tipoPersona === 'fisica'
+      ? datosListosFisica
+      : tipoPersona === 'juridica'
+        ? true
         : false
 
   const nombreFinal =
-    tipoId === 'nacional'
-      ? form.nombre || 'vecino/a'
-      : nombreManual || 'vecino/a'
-  const identificacionFinal = tipoId === 'nacional' ? cedula : pasaporte
+    tipoPersona === 'juridica'
+      ? formJuridica.nombreEmpresa || 'la empresa'
+      : tipoId === 'nacional'
+        ? formFisica.nombre || 'vecino/a'
+        : nombreDimex || 'vecino/a'
 
-  const handleChange = (
+  const handleChangeFisica = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
     const { name, value } = e.target
-    setForm((prev) => ({ ...prev, [name]: value }))
+    setFormFisica((prev) => ({ ...prev, [name]: value }))
+  }
+
+  const handleChangeJuridica = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
+  ) => {
+    const { name, value } = e.target
+    setFormJuridica((prev) => ({ ...prev, [name]: value }))
   }
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
     // TODO: conectar a un backend real cuando exista (SIAP).
     // Por ahora solo simulamos el envío de la solicitud.
-    console.log('Solicitud de paja de agua (mock):', {
-      ...form,
-      tipoId,
-      identificacion: identificacionFinal,
-      nombre: tipoId === 'nacional' ? form.nombre : nombreManual,
-      permisosMunicipales: permisosMunicipales?.name ?? null,
-      cartaSolicitud: cartaSolicitud?.name ?? null,
-    })
+    if (tipoPersona === 'fisica') {
+      console.log('Solicitud de paja de agua - persona física (mock):', {
+        ...formFisica,
+        tipoId,
+        identificacion: tipoId === 'nacional' ? cedula : numeroDimex,
+        nombre: tipoId === 'nacional' ? formFisica.nombre : nombreDimex,
+        permisosMunicipales: permisosMunicipales?.name ?? null,
+        cartaSolicitud: cartaSolicitud?.name ?? null,
+      })
+    } else {
+      console.log('Solicitud de paja de agua - persona jurídica (mock):', {
+        ...formJuridica,
+        permisosMunicipales: permisosMunicipales?.name ?? null,
+        cartaSolicitud: cartaSolicitud?.name ?? null,
+      })
+    }
     setSubmitted(true)
   }
 
@@ -125,40 +189,68 @@ function Afiliacion() {
         </div>
       ) : (
         <div className="mt-10 space-y-8">
-          {/* Paso 0: tipo de identificación */}
+          {/* Paso 0: tipo de persona */}
           <div>
             <label
-              htmlFor="tipoId"
+              htmlFor="tipoPersona"
               className="block text-sm font-medium text-primary-900"
             >
-              Tipo de identificación
+              Tipo de solicitante
             </label>
             <select
-              id="tipoId"
+              id="tipoPersona"
               required
-              value={tipoId}
+              value={tipoPersona}
               onChange={(e) => {
-                const value = e.target.value as TipoIdentificacion
-                setTipoId(value)
-                // Reiniciamos los flujos al cambiar de tipo de identificación
-                setCedula('')
-                setLookupStatus('idle')
-                setPasaporte('')
-                setNombreManual('')
-                setForm(INITIAL_FORM)
+                setTipoPersona(e.target.value as TipoPersona)
+                resetTodo()
               }}
               className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecciona una opción
               </option>
-              <option value="nacional">Cédula nacional / DIMEX</option>
-              <option value="extranjero">Extranjero (pasaporte)</option>
+              <option value="fisica">Persona física</option>
+              <option value="juridica">Persona jurídica</option>
             </select>
           </div>
 
-          {/* Paso 1a: cédula (nacional/DIMEX) */}
-          {tipoId === 'nacional' && (
+          {/* Paso 0b (solo persona física): tipo de identificación */}
+          {tipoPersona === 'fisica' && (
+            <div>
+              <label
+                htmlFor="tipoId"
+                className="block text-sm font-medium text-primary-900"
+              >
+                Tipo de identificación
+              </label>
+              <select
+                id="tipoId"
+                required
+                value={tipoId}
+                onChange={(e) => {
+                  const value = e.target.value as TipoIdentificacion
+                  setTipoId(value)
+                  // Reiniciamos los flujos al cambiar de tipo de identificación
+                  setCedula('')
+                  setLookupStatus('idle')
+                  setNumeroDimex('')
+                  setNombreDimex('')
+                  setFormFisica(INITIAL_FISICA)
+                }}
+                className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              >
+                <option value="" disabled>
+                  Selecciona una opción
+                </option>
+                <option value="nacional">Cédula nacional</option>
+                <option value="dimex">DIMEX</option>
+              </select>
+            </div>
+          )}
+
+          {/* Paso 1a: cédula nacional (API de Hacienda) */}
+          {tipoPersona === 'fisica' && tipoId === 'nacional' && (
             <form onSubmit={buscarCedula} className="space-y-4">
               <div>
                 <label
@@ -173,12 +265,12 @@ function Afiliacion() {
                     type="text"
                     required
                     value={cedula}
-                    disabled={datosListos}
+                    disabled={datosListosNacional}
                     onChange={(e) => setCedula(e.target.value)}
                     placeholder="Ej. 1-2345-6789"
                     className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
                   />
-                  {!datosListos && (
+                  {!datosListosNacional && (
                     <button
                       type="submit"
                       disabled={lookupStatus === 'loading'}
@@ -192,7 +284,8 @@ function Afiliacion() {
 
               {lookupStatus === 'found' && (
                 <p className="rounded-lg bg-primary-50 px-4 py-3 text-primary-800">
-                  Nombre: <span className="font-semibold">{form.nombre}</span>
+                  Nombre:{' '}
+                  <span className="font-semibold">{formFisica.nombre}</span>
                 </p>
               )}
 
@@ -206,8 +299,8 @@ function Afiliacion() {
                     type="text"
                     required
                     name="nombre"
-                    value={form.nombre}
-                    onChange={handleChange}
+                    value={formFisica.nombre}
+                    onChange={handleChangeFisica}
                     placeholder="Nombre completo"
                     className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
@@ -232,47 +325,47 @@ function Afiliacion() {
             </form>
           )}
 
-          {/* Paso 1b: pasaporte (extranjero) */}
-          {tipoId === 'extranjero' && (
+          {/* Paso 1b: DIMEX (registro manual) */}
+          {tipoPersona === 'fisica' && tipoId === 'dimex' && (
             <div className="space-y-4">
               <div>
                 <label
-                  htmlFor="pasaporte"
+                  htmlFor="numeroDimex"
                   className="block text-sm font-medium text-primary-900"
                 >
-                  Número de pasaporte / identificación
+                  Número de DIMEX
                 </label>
                 <input
-                  id="pasaporte"
+                  id="numeroDimex"
                   type="text"
                   required
-                  value={pasaporte}
-                  onChange={(e) => setPasaporte(e.target.value)}
-                  placeholder="Número de pasaporte"
+                  value={numeroDimex}
+                  onChange={(e) => setNumeroDimex(e.target.value)}
+                  placeholder="Número de DIMEX"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
               </div>
               <div>
                 <label
-                  htmlFor="nombreManual"
+                  htmlFor="nombreDimex"
                   className="block text-sm font-medium text-primary-900"
                 >
                   Nombre completo
                 </label>
                 <input
-                  id="nombreManual"
+                  id="nombreDimex"
                   type="text"
                   required
-                  value={nombreManual}
-                  onChange={(e) => setNombreManual(e.target.value)}
+                  value={nombreDimex}
+                  onChange={(e) => setNombreDimex(e.target.value)}
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
               </div>
             </div>
           )}
 
-          {/* Paso 2: resto de datos, solo si ya pasamos la verificación */}
-          {datosListos && (
+          {/* Paso 2 (persona física): resto de datos, solo si ya pasamos la verificación */}
+          {tipoPersona === 'fisica' && datosListos && (
             <form
               onSubmit={handleSubmit}
               className="space-y-6 border-t border-primary-100 pt-8"
@@ -290,8 +383,8 @@ function Afiliacion() {
                     name="telefono"
                     type="tel"
                     required
-                    value={form.telefono}
-                    onChange={handleChange}
+                    value={formFisica.telefono}
+                    onChange={handleChangeFisica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
                 </div>
@@ -307,8 +400,8 @@ function Afiliacion() {
                     name="correo"
                     type="email"
                     required
-                    value={form.correo}
-                    onChange={handleChange}
+                    value={formFisica.correo}
+                    onChange={handleChangeFisica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
                 </div>
@@ -326,8 +419,8 @@ function Afiliacion() {
                   name="direccion"
                   type="text"
                   required
-                  value={form.direccion}
-                  onChange={handleChange}
+                  value={formFisica.direccion}
+                  onChange={handleChangeFisica}
                   placeholder="Ej. 100m norte de..."
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
@@ -345,8 +438,8 @@ function Afiliacion() {
                   name="numeroPlano"
                   type="text"
                   required
-                  value={form.numeroPlano}
-                  onChange={handleChange}
+                  value={formFisica.numeroPlano}
+                  onChange={handleChangeFisica}
                   placeholder="Ej. G-1234567-2024"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
@@ -401,8 +494,228 @@ function Afiliacion() {
                   id="observaciones"
                   name="observaciones"
                   rows={4}
-                  value={form.observaciones}
-                  onChange={handleChange}
+                  value={formFisica.observaciones}
+                  onChange={handleChangeFisica}
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+
+              <button
+                type="submit"
+                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+              >
+                Enviar solicitud
+              </button>
+            </form>
+          )}
+
+          {/* Formulario completo (persona jurídica) */}
+          {tipoPersona === 'juridica' && (
+            <form
+              onSubmit={handleSubmit}
+              className="space-y-6 border-t border-primary-100 pt-8"
+            >
+              <div>
+                <label
+                  htmlFor="nombreEmpresa"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Nombre de la empresa
+                </label>
+                <input
+                  id="nombreEmpresa"
+                  name="nombreEmpresa"
+                  type="text"
+                  required
+                  value={formJuridica.nombreEmpresa}
+                  onChange={handleChangeJuridica}
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="cedulaJuridica"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Cédula jurídica
+                </label>
+                <input
+                  id="cedulaJuridica"
+                  name="cedulaJuridica"
+                  type="text"
+                  required
+                  value={formJuridica.cedulaJuridica}
+                  onChange={handleChangeJuridica}
+                  placeholder="Ej. 3-101-123456"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="nombreRepresentante"
+                    className="block text-sm font-medium text-primary-900"
+                  >
+                    Nombre del representante
+                  </label>
+                  <input
+                    id="nombreRepresentante"
+                    name="nombreRepresentante"
+                    type="text"
+                    required
+                    value={formJuridica.nombreRepresentante}
+                    onChange={handleChangeJuridica}
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="cedulaRepresentante"
+                    className="block text-sm font-medium text-primary-900"
+                  >
+                    Cédula del representante
+                  </label>
+                  <input
+                    id="cedulaRepresentante"
+                    name="cedulaRepresentante"
+                    type="text"
+                    required
+                    value={formJuridica.cedulaRepresentante}
+                    onChange={handleChangeJuridica}
+                    placeholder="Ej. 1-2345-6789"
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="telefonoJuridica"
+                    className="block text-sm font-medium text-primary-900"
+                  >
+                    Número de contacto
+                  </label>
+                  <input
+                    id="telefonoJuridica"
+                    name="telefono"
+                    type="tel"
+                    required
+                    value={formJuridica.telefono}
+                    onChange={handleChangeJuridica}
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="correoJuridica"
+                    className="block text-sm font-medium text-primary-900"
+                  >
+                    Correo electrónico
+                  </label>
+                  <input
+                    id="correoJuridica"
+                    name="correo"
+                    type="email"
+                    required
+                    value={formJuridica.correo}
+                    onChange={handleChangeJuridica}
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="direccionJuridica"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Dirección exacta de la propiedad
+                </label>
+                <input
+                  id="direccionJuridica"
+                  name="direccion"
+                  type="text"
+                  required
+                  value={formJuridica.direccion}
+                  onChange={handleChangeJuridica}
+                  placeholder="Ej. 100m norte de..."
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="numeroPlanoJuridica"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Número de plano
+                </label>
+                <input
+                  id="numeroPlanoJuridica"
+                  name="numeroPlano"
+                  type="text"
+                  required
+                  value={formJuridica.numeroPlano}
+                  onChange={handleChangeJuridica}
+                  placeholder="Ej. G-1234567-2024"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="permisosMunicipalesJuridica"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Permisos municipales (adjuntar documento)
+                </label>
+                <input
+                  id="permisosMunicipalesJuridica"
+                  type="file"
+                  required
+                  accept="image/*,.pdf"
+                  onChange={(e) =>
+                    setPermisosMunicipales(e.target.files?.[0] ?? null)
+                  }
+                  className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="cartaSolicitudJuridica"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Carta correspondiente a la solicitud (adjuntar documento)
+                </label>
+                <input
+                  id="cartaSolicitudJuridica"
+                  type="file"
+                  required
+                  accept="image/*,.pdf"
+                  onChange={(e) =>
+                    setCartaSolicitud(e.target.files?.[0] ?? null)
+                  }
+                  className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                />
+              </div>
+
+              <div>
+                <label
+                  htmlFor="observacionesJuridica"
+                  className="block text-sm font-medium text-primary-900"
+                >
+                  Observaciones (opcional)
+                </label>
+                <textarea
+                  id="observacionesJuridica"
+                  name="observaciones"
+                  rows={4}
+                  value={formJuridica.observaciones}
+                  onChange={handleChangeJuridica}
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
               </div>
