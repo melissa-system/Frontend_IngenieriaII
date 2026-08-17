@@ -51,7 +51,7 @@ function Solicitudes() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">
+            <h2 className="text-xl font-semibold text-primary-900">
               {s.codigo} - {s.tipo}
             </h2>
             <button
@@ -67,7 +67,7 @@ function Solicitudes() {
 
           <div className="space-y-5">
             <div>
-              <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">
+              <h3 className="mb-3 text-base font-semibold text-primary-900">
                 Información del Solicitante
               </h3>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-primary-50 p-4 text-sm">
@@ -99,7 +99,7 @@ function Solicitudes() {
             </div>
 
             <div>
-              <h3 className="mb-2 font-heading text-base font-semibold text-primary-900">
+              <h3 className="mb-2 text-base font-semibold text-primary-900">
                 Detalle de la Solicitud
               </h3>
               <p className="rounded-lg bg-primary-50 p-4 text-sm text-primary-700">
@@ -108,7 +108,7 @@ function Solicitudes() {
             </div>
 
             <div>
-              <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">
+              <h3 className="mb-3 text-base font-semibold text-primary-900">
                 Historial de Cambios
               </h3>
               {s.historial.length === 0 ? (
@@ -163,7 +163,7 @@ function Solicitudes() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-primary-900">
+          <h1 className="text-2xl font-semibold text-primary-900">
             Solicitudes
           </h1>
           <p className="mt-1 text-sm text-primary-500">

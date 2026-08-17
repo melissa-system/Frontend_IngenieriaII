@@ -93,7 +93,7 @@ function AveriasAdmin() {
       <div className={modalBgCls}>
         <div className={modalCls}>
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">
+            <h2 className="text-xl font-semibold text-primary-900">
               {a.tipo}
             </h2>
             <button type="button" onClick={() => setViewDetail(null)}
@@ -106,7 +106,7 @@ function AveriasAdmin() {
 
           <div className="space-y-5">
             <div>
-              <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">
+              <h3 className="mb-3 text-base font-semibold text-primary-900">
                 Información del Reporte
               </h3>
               <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-primary-50 p-4 text-sm">
@@ -138,7 +138,7 @@ function AveriasAdmin() {
             </div>
 
             <div>
-              <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">
+              <h3 className="mb-3 text-base font-semibold text-primary-900">
                 Historial de Cambios
               </h3>
               {a.historial.length === 0 ? (
@@ -174,7 +174,7 @@ function AveriasAdmin() {
             </div>
 
             <div>
-              <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">
+              <h3 className="mb-3 text-base font-semibold text-primary-900">
                 Observaciones Registradas
               </h3>
               {a.observaciones.length === 0 ? (
@@ -210,7 +210,7 @@ function AveriasAdmin() {
       <div className={modalBgCls}>
         <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">
+            <h2 className="text-xl font-semibold text-primary-900">
               Asignar Fontanero
             </h2>
             <button type="button" onClick={() => { setAssignModal(null); setAsignarFontanero(''); setAsignarObs('') }}
@@ -276,7 +276,7 @@ function AveriasAdmin() {
             <svg className="h-6 w-6 shrink-0 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
             </svg>
-            <h2 className="font-heading text-lg font-semibold text-primary-900">
+            <h2 className="text-lg font-semibold text-primary-900">
               Confirmar cambio de estado
             </h2>
           </div>
@@ -302,7 +302,7 @@ function AveriasAdmin() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-primary-900">
+          <h1 className="text-2xl font-semibold text-primary-900">
             Reportes de Averías
           </h1>
           <p className="mt-1 text-sm text-primary-500">

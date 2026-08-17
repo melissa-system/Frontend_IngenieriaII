@@ -31,13 +31,13 @@ function News() {
   return (
     <section
       id="noticias"
-      className="scroll-mt-20 bg-white px-4 py-14 sm:px-6 sm:py-20 lg:px-8"
+      className="scroll-mt-20 bg-white px-4 py-12 sm:px-6 sm:py-16 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
           Noticias
         </p>
-        <h2 className="mt-2 font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
+        <h2 className="mt-2 text-3xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-4xl">
           Últimas noticias y avisos
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">
@@ -47,28 +47,32 @@ function News() {
       </div>
 
       <div className="relative mx-auto mt-8 max-w-5xl sm:mt-12">
-        <div className="overflow-hidden rounded-2xl">
+        <div className="overflow-hidden py-3">
           <div
-            className="flex transition-transform duration-500 ease-in-out"
+            className="flex items-stretch transition-transform duration-500 ease-in-out"
             style={{ transform: `translateX(-${current * slideWidth}%)` }}
           >
             {NEWS.map((item) => (
-              <article
+              <div
                 key={item.id}
-                className="flex flex-none flex-col border border-primary-100 bg-white p-6 text-left"
+                className="flex-none px-2"
                 style={{ flex: `0 0 ${slideWidth}%` }}
               >
-                <span className="inline-block w-fit rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700 uppercase">
-                  {item.categoria}
-                </span>
-                <h3 className="mt-4 font-heading text-lg font-semibold text-primary-900">
-                  {item.titulo}
-                </h3>
-                <p className="mt-2 flex-1 text-sm text-primary-700">
-                  {item.resumen}
-                </p>
-                <p className="mt-4 text-xs text-primary-400">{item.fecha}</p>
-              </article>
+                <article className="group flex h-full cursor-default flex-col rounded-2xl border border-primary-200 bg-white p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg">
+                  <span className="inline-block w-fit rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700 uppercase">
+                    {item.categoria}
+                  </span>
+                  <h3 className="mt-4 text-lg font-semibold text-primary-900">
+                    {item.titulo}
+                  </h3>
+                  <p className="mt-2 flex-1 text-sm text-primary-700">
+                    {item.resumen}
+                  </p>
+                  <p className="mt-4 text-xs text-primary-400">
+                    {item.fecha}
+                  </p>
+                </article>
+              </div>
             ))}
           </div>
         </div>

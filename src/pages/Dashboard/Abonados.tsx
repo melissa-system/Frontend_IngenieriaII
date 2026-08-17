@@ -101,7 +101,7 @@ function Abonados() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">
+            <h2 className="text-xl font-semibold text-primary-900">
               {isCreate ? 'Nuevo Abonado' : 'Editar Abonado'}
             </h2>
             <button
@@ -192,7 +192,7 @@ function Abonados() {
             </div>
 
             <div className="border-t border-primary-100 pt-4">
-              <h3 className="mb-3 font-heading text-base font-semibold text-primary-900">Datos del Medidor</h3>
+              <h3 className="mb-3 text-base font-semibold text-primary-900">Datos del Medidor</h3>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <div>
                   <label className="block text-sm font-medium text-primary-700">Numero de medidor</label>
@@ -275,7 +275,7 @@ function Abonados() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="font-heading text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
+            <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
             <button
               type="button"
               onClick={() => setViewDetail(null)}
@@ -328,7 +328,7 @@ function Abonados() {
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="font-heading text-2xl font-semibold text-primary-900">
+          <h1 className="text-2xl font-semibold text-primary-900">
             Gestion de Abonados
           </h1>
           <p className="mt-1 text-sm text-primary-500">
