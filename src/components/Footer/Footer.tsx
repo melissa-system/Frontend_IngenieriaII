@@ -1,9 +1,13 @@
-import logo from '../../assets/logo.svg'
+import { Link } from 'react-router-dom'
+import logoFooter from '../../assets/logo-footer.png'
 
 const NAV_LINKS = [
-  { label: 'Inicio', href: '#inicio' },
-  { label: 'Sobre nosotros', href: '#sobre-nosotros' },
-  { label: 'Ubicación', href: '#ubicacion' },
+  { label: 'Inicio', to: '/' },
+  { label: 'Sobre nosotros', to: '/#sobre-nosotros' },
+  { label: 'Servicios', to: '/#servicios' },
+  { label: 'Noticias', to: '/#noticias' },
+  { label: 'Averías', to: '/reportar-averia' },
+  { label: 'Ubicación', to: '/#ubicacion' },
 ]
 
 function Footer() {
@@ -21,22 +25,12 @@ function Footer() {
       </svg>
 
       <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 sm:px-6 md:grid-cols-4 lg:px-8">
-        <div className="flex flex-col items-start gap-3">
-          <div className="flex items-center gap-3">
-            <img
-              src={logo}
-              alt="Logo ASADA Pueblo Nuevo"
-              className="h-16 w-16 flex-none rounded-full bg-white object-cover shadow-sm"
-            />
-            <div>
-              <p className="font-heading text-xl font-semibold leading-tight">
-                ASADA
-              </p>
-              <p className="font-heading text-xl font-semibold leading-tight">
-                Pueblo Nuevo
-              </p>
-            </div>
-          </div>
+        <div className="flex flex-col items-start gap-4">
+          <img
+            src={logoFooter}
+            alt="ASADA Pueblo Nuevo"
+            className="h-14 w-auto object-contain"
+          />
           <p className="text-sm leading-relaxed text-primary-200">
             Comprometidos con la distribución de agua potable de calidad para
             nuestras comunidades.
@@ -44,23 +38,27 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">Navegación</p>
+          <p className="text-xl font-semibold">
+            Navegación del sistema
+          </p>
           <ul className="mt-4 space-y-2">
             {NAV_LINKS.map((link) => (
-              <li key={link.href}>
-                <a
-                  href={link.href}
+              <li key={link.to}>
+                <Link
+                  to={link.to}
                   className="text-primary-200 transition-colors hover:text-white"
                 >
                   {link.label}
-                </a>
+                </Link>
               </li>
             ))}
           </ul>
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">Horario</p>
+          <p className="text-xl font-semibold">
+            Horario de atención
+          </p>
           <ul className="mt-4 space-y-2 text-primary-200">
             <li>Lunes - Viernes: 8:00 am - 5:00 pm</li>
             <li>Sábados: 8:00 am - 1:00 pm</li>
@@ -69,7 +67,7 @@ function Footer() {
         </div>
 
         <div>
-          <p className="font-heading text-xl font-semibold">Contacto</p>
+          <p className="text-xl font-semibold">Contacto</p>
           <ul className="mt-4 space-y-3 text-primary-200">
             <li className="flex items-start gap-2">
               <svg
@@ -141,6 +139,21 @@ function Footer() {
               >
                 asadapueblonuevo06@gmail.com
               </a>
+            </li>
+            <li className="mt-2 border-t border-primary-700 pt-3 text-sm">
+              <p>Para más información, llamar a:</p>
+              <p className="mt-1">
+                <a href="tel:+50684358518" className="hover:text-white">
+                  8435-8518
+                </a>{' '}
+                /{' '}
+                <a href="tel:+50683050012" className="hover:text-white">
+                  8305-0012
+                </a>
+              </p>
+              <p className="mt-1 text-primary-300 italic">
+                — Miembros de junta —
+              </p>
             </li>
           </ul>
         </div>
