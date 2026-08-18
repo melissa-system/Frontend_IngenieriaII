@@ -1,6 +1,14 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
+import {
+  crearSolicitudPajaAgua,
+  formatearCedula,
+  normalizarIdentificacion,
+  IDENTIFICACION_REGEX,
+  TELEFONO_REGEX,
+  EMAIL_REGEX,
+} from '../../components/Services/solicitudes.service'
 
 interface SolicitudFisicaForm {
   nombre: string
@@ -76,6 +84,10 @@ function Afiliacion() {
   const [cartaSolicitud, setCartaSolicitud] = useState<File | null>(null)
   const [submitted, setSubmitted] = useState(false)
 
+  // Estados para controlar el envío al backend
+  const [submitting, setSubmitting] = useState(false)
+  const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
+
   useEffect(() => {
     if (nombreEncontrado) {
       setFormFisica((prev) => ({ ...prev, nombre: nombreEncontrado }))
@@ -108,6 +120,38 @@ function Afiliacion() {
         ? true
         : false
 
+  const nombreValido = (nombre: string) => nombre.trim().length >= 3
+  const telefonoValido = (t: string) => TELEFONO_REGEX.test(t.trim())
+  const correoValido = (c: string) => EMAIL_REGEX.test(c.trim())
+
+  const datosFisicaCompletos =
+    datosListos &&
+    nombreValido(tipoId === 'nacional' ? formFisica.nombre : nombreDimex) &&
+    (tipoId === 'nacional'
+      ? IDENTIFICACION_REGEX.test(cedula)
+      : /^\d{11,12}$/.test(numeroDimex)) &&
+    telefonoValido(formFisica.telefono) &&
+    correoValido(formFisica.correo) &&
+    formFisica.direccion.trim() !== '' &&
+    formFisica.numeroPlano.trim() !== '' &&
+    permisosMunicipales !== null &&
+    cartaSolicitud !== null
+
+  const datosJuridicaCompletos =
+    nombreValido(formJuridica.nombreEmpresa) &&
+    IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) &&
+    nombreValido(formJuridica.nombreRepresentante) &&
+    IDENTIFICACION_REGEX.test(formJuridica.cedulaRepresentante) &&
+    telefonoValido(formJuridica.telefono) &&
+    correoValido(formJuridica.correo) &&
+    formJuridica.direccion.trim() !== '' &&
+    formJuridica.numeroPlano.trim() !== '' &&
+    permisosMunicipales !== null &&
+    cartaSolicitud !== null
+
+  const formularioValido =
+    tipoPersona === 'fisica' ? datosFisicaCompletos : datosJuridicaCompletos
+
   const nombreFinal =
     tipoPersona === 'juridica'
       ? formJuridica.nombreEmpresa || 'la empresa'
@@ -129,27 +173,66 @@ function Afiliacion() {
     setFormJuridica((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    // TODO: conectar a un backend real cuando exista (SIAP).
-    // Por ahora solo simulamos el envío de la solicitud.
-    if (tipoPersona === 'fisica') {
-      console.log('Solicitud de paja de agua - persona física (mock):', {
-        ...formFisica,
-        tipoId,
-        identificacion: tipoId === 'nacional' ? cedula : numeroDimex,
-        nombre: tipoId === 'nacional' ? formFisica.nombre : nombreDimex,
-        permisosMunicipales: permisosMunicipales?.name ?? null,
-        cartaSolicitud: cartaSolicitud?.name ?? null,
-      })
-    } else {
-      console.log('Solicitud de paja de agua - persona jurídica (mock):', {
-        ...formJuridica,
-        permisosMunicipales: permisosMunicipales?.name ?? null,
-        cartaSolicitud: cartaSolicitud?.name ?? null,
-      })
+    setSubmitting(true)
+    setErrorSubmit(null)
+
+    if (!permisosMunicipales || !cartaSolicitud) {
+      setErrorSubmit(
+        'Debes adjuntar los permisos municipales y la carta de solicitud.',
+      )
+      setSubmitting(false)
+      return
     }
-    setSubmitted(true)
+
+    try {
+      if (tipoPersona === 'fisica') {
+        await crearSolicitudPajaAgua({
+          tipoPersona: 'fisica',
+          nombreSolicitante:
+            tipoId === 'nacional' ? formFisica.nombre : nombreDimex,
+          identificacion:
+            tipoId === 'nacional'
+              ? normalizarIdentificacion(cedula)
+              : normalizarIdentificacion(numeroDimex),
+          telefono: formFisica.telefono,
+          correo: formFisica.correo,
+          direccion: formFisica.direccion,
+          numeroPlano: formFisica.numeroPlano,
+          observaciones: formFisica.observaciones,
+          permisosMunicipales,
+          cartaSolicitud,
+        })
+      } else {
+        await crearSolicitudPajaAgua({
+          tipoPersona: 'juridica',
+          nombreSolicitante: formJuridica.nombreEmpresa,
+          identificacion: normalizarIdentificacion(formJuridica.cedulaJuridica),
+          nombreRepresentante: formJuridica.nombreRepresentante,
+          cedulaRepresentante: normalizarIdentificacion(
+            formJuridica.cedulaRepresentante,
+          ),
+          telefono: formJuridica.telefono,
+          correo: formJuridica.correo,
+          direccion: formJuridica.direccion,
+          numeroPlano: formJuridica.numeroPlano,
+          observaciones: formJuridica.observaciones,
+          permisosMunicipales,
+          cartaSolicitud,
+        })
+      }
+      setSubmitted(true)
+    } catch (error) {
+      console.error('Error al enviar la solicitud:', error)
+      const mensaje =
+        error instanceof Error && error.message
+          ? error.message
+          : 'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.'
+      setErrorSubmit(mensaje)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -266,7 +349,9 @@ function Afiliacion() {
                     required
                     value={cedula}
                     disabled={datosListosNacional}
-                    onChange={(e) => setCedula(e.target.value)}
+                    onChange={(e) =>
+                      setCedula(formatearCedula(e.target.value, 'fisica'))
+                    }
                     placeholder="Ej. 1-2345-6789"
                     className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
                   />
@@ -340,10 +425,20 @@ function Afiliacion() {
                   type="text"
                   required
                   value={numeroDimex}
-                  onChange={(e) => setNumeroDimex(e.target.value)}
+                  onChange={(e) =>
+                    setNumeroDimex(
+                      e.target.value.replace(/\D/g, '').slice(0, 12),
+                    )
+                  }
                   placeholder="Número de DIMEX"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
+                {numeroDimex.trim() !== '' &&
+                  !/^\d{11,12}$/.test(numeroDimex) && (
+                    <p className="mt-1 text-xs text-red-500">
+                      El DIMEX debe tener 11 o 12 dígitos
+                    </p>
+                  )}
               </div>
               <div>
                 <label
@@ -387,6 +482,12 @@ function Afiliacion() {
                     onChange={handleChangeFisica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formFisica.telefono.trim() !== '' &&
+                    !telefonoValido(formFisica.telefono) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Formato inválido. Usa 8888-8888
+                      </p>
+                    )}
                 </div>
                 <div>
                   <label
@@ -404,6 +505,12 @@ function Afiliacion() {
                     onChange={handleChangeFisica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formFisica.correo.trim() !== '' &&
+                    !correoValido(formFisica.correo) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        El correo no es válido
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -500,11 +607,24 @@ function Afiliacion() {
                 />
               </div>
 
+              {errorSubmit && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  {errorSubmit}
+                </p>
+              )}
+
+              {!formularioValido && (
+                <p className="text-sm text-primary-600">
+                  Completa todos los campos correctamente y adjunta los
+                  documentos para poder enviar la solicitud.
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+                disabled={submitting || !formularioValido}
+                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
               >
-                Enviar solicitud
+                {submitting ? 'Enviando...' : 'Enviar solicitud'}
               </button>
             </form>
           )}
@@ -546,10 +666,21 @@ function Afiliacion() {
                   type="text"
                   required
                   value={formJuridica.cedulaJuridica}
-                  onChange={handleChangeJuridica}
+                  onChange={(e) =>
+                    setFormJuridica((prev) => ({
+                      ...prev,
+                      cedulaJuridica: formatearCedula(e.target.value, 'juridica'),
+                    }))
+                  }
                   placeholder="Ej. 3-101-123456"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
+                {formJuridica.cedulaJuridica.trim() !== '' &&
+                  !IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) && (
+                    <p className="mt-1 text-xs text-red-500">
+                      Formato inválido. Usa 3-101-123456
+                    </p>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -583,10 +714,26 @@ function Afiliacion() {
                     type="text"
                     required
                     value={formJuridica.cedulaRepresentante}
-                    onChange={handleChangeJuridica}
+                    onChange={(e) =>
+                      setFormJuridica((prev) => ({
+                        ...prev,
+                        cedulaRepresentante: formatearCedula(
+                          e.target.value,
+                          'fisica',
+                        ),
+                      }))
+                    }
                     placeholder="Ej. 1-2345-6789"
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formJuridica.cedulaRepresentante.trim() !== '' &&
+                    !IDENTIFICACION_REGEX.test(
+                      formJuridica.cedulaRepresentante,
+                    ) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Formato inválido. Usa 1-2345-6789
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -607,6 +754,12 @@ function Afiliacion() {
                     onChange={handleChangeJuridica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formJuridica.telefono.trim() !== '' &&
+                    !telefonoValido(formJuridica.telefono) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Formato inválido. Usa 8888-8888
+                      </p>
+                    )}
                 </div>
                 <div>
                   <label
@@ -624,6 +777,12 @@ function Afiliacion() {
                     onChange={handleChangeJuridica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formJuridica.correo.trim() !== '' &&
+                    !correoValido(formJuridica.correo) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        El correo no es válido
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -720,11 +879,24 @@ function Afiliacion() {
                 />
               </div>
 
+              {errorSubmit && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  {errorSubmit}
+                </p>
+              )}
+
+              {!formularioValido && (
+                <p className="text-sm text-primary-600">
+                  Completa todos los campos correctamente y adjunta los
+                  documentos para poder enviar la solicitud.
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+                disabled={submitting || !formularioValido}
+                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
               >
-                Enviar solicitud
+                {submitting ? 'Enviando...' : 'Enviar solicitud'}
               </button>
             </form>
           )}
