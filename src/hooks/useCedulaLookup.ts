@@ -15,15 +15,21 @@ export function useCedulaLookup() {
 
   const buscarCedula = async (e: FormEvent) => {
     e.preventDefault()
-    if (!cedula.trim()) return
+    const digitos = cedula.replace(/\D/g, '')
+    if (!digitos) return
 
     setLookupStatus('loading')
     try {
       const res = await fetch(
-        `https://api.hacienda.go.cr/fe/ae?identificacion=${cedula.trim()}`,
+        `https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`,
       )
       const text = await res.text()
-      const data: HaciendaResponse = text ? JSON.parse(text) : {}
+      let data: HaciendaResponse = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = {}
+      }
 
       if (data.nombre) {
         setNombreEncontrado(data.nombre)
