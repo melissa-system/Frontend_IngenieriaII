@@ -42,7 +42,7 @@ function Login() {
           <img
             src={logo}
             alt="ASADA Pueblo Nuevo"
-            className="mx-auto h-20 w-auto object-contain sm:h-24"
+            className="mx-auto h-20 w-auto translate-x-4 object-contain sm:h-24 sm:translate-x-5"
           />
           <p className="mt-3 text-sm text-primary-500">
             Sistema de Información de Abonados Pueblo Nuevo
