@@ -6,13 +6,13 @@ function Location() {
   return (
     <section
       id="ubicacion"
-      className="scroll-mt-20 bg-white px-4 py-20 sm:px-6 lg:px-8"
+      className="flex min-h-screen scroll-mt-20 flex-col justify-center bg-white px-4 py-8 sm:px-6 sm:py-12 lg:px-8"
     >
       <div className="mx-auto max-w-5xl text-center">
         <p className="text-sm font-semibold tracking-widest text-primary-600 uppercase">
           Visítanos
         </p>
-        <h2 className="mt-2 font-heading text-3xl font-semibold text-primary-900 sm:text-4xl">
+        <h2 className="mt-2 text-3xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-4xl">
           Dónde encontrarnos
         </h2>
         <p className="mx-auto mt-4 max-w-2xl text-primary-800">
@@ -21,19 +21,19 @@ function Location() {
         </p>
       </div>
 
-      <div className="mx-auto mt-12 grid max-w-5xl grid-cols-1 gap-6 lg:grid-cols-2">
+      <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 gap-6 sm:mt-12 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl shadow-md">
           <iframe
             src={MAPS_EMBED_SRC}
             title="Ubicación de ASADA Pueblo Nuevo"
-            className="h-80 w-full border-0 lg:h-full"
+            className="h-64 w-full border-0 sm:h-80 lg:h-full"
             loading="lazy"
             referrerPolicy="no-referrer-when-downgrade"
           />
         </div>
 
-        <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-8">
-          <h3 className="font-heading text-xl font-semibold text-primary-900">
+        <div className="flex flex-col justify-center rounded-2xl bg-primary-50 p-6 shadow-sm sm:p-8">
+          <h3 className="text-xl font-semibold text-primary-900">
             Ubicación y contacto
           </h3>
 
@@ -59,7 +59,7 @@ function Location() {
               <p className="text-primary-800">
                 100 metros norte de la Iglesia San Francisco de Asís
                 <br />
-                Pueblo Nuevo, Cartago
+                Pueblo Nuevo, Paquera, Puntarenas
               </p>
             </div>
 
