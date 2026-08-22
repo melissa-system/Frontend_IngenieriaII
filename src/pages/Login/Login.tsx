@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
@@ -15,6 +15,17 @@ function obtenerMensajeError(error: unknown): string {
     if (Array.isArray(msg)) return msg.join('. ')
   }
   return 'Ocurrió un error. Intenta de nuevo.'
+}
+
+// El backend envía Retry-After en segundos (tiempo restante real de bloqueo).
+// Fallback: la ventana completa de la política del throttler.
+const BLOQUEO_DEFECTO_SEGUNDOS = 15 * 60
+
+// Formato mm:ss para el contador regresivo.
+function formatearTiempo(segundos: number): string {
+  const m = Math.floor(segundos / 60)
+  const s = segundos % 60
+  return `${m}:${String(s).padStart(2, '0')}`
 }
 
 function OjoAbiertoIcon() {
@@ -69,12 +80,25 @@ function Login() {
   const [mostrarPassword, setMostrarPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  // Segundos restantes de bloqueo por límite de intentos (429). En 0 = libre.
+  const [bloqueoSegundos, setBloqueoSegundos] = useState(0)
+
+  // Contador regresivo: cada tick reprograma el siguiente y se detiene solo
+  // al llegar a cero, rehabilitando el botón sin intervención del usuario.
+  useEffect(() => {
+    if (bloqueoSegundos === 0) return
+    const t = setTimeout(() => setBloqueoSegundos((s) => s - 1), 1000)
+    return () => clearTimeout(t)
+  }, [bloqueoSegundos])
 
   // Campos obligatorios completos antes de habilitar el envío.
   const puedeEnviar = email.trim() !== '' && password !== '' && !loading
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    // Bloqueo activo: no enviar nada (cada petición rechazada también cuenta
+    // en el throttler y extendería la ventana de castigo).
+    if (bloqueoSegundos > 0) return
     setError('')
     setLoading(true)
 
@@ -82,7 +106,18 @@ function Login() {
       await login(email.trim(), password)
       navigate(from, { replace: true })
     } catch (err) {
-      setError(obtenerMensajeError(err))
+      if (axios.isAxiosError(err) && err.response?.status === 429) {
+        // Límite de intentos alcanzado: el header Retry-After trae los
+        // segundos restantes reales; con él se arma el contador regresivo.
+        const retry = Number(err.response.headers['retry-after'])
+        setBloqueoSegundos(
+          Number.isFinite(retry) && retry > 0
+            ? retry
+            : BLOQUEO_DEFECTO_SEGUNDOS,
+        )
+      } else {
+        setError(obtenerMensajeError(err))
+      }
     } finally {
       setLoading(false)
     }
@@ -95,7 +130,7 @@ function Login() {
           <img
             src={logo}
             alt="ASADA Pueblo Nuevo"
-            className="mx-auto h-20 w-auto translate-x-4 object-contain sm:h-24 sm:translate-x-5"
+            className="mx-auto h-16 w-auto object-contain sm:h-20"
           />
           <p className="mt-3 text-sm text-primary-500">
             Sistema de Información de Abonados Pueblo Nuevo
@@ -155,15 +190,34 @@ function Login() {
             </div>
           </div>
 
-          {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-              {error}
-            </p>
+          {bloqueoSegundos > 0 ? (
+            <div
+              role="alert"
+              className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+            >
+              <p className="font-semibold">
+                Demasiados intentos fallidos de inicio de sesión.
+              </p>
+              <p className="mt-1">
+                Por seguridad tu acceso quedó bloqueado temporalmente. Podrás
+                intentar de nuevo en{' '}
+                <span className="font-mono font-bold">
+                  {formatearTiempo(bloqueoSegundos)}
+                </span>
+                .
+              </p>
+            </div>
+          ) : (
+            error && (
+              <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                {error}
+              </p>
+            )
           )}
 
           <button
             type="submit"
-            disabled={!puedeEnviar}
+            disabled={!puedeEnviar || loading || bloqueoSegundos > 0}
             className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
           >
             {loading ? 'Ingresando...' : 'Iniciar sesión'}
