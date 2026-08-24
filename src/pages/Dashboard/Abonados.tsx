@@ -6,6 +6,7 @@ import {
   type AbonadoPayload,
   type TipoAbonado,
 } from '../../components/Services/abonados.service'
+import { formatearCedula } from '../../components/Services/solicitudes.service'
 
 interface FormState {
   tipo_abonado: TipoAbonado
@@ -164,9 +165,11 @@ function Abonados() {
 
   function changeTipo(tipo: TipoAbonado) {
     // Al cambiar de tipo, limpiamos los campos que no aplican al nuevo tipo
+    // y re-formateamos la cédula (física y jurídica agrupan los guiones distinto)
     setForm((prev) => ({
       ...prev,
       tipo_abonado: tipo,
+      cedula: formatearCedula(prev.cedula, tipo === 'Jurídica' ? 'juridica' : 'fisica'),
       nombre_representante_legal: tipo === 'Jurídica' ? prev.nombre_representante_legal : '',
       numero_plano_catastrado: tipo === 'Física' ? prev.numero_plano_catastrado : '',
     }))
@@ -257,7 +260,15 @@ function Abonados() {
                 <input
                   type="text"
                   value={form.cedula}
-                  onChange={(e) => updateField('cedula', e.target.value)}
+                  onChange={(e) =>
+                    updateField(
+                      'cedula',
+                      formatearCedula(
+                        e.target.value,
+                        esJuridica ? 'juridica' : 'fisica',
+                      ),
+                    )
+                  }
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   placeholder={esJuridica ? '3-101-123456' : '1-2345-6789'}
                 />
