@@ -128,6 +128,33 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 - "Cancelar" siempre usa el estilo de botón secundario (borde `primary-200`, fondo blanco, texto `primary-700`).
 - Aplica a todos los modales del dashboard: Abonados, Inventario (items y proveedores), Averías (asignar/confirmar), Administrativo (publicaciones), y cualquier modal nuevo que se agregue.
 
+## Encabezado de una lista en el dashboard (filtros vs. botón de crear)
+
+Regla estándar para todas las páginas del dashboard que muestran una tabla/lista: el título y su descripción van arriba; debajo, en su propia fila, van los controles de búsqueda/filtro/orden **alineados a la izquierda**. El botón para crear algo nuevo ("+ Nuevo abonado", "+ Agregar item") va **a la derecha, en la misma fila que el título** — nunca junto a los filtros.
+
+```jsx
+<div className="space-y-6">
+  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+    <div>
+      <h1 className="text-2xl font-semibold text-primary-900">Título</h1>
+      <p className="mt-1 text-sm text-primary-500">Descripción / conteo</p>
+    </div>
+    {/* Solo si esta página permite crear algo */}
+    <button className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800">
+      + Nuevo elemento
+    </button>
+  </div>
+
+  {/* Buscar/filtrar/ordenar: fila propia, alineada a la izquierda */}
+  <div className="flex flex-wrap items-center gap-2">
+    <input placeholder="Buscar..." className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm sm:w-96" />
+    <select className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700">...</select>
+  </div>
+</div>
+```
+
+Si la página no tiene botón de crear (por ejemplo Solicitudes, que solo se generan desde el sitio público), el título va solo en su fila y los filtros igual quedan en la fila de abajo, a la izquierda — nunca junto al título.
+
 ## Pantalla de confirmación (después de enviar)
 
 ```jsx

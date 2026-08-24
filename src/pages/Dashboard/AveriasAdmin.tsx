@@ -300,24 +300,23 @@ function AveriasAdmin() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Reportes de Averías
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {averias.length} reportes &middot; Vista administrativa
-          </p>
-        </div>
-        <select value={filter} onChange={(e) => setFilter(e.target.value)}
-          className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
-          <option value="Todas">Todos los estados</option>
-          <option value="Pendiente">Pendiente</option>
-          <option value="Asignada">Asignada</option>
-          <option value="En progreso">En progreso</option>
-          <option value="Resuelta">Resuelta</option>
-        </select>
+      <div>
+        <h1 className="text-2xl font-semibold text-primary-900">
+          Reportes de Averías
+        </h1>
+        <p className="mt-1 text-sm text-primary-500">
+          {averias.length} reportes &middot; Vista administrativa
+        </p>
       </div>
+
+      <select value={filter} onChange={(e) => setFilter(e.target.value)}
+        className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+        <option value="Todas">Todos los estados</option>
+        <option value="Pendiente">Pendiente</option>
+        <option value="Asignada">Asignada</option>
+        <option value="En progreso">En progreso</option>
+        <option value="Resuelta">Resuelta</option>
+      </select>
 
       <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-primary-100 text-sm">
