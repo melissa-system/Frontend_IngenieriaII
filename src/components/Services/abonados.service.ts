@@ -1,4 +1,7 @@
-const API_URL = 'http://localhost:3000/abonados';
+import axios from 'axios';
+import apiClient from '../../lib/apiClient';
+
+const RESOURCE = '/abonados';
 
 export type TipoAbonado = 'Física' | 'Jurídica';
 
@@ -20,41 +23,36 @@ export interface Abonado extends AbonadoPayload {
   fecha_registro: string;
 }
 
-async function parseErrorMessage(response: Response, fallback: string): Promise<string> {
-  const body = await response.json().catch(() => null);
-  return body?.message || body?.error?.message || fallback;
+// Traduce errores de axios/backend a un mensaje legible, igual que en Login.
+function obtenerMensajeError(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    if (error.code === 'ERR_NETWORK') {
+      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
+    }
+    const msg = error.response?.data?.message;
+    if (typeof msg === 'string') return msg;
+    if (Array.isArray(msg)) return msg.join('. ');
+  }
+  return fallback;
 }
 
+// Estas rutas requieren sesión de administrador: se usa apiClient (en vez de
+// fetch directo) porque su interceptor adjunta automáticamente el Access
+// Token (Authorization: Bearer) a cada petición.
 export const crearAbonado = async (payload: AbonadoPayload): Promise<Abonado> => {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(
-      response,
-      `Error en el servidor: ${response.status}`,
-    );
-    throw new Error(message);
+  try {
+    const { data } = await apiClient.post<Abonado>(RESOURCE, payload);
+    return data;
+  } catch (error) {
+    throw new Error(obtenerMensajeError(error, 'No se pudo registrar el abonado.'));
   }
-
-  return await response.json();
 };
 
 export const obtenerAbonados = async (): Promise<Abonado[]> => {
-  const response = await fetch(API_URL);
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(
-      response,
-      `Error en el servidor: ${response.status}`,
-    );
-    throw new Error(message);
+  try {
+    const { data } = await apiClient.get<Abonado[]>(RESOURCE);
+    return data;
+  } catch (error) {
+    throw new Error(obtenerMensajeError(error, 'No se pudieron cargar los abonados.'));
   }
-
-  return await response.json();
 };
