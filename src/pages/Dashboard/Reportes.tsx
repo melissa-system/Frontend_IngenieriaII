@@ -277,7 +277,7 @@ function Reportes() {
           <button
             type="button"
             onClick={exportPDF}
-            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+            className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
           >
             Exportar PDF
           </button>
@@ -291,7 +291,7 @@ function Reportes() {
             <select
               value={modulo}
               onChange={(e) => setModulo(e.target.value as ModuleName)}
-              className="mt-1 rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+              className="mt-1 h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
             >
               {MODULES.map((m) => (
                 <option key={m} value={m}>{m}</option>
@@ -306,7 +306,7 @@ function Reportes() {
                 <select
                   value={rango}
                   onChange={(e) => setRango(e.target.value as RangeValue)}
-                  className="mt-1 rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+                  className="mt-1 h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
                 >
                   {RANGE_OPTIONS.map((r) => (
                     <option key={r.value} value={r.value}>{r.label}</option>

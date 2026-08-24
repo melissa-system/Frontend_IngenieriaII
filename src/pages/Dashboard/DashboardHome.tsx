@@ -123,14 +123,14 @@ function AlertCard({
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+      className="flex h-24 items-center gap-3 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
     >
       <span className={`flex h-11 w-11 flex-none items-center justify-center rounded-full ${color}`}>
         {icon}
       </span>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-primary-900">{mensaje}</p>
-        <p className="text-xs text-primary-500">
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 text-sm font-medium text-primary-900">{mensaje}</p>
+        <p className="line-clamp-1 text-xs text-primary-500">
           {count} {count === 1 ? 'elemento' : 'elementos'} requieren atenci&oacute;n
         </p>
       </div>
@@ -245,7 +245,7 @@ function DashboardHome() {
         <select
           value={rango}
           onChange={(e) => setRango(e.target.value as Rango)}
-          className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+          className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
         >
           <option value="este-mes">Este mes</option>
           <option value="este-trimestre">Este trimestre</option>

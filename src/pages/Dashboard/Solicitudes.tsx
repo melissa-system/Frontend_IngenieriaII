@@ -182,7 +182,7 @@ function Solicitudes() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+          className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todas">Todos los estados</option>
           <option value="Pendiente">Pendiente</option>

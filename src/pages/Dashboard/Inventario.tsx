@@ -159,6 +159,7 @@ function Inventario() {
   }
 
   const inputCls = 'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
+  const selectCls = 'mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
   const labelCls = 'block text-sm font-medium text-primary-700'
   const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40'
   const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
@@ -184,13 +185,13 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Categoría</label>
-              <select value={newItemForm.categoria} onChange={(e) => setNewItemForm((p) => ({ ...p, categoria: e.target.value }))} className={inputCls}>
+              <select value={newItemForm.categoria} onChange={(e) => setNewItemForm((p) => ({ ...p, categoria: e.target.value }))} className={selectCls}>
                 {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Ubicación</label>
-              <select value={newItemForm.ubicacion} onChange={(e) => setNewItemForm((p) => ({ ...p, ubicacion: e.target.value }))} className={inputCls}>
+              <select value={newItemForm.ubicacion} onChange={(e) => setNewItemForm((p) => ({ ...p, ubicacion: e.target.value }))} className={selectCls}>
                 {UBICACIONES.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -203,7 +204,7 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Tipo de proveedor</label>
-              <select value={newItemForm.tipoProveedor} onChange={(e) => setNewItemForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+              <select value={newItemForm.tipoProveedor} onChange={(e) => setNewItemForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                 <option value="Físico">Físico</option>
                 <option value="Jurídico">Jurídico</option>
               </select>
@@ -251,13 +252,13 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Categoría</label>
-              <select value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))} className={inputCls}>
+              <select value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))} className={selectCls}>
                 {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Ubicación</label>
-              <select value={form.ubicacion} onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))} className={inputCls}>
+              <select value={form.ubicacion} onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))} className={selectCls}>
                 {UBICACIONES.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -270,7 +271,7 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Tipo de proveedor</label>
-              <select value={form.tipoProveedor} onChange={(e) => setForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+              <select value={form.tipoProveedor} onChange={(e) => setForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                 <option value="Físico">Físico</option>
                 <option value="Jurídico">Jurídico</option>
               </select>
@@ -343,14 +344,14 @@ function Inventario() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Tipo</label>
-                <select value={newProvForm.tipo} onChange={(e) => setNewProvForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+                <select value={newProvForm.tipo} onChange={(e) => setNewProvForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                   <option value="Físico">Físico</option>
                   <option value="Jurídico">Jurídico</option>
                 </select>
               </div>
               <div>
                 <label className={labelCls}>Estado</label>
-                <select value={newProvForm.estado} onChange={(e) => setNewProvForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={inputCls}>
+                <select value={newProvForm.estado} onChange={(e) => setNewProvForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={selectCls}>
                   <option value="Activo">Activo</option>
                   <option value="Inactivo">Inactivo</option>
                 </select>
@@ -409,14 +410,14 @@ function Inventario() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Tipo</label>
-                <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+                <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                   <option value="Físico">Físico</option>
                   <option value="Jurídico">Jurídico</option>
                 </select>
               </div>
               <div>
                 <label className={labelCls}>Estado</label>
-                <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={inputCls}>
+                <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={selectCls}>
                   <option value="Activo">Activo</option>
                   <option value="Inactivo">Inactivo</option>
                 </select>
@@ -543,7 +544,7 @@ function Inventario() {
               />
             </div>
             <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
-              className="rounded-lg border border-primary-200 px-3 py-2.5 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+              className="rounded-full border border-primary-200 px-4 py-2.5 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none">
               <option value="Todas">Todas las categorías</option>
               {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>

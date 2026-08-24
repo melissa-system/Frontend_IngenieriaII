@@ -245,7 +245,7 @@ function Abonados() {
               <select
                 value={form.tipo_abonado}
                 onChange={(e) => changeTipo(e.target.value as TipoAbonado)}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               >
                 <option value="Física">Física</option>
                 <option value="Jurídica">Jurídica</option>

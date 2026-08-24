@@ -240,7 +240,7 @@ function AveriasAdmin() {
                 Fontanero
               </label>
               <select value={asignarFontanero} onChange={(e) => setAsignarFontanero(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
                 <option value="">Seleccionar fontanero...</option>
                 {FONTANEROS_DISPONIBLES.filter((f) => f !== a.fontaneroAsignado || !a.fontaneroAsignado).map((f) => (
                   <option key={f} value={f}>{f}</option>
@@ -326,7 +326,7 @@ function AveriasAdmin() {
         </button>
 
         <select value={filter} onChange={(e) => setFilter(e.target.value)}
-          className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+          className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none">
           <option value="Todas">Todos los estados</option>
           <option value="Pendiente">Pendiente</option>
           <option value="Asignada">Asignada</option>

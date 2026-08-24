@@ -29,12 +29,21 @@ Siempre arriba del campo, nunca al lado:
 
 ## Select
 
-Mismas clases que el input de texto:
+A diferencia del input de texto, el `<select>` siempre va con `rounded-full` (forma de píldora, nunca `rounded-lg`) — así se distingue de un campo de texto normal de un vistazo. Aplica a **todo** select del sitio: los de los formularios del landing (Afiliación, Reportar avería), los de filtro en el dashboard (estado, categoría, rango, rol) y los de los modales:
 
 ```jsx
-<select className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none">
+<select className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none">
   <option value="" disabled>Selecciona una opción</option>
   <option value="fisica">Persona física</option>
+</select>
+```
+
+Para los selects de filtro que van sueltos (no dentro de un formulario, ej. "Todos los estados" en la fila de filtros de una lista), el texto va en `font-medium text-primary-700` y normalmente comparten `h-10` con el botón de orden que los acompaña:
+
+```jsx
+<select className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none">
+  <option value="Todas">Todos los estados</option>
+  ...
 </select>
 ```
 
