@@ -168,11 +168,9 @@ function Abonados() {
     }
   }
 
-  function ModalForm() {
-    if (!modalOpen) return null
-    const esJuridica = form.tipo_abonado === 'Jurídica'
+  const esJuridica = form.tipo_abonado === 'Jurídica'
 
-    return (
+  const modalFormEl = !modalOpen ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
@@ -328,11 +326,8 @@ function Abonados() {
         </div>
       </div>
     )
-  }
 
-  function ConfirmacionModal() {
-    if (!confirmacion) return null
-    return (
+  const confirmacionModalEl = !confirmacion ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="w-full max-w-md rounded-2xl bg-primary-50 p-8 text-center shadow-xl">
           <h2 className="text-xl font-semibold text-primary-900">
@@ -354,13 +349,10 @@ function Abonados() {
         </div>
       </div>
     )
-  }
 
-  function DetailModal() {
-    if (!viewDetail) return null
-    const a = viewDetail
-    const esJuridica = a.tipo_abonado === 'Jurídica'
-    return (
+  const a = viewDetail
+  const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
+  const detailModalEl = !a ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
@@ -380,14 +372,14 @@ function Abonados() {
               <span className="font-medium text-primary-700">N° Abonado:</span>
               <span className="font-mono text-primary-900">{a.numero_abonado}</span>
               <span className="font-medium text-primary-700">
-                {esJuridica ? 'Razón social:' : 'Nombre:'}
+                {esJuridicaDetalle ? 'Razón social:' : 'Nombre:'}
               </span>
               <span className="text-primary-900">{a.nombre_completo}</span>
               <span className="font-medium text-primary-700">Tipo:</span>
               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(a.tipo_abonado)}`}>
                 {a.tipo_abonado}
               </span>
-              {esJuridica && (
+              {esJuridicaDetalle && (
                 <>
                   <span className="font-medium text-primary-700">Representante legal:</span>
                   <span className="text-primary-900">{a.nombre_representante_legal}</span>
@@ -401,7 +393,7 @@ function Abonados() {
               <span className="text-primary-900">{a.correo}</span>
               <span className="font-medium text-primary-700">Dirección:</span>
               <span className="text-primary-900">{a.direccion}</span>
-              {!esJuridica && a.numero_plano_catastrado && (
+              {!esJuridicaDetalle && a.numero_plano_catastrado && (
                 <>
                   <span className="font-medium text-primary-700">N° de plano:</span>
                   <span className="text-primary-900">{a.numero_plano_catastrado}</span>
@@ -427,7 +419,6 @@ function Abonados() {
         </div>
       </div>
     )
-  }
 
   return (
     <div className="space-y-6">
@@ -541,9 +532,9 @@ function Abonados() {
         </div>
       )}
 
-      <ModalForm />
-      <DetailModal />
-      <ConfirmacionModal />
+      {modalFormEl}
+      {detailModalEl}
+      {confirmacionModalEl}
     </div>
   )
 }
