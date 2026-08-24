@@ -481,7 +481,7 @@ function Inventario() {
         <button type="button" onClick={() => setTab('inventario')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors
             ${tab === 'inventario' ? 'bg-white text-primary-900 shadow-sm' : 'text-primary-600 hover:text-primary-800'}`}>
-          Inventario
+          Productos
         </button>
         <button type="button" onClick={() => setTab('proveedores')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors
@@ -627,6 +627,18 @@ function Inventario() {
       )}
 
       {tab === 'proveedores' && (
+        <>
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text" placeholder="Buscar por nombre, contacto o teléfono..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-primary-200 py-2.5 pl-9 pr-4 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none sm:w-96"
+            />
+          </div>
+
         <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50">
@@ -680,6 +692,7 @@ function Inventario() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <AddItemModal />

@@ -232,46 +232,44 @@ function DashboardHome() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Panel de control
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Resumen general del sistema SIAPB
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-primary-900">
+          Panel de control
+        </h1>
+        <p className="mt-1 text-sm text-primary-500">
+          Resumen general del sistema SIAPB
+        </p>
+      </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={rango}
-            onChange={(e) => setRango(e.target.value as Rango)}
-            className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-          >
-            <option value="este-mes">Este mes</option>
-            <option value="este-trimestre">Este trimestre</option>
-            <option value="este-ano">Este a&ntilde;o</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={rango}
+          onChange={(e) => setRango(e.target.value as Rango)}
+          className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="este-mes">Este mes</option>
+          <option value="este-trimestre">Este trimestre</option>
+          <option value="este-ano">Este a&ntilde;o</option>
+          <option value="personalizado">Personalizado</option>
+        </select>
 
-          {rango === 'personalizado' && (
-            <>
-              <input
-                type="date"
-                value={desdeCustom}
-                onChange={(e) => setDesdeCustom(e.target.value)}
-                className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-              />
-              <span className="text-sm text-primary-400">a</span>
-              <input
-                type="date"
-                value={hastaCustom}
-                onChange={(e) => setHastaCustom(e.target.value)}
-                className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-              />
-            </>
-          )}
-        </div>
+        {rango === 'personalizado' && (
+          <>
+            <input
+              type="date"
+              value={desdeCustom}
+              onChange={(e) => setDesdeCustom(e.target.value)}
+              className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+            />
+            <span className="text-sm text-primary-400">a</span>
+            <input
+              type="date"
+              value={hastaCustom}
+              onChange={(e) => setHastaCustom(e.target.value)}
+              className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+            />
+          </>
+        )}
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -350,14 +348,14 @@ function DashboardHome() {
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Aver&iacute;as por Tipo
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
+          <ResponsiveContainer width="100%" height={320}>
+            <PieChart margin={{ top: 0, right: 8, bottom: 0, left: 8 }}>
               <Pie
                 data={MOCK_AVERIAS_POR_TIPO}
                 cx="50%"
-                cy="42%"
-                innerRadius={45}
-                outerRadius={75}
+                cy="46%"
+                innerRadius={65}
+                outerRadius={110}
                 paddingAngle={2}
                 dataKey="value"
                 labelLine={false}
