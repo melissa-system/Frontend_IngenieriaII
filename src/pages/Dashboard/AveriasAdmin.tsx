@@ -23,6 +23,7 @@ function AveriasAdmin() {
   const { user } = useAuth()
   const [averias, setAverias] = useState<AveriaAdmin[]>(MOCK_AVERIAS_ADMIN)
   const [filter, setFilter] = useState('Todas')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [viewDetail, setViewDetail] = useState<AveriaAdmin | null>(null)
   const [assignModal, setAssignModal] = useState<AveriaAdmin | null>(null)
   const [confirmEstado, setConfirmEstado] = useState<{ id: string; nuevo: string } | null>(null)
@@ -30,10 +31,16 @@ function AveriasAdmin() {
   const [asignarObs, setAsignarObs] = useState('')
 
   const filtered = useMemo(() => {
-    return filter === 'Todas'
-      ? averias
-      : averias.filter((a) => a.estado === filter)
-  }, [averias, filter])
+    const result =
+      filter === 'Todas'
+        ? [...averias]
+        : averias.filter((a) => a.estado === filter)
+    result.sort((a, b) => {
+      if (sortOrder === 'asc') return a.fecha.localeCompare(b.fecha)
+      return b.fecha.localeCompare(a.fecha)
+    })
+    return result
+  }, [averias, filter, sortOrder])
 
   function cambiarEstado(id: string, nuevoEstado: string) {
     setAverias((prev) =>
@@ -309,14 +316,24 @@ function AveriasAdmin() {
         </p>
       </div>
 
-      <select value={filter} onChange={(e) => setFilter(e.target.value)}
-        className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
-        <option value="Todas">Todos los estados</option>
-        <option value="Pendiente">Pendiente</option>
-        <option value="Asignada">Asignada</option>
-        <option value="En progreso">En progreso</option>
-        <option value="Resuelta">Resuelta</option>
-      </select>
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+          className="flex h-10 items-center gap-1 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
+        >
+          {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
+        </button>
+
+        <select value={filter} onChange={(e) => setFilter(e.target.value)}
+          className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+          <option value="Todas">Todos los estados</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="Asignada">Asignada</option>
+          <option value="En progreso">En progreso</option>
+          <option value="Resuelta">Resuelta</option>
+        </select>
+      </div>
 
       <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
         <table className="min-w-full divide-y divide-primary-100 text-sm">

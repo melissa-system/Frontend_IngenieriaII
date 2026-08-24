@@ -155,6 +155,28 @@ Regla estándar para todas las páginas del dashboard que muestran una tabla/lis
 
 Si la página no tiene botón de crear (por ejemplo Solicitudes, que solo se generan desde el sitio público), el título va solo en su fila y los filtros igual quedan en la fila de abajo, a la izquierda — nunca junto al título.
 
+### Botón de orden + select de filtro, misma fila
+
+Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más antiguas / ↓ Más recientes") como un `<select>` de filtro por estado, ambos van en la misma fila de controles, con **la misma altura fija** (`h-10`) para que no se vean descuadrados entre sí. El botón de orden usa el estilo de botón primario (fondo azul), el select mantiene el borde normal:
+
+```jsx
+<div className="flex flex-wrap items-center gap-2">
+  <button
+    type="button"
+    onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+    className="flex h-10 items-center gap-1 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
+  >
+    {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
+  </button>
+
+  <select className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+    ...
+  </select>
+</div>
+```
+
+Aplica a todas las listas del dashboard que combinen orden + filtro (Solicitudes, Averías, y cualquiera nueva con el mismo patrón).
+
 ## Pantalla de confirmación (después de enviar)
 
 ```jsx

@@ -174,7 +174,7 @@ function Solicitudes() {
         <button
           type="button"
           onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-          className="flex items-center gap-1 rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 hover:bg-primary-50"
+          className="flex h-10 items-center gap-1 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
         >
           {sortOrder === 'asc' ? '\u2191 M\u00e1s antiguas' : '\u2193 M\u00e1s recientes'}
         </button>
@@ -182,7 +182,7 @@ function Solicitudes() {
         <select
           value={filter}
           onChange={(e) => setFilter(e.target.value)}
-          className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+          className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todas">Todos los estados</option>
           <option value="Pendiente">Pendiente</option>
