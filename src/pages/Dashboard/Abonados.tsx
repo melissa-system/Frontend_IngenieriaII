@@ -6,6 +6,7 @@ import {
   type AbonadoPayload,
   type TipoAbonado,
 } from '../../components/Services/abonados.service'
+import { formatearCedula } from '../../components/Services/solicitudes.service'
 
 interface FormState {
   tipo_abonado: TipoAbonado
@@ -77,6 +78,14 @@ function Abonados() {
   const [viewDetail, setViewDetail] = useState<Abonado | null>(null)
   const [confirmacion, setConfirmacion] = useState<Abonado | null>(null)
 
+  // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
+  // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
+  // así que esos siempre se completan a mano.
+  const [buscandoCedula, setBuscandoCedula] = useState(false)
+  const [cedulaLookupStatus, setCedulaLookupStatus] = useState<
+    'idle' | 'found' | 'not-found' | 'error'
+  >('idle')
+
   async function cargarAbonados() {
     setLoading(true)
     setLoadError(null)
@@ -109,18 +118,58 @@ function Abonados() {
   function openCreate() {
     setForm(EMPTY_FORM)
     setFormError(null)
+    setCedulaLookupStatus('idle')
     setModalOpen(true)
   }
 
   function updateField(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
+    // Si cambian la cédula a mano, el resultado de la búsqueda anterior ya no aplica
+    if (field === 'cedula' && cedulaLookupStatus !== 'idle') {
+      setCedulaLookupStatus('idle')
+    }
+  }
+
+  // Consulta la API de Hacienda por el número de cédula (física o jurídica)
+  // y, si encuentra un nombre, rellena "Nombre completo" automáticamente.
+  async function buscarPorCedula() {
+    const digitos = form.cedula.replace(/\D/g, '')
+    if (!digitos) return
+
+    setBuscandoCedula(true)
+    setCedulaLookupStatus('idle')
+    try {
+      const res = await fetch(
+        `https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`,
+      )
+      const text = await res.text()
+      let data: { nombre?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = {}
+      }
+
+      if (data.nombre) {
+        updateField('nombre_completo', data.nombre)
+        setCedulaLookupStatus('found')
+      } else {
+        setCedulaLookupStatus('not-found')
+      }
+    } catch {
+      setCedulaLookupStatus('error')
+    } finally {
+      setBuscandoCedula(false)
+    }
   }
 
   function changeTipo(tipo: TipoAbonado) {
     // Al cambiar de tipo, limpiamos los campos que no aplican al nuevo tipo
+    // y re-formateamos la cédula (física y jurídica agrupan los guiones distinto)
     setForm((prev) => ({
       ...prev,
       tipo_abonado: tipo,
+      cedula: formatearCedula(prev.cedula, tipo === 'Jurídica' ? 'juridica' : 'fisica'),
       nombre_representante_legal: tipo === 'Jurídica' ? prev.nombre_representante_legal : '',
       numero_plano_catastrado: tipo === 'Física' ? prev.numero_plano_catastrado : '',
     }))
@@ -168,11 +217,9 @@ function Abonados() {
     }
   }
 
-  function ModalForm() {
-    if (!modalOpen) return null
-    const esJuridica = form.tipo_abonado === 'Jurídica'
+  const esJuridica = form.tipo_abonado === 'Jurídica'
 
-    return (
+  const modalFormEl = !modalOpen ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
@@ -198,38 +245,70 @@ function Abonados() {
               <select
                 value={form.tipo_abonado}
                 onChange={(e) => changeTipo(e.target.value as TipoAbonado)}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               >
                 <option value="Física">Física</option>
                 <option value="Jurídica">Jurídica</option>
               </select>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-primary-700">
-                  {esJuridica ? 'Razón social' : 'Nombre completo'}
-                </label>
-                <input
-                  type="text"
-                  value={form.nombre_completo}
-                  onChange={(e) => updateField('nombre_completo', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre del abonado'}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">
-                  {esJuridica ? 'Cédula jurídica' : 'Cédula'}
-                </label>
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                {esJuridica ? 'Cédula jurídica' : 'Cédula'}
+              </label>
+              <div className="mt-1 flex gap-2">
                 <input
                   type="text"
                   value={form.cedula}
-                  onChange={(e) => updateField('cedula', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  onChange={(e) =>
+                    updateField(
+                      'cedula',
+                      formatearCedula(
+                        e.target.value,
+                        esJuridica ? 'juridica' : 'fisica',
+                      ),
+                    )
+                  }
+                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   placeholder={esJuridica ? '3-101-123456' : '1-2345-6789'}
                 />
+                <button
+                  type="button"
+                  onClick={buscarPorCedula}
+                  disabled={buscandoCedula || !form.cedula.trim()}
+                  className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                >
+                  {buscandoCedula ? 'Buscando...' : 'Buscar'}
+                </button>
               </div>
+              {cedulaLookupStatus === 'found' && (
+                <p className="mt-1.5 text-xs font-medium text-green-600">
+                  Nombre encontrado y completado automáticamente.
+                </p>
+              )}
+              {cedulaLookupStatus === 'not-found' && (
+                <p className="mt-1.5 text-xs text-primary-500">
+                  No encontramos datos para esa cédula. Completa el nombre a mano.
+                </p>
+              )}
+              {cedulaLookupStatus === 'error' && (
+                <p className="mt-1.5 text-xs text-primary-500">
+                  No pudimos verificar la cédula automáticamente. Completa el nombre a mano.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                {esJuridica ? 'Razón social' : 'Nombre completo'}
+              </label>
+              <input
+                type="text"
+                value={form.nombre_completo}
+                onChange={(e) => updateField('nombre_completo', e.target.value)}
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre del abonado'}
+              />
             </div>
 
             {esJuridica && (
@@ -310,29 +389,26 @@ function Abonados() {
 
             <div className="flex justify-end gap-3 pt-2">
               <button
-                type="button"
-                onClick={() => setModalOpen(false)}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-              >
-                Cancelar
-              </button>
-              <button
                 type="submit"
                 disabled={submitting}
                 className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
               >
                 {submitting ? 'Registrando...' : 'Crear abonado'}
               </button>
+              <button
+                type="button"
+                onClick={() => setModalOpen(false)}
+                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+              >
+                Cancelar
+              </button>
             </div>
           </form>
         </div>
       </div>
     )
-  }
 
-  function ConfirmacionModal() {
-    if (!confirmacion) return null
-    return (
+  const confirmacionModalEl = !confirmacion ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="w-full max-w-md rounded-2xl bg-primary-50 p-8 text-center shadow-xl">
           <h2 className="text-xl font-semibold text-primary-900">
@@ -354,13 +430,10 @@ function Abonados() {
         </div>
       </div>
     )
-  }
 
-  function DetailModal() {
-    if (!viewDetail) return null
-    const a = viewDetail
-    const esJuridica = a.tipo_abonado === 'Jurídica'
-    return (
+  const a = viewDetail
+  const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
+  const detailModalEl = !a ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
@@ -380,14 +453,14 @@ function Abonados() {
               <span className="font-medium text-primary-700">N° Abonado:</span>
               <span className="font-mono text-primary-900">{a.numero_abonado}</span>
               <span className="font-medium text-primary-700">
-                {esJuridica ? 'Razón social:' : 'Nombre:'}
+                {esJuridicaDetalle ? 'Razón social:' : 'Nombre:'}
               </span>
               <span className="text-primary-900">{a.nombre_completo}</span>
               <span className="font-medium text-primary-700">Tipo:</span>
               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(a.tipo_abonado)}`}>
                 {a.tipo_abonado}
               </span>
-              {esJuridica && (
+              {esJuridicaDetalle && (
                 <>
                   <span className="font-medium text-primary-700">Representante legal:</span>
                   <span className="text-primary-900">{a.nombre_representante_legal}</span>
@@ -401,7 +474,7 @@ function Abonados() {
               <span className="text-primary-900">{a.correo}</span>
               <span className="font-medium text-primary-700">Dirección:</span>
               <span className="text-primary-900">{a.direccion}</span>
-              {!esJuridica && a.numero_plano_catastrado && (
+              {!esJuridicaDetalle && a.numero_plano_catastrado && (
                 <>
                   <span className="font-medium text-primary-700">N° de plano:</span>
                   <span className="text-primary-900">{a.numero_plano_catastrado}</span>
@@ -427,7 +500,6 @@ function Abonados() {
         </div>
       </div>
     )
-  }
 
   return (
     <div className="space-y-6">
@@ -541,9 +613,9 @@ function Abonados() {
         </div>
       )}
 
-      <ModalForm />
-      <DetailModal />
-      <ConfirmacionModal />
+      {modalFormEl}
+      {detailModalEl}
+      {confirmacionModalEl}
     </div>
   )
 }

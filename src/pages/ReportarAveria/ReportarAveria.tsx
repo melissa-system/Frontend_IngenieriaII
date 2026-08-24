@@ -159,7 +159,7 @@ function ReportarAveria() {
                 setNumeroDimex('')
                 setNombreDimex('')
               }}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecciona una opción
@@ -315,7 +315,7 @@ function ReportarAveria() {
                   required
                   value={tipoAveria}
                   onChange={(e) => setTipoAveria(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 >
                   <option value="" disabled>
                     Selecciona una opción

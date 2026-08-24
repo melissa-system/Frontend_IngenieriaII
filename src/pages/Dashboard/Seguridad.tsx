@@ -33,7 +33,7 @@ function Seguridad() {
       <select
         value={filter}
         onChange={(e) => setFilter(e.target.value)}
-        className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+        className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
       >
         <option value="Todos">Todos los roles</option>
         {roles.map((rol) => (

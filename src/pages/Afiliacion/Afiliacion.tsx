@@ -288,7 +288,7 @@ function Afiliacion() {
                 setTipoPersona(e.target.value as TipoPersona)
                 resetTodo()
               }}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecciona una opción
@@ -321,7 +321,7 @@ function Afiliacion() {
                   setNombreDimex('')
                   setFormFisica(INITIAL_FISICA)
                 }}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
               >
                 <option value="" disabled>
                   Selecciona una opción
