@@ -102,6 +102,32 @@ Los dos formularios del landing usan un patrón de "pasos" (primero elegís tipo
   </div>
   ```
 
+## Botones de un modal (Guardar / Cancelar)
+
+Regla estándar para **todos** los modales del dashboard que tienen una acción principal (crear, guardar cambios, confirmar) y una de cancelar: el botón primario va **primero** (a la izquierda del par) y "Cancelar" va **segundo** (a la derecha). El contenedor sigue alineado a la derecha con `justify-end`, así que el orden en el JSX es lo que determina cuál queda primero:
+
+```jsx
+<div className="flex justify-end gap-3 pt-2">
+  <button
+    type="submit"
+    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+  >
+    Guardar cambios
+  </button>
+  <button
+    type="button"
+    onClick={cerrarModal}
+    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+  >
+    Cancelar
+  </button>
+</div>
+```
+
+- El botón primario usa `bg-primary-700` (relleno azul, texto blanco). Su texto puede ser específico según la acción ("Crear abonado", "Guardar cambios", "Agregar item"), no hace falta que diga literalmente "Guardar cambios" siempre.
+- "Cancelar" siempre usa el estilo de botón secundario (borde `primary-200`, fondo blanco, texto `primary-700`).
+- Aplica a todos los modales del dashboard: Abonados, Inventario (items y proveedores), Averías (asignar/confirmar), Administrativo (publicaciones), y cualquier modal nuevo que se agregue.
+
 ## Pantalla de confirmación (después de enviar)
 
 ```jsx

@@ -428,13 +428,6 @@ function Administrativo() {
 
               <div className="flex justify-end gap-3 pt-2">
                 <button
-                  type="button"
-                  onClick={closeModal}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
-                  Cancelar
-                </button>
-                <button
                   type="submit"
                   disabled={submitting}
                   className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
@@ -444,6 +437,13 @@ function Administrativo() {
                     : modalMode === 'edit'
                       ? 'Guardar cambios'
                       : 'Crear publicación'}
+                </button>
+                <button
+                  type="button"
+                  onClick={closeModal}
+                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                >
+                  Cancelar
                 </button>
               </div>
             </form>

@@ -251,13 +251,13 @@ function AveriasAdmin() {
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => { setAssignModal(null); setAsignarFontanero(''); setAsignarObs('') }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
-              Cancelar
-            </button>
             <button type="button" onClick={handleAssign} disabled={!asignarFontanero}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">
               Asignar y cambiar a &quot;Asignada&quot;
+            </button>
+            <button type="button" onClick={() => { setAssignModal(null); setAsignarFontanero(''); setAsignarObs('') }}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
+              Cancelar
             </button>
           </div>
         </div>
@@ -284,13 +284,13 @@ function AveriasAdmin() {
             ¿Está seguro de cambiar? <span className="font-semibold">{a.tipo}</span> de <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>{a.estado}</span> a <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[confirmEstado.nuevo]}`}>{confirmEstado.nuevo}</span>?
           </p>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setConfirmEstado(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
-              Cancelar
-            </button>
             <button type="button" onClick={() => cambiarEstado(confirmEstado.id, confirmEstado.nuevo)}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
               Confirmar
+            </button>
+            <button type="button" onClick={() => setConfirmEstado(null)}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
+              Cancelar
             </button>
           </div>
         </div>

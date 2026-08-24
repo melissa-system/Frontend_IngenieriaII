@@ -218,10 +218,10 @@ function Inventario() {
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={handleAddItem} disabled={!newItemForm.nombre || !newItemForm.proveedor}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">Agregar item</button>
+            <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -311,10 +311,10 @@ function Inventario() {
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setEditItem(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={() => handleEditItem(editItem.id, form)}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">Guardar cambios</button>
+            <button type="button" onClick={() => setEditItem(null)}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -376,10 +376,10 @@ function Inventario() {
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={handleAddProveedor} disabled={!newProvForm.nombre}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">Agregar proveedor</button>
+            <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -442,10 +442,10 @@ function Inventario() {
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setEditProv(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={() => handleEditProveedor(editProv.id, form)}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">Guardar cambios</button>
+            <button type="button" onClick={() => setEditProv(null)}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
