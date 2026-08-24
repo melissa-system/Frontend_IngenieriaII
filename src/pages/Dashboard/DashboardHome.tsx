@@ -50,13 +50,60 @@ function fechaEnRango(fecha: string, desde: string, hasta: string): boolean {
   return fecha >= desde && fecha <= hasta
 }
 
-function StatCard({ title, value, subtitle }: { title: string; value: string; subtitle: string }) {
+function StatCard({
+  title,
+  value,
+  subtitle,
+  to,
+}: {
+  title: string
+  value: string
+  subtitle: string
+  to: string
+}) {
   return (
-    <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+    <Link
+      to={to}
+      className="block rounded-xl border border-primary-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+    >
       <p className="text-sm font-medium text-primary-500">{title}</p>
       <p className="mt-1 text-3xl font-semibold text-primary-900">{value}</p>
       <p className="mt-1 text-xs text-primary-400">{subtitle}</p>
-    </div>
+    </Link>
+  )
+}
+
+// Íconos outline, mismo estilo que el landing (ver diseños/iconos.md):
+// viewBox 24x24, stroke="currentColor", trazos redondeados.
+function IconAveria() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.732 0-2.813-1.874-1.948-3.374L10.7 4.7c.866-1.5 3.032-1.5 3.898 0l7.005 12.125ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+  )
+}
+
+function IconSolicitud() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
+  )
+}
+
+function IconStock() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+    </svg>
+  )
+}
+
+function IconAbonado() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
   )
 }
 
@@ -67,7 +114,7 @@ function AlertCard({
   count,
   to,
 }: {
-  icon: string
+  icon: React.ReactNode
   color: string
   mensaje: string
   count: number
@@ -76,9 +123,9 @@ function AlertCard({
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-colors hover:bg-primary-50"
+      className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
     >
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full text-lg ${color}`}>
+      <span className={`flex h-11 w-11 flex-none items-center justify-center rounded-full ${color}`}>
         {icon}
       </span>
       <div className="flex-1">
@@ -87,7 +134,7 @@ function AlertCard({
           {count} {count === 1 ? 'elemento' : 'elementos'} requieren atenci&oacute;n
         </p>
       </div>
-      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white ${color.replace('bg-', 'bg-').replace('text-', '')}`}>
+      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary-700 text-sm font-bold text-white">
         {count}
       </span>
     </Link>
@@ -188,21 +235,25 @@ function DashboardHome() {
           title="Total Abonados"
           value={String(totalAbonados)}
           subtitle={`${activos} activos · ${totalAbonados - activos} inactivos`}
+          to="/dashboard/abonados"
         />
         <StatCard
           title="Solicitudes Pendientes"
           value={String(solicitudesPendientes)}
           subtitle="Esperan aprobaci&oacute;n"
+          to="/dashboard/solicitudes"
         />
         <StatCard
           title="Aver&iacute;as Activas"
           value={String(averiasActivas)}
           subtitle="Pendientes o en progreso"
+          to="/dashboard/averias"
         />
         <StatCard
           title="Stock Bajo"
           value={String(stockBajo)}
           subtitle="Items por reabastecer"
+          to="/dashboard/inventario"
         />
       </div>
 
@@ -215,28 +266,28 @@ function DashboardHome() {
         </p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <AlertCard
-            icon="&#128680;"
+            icon={<IconAveria />}
             color="bg-red-100 text-red-600"
             mensaje="Aver&iacute;as sin asignar"
             count={averiasSinAsignar}
             to="/dashboard/averias"
           />
           <AlertCard
-            icon="&#128196;"
+            icon={<IconSolicitud />}
             color="bg-yellow-100 text-yellow-600"
             mensaje="Solicitudes sin notificar"
             count={solicitudesSinNotificar}
             to="/dashboard/solicitudes"
           />
           <AlertCard
-            icon="&#128230;"
+            icon={<IconStock />}
             color="bg-orange-100 text-orange-600"
             mensaje="Stock cr&iacute;tico"
             count={stockCritico}
             to="/dashboard/inventario"
           />
           <AlertCard
-            icon="&#128737;"
+            icon={<IconAbonado />}
             color="bg-blue-100 text-blue-600"
             mensaje="Abonados inactivos"
             count={MOCK_ABONADOS.filter((a) => a.estado === 'Inactivo').length}
