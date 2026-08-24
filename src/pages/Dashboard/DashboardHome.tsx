@@ -186,6 +186,50 @@ function DashboardHome() {
 
   const stockCritico = MOCK_INVENTARIO.filter((i) => i.stock <= Math.floor(i.stockMinimo / 2)).length
 
+  const alertasActivas = useMemo(
+    () =>
+      [
+        {
+          key: 'averias',
+          icon: <IconAveria />,
+          color: 'bg-red-100 text-red-600',
+          mensaje: 'Averías sin asignar',
+          count: averiasSinAsignar,
+          to: '/dashboard/averias',
+        },
+        {
+          key: 'solicitudes',
+          icon: <IconSolicitud />,
+          color: 'bg-yellow-100 text-yellow-600',
+          mensaje: 'Solicitudes sin notificar',
+          count: solicitudesSinNotificar,
+          to: '/dashboard/solicitudes',
+        },
+        {
+          key: 'stock',
+          icon: <IconStock />,
+          color: 'bg-orange-100 text-orange-600',
+          mensaje: 'Stock crítico',
+          count: stockCritico,
+          to: '/dashboard/inventario',
+        },
+        {
+          key: 'abonados',
+          icon: <IconAbonado />,
+          color: 'bg-blue-100 text-blue-600',
+          mensaje: 'Abonados inactivos',
+          count: MOCK_ABONADOS.filter((a) => a.estado === 'Inactivo').length,
+          to: '/dashboard/abonados',
+        },
+      ].filter((a) => a.count > 0),
+    [averiasSinAsignar, solicitudesSinNotificar, stockCritico],
+  )
+
+  const totalAveriasPorTipo = useMemo(
+    () => MOCK_AVERIAS_POR_TIPO.reduce((sum, d) => sum + d.value, 0),
+    [],
+  )
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -257,59 +301,42 @@ function DashboardHome() {
         />
       </div>
 
-      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
-        <h2 className="text-base font-semibold text-yellow-800">
-          Alertas r&aacute;pidas
-        </h2>
-        <p className="mb-4 mt-1 text-sm text-yellow-600">
-          Elementos que requieren atenci&oacute;n inmediata
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <AlertCard
-            icon={<IconAveria />}
-            color="bg-red-100 text-red-600"
-            mensaje="Aver&iacute;as sin asignar"
-            count={averiasSinAsignar}
-            to="/dashboard/averias"
-          />
-          <AlertCard
-            icon={<IconSolicitud />}
-            color="bg-yellow-100 text-yellow-600"
-            mensaje="Solicitudes sin notificar"
-            count={solicitudesSinNotificar}
-            to="/dashboard/solicitudes"
-          />
-          <AlertCard
-            icon={<IconStock />}
-            color="bg-orange-100 text-orange-600"
-            mensaje="Stock cr&iacute;tico"
-            count={stockCritico}
-            to="/dashboard/inventario"
-          />
-          <AlertCard
-            icon={<IconAbonado />}
-            color="bg-blue-100 text-blue-600"
-            mensaje="Abonados inactivos"
-            count={MOCK_ABONADOS.filter((a) => a.estado === 'Inactivo').length}
-            to="/dashboard/abonados"
-          />
+      {alertasActivas.length > 0 && (
+        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
+          <h2 className="text-base font-semibold text-yellow-800">
+            Alertas r&aacute;pidas
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-yellow-600">
+            Elementos que requieren atenci&oacute;n inmediata
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {alertasActivas.map((a) => (
+              <div key={a.key} className="w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]">
+                <AlertCard icon={a.icon} color={a.color} mensaje={a.mensaje} count={a.count} to={a.to} />
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Solicitudes por Tipo
           </h2>
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={MOCK_SOLICITUDES_POR_TIPO} layout="vertical">
+            <BarChart
+              data={MOCK_SOLICITUDES_POR_TIPO}
+              layout="vertical"
+              margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e6ebef" />
               <XAxis type="number" tick={{ fontSize: 12, fill: '#395f82' }} />
               <YAxis
                 type="category"
                 dataKey="tipo"
                 tick={{ fontSize: 11, fill: '#395f82' }}
-                width={130}
+                width={110}
               />
               <Tooltip
                 formatter={(value) => [`${value} solicitudes`, 'Cantidad']}
@@ -319,22 +346,43 @@ function DashboardHome() {
           </ResponsiveContainer>
         </div>
 
-        <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="overflow-hidden rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Aver&iacute;as por Tipo
           </h2>
           <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
+            <PieChart margin={{ top: 8, right: 8, bottom: 8, left: 8 }}>
               <Pie
                 data={MOCK_AVERIAS_POR_TIPO}
                 cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                cy="42%"
+                innerRadius={45}
+                outerRadius={75}
+                paddingAngle={2}
                 dataKey="value"
-                label={({ name, percent }) =>
-                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                }
+                labelLine={false}
+                label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                  const RADIAN = Math.PI / 180
+                  const angle = midAngle ?? 0
+                  const radius = innerRadius + (outerRadius - innerRadius) * 0.55
+                  const x = cx + radius * Math.cos(-angle * RADIAN)
+                  const y = cy + radius * Math.sin(-angle * RADIAN)
+                  const pct = (percent ?? 0) * 100
+                  if (pct < 6) return null
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fill="#fff"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={11}
+                      fontWeight={600}
+                    >
+                      {pct.toFixed(0)}%
+                    </text>
+                  )
+                }}
               >
                 {MOCK_AVERIAS_POR_TIPO.map((_, index) => (
                   <Cell
@@ -343,8 +391,23 @@ function DashboardHome() {
                   />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip
+                formatter={(value, name) => {
+                  const numValue = Number(value) || 0
+                  const pct = totalAveriasPorTipo
+                    ? Math.round((numValue / totalAveriasPorTipo) * 100)
+                    : 0
+                  return [`${numValue} (${pct}%)`, name]
+                }}
+              />
+              <Legend
+                layout="horizontal"
+                verticalAlign="bottom"
+                wrapperStyle={{ fontSize: 11, lineHeight: '1.4rem' }}
+                formatter={(value: string) => (
+                  <span className="text-primary-700">{value}</span>
+                )}
+              />
             </PieChart>
           </ResponsiveContainer>
         </div>
