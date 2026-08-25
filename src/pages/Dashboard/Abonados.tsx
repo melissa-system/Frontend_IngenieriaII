@@ -1,9 +1,14 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   crearAbonado,
+  obtenerAbonado,
   obtenerAbonados,
+  actualizarAbonado,
+  obtenerHistorialAbonado,
   type Abonado,
   type AbonadoPayload,
+  type AbonadoUpdatePayload,
+  type HistorialAbonado,
   type TipoAbonado,
 } from '../../components/Services/abonados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
@@ -42,6 +47,40 @@ function getTipoBadge(tipo: string) {
   return 'bg-purple-100 text-purple-700'
 }
 
+// Arma el estado del formulario a partir de un abonado (precarga del modal).
+// Los campos opcionales llegan como null desde la BD y se normalizan a ''.
+function formDesdeAbonado(a: Abonado): FormState {
+  return {
+    tipo_abonado: a.tipo_abonado,
+    nombre_completo: a.nombre_completo,
+    nombre_representante_legal: a.nombre_representante_legal ?? '',
+    cedula: a.cedula,
+    telefono: a.telefono,
+    correo: a.correo,
+    direccion: a.direccion,
+    numero_plano_catastrado: a.numero_plano_catastrado ?? '',
+  }
+}
+
+const CAMPO_LABELS: Record<string, string> = {
+  nombre_completo: 'Nombre / Razón social',
+  nombre_representante_legal: 'Representante legal',
+  telefono: 'Teléfono',
+  correo: 'Correo electrónico',
+  direccion: 'Dirección',
+  numero_plano_catastrado: 'N° de plano',
+}
+
+function mostrarValorHistorial(v: string | null) {
+  return v === null || v.trim() === '' ? '(vacío)' : v
+}
+
+function formatearFechaHistorial(fecha: string) {
+  const d = new Date(fecha)
+  if (Number.isNaN(d.getTime())) return fecha
+  return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
 function validarForm(form: FormState): string | null {
   if (!form.nombre_completo.trim()) {
     return form.tipo_abonado === 'Jurídica'
@@ -74,8 +113,15 @@ function Abonados() {
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [editando, setEditando] = useState<Abonado | null>(null)
+  // Id del abonado en edición: descarta respuestas tardías de la precarga
+  // si el modal se cerró o se abrió con otro abonado antes de responder.
+  const edicionIdRef = useRef<string | number | null>(null)
 
   const [viewDetail, setViewDetail] = useState<Abonado | null>(null)
+  const [historialDetalle, setHistorialDetalle] = useState<HistorialAbonado[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
   const [confirmacion, setConfirmacion] = useState<Abonado | null>(null)
 
   // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
@@ -115,11 +161,50 @@ function Abonados() {
       a.direccion.toLowerCase().includes(search.toLowerCase()),
   )
 
+  function cerrarModal() {
+    edicionIdRef.current = null
+    setModalOpen(false)
+    setEditando(null)
+  }
+
   function openCreate() {
+    edicionIdRef.current = null
     setForm(EMPTY_FORM)
     setFormError(null)
     setCedulaLookupStatus('idle')
     setModalOpen(true)
+  }
+
+  // Precarga en dos pasos: el modal abre al instante con los datos de la
+  // fila y, en segundo plano, GET /abonados/:id refresca los campos con lo
+  // que hay en la BD por si la lista quedó desactualizada.
+  function openEditar(abonado: Abonado) {
+    edicionIdRef.current = abonado.id
+    setEditando(abonado)
+    setForm(formDesdeAbonado(abonado))
+    setFormError(null)
+    setCedulaLookupStatus('idle')
+    setModalOpen(true)
+
+    obtenerAbonado(abonado.id)
+      .then((fresco) => {
+        if (edicionIdRef.current !== fresco.id) return
+        setEditando(fresco)
+        setForm(formDesdeAbonado(fresco))
+      })
+      .catch(() => {})
+  }
+
+  // Abre el modal de detalle y carga su historial de cambios.
+  function openDetalle(abonado: Abonado) {
+    setViewDetail(abonado)
+    setHistorialDetalle([])
+    setHistorialError(null)
+    setHistorialLoading(true)
+    obtenerHistorialAbonado(abonado.id)
+      .then(setHistorialDetalle)
+      .catch(() => setHistorialError('No se pudo cargar el historial de cambios.'))
+      .finally(() => setHistorialLoading(false))
   }
 
   function updateField(field: keyof FormState, value: string) {
@@ -183,6 +268,43 @@ function Abonados() {
       return
     }
 
+    if (editando) {
+      // El backend solo acepta los campos de contacto: tipo, cédula y estado
+      // quedan fijos. El plano catastrado se envía siempre en física para
+      // que vaciarlo también persista (el backend lo guarda como NULL).
+      const payload: AbonadoUpdatePayload = {
+        nombre_completo: form.nombre_completo.trim(),
+        telefono: form.telefono.trim(),
+        correo: form.correo.trim(),
+        direccion: form.direccion.trim(),
+        ...(form.tipo_abonado === 'Jurídica'
+          ? { nombre_representante_legal: form.nombre_representante_legal.trim() }
+          : {}),
+        ...(form.tipo_abonado === 'Física'
+          ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
+          : {}),
+      }
+
+      setSubmitting(true)
+      setFormError(null)
+      try {
+        const actualizado = await actualizarAbonado(editando.id, payload)
+        setAbonados((prev) =>
+          prev.map((a) => (a.id === actualizado.id ? actualizado : a)),
+        )
+        cerrarModal()
+      } catch (err) {
+        setFormError(
+          err instanceof Error
+            ? err.message
+            : 'No se pudieron guardar los cambios. Intenta de nuevo.',
+        )
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
     setSubmitting(true)
     setFormError(null)
 
@@ -204,7 +326,7 @@ function Abonados() {
     try {
       const creado = await crearAbonado(payload)
       setAbonados((prev) => [creado, ...prev])
-      setModalOpen(false)
+      cerrarModal()
       setConfirmacion(creado)
     } catch (err) {
       setFormError(
@@ -223,12 +345,20 @@ function Abonados() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">
-              Nuevo Abonado
-            </h2>
+            <div>
+              <h2 className="text-xl font-semibold text-primary-900">
+                {editando ? 'Editar Abonado' : 'Nuevo Abonado'}
+              </h2>
+              {editando && (
+                <p className="mt-0.5 text-xs text-primary-500">
+                  {editando.numero_abonado} · {editando.tipo_abonado} · Cédula{' '}
+                  {editando.cedula}
+                </p>
+              )}
+            </div>
             <button
               type="button"
-              onClick={() => setModalOpen(false)}
+              onClick={() => cerrarModal()}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,7 +375,8 @@ function Abonados() {
               <select
                 value={form.tipo_abonado}
                 onChange={(e) => changeTipo(e.target.value as TipoAbonado)}
-                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                disabled={!!editando}
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-primary-50 disabled:text-primary-500"
               >
                 <option value="Física">Física</option>
                 <option value="Jurídica">Jurídica</option>
@@ -269,17 +400,24 @@ function Abonados() {
                       ),
                     )
                   }
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  readOnly={!!editando}
+                  className={`w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none ${
+                    editando
+                      ? 'cursor-not-allowed bg-primary-50 text-primary-500'
+                      : ''
+                  }`}
                   placeholder={esJuridica ? '3-101-123456' : '1-2345-6789'}
                 />
-                <button
-                  type="button"
-                  onClick={buscarPorCedula}
-                  disabled={buscandoCedula || !form.cedula.trim()}
-                  className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                >
-                  {buscandoCedula ? 'Buscando...' : 'Buscar'}
-                </button>
+                {!editando && (
+                  <button
+                    type="button"
+                    onClick={buscarPorCedula}
+                    disabled={buscandoCedula || !form.cedula.trim()}
+                    className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    {buscandoCedula ? 'Buscando...' : 'Buscar'}
+                  </button>
+                )}
               </div>
               {cedulaLookupStatus === 'found' && (
                 <p className="mt-1.5 text-xs font-medium text-green-600">
@@ -393,11 +531,15 @@ function Abonados() {
                 disabled={submitting}
                 className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
               >
-                {submitting ? 'Registrando...' : 'Crear abonado'}
+                {submitting
+                  ? 'Guardando...'
+                  : editando
+                    ? 'Guardar cambios'
+                    : 'Crear abonado'}
               </button>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={() => cerrarModal()}
                 className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
               >
                 Cancelar
@@ -435,7 +577,7 @@ function Abonados() {
   const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
   const detailModalEl = !a ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
             <button
@@ -488,6 +630,46 @@ function Abonados() {
               <span className="text-primary-900">{a.fecha_registro}</span>
             </div>
           </div>
+
+          <div className="mt-5 border-t border-primary-100 pt-4">
+            <h3 className="mb-3 text-sm font-medium text-primary-700">
+              Historial de cambios
+            </h3>
+            {historialLoading ? (
+              <p className="text-xs text-primary-400">Cargando historial...</p>
+            ) : historialError ? (
+              <p className="text-xs font-medium text-red-500">{historialError}</p>
+            ) : historialDetalle.length === 0 ? (
+              <p className="text-xs text-primary-400">Sin cambios registrados.</p>
+            ) : (
+              <ul>
+                {historialDetalle.map((h, i) => (
+                  <li key={h.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    {i < historialDetalle.length - 1 && (
+                      <span className="absolute left-[5px] top-4 h-full w-px bg-primary-200" />
+                    )}
+                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-blue-500" />
+                    <div className="min-w-0 text-xs">
+                      <p className="font-medium text-primary-900">
+                        {CAMPO_LABELS[h.campo] ?? h.campo}:{' '}
+                        <span className="text-red-500 line-through">
+                          {mostrarValorHistorial(h.valor_anterior)}
+                        </span>
+                        {' → '}
+                        <span className="text-green-600">
+                          {mostrarValorHistorial(h.valor_nuevo)}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 break-all text-primary-400">
+                        {formatearFechaHistorial(h.fecha)} · {h.usuario_email}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="mt-6 flex justify-end">
             <button
               type="button"
@@ -590,15 +772,14 @@ function Abonados() {
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          disabled
-                          title="Edición disponible próximamente"
-                          className="text-sm font-medium text-primary-300 cursor-not-allowed"
+                          onClick={() => openEditar(abonado)}
+                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
-                          onClick={() => setViewDetail(abonado)}
+                          onClick={() => openDetalle(abonado)}
                           className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
                         >
                           Ver
