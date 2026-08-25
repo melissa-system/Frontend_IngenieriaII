@@ -37,6 +37,9 @@ const EMPTY_FORM: FormState = {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Paginación client-side de la tabla de abonados
+const ABONADOS_POR_PAGINA = 10
+
 function getEstadoColor(estado: string) {
   if (estado === 'Activo') return 'bg-green-100 text-green-700'
   return 'bg-red-100 text-red-700'
@@ -81,6 +84,16 @@ function formatearFechaHistorial(fecha: string) {
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// Normaliza texto para buscar sin depender de mayúsculas, acentos,
+// guiones ni espacios (ej: "ab20260001" encuentra "AB-2026-0001").
+function normalizarBusqueda(t: string) {
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
 function validarForm(form: FormState): string | null {
   if (!form.nombre_completo.trim()) {
     return form.tipo_abonado === 'Jurídica'
@@ -109,6 +122,7 @@ function Abonados() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
+  const [pagina, setPagina] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
@@ -153,13 +167,39 @@ function Abonados() {
     cargarAbonados()
   }, [])
 
-  const filtered = abonados.filter(
-    (a) =>
-      a.nombre_completo.toLowerCase().includes(search.toLowerCase()) ||
-      a.cedula.includes(search) ||
-      a.telefono.includes(search) ||
-      a.direccion.toLowerCase().includes(search.toLowerCase()),
+  const q = normalizarBusqueda(search)
+  const filtered =
+    q === ''
+      ? abonados
+      : abonados.filter(
+          (a) =>
+            normalizarBusqueda(a.nombre_completo).includes(q) ||
+            normalizarBusqueda(a.cedula).includes(q) ||
+            normalizarBusqueda(a.numero_abonado).includes(q) ||
+            normalizarBusqueda(a.telefono).includes(q) ||
+            normalizarBusqueda(a.direccion).includes(q),
+        )
+
+  // Paginación derivada: si la lista encoge, paginaActual se autocorrige
+  // y nunca se queda apuntando a una página vacía.
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(filtered.length / ABONADOS_POR_PAGINA),
   )
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const primeraFila = (paginaActual - 1) * ABONADOS_POR_PAGINA
+  const filasVisibles = filtered.slice(
+    primeraFila,
+    primeraFila + ABONADOS_POR_PAGINA,
+  )
+  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+
+  // Buscar siempre regresa a la primera página; navegar páginas NO toca el
+  // término de búsqueda, así que el filtro se mantiene entre páginas.
+  function manejarBusqueda(valor: string) {
+    setSearch(valor)
+    setPagina(1)
+  }
 
   function cerrarModal() {
     edicionIdRef.current = null
@@ -703,13 +743,40 @@ function Abonados() {
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Buscar por nombre, cédula, teléfono o dirección..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none sm:w-96"
-      />
+      <div className="relative w-full sm:w-96">
+        <svg
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          />
+        </svg>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
+          value={search}
+          onChange={(e) => manejarBusqueda(e.target.value)}
+          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => manejarBusqueda('')}
+            title="Limpiar búsqueda"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {loadError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
@@ -739,19 +806,61 @@ function Abonados() {
             </thead>
             <tbody className="divide-y divide-primary-50">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
-                    Cargando abonados...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, fila) => (
+                  <tr key={`skeleton-${fila}`}>
+                    {Array.from({ length: 8 }).map((__, col) => (
+                      <td key={col} className="px-4 py-3.5">
+                        <div
+                          className={`animate-pulse rounded bg-primary-100 ${
+                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
-                    No se encontraron abonados.
+                  <td colSpan={8} className="px-4 py-12 text-center">
+                    <svg
+                      className="mx-auto h-8 w-8 text-primary-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                      />
+                    </svg>
+                    {search ? (
+                      <>
+                        <p className="mt-3 text-sm font-medium text-primary-600">
+                          No encontramos abonados para "{search}"
+                        </p>
+                        <p className="mt-1 text-xs text-primary-400">
+                          Revisa el término escrito o prueba con otro criterio.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => manejarBusqueda('')}
+                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
+                        >
+                          Limpiar búsqueda
+                        </button>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm font-medium text-primary-600">
+                        Aún no hay abonados registrados. Usa el botón "+ Nuevo
+                        abonado" para crear el primero.
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (
-                filtered.map((abonado) => (
+                filasVisibles.map((abonado) => (
                   <tr key={abonado.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.numero_abonado}</td>
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.cedula}</td>
@@ -791,6 +900,53 @@ function Abonados() {
               )}
             </tbody>
           </table>
+
+          {!loading && abonados.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-primary-500">
+                Mostrando{' '}
+                {filtered.length === 0
+                  ? 0
+                  : `${primeraFila + 1}–${Math.min(primeraFila + ABONADOS_POR_PAGINA, filtered.length)}`}{' '}
+                de {filtered.length} abonados
+                {search ? ` (filtro: "${search}")` : ''}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹ Anterior
+                </button>
+                {numerosPagina.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPagina(n)}
+                    disabled={n === paginaActual}
+                    aria-current={n === paginaActual ? 'page' : undefined}
+                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
+                      n === paginaActual
+                        ? 'bg-primary-700 text-white'
+                        : 'text-primary-700 hover:bg-primary-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
