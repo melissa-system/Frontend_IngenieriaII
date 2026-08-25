@@ -4,10 +4,12 @@ import {
   obtenerAbonado,
   obtenerAbonados,
   actualizarAbonado,
+  cambiarEstadoAbonado,
   obtenerHistorialAbonado,
   type Abonado,
   type AbonadoPayload,
   type AbonadoUpdatePayload,
+  type EstadoAbonado,
   type HistorialAbonado,
   type TipoAbonado,
 } from '../../components/Services/abonados.service'
@@ -72,6 +74,7 @@ const CAMPO_LABELS: Record<string, string> = {
   correo: 'Correo electrónico',
   direccion: 'Dirección',
   numero_plano_catastrado: 'N° de plano',
+  estado: 'Estado',
 }
 
 function mostrarValorHistorial(v: string | null) {
@@ -82,6 +85,40 @@ function formatearFechaHistorial(fecha: string) {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// Interruptor para activar/desactivar un abonado. No guarda nada por sí
+// mismo: solo dispara la confirmación que luego llama al backend.
+function EstadoSwitch({
+  estado,
+  disabled,
+  onChange,
+}: {
+  estado: string
+  disabled?: boolean
+  onChange: () => void
+}) {
+  const activo = estado === 'Activo'
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      aria-label={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      disabled={disabled}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+          activo ? 'translate-x-[18px]' : 'translate-x-[3px]'
+        }`}
+      />
+    </button>
+  )
 }
 
 // Normaliza texto para buscar sin depender de mayúsculas, acentos,
@@ -138,6 +175,19 @@ function Abonados() {
   const [historialError, setHistorialError] = useState<string | null>(null)
   const [confirmacion, setConfirmacion] = useState<Abonado | null>(null)
 
+  // Gestión de estado del abonado: confirmación pendiente, id en curso
+  // (deshabilita el interruptor) y error mostrado dentro del modal.
+  const [cambioEstado, setCambioEstado] = useState<{
+    abonado: Abonado
+    nuevo: EstadoAbonado
+  } | null>(null)
+  const [cambiandoEstadoId, setCambiandoEstadoId] = useState<
+    string | number | null
+  >(null)
+  const [errorCambioEstado, setErrorCambioEstado] = useState<string | null>(
+    null,
+  )
+
   // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
   // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
   // así que esos siempre se completan a mano.
@@ -166,6 +216,41 @@ function Abonados() {
   useEffect(() => {
     cargarAbonados()
   }, [])
+
+  // Aplica el cambio de estado confirmado y sincroniza la fila de la
+  // tabla y el modal de detalle con lo que devolvió el backend.
+  async function confirmarCambioEstado() {
+    if (!cambioEstado) return
+    const { abonado, nuevo } = cambioEstado
+    setCambiandoEstadoId(abonado.id)
+    setErrorCambioEstado(null)
+    try {
+      const actualizado = await cambiarEstadoAbonado(abonado.id, nuevo)
+      setAbonados((prev) =>
+        prev.map((x) => (x.id === abonado.id ? actualizado : x)),
+      )
+      // Si el detalle está abierto con este abonado, sincroniza su ficha
+      // y recarga el historial para que el cambio recién hecho aparezca.
+      if (viewDetail && viewDetail.id === abonado.id) {
+        setViewDetail(actualizado)
+        try {
+          setHistorialDetalle(await obtenerHistorialAbonado(abonado.id))
+        } catch {
+          // Si falla la recarga del historial, quedará como estaba; no
+          // afecta al cambio de estado ya guardado.
+        }
+      }
+      setCambioEstado(null)
+    } catch (err) {
+      setErrorCambioEstado(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cambiar el estado del abonado.',
+      )
+    } finally {
+      setCambiandoEstadoId(null)
+    }
+  }
 
   const q = normalizarBusqueda(search)
   const filtered =
@@ -613,6 +698,65 @@ function Abonados() {
       </div>
     )
 
+  // Confirmación del cambio de estado: muestra de dónde a dónde va el
+  // abonado antes de tocar la base de datos.
+  const cambioEstadoModalEl =
+    cambioEstado === null ? null : (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Cambiar estado del abonado
+          </h2>
+          <p className="mt-3 text-sm text-primary-600">
+            ¿Seguro que deseas cambiar el estado de{' '}
+            <span className="font-semibold text-primary-800">
+              {cambioEstado.abonado.nombre_completo}
+            </span>
+            ?
+          </p>
+          <p className="mt-3 flex items-center gap-2 text-sm">
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(cambioEstado.abonado.estado)}`}
+            >
+              {cambioEstado.abonado.estado}
+            </span>
+            <span aria-hidden="true" className="text-primary-400">→</span>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(cambioEstado.nuevo)}`}
+            >
+              {cambioEstado.nuevo}
+            </span>
+          </p>
+          <p className="mt-3 text-xs text-primary-400">
+            El cambio queda registrado en el historial con tu usuario.
+          </p>
+          {errorCambioEstado && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              {errorCambioEstado}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setCambioEstado(null)}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarCambioEstado}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
   const a = viewDetail
   const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
   const detailModalEl = !a ? null : (
@@ -872,9 +1016,27 @@ function Abonados() {
                     </td>
                     <td className="px-4 py-3 text-primary-600">{abonado.telefono}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getEstadoColor(abonado.estado)}`}>
-                        {abonado.estado}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <EstadoSwitch
+                          estado={abonado.estado}
+                          disabled={cambiandoEstadoId === abonado.id}
+                          onChange={() => {
+                            setErrorCambioEstado(null)
+                            setCambioEstado({
+                              abonado,
+                              nuevo:
+                                abonado.estado === 'Activo'
+                                  ? 'Inactivo'
+                                  : 'Activo',
+                            })
+                          }}
+                        />
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(abonado.estado)}`}
+                        >
+                          {abonado.estado}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-primary-500">{abonado.fecha_registro}</td>
                     <td className="px-4 py-3">
@@ -953,6 +1115,7 @@ function Abonados() {
       {modalFormEl}
       {detailModalEl}
       {confirmacionModalEl}
+      {cambioEstadoModalEl}
     </div>
   )
 }

@@ -5,6 +5,9 @@ const RESOURCE = '/abonados';
 
 export type TipoAbonado = 'Física' | 'Jurídica';
 
+// Únicos estados que maneja el sistema para un abonado.
+export type EstadoAbonado = 'Activo' | 'Inactivo';
+
 export interface AbonadoPayload {
   tipo_abonado: TipoAbonado;
   nombre_completo: string; // nombre completo (física) o razón social (jurídica)
@@ -23,8 +26,9 @@ export interface Abonado extends AbonadoPayload {
   fecha_registro: string;
 }
 
-// Campos que el formulario de edición puede modificar. El tipo de abonado,
-// la cédula y el estado NO se envían: el backend no los acepta en el PATCH.
+// Campos que el formulario de edición puede modificar. El tipo de abonado
+// y la cédula NO se envían: el backend no los acepta en el PATCH. El
+// estado se envía únicamente desde el control de gestión de estado.
 export interface AbonadoUpdatePayload {
   nombre_completo: string; // nombre completo (física) o razón social (jurídica)
   nombre_representante_legal?: string; // solo jurídica
@@ -32,6 +36,7 @@ export interface AbonadoUpdatePayload {
   correo: string;
   direccion: string;
   numero_plano_catastrado?: string; // solo física, opcional
+  estado?: EstadoAbonado; // gestión Activo/Inactivo
 }
 
 // Traduce errores de axios/backend a un mensaje legible, igual que en Login.
@@ -90,6 +95,25 @@ export const actualizarAbonado = async (
   } catch (error) {
     throw new Error(
       obtenerMensajeError(error, 'No se pudieron guardar los cambios del abonado.'),
+    );
+  }
+};
+
+// Cambia únicamente el estado del abonado (Activo <-> Inactivo) usando
+// su ruta específica en el backend: PATCH /abonados/:id/estado.
+export const cambiarEstadoAbonado = async (
+  id: number | string,
+  estado: EstadoAbonado,
+): Promise<Abonado> => {
+  try {
+    const { data } = await apiClient.patch<Abonado>(
+      `${RESOURCE}/${id}/estado`,
+      { estado },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo cambiar el estado del abonado.'),
     );
   }
 };
