@@ -23,6 +23,7 @@ function AveriasAdmin() {
   const { user } = useAuth()
   const [averias, setAverias] = useState<AveriaAdmin[]>(MOCK_AVERIAS_ADMIN)
   const [filter, setFilter] = useState('Todas')
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc')
   const [viewDetail, setViewDetail] = useState<AveriaAdmin | null>(null)
   const [assignModal, setAssignModal] = useState<AveriaAdmin | null>(null)
   const [confirmEstado, setConfirmEstado] = useState<{ id: string; nuevo: string } | null>(null)
@@ -30,10 +31,16 @@ function AveriasAdmin() {
   const [asignarObs, setAsignarObs] = useState('')
 
   const filtered = useMemo(() => {
-    return filter === 'Todas'
-      ? averias
-      : averias.filter((a) => a.estado === filter)
-  }, [averias, filter])
+    const result =
+      filter === 'Todas'
+        ? [...averias]
+        : averias.filter((a) => a.estado === filter)
+    result.sort((a, b) => {
+      if (sortOrder === 'asc') return a.fecha.localeCompare(b.fecha)
+      return b.fecha.localeCompare(a.fecha)
+    })
+    return result
+  }, [averias, filter, sortOrder])
 
   function cambiarEstado(id: string, nuevoEstado: string) {
     setAverias((prev) =>
@@ -233,7 +240,7 @@ function AveriasAdmin() {
                 Fontanero
               </label>
               <select value={asignarFontanero} onChange={(e) => setAsignarFontanero(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
                 <option value="">Seleccionar fontanero...</option>
                 {FONTANEROS_DISPONIBLES.filter((f) => f !== a.fontaneroAsignado || !a.fontaneroAsignado).map((f) => (
                   <option key={f} value={f}>{f}</option>
@@ -251,13 +258,13 @@ function AveriasAdmin() {
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => { setAssignModal(null); setAsignarFontanero(''); setAsignarObs('') }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
-              Cancelar
-            </button>
             <button type="button" onClick={handleAssign} disabled={!asignarFontanero}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">
               Asignar y cambiar a &quot;Asignada&quot;
+            </button>
+            <button type="button" onClick={() => { setAssignModal(null); setAsignarFontanero(''); setAsignarObs('') }}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
+              Cancelar
             </button>
           </div>
         </div>
@@ -284,13 +291,13 @@ function AveriasAdmin() {
             ¿Está seguro de cambiar? <span className="font-semibold">{a.tipo}</span> de <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>{a.estado}</span> a <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[confirmEstado.nuevo]}`}>{confirmEstado.nuevo}</span>?
           </p>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setConfirmEstado(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
-              Cancelar
-            </button>
             <button type="button" onClick={() => cambiarEstado(confirmEstado.id, confirmEstado.nuevo)}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
               Confirmar
+            </button>
+            <button type="button" onClick={() => setConfirmEstado(null)}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
+              Cancelar
             </button>
           </div>
         </div>
@@ -300,17 +307,26 @@ function AveriasAdmin() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Reportes de Averías
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {averias.length} reportes &middot; Vista administrativa
-          </p>
-        </div>
+      <div>
+        <h1 className="text-2xl font-semibold text-primary-900">
+          Reportes de Averías
+        </h1>
+        <p className="mt-1 text-sm text-primary-500">
+          {averias.length} reportes &middot; Vista administrativa
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <button
+          type="button"
+          onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+          className="flex h-10 items-center gap-1 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
+        >
+          {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
+        </button>
+
         <select value={filter} onChange={(e) => setFilter(e.target.value)}
-          className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+          className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none">
           <option value="Todas">Todos los estados</option>
           <option value="Pendiente">Pendiente</option>
           <option value="Asignada">Asignada</option>
