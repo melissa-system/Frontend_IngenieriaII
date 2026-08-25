@@ -1,9 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   crearAbonado,
+  obtenerAbonado,
   obtenerAbonados,
+  actualizarAbonado,
+  cambiarEstadoAbonado,
+  obtenerHistorialAbonado,
   type Abonado,
   type AbonadoPayload,
+  type AbonadoUpdatePayload,
+  type EstadoAbonado,
+  type HistorialAbonado,
   type TipoAbonado,
 } from '../../components/Services/abonados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
@@ -32,6 +39,9 @@ const EMPTY_FORM: FormState = {
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
+// Paginación client-side de la tabla de abonados
+const ABONADOS_POR_PAGINA = 10
+
 function getEstadoColor(estado: string) {
   if (estado === 'Activo') return 'bg-green-100 text-green-700'
   return 'bg-red-100 text-red-700'
@@ -40,6 +50,85 @@ function getEstadoColor(estado: string) {
 function getTipoBadge(tipo: string) {
   if (tipo === 'Física') return 'bg-blue-100 text-blue-700'
   return 'bg-purple-100 text-purple-700'
+}
+
+// Arma el estado del formulario a partir de un abonado (precarga del modal).
+// Los campos opcionales llegan como null desde la BD y se normalizan a ''.
+function formDesdeAbonado(a: Abonado): FormState {
+  return {
+    tipo_abonado: a.tipo_abonado,
+    nombre_completo: a.nombre_completo,
+    nombre_representante_legal: a.nombre_representante_legal ?? '',
+    cedula: a.cedula,
+    telefono: a.telefono,
+    correo: a.correo,
+    direccion: a.direccion,
+    numero_plano_catastrado: a.numero_plano_catastrado ?? '',
+  }
+}
+
+const CAMPO_LABELS: Record<string, string> = {
+  nombre_completo: 'Nombre / Razón social',
+  nombre_representante_legal: 'Representante legal',
+  telefono: 'Teléfono',
+  correo: 'Correo electrónico',
+  direccion: 'Dirección',
+  numero_plano_catastrado: 'N° de plano',
+  estado: 'Estado',
+}
+
+function mostrarValorHistorial(v: string | null) {
+  return v === null || v.trim() === '' ? '(vacío)' : v
+}
+
+function formatearFechaHistorial(fecha: string) {
+  const d = new Date(fecha)
+  if (Number.isNaN(d.getTime())) return fecha
+  return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// Interruptor para activar/desactivar un abonado. No guarda nada por sí
+// mismo: solo dispara la confirmación que luego llama al backend.
+function EstadoSwitch({
+  estado,
+  disabled,
+  onChange,
+}: {
+  estado: string
+  disabled?: boolean
+  onChange: () => void
+}) {
+  const activo = estado === 'Activo'
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      aria-label={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      disabled={disabled}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+          activo ? 'translate-x-[18px]' : 'translate-x-[3px]'
+        }`}
+      />
+    </button>
+  )
+}
+
+// Normaliza texto para buscar sin depender de mayúsculas, acentos,
+// guiones ni espacios (ej: "ab20260001" encuentra "AB-2026-0001").
+function normalizarBusqueda(t: string) {
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
 }
 
 function validarForm(form: FormState): string | null {
@@ -70,13 +159,34 @@ function Abonados() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
+  const [pagina, setPagina] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [editando, setEditando] = useState<Abonado | null>(null)
+  // Id del abonado en edición: descarta respuestas tardías de la precarga
+  // si el modal se cerró o se abrió con otro abonado antes de responder.
+  const edicionIdRef = useRef<string | number | null>(null)
 
   const [viewDetail, setViewDetail] = useState<Abonado | null>(null)
+  const [historialDetalle, setHistorialDetalle] = useState<HistorialAbonado[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
   const [confirmacion, setConfirmacion] = useState<Abonado | null>(null)
+
+  // Gestión de estado del abonado: confirmación pendiente, id en curso
+  // (deshabilita el interruptor) y error mostrado dentro del modal.
+  const [cambioEstado, setCambioEstado] = useState<{
+    abonado: Abonado
+    nuevo: EstadoAbonado
+  } | null>(null)
+  const [cambiandoEstadoId, setCambiandoEstadoId] = useState<
+    string | number | null
+  >(null)
+  const [errorCambioEstado, setErrorCambioEstado] = useState<string | null>(
+    null,
+  )
 
   // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
   // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
@@ -107,19 +217,119 @@ function Abonados() {
     cargarAbonados()
   }, [])
 
-  const filtered = abonados.filter(
-    (a) =>
-      a.nombre_completo.toLowerCase().includes(search.toLowerCase()) ||
-      a.cedula.includes(search) ||
-      a.telefono.includes(search) ||
-      a.direccion.toLowerCase().includes(search.toLowerCase()),
+  // Aplica el cambio de estado confirmado y sincroniza la fila de la
+  // tabla y el modal de detalle con lo que devolvió el backend.
+  async function confirmarCambioEstado() {
+    if (!cambioEstado) return
+    const { abonado, nuevo } = cambioEstado
+    setCambiandoEstadoId(abonado.id)
+    setErrorCambioEstado(null)
+    try {
+      const actualizado = await cambiarEstadoAbonado(abonado.id, nuevo)
+      setAbonados((prev) =>
+        prev.map((x) => (x.id === abonado.id ? actualizado : x)),
+      )
+      // Si el detalle está abierto con este abonado, sincroniza su ficha
+      // y recarga el historial para que el cambio recién hecho aparezca.
+      if (viewDetail && viewDetail.id === abonado.id) {
+        setViewDetail(actualizado)
+        try {
+          setHistorialDetalle(await obtenerHistorialAbonado(abonado.id))
+        } catch {
+          // Si falla la recarga del historial, quedará como estaba; no
+          // afecta al cambio de estado ya guardado.
+        }
+      }
+      setCambioEstado(null)
+    } catch (err) {
+      setErrorCambioEstado(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cambiar el estado del abonado.',
+      )
+    } finally {
+      setCambiandoEstadoId(null)
+    }
+  }
+
+  const q = normalizarBusqueda(search)
+  const filtered =
+    q === ''
+      ? abonados
+      : abonados.filter(
+          (a) =>
+            normalizarBusqueda(a.nombre_completo).includes(q) ||
+            normalizarBusqueda(a.cedula).includes(q) ||
+            normalizarBusqueda(a.numero_abonado).includes(q) ||
+            normalizarBusqueda(a.telefono).includes(q) ||
+            normalizarBusqueda(a.direccion).includes(q),
+        )
+
+  // Paginación derivada: si la lista encoge, paginaActual se autocorrige
+  // y nunca se queda apuntando a una página vacía.
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(filtered.length / ABONADOS_POR_PAGINA),
   )
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const primeraFila = (paginaActual - 1) * ABONADOS_POR_PAGINA
+  const filasVisibles = filtered.slice(
+    primeraFila,
+    primeraFila + ABONADOS_POR_PAGINA,
+  )
+  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+
+  // Buscar siempre regresa a la primera página; navegar páginas NO toca el
+  // término de búsqueda, así que el filtro se mantiene entre páginas.
+  function manejarBusqueda(valor: string) {
+    setSearch(valor)
+    setPagina(1)
+  }
+
+  function cerrarModal() {
+    edicionIdRef.current = null
+    setModalOpen(false)
+    setEditando(null)
+  }
 
   function openCreate() {
+    edicionIdRef.current = null
     setForm(EMPTY_FORM)
     setFormError(null)
     setCedulaLookupStatus('idle')
     setModalOpen(true)
+  }
+
+  // Precarga en dos pasos: el modal abre al instante con los datos de la
+  // fila y, en segundo plano, GET /abonados/:id refresca los campos con lo
+  // que hay en la BD por si la lista quedó desactualizada.
+  function openEditar(abonado: Abonado) {
+    edicionIdRef.current = abonado.id
+    setEditando(abonado)
+    setForm(formDesdeAbonado(abonado))
+    setFormError(null)
+    setCedulaLookupStatus('idle')
+    setModalOpen(true)
+
+    obtenerAbonado(abonado.id)
+      .then((fresco) => {
+        if (edicionIdRef.current !== fresco.id) return
+        setEditando(fresco)
+        setForm(formDesdeAbonado(fresco))
+      })
+      .catch(() => {})
+  }
+
+  // Abre el modal de detalle y carga su historial de cambios.
+  function openDetalle(abonado: Abonado) {
+    setViewDetail(abonado)
+    setHistorialDetalle([])
+    setHistorialError(null)
+    setHistorialLoading(true)
+    obtenerHistorialAbonado(abonado.id)
+      .then(setHistorialDetalle)
+      .catch(() => setHistorialError('No se pudo cargar el historial de cambios.'))
+      .finally(() => setHistorialLoading(false))
   }
 
   function updateField(field: keyof FormState, value: string) {
@@ -183,6 +393,43 @@ function Abonados() {
       return
     }
 
+    if (editando) {
+      // El backend solo acepta los campos de contacto: tipo, cédula y estado
+      // quedan fijos. El plano catastrado se envía siempre en física para
+      // que vaciarlo también persista (el backend lo guarda como NULL).
+      const payload: AbonadoUpdatePayload = {
+        nombre_completo: form.nombre_completo.trim(),
+        telefono: form.telefono.trim(),
+        correo: form.correo.trim(),
+        direccion: form.direccion.trim(),
+        ...(form.tipo_abonado === 'Jurídica'
+          ? { nombre_representante_legal: form.nombre_representante_legal.trim() }
+          : {}),
+        ...(form.tipo_abonado === 'Física'
+          ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
+          : {}),
+      }
+
+      setSubmitting(true)
+      setFormError(null)
+      try {
+        const actualizado = await actualizarAbonado(editando.id, payload)
+        setAbonados((prev) =>
+          prev.map((a) => (a.id === actualizado.id ? actualizado : a)),
+        )
+        cerrarModal()
+      } catch (err) {
+        setFormError(
+          err instanceof Error
+            ? err.message
+            : 'No se pudieron guardar los cambios. Intenta de nuevo.',
+        )
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
     setSubmitting(true)
     setFormError(null)
 
@@ -204,7 +451,7 @@ function Abonados() {
     try {
       const creado = await crearAbonado(payload)
       setAbonados((prev) => [creado, ...prev])
-      setModalOpen(false)
+      cerrarModal()
       setConfirmacion(creado)
     } catch (err) {
       setFormError(
@@ -223,12 +470,20 @@ function Abonados() {
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">
-              Nuevo Abonado
-            </h2>
+            <div>
+              <h2 className="text-xl font-semibold text-primary-900">
+                {editando ? 'Editar Abonado' : 'Nuevo Abonado'}
+              </h2>
+              {editando && (
+                <p className="mt-0.5 text-xs text-primary-500">
+                  {editando.numero_abonado} · {editando.tipo_abonado} · Cédula{' '}
+                  {editando.cedula}
+                </p>
+              )}
+            </div>
             <button
               type="button"
-              onClick={() => setModalOpen(false)}
+              onClick={() => cerrarModal()}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -245,7 +500,8 @@ function Abonados() {
               <select
                 value={form.tipo_abonado}
                 onChange={(e) => changeTipo(e.target.value as TipoAbonado)}
-                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                disabled={!!editando}
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-primary-50 disabled:text-primary-500"
               >
                 <option value="Física">Física</option>
                 <option value="Jurídica">Jurídica</option>
@@ -269,17 +525,24 @@ function Abonados() {
                       ),
                     )
                   }
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  readOnly={!!editando}
+                  className={`w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none ${
+                    editando
+                      ? 'cursor-not-allowed bg-primary-50 text-primary-500'
+                      : ''
+                  }`}
                   placeholder={esJuridica ? '3-101-123456' : '1-2345-6789'}
                 />
-                <button
-                  type="button"
-                  onClick={buscarPorCedula}
-                  disabled={buscandoCedula || !form.cedula.trim()}
-                  className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                >
-                  {buscandoCedula ? 'Buscando...' : 'Buscar'}
-                </button>
+                {!editando && (
+                  <button
+                    type="button"
+                    onClick={buscarPorCedula}
+                    disabled={buscandoCedula || !form.cedula.trim()}
+                    className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    {buscandoCedula ? 'Buscando...' : 'Buscar'}
+                  </button>
+                )}
               </div>
               {cedulaLookupStatus === 'found' && (
                 <p className="mt-1.5 text-xs font-medium text-green-600">
@@ -393,11 +656,15 @@ function Abonados() {
                 disabled={submitting}
                 className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
               >
-                {submitting ? 'Registrando...' : 'Crear abonado'}
+                {submitting
+                  ? 'Guardando...'
+                  : editando
+                    ? 'Guardar cambios'
+                    : 'Crear abonado'}
               </button>
               <button
                 type="button"
-                onClick={() => setModalOpen(false)}
+                onClick={() => cerrarModal()}
                 className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
               >
                 Cancelar
@@ -431,11 +698,70 @@ function Abonados() {
       </div>
     )
 
+  // Confirmación del cambio de estado: muestra de dónde a dónde va el
+  // abonado antes de tocar la base de datos.
+  const cambioEstadoModalEl =
+    cambioEstado === null ? null : (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Cambiar estado del abonado
+          </h2>
+          <p className="mt-3 text-sm text-primary-600">
+            ¿Seguro que deseas cambiar el estado de{' '}
+            <span className="font-semibold text-primary-800">
+              {cambioEstado.abonado.nombre_completo}
+            </span>
+            ?
+          </p>
+          <p className="mt-3 flex items-center gap-2 text-sm">
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(cambioEstado.abonado.estado)}`}
+            >
+              {cambioEstado.abonado.estado}
+            </span>
+            <span aria-hidden="true" className="text-primary-400">→</span>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(cambioEstado.nuevo)}`}
+            >
+              {cambioEstado.nuevo}
+            </span>
+          </p>
+          <p className="mt-3 text-xs text-primary-400">
+            El cambio queda registrado en el historial con tu usuario.
+          </p>
+          {errorCambioEstado && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              {errorCambioEstado}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={() => setCambioEstado(null)}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={confirmarCambioEstado}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
   const a = viewDetail
   const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
   const detailModalEl = !a ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
             <button
@@ -488,6 +814,46 @@ function Abonados() {
               <span className="text-primary-900">{a.fecha_registro}</span>
             </div>
           </div>
+
+          <div className="mt-5 border-t border-primary-100 pt-4">
+            <h3 className="mb-3 text-sm font-medium text-primary-700">
+              Historial de cambios
+            </h3>
+            {historialLoading ? (
+              <p className="text-xs text-primary-400">Cargando historial...</p>
+            ) : historialError ? (
+              <p className="text-xs font-medium text-red-500">{historialError}</p>
+            ) : historialDetalle.length === 0 ? (
+              <p className="text-xs text-primary-400">Sin cambios registrados.</p>
+            ) : (
+              <ul>
+                {historialDetalle.map((h, i) => (
+                  <li key={h.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    {i < historialDetalle.length - 1 && (
+                      <span className="absolute left-[5px] top-4 h-full w-px bg-primary-200" />
+                    )}
+                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-blue-500" />
+                    <div className="min-w-0 text-xs">
+                      <p className="font-medium text-primary-900">
+                        {CAMPO_LABELS[h.campo] ?? h.campo}:{' '}
+                        <span className="text-red-500 line-through">
+                          {mostrarValorHistorial(h.valor_anterior)}
+                        </span>
+                        {' → '}
+                        <span className="text-green-600">
+                          {mostrarValorHistorial(h.valor_nuevo)}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 break-all text-primary-400">
+                        {formatearFechaHistorial(h.fecha)} · {h.usuario_email}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="mt-6 flex justify-end">
             <button
               type="button"
@@ -521,13 +887,40 @@ function Abonados() {
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Buscar por nombre, cédula, teléfono o dirección..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none sm:w-96"
-      />
+      <div className="relative w-full sm:w-96">
+        <svg
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          />
+        </svg>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
+          value={search}
+          onChange={(e) => manejarBusqueda(e.target.value)}
+          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => manejarBusqueda('')}
+            title="Limpiar búsqueda"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
 
       {loadError ? (
         <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
@@ -557,19 +950,61 @@ function Abonados() {
             </thead>
             <tbody className="divide-y divide-primary-50">
               {loading ? (
-                <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
-                    Cargando abonados...
-                  </td>
-                </tr>
+                Array.from({ length: 5 }).map((_, fila) => (
+                  <tr key={`skeleton-${fila}`}>
+                    {Array.from({ length: 8 }).map((__, col) => (
+                      <td key={col} className="px-4 py-3.5">
+                        <div
+                          className={`animate-pulse rounded bg-primary-100 ${
+                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
-                    No se encontraron abonados.
+                  <td colSpan={8} className="px-4 py-12 text-center">
+                    <svg
+                      className="mx-auto h-8 w-8 text-primary-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                      />
+                    </svg>
+                    {search ? (
+                      <>
+                        <p className="mt-3 text-sm font-medium text-primary-600">
+                          No encontramos abonados para "{search}"
+                        </p>
+                        <p className="mt-1 text-xs text-primary-400">
+                          Revisa el término escrito o prueba con otro criterio.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => manejarBusqueda('')}
+                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
+                        >
+                          Limpiar búsqueda
+                        </button>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm font-medium text-primary-600">
+                        Aún no hay abonados registrados. Usa el botón "+ Nuevo
+                        abonado" para crear el primero.
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (
-                filtered.map((abonado) => (
+                filasVisibles.map((abonado) => (
                   <tr key={abonado.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.numero_abonado}</td>
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.cedula}</td>
@@ -581,24 +1016,41 @@ function Abonados() {
                     </td>
                     <td className="px-4 py-3 text-primary-600">{abonado.telefono}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getEstadoColor(abonado.estado)}`}>
-                        {abonado.estado}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <EstadoSwitch
+                          estado={abonado.estado}
+                          disabled={cambiandoEstadoId === abonado.id}
+                          onChange={() => {
+                            setErrorCambioEstado(null)
+                            setCambioEstado({
+                              abonado,
+                              nuevo:
+                                abonado.estado === 'Activo'
+                                  ? 'Inactivo'
+                                  : 'Activo',
+                            })
+                          }}
+                        />
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(abonado.estado)}`}
+                        >
+                          {abonado.estado}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-primary-500">{abonado.fecha_registro}</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          disabled
-                          title="Edición disponible próximamente"
-                          className="text-sm font-medium text-primary-300 cursor-not-allowed"
+                          onClick={() => openEditar(abonado)}
+                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
                         >
                           Editar
                         </button>
                         <button
                           type="button"
-                          onClick={() => setViewDetail(abonado)}
+                          onClick={() => openDetalle(abonado)}
                           className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
                         >
                           Ver
@@ -610,12 +1062,60 @@ function Abonados() {
               )}
             </tbody>
           </table>
+
+          {!loading && abonados.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-primary-500">
+                Mostrando{' '}
+                {filtered.length === 0
+                  ? 0
+                  : `${primeraFila + 1}–${Math.min(primeraFila + ABONADOS_POR_PAGINA, filtered.length)}`}{' '}
+                de {filtered.length} abonados
+                {search ? ` (filtro: "${search}")` : ''}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹ Anterior
+                </button>
+                {numerosPagina.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPagina(n)}
+                    disabled={n === paginaActual}
+                    aria-current={n === paginaActual ? 'page' : undefined}
+                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
+                      n === paginaActual
+                        ? 'bg-primary-700 text-white'
+                        : 'text-primary-700 hover:bg-primary-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {modalFormEl}
       {detailModalEl}
       {confirmacionModalEl}
+      {cambioEstadoModalEl}
     </div>
   )
 }

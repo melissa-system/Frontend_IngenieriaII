@@ -1,6 +1,6 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useCedulaLookup } from '../../hooks/useCedulaLookup'
+import { useCedulaLookup, type LookupStatus } from '../../hooks/useCedulaLookup'
 import {
   crearSolicitudPajaAgua,
   formatearCedula,
@@ -74,6 +74,11 @@ function Afiliacion() {
   const [numeroDimex, setNumeroDimex] = useState('')
   const [nombreDimex, setNombreDimex] = useState('')
 
+  // Flujo persona jurídica: rastreo de la razón social por cédula
+  // jurídica en la API de Hacienda, igual que en la gestión de abonados.
+  const [buscandoJuridica, setBuscandoJuridica] = useState(false)
+  const [lookupJuridica, setLookupJuridica] = useState<LookupStatus>('idle')
+
   const [formFisica, setFormFisica] = useState<SolicitudFisicaForm>(INITIAL_FISICA)
   const [formJuridica, setFormJuridica] =
     useState<SolicitudJuridicaForm>(INITIAL_JURIDICA)
@@ -100,6 +105,8 @@ function Afiliacion() {
     setLookupStatus('idle')
     setNumeroDimex('')
     setNombreDimex('')
+    setBuscandoJuridica(false)
+    setLookupJuridica('idle')
     setFormFisica(INITIAL_FISICA)
     setFormJuridica(INITIAL_JURIDICA)
     setPermisosMunicipales(null)
@@ -171,6 +178,39 @@ function Afiliacion() {
   ) => {
     const { name, value } = e.target
     setFormJuridica((prev) => ({ ...prev, [name]: value }))
+  }
+
+  // Consulta la API de Hacienda con la cédula jurídica y autocompleta
+  // el nombre de la empresa si la encuentra.
+  const buscarCedulaJuridica = async () => {
+    const digitos = formJuridica.cedulaJuridica.replace(/\D/g, '')
+    if (!digitos) return
+
+    setBuscandoJuridica(true)
+    setLookupJuridica('idle')
+    try {
+      const res = await fetch(
+        `https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`,
+      )
+      const text = await res.text()
+      let data: { nombre?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = {}
+      }
+
+      if (data.nombre) {
+        setFormJuridica((prev) => ({ ...prev, nombreEmpresa: data.nombre! }))
+        setLookupJuridica('found')
+      } else {
+        setLookupJuridica('not-found')
+      }
+    } catch {
+      setLookupJuridica('error')
+    } finally {
+      setBuscandoJuridica(false)
+    }
   }
 
   const handleSubmit = async (e: FormEvent) => {
@@ -637,44 +677,73 @@ function Afiliacion() {
             >
               <div>
                 <label
-                  htmlFor="nombreEmpresa"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Nombre de la empresa
-                </label>
-                <input
-                  id="nombreEmpresa"
-                  name="nombreEmpresa"
-                  type="text"
-                  required
-                  value={formJuridica.nombreEmpresa}
-                  onChange={handleChangeJuridica}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label
                   htmlFor="cedulaJuridica"
                   className="block text-sm font-medium text-primary-900"
                 >
                   Cédula jurídica
                 </label>
-                <input
-                  id="cedulaJuridica"
-                  name="cedulaJuridica"
-                  type="text"
-                  required
-                  value={formJuridica.cedulaJuridica}
-                  onChange={(e) =>
-                    setFormJuridica((prev) => ({
-                      ...prev,
-                      cedulaJuridica: formatearCedula(e.target.value, 'juridica'),
-                    }))
-                  }
-                  placeholder="Ej. 3-101-123456"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
+                <div className="mt-1 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="cedulaJuridica"
+                    name="cedulaJuridica"
+                    type="text"
+                    required
+                    value={formJuridica.cedulaJuridica}
+                    onChange={(e) => {
+                      setFormJuridica((prev) => ({
+                        ...prev,
+                        cedulaJuridica: formatearCedula(e.target.value, 'juridica'),
+                        // Al cambiar la cédula, la razón social anterior
+                        // ya no es válida: se limpia para evitar enviar un
+                        // nombre que no corresponde a esta cédula.
+                        nombreEmpresa: '',
+                      }))
+                      setLookupJuridica('idle')
+                    }}
+                    placeholder="Ej. 3-101-123456"
+                    className="w-full flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={buscarCedulaJuridica}
+                    disabled={buscandoJuridica}
+                    className="flex-none rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {buscandoJuridica ? 'Buscando...' : 'Buscar'}
+                  </button>
+                </div>
+                {lookupJuridica === 'found' && (
+                  <p className="mt-2 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
+                    Razón social encontrada:{' '}
+                    <span className="font-semibold">
+                      {formJuridica.nombreEmpresa}
+                    </span>
+                  </p>
+                )}
+                {(lookupJuridica === 'not-found' || lookupJuridica === 'error') && (
+                  <div className="mt-4">
+                    <label
+                      htmlFor="nombreEmpresa"
+                      className="block text-sm font-medium text-primary-900"
+                    >
+                      Nombre de la empresa
+                    </label>
+                    <input
+                      id="nombreEmpresa"
+                      name="nombreEmpresa"
+                      type="text"
+                      required
+                      value={formJuridica.nombreEmpresa}
+                      onChange={handleChangeJuridica}
+                      placeholder="Ej. Sociedad Anónima ABC"
+                      className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-primary-600">
+                      No pudimos obtener la razón social automáticamente.
+                      Escríbela para continuar con la solicitud.
+                    </p>
+                  </div>
+                )}
                 {formJuridica.cedulaJuridica.trim() !== '' &&
                   !IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) && (
                     <p className="mt-1 text-xs text-red-500">
