@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
+import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 
 const TIPOS_AVERIA = [
@@ -186,7 +187,11 @@ function ReportarAveria() {
                     required
                     value={cedula}
                     disabled={datosListos}
-                    onChange={(e) => setCedula(e.target.value)}
+                    // Separamos con guiones mientras se escribe
+                    // (X-XXXX-XXXX), aunque el usuario no los ponga.
+                    onChange={(e) =>
+                      setCedula(formatearCedula(e.target.value, 'fisica'))
+                    }
                     placeholder="Ej. 1-2345-6789"
                     className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
                   />
