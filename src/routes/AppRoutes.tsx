@@ -8,6 +8,7 @@ import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
 import Login from '../pages/Login/Login'
 import RecuperarPassword from '../pages/RecuperarPassword/RecuperarPassword'
 import RestablecerPassword from '../pages/RestablecerPassword/RestablecerPassword'
+import VerificarCuenta from '../pages/VerificarCuenta/VerificarCuenta'
 import DashboardHome from '../pages/Dashboard/DashboardHome'
 import Abonados from '../pages/Dashboard/Abonados'
 import Solicitudes from '../pages/Dashboard/Solicitudes'
@@ -30,6 +31,7 @@ function AppRoutes() {
       <Route path="/login" element={<Login />} />
       <Route path="/recuperar-password" element={<RecuperarPassword />} />
       <Route path="/restablecer-password" element={<RestablecerPassword />} />
+      <Route path="/activar-cuenta" element={<VerificarCuenta />} />
 
       <Route
         path="/dashboard"
