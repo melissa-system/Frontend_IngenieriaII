@@ -6,7 +6,7 @@ import logo from '../../assets/logo.png'
 
 // Traduce errores de red/validación del backend a un mensaje legible.
 function obtenerMensajeError(error: unknown): string {
-  if (axios.isAxiosError(error)) {
+  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
     if (error.code === 'ERR_NETWORK') {
       return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
     }
@@ -74,6 +74,11 @@ function Login() {
   const from =
     (location.state as { from?: { pathname: string } })?.from?.pathname ||
     '/dashboard'
+  // Mensaje de éxito opcional que llega al redirigir desde otro flujo (por
+  // ejemplo, tras restablecer la contraseña — ver RestablecerPassword.tsx).
+  const mensajeExito = (
+    location.state as { mensajeExito?: string } | null
+  )?.mensajeExito
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -137,6 +142,15 @@ function Login() {
           </p>
         </div>
 
+        {mensajeExito && (
+          <div
+            role="status"
+            className="mb-4 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800"
+          >
+            {mensajeExito}
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
             <label
@@ -158,12 +172,20 @@ function Login() {
           </div>
 
           <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-primary-900"
-            >
-              Contraseña
-            </label>
+            <div className="flex items-center justify-between">
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-primary-900"
+              >
+                Contraseña
+              </label>
+              <Link
+                to="/recuperar-password"
+                className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
+              >
+                ¿Olvidaste tu contraseña?
+              </Link>
+            </div>
             <div className="relative mt-1">
               <input
                 id="password"
