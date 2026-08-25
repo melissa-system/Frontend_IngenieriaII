@@ -172,20 +172,12 @@ function Login() {
           </div>
 
           <div>
-            <div className="flex items-center justify-between">
-              <label
-                htmlFor="password"
-                className="block text-sm font-medium text-primary-900"
-              >
-                Contraseña
-              </label>
-              <Link
-                to="/recuperar-password"
-                className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:underline"
-              >
-                ¿Olvidaste tu contraseña?
-              </Link>
-            </div>
+            <label
+              htmlFor="password"
+              className="block text-sm font-medium text-primary-900"
+            >
+              Contraseña
+            </label>
             <div className="relative mt-1">
               <input
                 id="password"
@@ -244,6 +236,13 @@ function Login() {
           >
             {loading ? 'Ingresando...' : 'Iniciar sesión'}
           </button>
+
+          <Link
+            to="/recuperar-password"
+            className="block text-center text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+          >
+            ¿Olvidaste tu contraseña?
+          </Link>
         </form>
 
         <Link
