@@ -26,6 +26,19 @@ function DashboardLayout() {
     setMobileOpen(false)
   }, [location.pathname])
 
+  // Un solo botón de hamburguesa para las dos cosas: en escritorio (lg+)
+  // contrae/expande el sidebar fijo, en móvil abre/cierra el drawer.
+  // Se resuelve con window.innerWidth en el momento del click (no hace
+  // falta un listener de resize porque solo importa el ancho al tocarlo).
+  function handleToggleSidebar() {
+    const esEscritorio = window.innerWidth >= 1024 // breakpoint "lg" de Tailwind
+    if (esEscritorio) {
+      setCollapsed((c) => !c)
+    } else {
+      setMobileOpen((o) => !o)
+    }
+  }
+
   return (
     <div className="flex h-screen overflow-hidden bg-gray-50">
       {mobileOpen && (
@@ -44,7 +57,7 @@ function DashboardLayout() {
       />
 
       <div className="flex flex-1 flex-col overflow-hidden">
-        <DashboardHeader onOpenMobileMenu={() => setMobileOpen(true)} />
+        <DashboardHeader onToggleSidebar={handleToggleSidebar} />
         <main className="flex-1 overflow-y-auto p-4 sm:p-6">
           <Outlet />
         </main>

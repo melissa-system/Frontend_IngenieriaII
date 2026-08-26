@@ -174,28 +174,6 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <ul className="space-y-1">{renderItem(perfilItem)}</ul>
         </div>
       )}
-
-      {/* Botón retráctil: solo tiene sentido en escritorio, donde el
-          sidebar es parte fija del layout (en móvil es un drawer que se
-          cierra con la X de arriba o el fondo oscuro). */}
-      <button
-        type="button"
-        onClick={onToggleCollapse}
-        title={collapsed ? 'Expandir menú' : 'Contraer menú'}
-        className="hidden items-center justify-center gap-2 border-t border-primary-700 px-3 py-3 text-sm font-medium text-primary-200 transition-colors hover:bg-primary-800 hover:text-white lg:flex"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          className={`h-4 w-4 flex-none transition-transform ${collapsed ? 'rotate-180' : ''}`}
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-        </svg>
-        {!collapsed && <span>Contraer</span>}
-      </button>
     </aside>
   )
 }
