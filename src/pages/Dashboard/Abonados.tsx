@@ -738,19 +738,19 @@ function Abonados() {
           <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setCambioEstado(null)}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="button"
               onClick={confirmarCambioEstado}
               disabled={cambiandoEstadoId !== null}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCambioEstado(null)}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
             </button>
           </div>
         </div>
