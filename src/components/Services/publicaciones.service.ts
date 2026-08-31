@@ -1,4 +1,8 @@
+import axios from 'axios';
+import apiClient from '../../lib/apiClient';
+
 const API_URL = 'http://localhost:3000/publicaciones';
+const RESOURCE = '/publicaciones';
 
 export interface PublicacionPayload {
   titulo: string;
@@ -31,27 +35,32 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
   return body?.message || body?.error?.message || fallback;
 }
 
-// Crea una publicación (usado desde el dashboard administrativo)
+function obtenerMensajeErrorAxios(error: unknown, fallback: string): string {
+  if (axios.isAxiosError(error)) {
+    if (error.code === 'ERR_NETWORK') {
+      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
+    }
+    const msg = error.response?.data?.message;
+    if (typeof msg === 'string') return msg;
+    if (Array.isArray(msg)) return msg.join('. ');
+  }
+  return fallback;
+}
+
+// Crea una publicación (usado desde el dashboard administrativo). Rutas de
+// administración: van por apiClient para que el interceptor adjunte el
+// Access Token (Authorization: Bearer), ya que ahora exigen sesión de admin.
 export const crearPublicacion = async (
   payload: PublicacionPayload,
 ): Promise<Publicacion> => {
-  const response = await fetch(API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(
-      response,
-      `Error en el servidor: ${response.status}`,
+  try {
+    const { data } = await apiClient.post<Publicacion>(RESOURCE, payload);
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeErrorAxios(error, 'No se pudo crear la publicación.'),
     );
-    throw new Error(message);
   }
-
-  return await response.json();
 };
 
 // Solo publicaciones visibles, para el landing público
@@ -71,17 +80,14 @@ export const obtenerPublicaciones = async (): Promise<Publicacion[]> => {
 
 // Todas las publicaciones (incl. borradores), para el dashboard administrativo
 export const obtenerTodasLasPublicaciones = async (): Promise<Publicacion[]> => {
-  const response = await fetch(`${API_URL}/todas`);
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(
-      response,
-      `Error en el servidor: ${response.status}`,
+  try {
+    const { data } = await apiClient.get<Publicacion[]>(`${RESOURCE}/todas`);
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeErrorAxios(error, 'No se pudieron cargar las publicaciones.'),
     );
-    throw new Error(message);
   }
-
-  return await response.json();
 };
 
 // Edita campos y/o cambia el estado publicado/borrador de una publicación existente
@@ -89,21 +95,15 @@ export const actualizarPublicacion = async (
   id: string | number,
   payload: PublicacionUpdatePayload,
 ): Promise<Publicacion> => {
-  const response = await fetch(`${API_URL}/${id}`, {
-    method: 'PATCH',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(payload),
-  });
-
-  if (!response.ok) {
-    const message = await parseErrorMessage(
-      response,
-      `Error en el servidor: ${response.status}`,
+  try {
+    const { data } = await apiClient.patch<Publicacion>(
+      `${RESOURCE}/${id}`,
+      payload,
     );
-    throw new Error(message);
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeErrorAxios(error, 'No se pudieron guardar los cambios.'),
+    );
   }
-
-  return await response.json();
 };
