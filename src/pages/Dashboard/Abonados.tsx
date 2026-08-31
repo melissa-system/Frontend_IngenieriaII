@@ -6,6 +6,7 @@ import {
   actualizarAbonado,
   cambiarEstadoAbonado,
   obtenerHistorialAbonado,
+  nombreVisible,
   type Abonado,
   type AbonadoPayload,
   type AbonadoUpdatePayload,
@@ -17,8 +18,11 @@ import { formatearCedula } from '../../components/Services/solicitudes.service'
 
 interface FormState {
   tipo_abonado: TipoAbonado
-  nombre_completo: string
+  nombre: string
+  apellido1: string
+  apellido2: string
   nombre_representante_legal: string
+  cedula_representante: string
   cedula: string
   telefono: string
   correo: string
@@ -28,8 +32,11 @@ interface FormState {
 
 const EMPTY_FORM: FormState = {
   tipo_abonado: 'Física',
-  nombre_completo: '',
+  nombre: '',
+  apellido1: '',
+  apellido2: '',
   nombre_representante_legal: '',
+  cedula_representante: '',
   cedula: '',
   telefono: '',
   correo: '',
@@ -57,8 +64,11 @@ function getTipoBadge(tipo: string) {
 function formDesdeAbonado(a: Abonado): FormState {
   return {
     tipo_abonado: a.tipo_abonado,
-    nombre_completo: a.nombre_completo,
+    nombre: a.nombre,
+    apellido1: a.apellido1 ?? '',
+    apellido2: a.apellido2 ?? '',
     nombre_representante_legal: a.nombre_representante_legal ?? '',
+    cedula_representante: a.cedula_representante ?? '',
     cedula: a.cedula,
     telefono: a.telefono,
     correo: a.correo,
@@ -68,8 +78,11 @@ function formDesdeAbonado(a: Abonado): FormState {
 }
 
 const CAMPO_LABELS: Record<string, string> = {
-  nombre_completo: 'Nombre / Razón social',
+  nombre: 'Nombre / Razón social',
+  apellido1: 'Primer apellido',
+  apellido2: 'Segundo apellido',
   nombre_representante_legal: 'Representante legal',
+  cedula_representante: 'Cédula del representante',
   telefono: 'Teléfono',
   correo: 'Correo electrónico',
   direccion: 'Dirección',
@@ -132,10 +145,13 @@ function normalizarBusqueda(t: string) {
 }
 
 function validarForm(form: FormState): string | null {
-  if (!form.nombre_completo.trim()) {
+  if (!form.nombre.trim()) {
     return form.tipo_abonado === 'Jurídica'
       ? 'La razón social es obligatoria.'
-      : 'El nombre completo es obligatorio.'
+      : 'El nombre es obligatorio.'
+  }
+  if (form.tipo_abonado === 'Física' && !form.apellido1.trim()) {
+    return 'El primer apellido es obligatorio.'
   }
   if (!form.cedula.trim()) return 'La cédula es obligatoria.'
   if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
@@ -144,11 +160,13 @@ function validarForm(form: FormState): string | null {
     return 'El correo electrónico no tiene un formato válido.'
   }
   if (!form.direccion.trim()) return 'La dirección es obligatoria.'
-  if (
-    form.tipo_abonado === 'Jurídica' &&
-    !form.nombre_representante_legal.trim()
-  ) {
-    return 'El nombre del representante legal es obligatorio para persona jurídica.'
+  if (form.tipo_abonado === 'Jurídica') {
+    if (!form.nombre_representante_legal.trim()) {
+      return 'El nombre del representante legal es obligatorio para persona jurídica.'
+    }
+    if (!form.cedula_representante.trim()) {
+      return 'La cédula del representante legal es obligatoria para persona jurídica.'
+    }
   }
   return null
 }
@@ -258,7 +276,7 @@ function Abonados() {
       ? abonados
       : abonados.filter(
           (a) =>
-            normalizarBusqueda(a.nombre_completo).includes(q) ||
+            normalizarBusqueda(nombreVisible(a)).includes(q) ||
             normalizarBusqueda(a.cedula).includes(q) ||
             normalizarBusqueda(a.numero_abonado).includes(q) ||
             normalizarBusqueda(a.telefono).includes(q) ||
@@ -361,7 +379,13 @@ function Abonados() {
       }
 
       if (data.nombre) {
-        updateField('nombre_completo', data.nombre)
+        // Hacienda devuelve el nombre completo como un solo string; no lo
+        // partimos automáticamente en nombre/apellido1/apellido2 (el orden
+        // de nombres y apellidos compuestos es ambiguo y partirlo mal
+        // corrompe el dato). Se completa en "Nombre" para persona jurídica
+        // (razón social, va completo) y, para física, se deja que el
+        // usuario reparta el texto entre Nombre / Apellido 1 / Apellido 2.
+        updateField('nombre', data.nombre)
         setCedulaLookupStatus('found')
       } else {
         setCedulaLookupStatus('not-found')
@@ -380,8 +404,11 @@ function Abonados() {
       ...prev,
       tipo_abonado: tipo,
       cedula: formatearCedula(prev.cedula, tipo === 'Jurídica' ? 'juridica' : 'fisica'),
-      nombre_representante_legal: tipo === 'Jurídica' ? prev.nombre_representante_legal : '',
+      apellido1: tipo === 'Física' ? prev.apellido1 : '',
+      apellido2: tipo === 'Física' ? prev.apellido2 : '',
       numero_plano_catastrado: tipo === 'Física' ? prev.numero_plano_catastrado : '',
+      nombre_representante_legal: tipo === 'Jurídica' ? prev.nombre_representante_legal : '',
+      cedula_representante: tipo === 'Jurídica' ? prev.cedula_representante : '',
     }))
   }
 
@@ -398,15 +425,22 @@ function Abonados() {
       // quedan fijos. El plano catastrado se envía siempre en física para
       // que vaciarlo también persista (el backend lo guarda como NULL).
       const payload: AbonadoUpdatePayload = {
-        nombre_completo: form.nombre_completo.trim(),
+        nombre: form.nombre.trim(),
         telefono: form.telefono.trim(),
         correo: form.correo.trim(),
         direccion: form.direccion.trim(),
         ...(form.tipo_abonado === 'Jurídica'
-          ? { nombre_representante_legal: form.nombre_representante_legal.trim() }
+          ? {
+              nombre_representante_legal: form.nombre_representante_legal.trim(),
+              cedula_representante: form.cedula_representante.trim(),
+            }
           : {}),
         ...(form.tipo_abonado === 'Física'
-          ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
+          ? {
+              apellido1: form.apellido1.trim(),
+              apellido2: form.apellido2.trim(),
+              numero_plano_catastrado: form.numero_plano_catastrado.trim(),
+            }
           : {}),
       }
 
@@ -435,16 +469,25 @@ function Abonados() {
 
     const payload: AbonadoPayload = {
       tipo_abonado: form.tipo_abonado,
-      nombre_completo: form.nombre_completo.trim(),
+      nombre: form.nombre.trim(),
       cedula: form.cedula.trim(),
       telefono: form.telefono.trim(),
       correo: form.correo.trim(),
       direccion: form.direccion.trim(),
       ...(form.tipo_abonado === 'Jurídica'
-        ? { nombre_representante_legal: form.nombre_representante_legal.trim() }
+        ? {
+            nombre_representante_legal: form.nombre_representante_legal.trim(),
+            cedula_representante: form.cedula_representante.trim(),
+          }
         : {}),
-      ...(form.tipo_abonado === 'Física' && form.numero_plano_catastrado.trim()
-        ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
+      ...(form.tipo_abonado === 'Física'
+        ? {
+            apellido1: form.apellido1.trim(),
+            ...(form.apellido2.trim() ? { apellido2: form.apellido2.trim() } : {}),
+            ...(form.numero_plano_catastrado.trim()
+              ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
+              : {}),
+          }
         : {}),
     }
 
@@ -546,7 +589,9 @@ function Abonados() {
               </div>
               {cedulaLookupStatus === 'found' && (
                 <p className="mt-1.5 text-xs font-medium text-green-600">
-                  Nombre encontrado y completado automáticamente.
+                  {esJuridica
+                    ? 'Nombre encontrado y completado automáticamente.'
+                    : 'Nombre encontrado: revisá el campo "Nombre" y repartilo en Nombre / Apellido 1 / Apellido 2.'}
                 </p>
               )}
               {cedulaLookupStatus === 'not-found' && (
@@ -563,31 +608,76 @@ function Abonados() {
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                {esJuridica ? 'Razón social' : 'Nombre completo'}
+                {esJuridica ? 'Razón social' : 'Nombre'}
               </label>
               <input
                 type="text"
-                value={form.nombre_completo}
-                onChange={(e) => updateField('nombre_completo', e.target.value)}
+                value={form.nombre}
+                onChange={(e) => updateField('nombre', e.target.value)}
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre del abonado'}
+                placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre de pila'}
               />
             </div>
 
+            {!esJuridica && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Primer apellido
+                  </label>
+                  <input
+                    type="text"
+                    value={form.apellido1}
+                    onChange={(e) => updateField('apellido1', e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    placeholder="Primer apellido"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Segundo apellido (opcional)
+                  </label>
+                  <input
+                    type="text"
+                    value={form.apellido2}
+                    onChange={(e) => updateField('apellido2', e.target.value)}
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    placeholder="Segundo apellido"
+                  />
+                </div>
+              </div>
+            )}
+
             {esJuridica && (
-              <div>
-                <label className="block text-sm font-medium text-primary-700">
-                  Nombre del representante legal
-                </label>
-                <input
-                  type="text"
-                  value={form.nombre_representante_legal}
-                  onChange={(e) =>
-                    updateField('nombre_representante_legal', e.target.value)
-                  }
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  placeholder="Nombre completo del representante"
-                />
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Nombre del representante legal
+                  </label>
+                  <input
+                    type="text"
+                    value={form.nombre_representante_legal}
+                    onChange={(e) =>
+                      updateField('nombre_representante_legal', e.target.value)
+                    }
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    placeholder="Nombre completo del representante"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Cédula del representante
+                  </label>
+                  <input
+                    type="text"
+                    value={form.cedula_representante}
+                    onChange={(e) =>
+                      updateField('cedula_representante', e.target.value)
+                    }
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    placeholder="1-2345-6789"
+                  />
+                </div>
               </div>
             )}
 
@@ -710,7 +800,7 @@ function Abonados() {
           <p className="mt-3 text-sm text-primary-600">
             ¿Seguro que deseas cambiar el estado de{' '}
             <span className="font-semibold text-primary-800">
-              {cambioEstado.abonado.nombre_completo}
+              {nombreVisible(cambioEstado.abonado)}
             </span>
             ?
           </p>
@@ -781,7 +871,7 @@ function Abonados() {
               <span className="font-medium text-primary-700">
                 {esJuridicaDetalle ? 'Razón social:' : 'Nombre:'}
               </span>
-              <span className="text-primary-900">{a.nombre_completo}</span>
+              <span className="text-primary-900">{nombreVisible(a)}</span>
               <span className="font-medium text-primary-700">Tipo:</span>
               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(a.tipo_abonado)}`}>
                 {a.tipo_abonado}
@@ -790,6 +880,8 @@ function Abonados() {
                 <>
                   <span className="font-medium text-primary-700">Representante legal:</span>
                   <span className="text-primary-900">{a.nombre_representante_legal}</span>
+                  <span className="font-medium text-primary-700">Cédula del representante:</span>
+                  <span className="font-mono text-primary-900">{a.cedula_representante}</span>
                 </>
               )}
               <span className="font-medium text-primary-700">Cédula:</span>
@@ -1008,7 +1100,7 @@ function Abonados() {
                   <tr key={abonado.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.numero_abonado}</td>
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.cedula}</td>
-                    <td className="px-4 py-3 font-medium text-primary-900">{abonado.nombre_completo}</td>
+                    <td className="px-4 py-3 font-medium text-primary-900">{nombreVisible(abonado)}</td>
                     <td className="px-4 py-3">
                       <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(abonado.tipo_abonado)}`}>
                         {abonado.tipo_abonado}

@@ -10,13 +10,18 @@ export type EstadoAbonado = 'Activo' | 'Inactivo';
 
 export interface AbonadoPayload {
   tipo_abonado: TipoAbonado;
-  nombre_completo: string; // nombre completo (física) o razón social (jurídica)
-  nombre_representante_legal?: string; // obligatorio solo si tipo_abonado es 'Jurídica'
+  nombre: string; // nombre de pila (física) o razón social (jurídica)
+  // Solo física (obligatorio apellido1 si tipo_abonado es 'Física')
+  apellido1?: string;
+  apellido2?: string;
+  numero_plano_catastrado?: string;
+  // Solo jurídica (obligatorios si tipo_abonado es 'Jurídica')
+  nombre_representante_legal?: string;
+  cedula_representante?: string;
   cedula: string; // cédula física o jurídica
   telefono: string;
   correo: string;
   direccion: string;
-  numero_plano_catastrado?: string; // opcional, aplica solo a física
 }
 
 export interface Abonado extends AbonadoPayload {
@@ -24,18 +29,30 @@ export interface Abonado extends AbonadoPayload {
   numero_abonado: string;
   estado: string;
   fecha_registro: string;
+  usuario_id: number | string | null;
+}
+
+// Nombre completo para mostrar en listas/tablas: concatena nombre +
+// apellidos si son física, o solo el nombre (razón social) si es jurídica.
+export function nombreVisible(abonado: Pick<Abonado, 'nombre' | 'apellido1' | 'apellido2'>): string {
+  return [abonado.nombre, abonado.apellido1, abonado.apellido2]
+    .filter((parte) => parte && parte.trim() !== '')
+    .join(' ');
 }
 
 // Campos que el formulario de edición puede modificar. El tipo de abonado
 // y la cédula NO se envían: el backend no los acepta en el PATCH. El
 // estado se envía únicamente desde el control de gestión de estado.
 export interface AbonadoUpdatePayload {
-  nombre_completo: string; // nombre completo (física) o razón social (jurídica)
-  nombre_representante_legal?: string; // solo jurídica
+  nombre: string; // nombre de pila (física) o razón social (jurídica)
+  apellido1?: string;
+  apellido2?: string;
+  numero_plano_catastrado?: string;
+  nombre_representante_legal?: string;
+  cedula_representante?: string;
   telefono: string;
   correo: string;
   direccion: string;
-  numero_plano_catastrado?: string; // solo física, opcional
   estado?: EstadoAbonado; // gestión Activo/Inactivo
 }
 
