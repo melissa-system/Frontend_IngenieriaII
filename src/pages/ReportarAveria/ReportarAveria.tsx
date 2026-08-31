@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
+import { partirNombreCompleto } from '../../lib/nombres'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -85,12 +86,19 @@ function ReportarAveria() {
       tipoId === 'nacional' ? cedula : `DIMEX ${numeroDimex}`
     const descripcionFinal = `Reportado por: ${nombreFinal} (${identificacionReportante}). Detalle: ${detalle}`
 
+    // El formulario sigue pidiendo un solo "nombre completo" (autocompletado
+    // por cédula o escrito a mano); la división en nombre/apellido1/apellido2
+    // para la base de datos se hace acá, no con campos separados en el form.
+    const { nombre, apellido1, apellido2 } = partirNombreCompleto(nombreFinal)
+
     try {
       await crearAveria({
         tipo_averia: tipoFinal,
         descripcion: descripcionFinal,
         cedula_reportante: identificacionReportante,
-        nombre_reportante: nombreFinal,
+        nombre_reportante: nombre,
+        apellido1_reportante: apellido1 || undefined,
+        apellido2_reportante: apellido2 || undefined,
       })
       setSubmitted(true)
     } catch (error) {

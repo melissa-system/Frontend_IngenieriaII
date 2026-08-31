@@ -4,7 +4,9 @@ export interface AveriaPayload {
   tipo_averia: string;
   descripcion: string;
   cedula_reportante?: string;
-  nombre_reportante?: string;
+  nombre_reportante?: string; // nombre de pila del reportante
+  apellido1_reportante?: string;
+  apellido2_reportante?: string;
 }
 
 export const crearAveria = async (payload: AveriaPayload) => {
@@ -16,7 +18,9 @@ export const crearAveria = async (payload: AveriaPayload) => {
     body: JSON.stringify({
       ...payload,
       cedula_reportante: payload.cedula_reportante || '504420101',
-      nombre_reportante: payload.nombre_reportante || 'OSCAR ANDRES AIZA ZUÑIGA',
+      nombre_reportante: payload.nombre_reportante || 'OSCAR ANDRES',
+      apellido1_reportante: payload.apellido1_reportante || 'AIZA',
+      apellido2_reportante: payload.apellido2_reportante || 'ZUÑIGA',
     }),
   });
 
