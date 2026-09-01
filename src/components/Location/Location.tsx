@@ -1,8 +1,38 @@
-const MAPS_LINK = 'https://maps.app.goo.gl/VKAEtDsXSU6P1yQ16'
-const MAPS_EMBED_SRC =
-  'https://www.google.com/maps?q=9.9263539,-84.9810364&z=16&output=embed'
+import { useState, useEffect } from 'react'
+import { obtenerConfiguracion, type Configuracion } from '../Services/configuracion.service'
+
+// Valores por defecto (actuales hardcodeados) — se usan si la API falla
+const DEFAULTS = {
+  direccion:
+    '100 metros norte de la Iglesia San Francisco de Asís\nPueblo Nuevo, Paquera, Puntarenas',
+  telefono: '8741-8543',
+  telefonoLink: '+50687418543',
+  correo: 'asadapueblonuevo06@gmail.com',
+  enlaceGoogleMaps: 'https://maps.app.goo.gl/VKAEtDsXSU6P1yQ16',
+  coordenadas: '9.9263539,-84.9810364',
+}
 
 function Location() {
+  const [config, setConfig] = useState<Configuracion | null>(null)
+
+  useEffect(() => {
+    obtenerConfiguracion()
+      .then(setConfig)
+      .catch(() => {
+        /* fallback a DEFAULTS */
+      })
+  }, [])
+
+  const direccion = config?.direccion || DEFAULTS.direccion
+  const telefono = config?.telefono || DEFAULTS.telefono
+  const telefonoLink = config?.telefono
+    ? `+506${config.telefono.replace(/\D/g, '')}`
+    : DEFAULTS.telefonoLink
+  const correo = config?.correo_electronico || DEFAULTS.correo
+  const mapsLink = config?.enlace_google_maps || DEFAULTS.enlaceGoogleMaps
+  const coordenadas = config?.coordenadas_mapa || DEFAULTS.coordenadas
+  const mapsEmbedSrc = `https://www.google.com/maps?q=${coordenadas}&z=16&output=embed`
+
   return (
     <section
       id="ubicacion"
@@ -24,7 +54,7 @@ function Location() {
       <div className="mx-auto mt-8 grid max-w-5xl grid-cols-1 gap-6 sm:mt-12 lg:grid-cols-2">
         <div className="overflow-hidden rounded-2xl shadow-md">
           <iframe
-            src={MAPS_EMBED_SRC}
+            src={mapsEmbedSrc}
             title="Ubicación de ASADA Pueblo Nuevo"
             className="h-64 w-full border-0 sm:h-80 lg:h-full"
             loading="lazy"
@@ -56,10 +86,8 @@ function Location() {
                   <circle cx="12" cy="9.7" r="2.6" />
                 </svg>
               </span>
-              <p className="text-primary-800">
-                100 metros norte de la Iglesia San Francisco de Asís
-                <br />
-                Pueblo Nuevo, Paquera, Puntarenas
+              <p className="text-primary-800 whitespace-pre-line">
+                {direccion}
               </p>
             </div>
 
@@ -81,8 +109,8 @@ function Location() {
                 </svg>
               </span>
               <p className="text-primary-800">
-                <a href="tel:+50687418543" className="hover:text-primary-700">
-                  8741-8543
+                <a href={`tel:${telefonoLink}`} className="hover:text-primary-700">
+                  {telefono}
                 </a>
               </p>
             </div>
@@ -111,17 +139,17 @@ function Location() {
               </span>
               <p className="text-primary-800">
                 <a
-                  href="mailto:asadapueblonuevo06@gmail.com"
+                  href={`mailto:${correo}`}
                   className="hover:text-primary-700"
                 >
-                  asadapueblonuevo06@gmail.com
+                  {correo}
                 </a>
               </p>
             </div>
           </div>
 
           <a
-            href={MAPS_LINK}
+            href={mapsLink}
             target="_blank"
             rel="noreferrer"
             className="mt-8 rounded-full bg-primary-700 px-6 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-800"

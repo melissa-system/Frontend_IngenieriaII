@@ -123,6 +123,8 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Documentos', to: '/dashboard/administrativo?tab=documentos', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
     ],
   },
   {
