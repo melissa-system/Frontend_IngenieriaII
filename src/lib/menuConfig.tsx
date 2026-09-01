@@ -118,11 +118,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Administración',
     icon: <AdminIcon />,
-    roles: ['Administrador'],
+    roles: ['Administrador', 'Junta Directiva'],
     submenu: [
-      { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador'] },
-      { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador'] },
-      { label: 'Documentos', to: '/dashboard/administrativo?tab=documentos', roles: ['Administrador'] },
+      { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Documentos', to: '/dashboard/administrativo?tab=documentos', roles: ['Administrador', 'Junta Directiva'] },
     ],
   },
   {
