@@ -52,9 +52,9 @@ export const obtenerRolesDisponibles = async (): Promise<RolDisponible[]> => {
 // Crear un nuevo usuario por parte del administrador
 export const crearUsuario = async (
   payload: CrearUsuarioPayload,
-): Promise<Usuario> => {
+): Promise<Usuario & { asociacion: 'abonado' | 'empleado' | null }> => {
   try {
-    const response = await apiClient.post<Usuario>('/usuarios', payload);
+    const response = await apiClient.post<Usuario & { asociacion: 'abonado' | 'empleado' | null }>('/usuarios', payload);
     return response.data;
   } catch (error: any) {
     const message =

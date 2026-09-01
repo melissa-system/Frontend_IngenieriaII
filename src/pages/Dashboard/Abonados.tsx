@@ -19,8 +19,6 @@ import { formatearCedula } from '../../components/Services/solicitudes.service'
 interface FormState {
   tipo_abonado: TipoAbonado
   nombre: string
-  apellido1: string
-  apellido2: string
   nombre_representante_legal: string
   cedula_representante: string
   cedula: string
@@ -33,8 +31,6 @@ interface FormState {
 const EMPTY_FORM: FormState = {
   tipo_abonado: 'Física',
   nombre: '',
-  apellido1: '',
-  apellido2: '',
   nombre_representante_legal: '',
   cedula_representante: '',
   cedula: '',
@@ -65,8 +61,6 @@ function formDesdeAbonado(a: Abonado): FormState {
   return {
     tipo_abonado: a.tipo_abonado,
     nombre: a.nombre,
-    apellido1: a.apellido1 ?? '',
-    apellido2: a.apellido2 ?? '',
     nombre_representante_legal: a.nombre_representante_legal ?? '',
     cedula_representante: a.cedula_representante ?? '',
     cedula: a.cedula,
@@ -79,8 +73,6 @@ function formDesdeAbonado(a: Abonado): FormState {
 
 const CAMPO_LABELS: Record<string, string> = {
   nombre: 'Nombre / Razón social',
-  apellido1: 'Primer apellido',
-  apellido2: 'Segundo apellido',
   nombre_representante_legal: 'Representante legal',
   cedula_representante: 'Cédula del representante',
   telefono: 'Teléfono',
@@ -150,9 +142,6 @@ function validarForm(form: FormState): string | null {
       ? 'La razón social es obligatoria.'
       : 'El nombre es obligatorio.'
   }
-  if (form.tipo_abonado === 'Física' && !form.apellido1.trim()) {
-    return 'El primer apellido es obligatorio.'
-  }
   if (!form.cedula.trim()) return 'La cédula es obligatoria.'
   if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
   if (!form.correo.trim()) return 'El correo es obligatorio.'
@@ -191,7 +180,7 @@ function Abonados() {
   const [historialDetalle, setHistorialDetalle] = useState<HistorialAbonado[]>([])
   const [historialLoading, setHistorialLoading] = useState(false)
   const [historialError, setHistorialError] = useState<string | null>(null)
-  const [confirmacion, setConfirmacion] = useState<Abonado | null>(null)
+  const [confirmacion, setConfirmacion] = useState<string | null>(null)
 
   // Gestión de estado del abonado: confirmación pendiente, id en curso
   // (deshabilita el interruptor) y error mostrado dentro del modal.
@@ -379,12 +368,9 @@ function Abonados() {
       }
 
       if (data.nombre) {
-        // Hacienda devuelve el nombre completo como un solo string; no lo
-        // partimos automáticamente en nombre/apellido1/apellido2 (el orden
-        // de nombres y apellidos compuestos es ambiguo y partirlo mal
-        // corrompe el dato). Se completa en "Nombre" para persona jurídica
-        // (razón social, va completo) y, para física, se deja que el
-        // usuario reparta el texto entre Nombre / Apellido 1 / Apellido 2.
+        // Hacienda devuelve el nombre completo como un solo string: en
+        // persona física va directo a "Nombre" (campo de texto libre) y en
+        // jurídica es la razón social completa.
         updateField('nombre', data.nombre)
         setCedulaLookupStatus('found')
       } else {
@@ -404,8 +390,6 @@ function Abonados() {
       ...prev,
       tipo_abonado: tipo,
       cedula: formatearCedula(prev.cedula, tipo === 'Jurídica' ? 'juridica' : 'fisica'),
-      apellido1: tipo === 'Física' ? prev.apellido1 : '',
-      apellido2: tipo === 'Física' ? prev.apellido2 : '',
       numero_plano_catastrado: tipo === 'Física' ? prev.numero_plano_catastrado : '',
       nombre_representante_legal: tipo === 'Jurídica' ? prev.nombre_representante_legal : '',
       cedula_representante: tipo === 'Jurídica' ? prev.cedula_representante : '',
@@ -437,8 +421,6 @@ function Abonados() {
           : {}),
         ...(form.tipo_abonado === 'Física'
           ? {
-              apellido1: form.apellido1.trim(),
-              apellido2: form.apellido2.trim(),
               numero_plano_catastrado: form.numero_plano_catastrado.trim(),
             }
           : {}),
@@ -452,6 +434,8 @@ function Abonados() {
           prev.map((a) => (a.id === actualizado.id ? actualizado : a)),
         )
         cerrarModal()
+        setConfirmacion('Abonado actualizado correctamente.')
+        setTimeout(() => setConfirmacion(null), 3000)
       } catch (err) {
         setFormError(
           err instanceof Error
@@ -482,8 +466,6 @@ function Abonados() {
         : {}),
       ...(form.tipo_abonado === 'Física'
         ? {
-            apellido1: form.apellido1.trim(),
-            ...(form.apellido2.trim() ? { apellido2: form.apellido2.trim() } : {}),
             ...(form.numero_plano_catastrado.trim()
               ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
               : {}),
@@ -495,7 +477,10 @@ function Abonados() {
       const creado = await crearAbonado(payload)
       setAbonados((prev) => [creado, ...prev])
       cerrarModal()
-      setConfirmacion(creado)
+      setConfirmacion(
+        `Abonado registrado correctamente con el número ${creado.numero_abonado}.`,
+      )
+      setTimeout(() => setConfirmacion(null), 3000)
     } catch (err) {
       setFormError(
         err instanceof Error
@@ -591,7 +576,7 @@ function Abonados() {
                 <p className="mt-1.5 text-xs font-medium text-green-600">
                   {esJuridica
                     ? 'Nombre encontrado y completado automáticamente.'
-                    : 'Nombre encontrado: revisá el campo "Nombre" y repartilo en Nombre / Apellido 1 / Apellido 2.'}
+                    : 'Nombre encontrado y completado automáticamente.'}
                 </p>
               )}
               {cedulaLookupStatus === 'not-found' && (
@@ -608,45 +593,16 @@ function Abonados() {
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                {esJuridica ? 'Razón social' : 'Nombre'}
+                {esJuridica ? 'Razón social' : 'Nombre completo'}
               </label>
               <input
                 type="text"
                 value={form.nombre}
                 onChange={(e) => updateField('nombre', e.target.value)}
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre de pila'}
+                placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre y apellidos'}
               />
             </div>
-
-            {!esJuridica && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <div>
-                  <label className="block text-sm font-medium text-primary-700">
-                    Primer apellido
-                  </label>
-                  <input
-                    type="text"
-                    value={form.apellido1}
-                    onChange={(e) => updateField('apellido1', e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    placeholder="Primer apellido"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-700">
-                    Segundo apellido (opcional)
-                  </label>
-                  <input
-                    type="text"
-                    value={form.apellido2}
-                    onChange={(e) => updateField('apellido2', e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    placeholder="Segundo apellido"
-                  />
-                </div>
-              </div>
-            )}
 
             {esJuridica && (
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -761,29 +717,6 @@ function Abonados() {
               </button>
             </div>
           </form>
-        </div>
-      </div>
-    )
-
-  const confirmacionModalEl = !confirmacion ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-md rounded-2xl bg-primary-50 p-8 text-center shadow-xl">
-          <h2 className="text-xl font-semibold text-primary-900">
-            ¡Abonado registrado!
-          </h2>
-          <p className="mt-3 text-primary-700">
-            Se generó el número de abonado:
-          </p>
-          <p className="mt-1 text-2xl font-semibold text-primary-900">
-            {confirmacion.numero_abonado}
-          </p>
-          <button
-            type="button"
-            onClick={() => setConfirmacion(null)}
-            className="mt-6 rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
-          >
-            Cerrar
-          </button>
         </div>
       </div>
     )
@@ -978,6 +911,12 @@ function Abonados() {
           + Nuevo abonado
         </button>
       </div>
+
+      {confirmacion && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {confirmacion}
+        </div>
+      )}
 
       <div className="relative w-full sm:w-96">
         <svg
@@ -1206,7 +1145,6 @@ function Abonados() {
 
       {modalFormEl}
       {detailModalEl}
-      {confirmacionModalEl}
       {cambioEstadoModalEl}
     </div>
   )

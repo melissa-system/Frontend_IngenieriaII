@@ -18,6 +18,9 @@ import Administrativo from '../pages/Dashboard/Administrativo'
 import Seguridad from '../pages/Dashboard/Seguridad'
 import Perfil from '../pages/Dashboard/Perfil'
 import Reportes from '../pages/Dashboard/Reportes'
+import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
+import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
+import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
 
 function AppRoutes() {
   return (
@@ -50,6 +53,9 @@ function AppRoutes() {
         <Route path="administrativo" element={<Administrativo />} />
         <Route path="seguridad" element={<Seguridad />} />
         <Route path="perfil" element={<Perfil />} />
+        <Route path="contacto-asada" element={<ContactoAsadaPage />} />
+        <Route path="horario-asada" element={<HorarioAsadaPage />} />
+        <Route path="personal" element={<EmpleadosPage />} />
       </Route>
 
       <Route
