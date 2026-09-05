@@ -6,9 +6,23 @@ const RESOURCE = '/documentos';
 // Mismo criterio que apiClient.ts para resolver la URL base del backend.
 const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
 
-// El backend expone uploads/ como archivos estáticos (ver main.ts), así que
-// el archivo de un documento queda accesible en esta URL.
+// Resuelve la URL final del archivo de un documento.
+//
+// Convive con dos formatos, según cuándo se subió el documento:
+//   - Documentos NUEVOS (desde la migración a Cloudinary): `ubicacion` ya es
+//     la URL completa del archivo en la nube. Se usa tal cual.
+//   - Documentos VIEJOS (anteriores a la migración): `ubicacion` guarda solo
+//     el nombre del archivo dentro de uploads/documentos/ en el servidor, que
+//     el backend sigue exponiendo como estático (ver useStaticAssets en
+//     main.ts). Para esos se arma la URL como antes.
+//
+// La distinción se hace por el prefijo http, que solo tienen las URLs de la
+// nube. Cuando ya no queden documentos viejos en la base de datos, esta
+// función se puede simplificar a `return ubicacion`.
 export function obtenerUrlArchivo(ubicacion: string): string {
+  if (ubicacion.startsWith('http://') || ubicacion.startsWith('https://')) {
+    return ubicacion;
+  }
   return `${API_BASE_URL}/uploads/documentos/${ubicacion}`;
 }
 
@@ -61,7 +75,7 @@ export interface ActualizarDocumentoPayload {
 
 // Traduce errores de axios/backend a un mensaje legible, igual que en Login/Abonados.
 function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
+  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
     if (error.code === 'ERR_NETWORK') {
       return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
     }
@@ -76,6 +90,11 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
 // nombre + tipo con un documento vigente). Usa apiClient para que el
 // interceptor adjunte el Access Token, y reporta el progreso de la subida
 // vía onProgress (0-100) para poder mostrar una barra de carga.
+//
+// Nota: desde la migración a Cloudinary, el progreso reportado corresponde a
+// la subida navegador -> backend. El backend todavía tiene que reenviar el
+// archivo a la nube después, así que puede pasar un momento entre que la
+// barra llega a 100% y la respuesta llega de vuelta.
 export const crearDocumento = async (
   payload: CrearDocumentoPayload,
   onProgress?: (porcentaje: number) => void,
@@ -121,5 +140,21 @@ export const actualizarDocumento = async (
     return data;
   } catch (error) {
     throw new Error(obtenerMensajeError(error, 'No se pudo actualizar el documento.'));
+  }
+};
+
+// Eliminación DEFINITIVA de un documento: borra el registro y también el
+// archivo de Cloudinary. Distinto de actualizarDocumento con estado
+// 'Inhabilitado', que es reversible y conserva el archivo.
+export const eliminarDocumento = async (
+  id: string | number,
+): Promise<{ mensaje: string }> => {
+  try {
+    const { data } = await apiClient.delete<{ mensaje: string }>(
+      `${RESOURCE}/${id}`,
+    );
+    return data;
+  } catch (error) {
+    throw new Error(obtenerMensajeError(error, 'No se pudo eliminar el documento.'));
   }
 };
