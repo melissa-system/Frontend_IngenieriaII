@@ -7,6 +7,7 @@ import {
   subirFoto,
   type PerfilCompleto,
 } from '../../components/Services/perfil.service'
+import { resolverUrlArchivo } from '../../lib/urlArchivos'
 
 // Espejo client-side de las reglas de fortaleza que aplica el backend en
 // CambiarPasswordDto (min 8 caracteres, mayuscula, numero).
@@ -245,7 +246,7 @@ function Perfil() {
         <div className="mt-5 flex items-center gap-4">
           {perfil.foto_url ? (
             <img
-              src={`http://localhost:3000${perfil.foto_url}`}
+              src={resolverUrlArchivo(perfil.foto_url)}
               alt="Foto de perfil"
               className="h-16 w-16 rounded-full object-cover"
             />
@@ -341,7 +342,7 @@ function Perfil() {
             />
           ) : perfil.foto_url ? (
             <img
-              src={`http://localhost:3000${perfil.foto_url}`}
+              src={resolverUrlArchivo(perfil.foto_url)}
               alt="Foto de perfil"
               className="h-28 w-28 rounded-lg object-cover"
             />
