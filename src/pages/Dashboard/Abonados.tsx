@@ -969,7 +969,6 @@ function Abonados() {
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">N° Abonado</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
@@ -983,7 +982,7 @@ function Abonados() {
               {loading ? (
                 Array.from({ length: 5 }).map((_, fila) => (
                   <tr key={`skeleton-${fila}`}>
-                    {Array.from({ length: 8 }).map((__, col) => (
+                    {Array.from({ length: 7 }).map((__, col) => (
                       <td key={col} className="px-4 py-3.5">
                         <div
                           className={`animate-pulse rounded bg-primary-100 ${
@@ -996,7 +995,7 @@ function Abonados() {
                 ))
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-4 py-12 text-center">
+                  <td colSpan={7} className="px-4 py-12 text-center">
                     <svg
                       className="mx-auto h-8 w-8 text-primary-300"
                       fill="none"
@@ -1037,7 +1036,6 @@ function Abonados() {
               ) : (
                 filasVisibles.map((abonado) => (
                   <tr key={abonado.id} className="hover:bg-primary-50/50">
-                    <td className="px-4 py-3 font-mono text-primary-700">{abonado.numero_abonado}</td>
                     <td className="px-4 py-3 font-mono text-primary-700">{abonado.cedula}</td>
                     <td className="px-4 py-3 font-medium text-primary-900">{nombreVisible(abonado)}</td>
                     <td className="px-4 py-3">
