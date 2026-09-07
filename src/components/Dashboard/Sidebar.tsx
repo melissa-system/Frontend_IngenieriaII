@@ -37,38 +37,6 @@ function Chevron({ expanded, collapsed }: { expanded: boolean; collapsed?: boole
   )
 }
 
-// Radio del curvado cóncavo (debe calzar con rounded-l-2xl = 1rem = 16px del
-// propio ítem, para que la curva se sienta continua y bien marcada, como en
-// la referencia).
-const RADIO_CURVA = 16
-
-// Dos "mordidas" de 16x16px justo arriba y abajo del borde derecho del ítem
-// activo: en vez de una esquina recta pegada al borde del sidebar, el fondo
-// oscuro se curva hacia adentro y el blanco del ítem parece fundirse con lo
-// que sigue, como en la referencia. Se coloca como hermano del Link/botón,
-// dentro de un <li> con position:relative, para no interferir con su layout
-// interno (ícono + texto + chevron).
-function EsquinasFundidas() {
-  return (
-    <>
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -top-4 right-0 h-4 w-4"
-        style={{
-          background: `radial-gradient(circle at bottom right, white ${RADIO_CURVA}px, var(--color-primary-900) ${RADIO_CURVA}px)`,
-        }}
-      />
-      <span
-        aria-hidden="true"
-        className="pointer-events-none absolute -bottom-4 right-0 h-4 w-4"
-        style={{
-          background: `radial-gradient(circle at top right, white ${RADIO_CURVA}px, var(--color-primary-900) ${RADIO_CURVA}px)`,
-        }}
-      />
-    </>
-  )
-}
-
 // Íconos de las opciones de la burbuja de "Perfil" (ver más abajo).
 function IconEditarPerfil() {
   return (
@@ -231,18 +199,17 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
     if (!sub.submenu) {
       const active = isActive(sub.to!)
       return (
-        <li key={sub.to} className="relative">
+        <li key={sub.to}>
           <Link
             to={sub.to!}
-            className={`block rounded-l-2xl pl-3 pr-3 py-2 text-sm transition-colors ${
+            className={`block rounded-2xl pl-3 pr-3 py-2 text-sm transition-colors ${
               active
-                ? 'bg-white text-primary-900 font-medium shadow-sm'
+                ? '-mr-3 bg-white font-medium text-primary-900 shadow-md'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
             }`}
           >
             {sub.label}
           </Link>
-          {active && <EsquinasFundidas />}
         </li>
       )
     }
@@ -254,20 +221,19 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
     const active = isSubmenuActive(sub.submenu) || isExpanded
 
     return (
-      <li key={key} className="relative">
+      <li key={key}>
         <button
           type="button"
           onClick={() => toggleExpand(key)}
-          className={`flex w-full items-center gap-2 rounded-l-2xl px-3 py-2 text-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-colors ${
             active
-              ? 'bg-white text-primary-900 font-medium shadow-sm'
+              ? '-mr-3 bg-white font-medium text-primary-900 shadow-md'
               : 'text-primary-300 hover:bg-primary-800 hover:text-white'
           }`}
         >
           <span className="flex-1 text-left">{sub.label}</span>
           <Chevron expanded={isExpanded} />
         </button>
-        {active && <EsquinasFundidas />}
         {isExpanded && (
           <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
             {sub.submenu.map((child) => renderSubItem(child, key))}
@@ -289,18 +255,18 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
       (hasSubmenu && (isSubmenuActive(item.submenu!) || isExpanded))
 
     return (
-      <li key={item.label} className="relative">
+      <li key={item.label}>
         {hasSubmenu ? (
           <>
             <button
               type="button"
               title={item.label}
               onClick={() => toggleExpand(item.label)}
-              className={`flex w-full items-center gap-3 rounded-l-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 collapsed ? 'lg:justify-center' : ''
               } ${
                 active
-                  ? 'bg-white text-primary-900 shadow-sm'
+                  ? '-mr-3 bg-white text-primary-900 shadow-md'
                   : 'text-primary-200 hover:bg-primary-800 hover:text-white'
               }`}
             >
@@ -335,11 +301,11 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <Link
             to={item.to!}
             title={item.label}
-            className={`flex items-center gap-3 rounded-l-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
               collapsed ? 'lg:justify-center' : ''
             } ${
               active
-                ? 'bg-white text-primary-900 shadow-sm'
+                ? '-mr-3 bg-white text-primary-900 shadow-md'
                 : 'text-primary-200 hover:bg-primary-800 hover:text-white'
             }`}
           >
@@ -347,7 +313,6 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
             <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
           </Link>
         )}
-        {active && <EsquinasFundidas />}
       </li>
     )
   }
@@ -383,10 +348,11 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         </button>
       </div>
 
-      {/* Sin padding a la derecha: así el ítem activo (fondo blanco) llega
-          hasta el borde real del sidebar y se funde con lo que sigue, en vez
-          de quedar como una pastilla flotando con un margen oscuro alrededor. */}
-      <nav className="flex-1 overflow-y-auto py-4 pl-3">
+      <nav className="flex-1 overflow-y-auto px-3 py-4">
+        {/* El ítem activo cancela este padding derecho con -mr-3 (ver
+            renderItem/renderSubItem), para que su pastilla blanca llegue
+            hasta el borde real del sidebar en vez de quedar con un margen
+            oscuro alrededor — los demás ítems mantienen el padding normal. */}
         <ul className="space-y-1">{mainItems.map(renderItem)}</ul>
       </nav>
 
