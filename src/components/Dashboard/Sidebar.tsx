@@ -11,9 +11,9 @@ interface SidebarProps {
 }
 
 function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
-  const { user } = useAuth()
+  const { rolEfectivo } = useAuth()
   const location = useLocation()
-  const role = user?.rol ?? ''
+  const role = rolEfectivo ?? ''
 
   const visibleItems = filterMenuByRole(MENU_CONFIG, role)
 

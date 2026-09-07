@@ -15,6 +15,10 @@ import {
   type TipoAbonado,
 } from '../../components/Services/abonados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
+import {
+  RequiereConfirmacionError,
+  type RequiereConfirmacionInfo,
+} from '../../components/Services/erroresApi'
 
 interface FormState {
   tipo_abonado: TipoAbonado
@@ -194,6 +198,15 @@ function Abonados() {
   const [errorCambioEstado, setErrorCambioEstado] = useState<string | null>(
     null,
   )
+
+  // Confirmación de cédula cruzada: la cédula del nuevo abonado ya existe
+  // como Empleado. Se guarda el payload pendiente para reenviarlo con
+  // confirmarVinculacion: true si el usuario confirma que es la misma persona.
+  const [confirmacionCedula, setConfirmacionCedula] = useState<{
+    info: RequiereConfirmacionInfo
+    payload: AbonadoPayload
+  } | null>(null)
+  const [confirmandoVinculacion, setConfirmandoVinculacion] = useState(false)
 
   // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
   // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
@@ -482,6 +495,10 @@ function Abonados() {
       )
       setTimeout(() => setConfirmacion(null), 3000)
     } catch (err) {
+      if (err instanceof RequiereConfirmacionError) {
+        setConfirmacionCedula({ info: err.info, payload })
+        return
+      }
       setFormError(
         err instanceof Error
           ? err.message
@@ -489,6 +506,32 @@ function Abonados() {
       )
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // El usuario confirmó que la cédula cruzada es la misma persona: se
+  // reenvía el mismo payload con confirmarVinculacion: true.
+  async function confirmarVinculacionCedula() {
+    if (!confirmacionCedula) return
+    setConfirmandoVinculacion(true)
+    try {
+      const creado = await crearAbonado(confirmacionCedula.payload, true)
+      setAbonados((prev) => [creado, ...prev])
+      setConfirmacionCedula(null)
+      cerrarModal()
+      setConfirmacion(
+        `Abonado registrado correctamente con el número ${creado.numero_abonado}.`,
+      )
+      setTimeout(() => setConfirmacion(null), 3000)
+    } catch (err) {
+      setConfirmacionCedula(null)
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar el abonado. Intenta de nuevo.',
+      )
+    } finally {
+      setConfirmandoVinculacion(false)
     }
   }
 
@@ -771,6 +814,41 @@ function Abonados() {
               type="button"
               onClick={() => setCambioEstado(null)}
               disabled={cambiandoEstadoId !== null}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
+  // Confirmación de cédula cruzada: la cédula ya está registrada como
+  // Empleado. Se muestra encima del modal de creación (no lo cierra) para
+  // que "Cancelar" regrese al formulario tal cual quedó.
+  const confirmacionCedulaModalEl =
+    confirmacionCedula === null ? null : (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Cédula ya registrada
+          </h2>
+          <p className="mt-3 text-sm text-primary-600">
+            {confirmacionCedula.info.message}
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={confirmarVinculacionCedula}
+              disabled={confirmandoVinculacion}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {confirmandoVinculacion ? 'Guardando...' : 'Sí, es la misma persona'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmacionCedula(null)}
+              disabled={confirmandoVinculacion}
               className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancelar
@@ -1144,6 +1222,7 @@ function Abonados() {
       {modalFormEl}
       {detailModalEl}
       {cambioEstadoModalEl}
+      {confirmacionCedulaModalEl}
     </div>
   )
 }

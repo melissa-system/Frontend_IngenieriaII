@@ -143,13 +143,14 @@ function AlertCard({
 }
 
 function DashboardHome() {
-  const { user } = useAuth()
+  const { rolEfectivo } = useAuth()
 
   // Este panel es de analítica administrativa (mock de abonados, averías,
   // solicitudes, inventario) — no tiene sentido para un abonado. Un abonado
-  // que llega a /dashboard (por ejemplo, justo tras iniciar sesión) se
-  // manda directo a su propia sección en vez de ver esto.
-  if (user?.rol === 'Abonado') {
+  // (o alguien viendo el dashboard "como Abonado" — ver selector de perfil
+  // en DashboardHeader.tsx) que llega a /dashboard se manda directo a su
+  // propia sección en vez de ver esto.
+  if (rolEfectivo === 'Abonado') {
     return <Navigate to="/dashboard/documentos-oficiales" replace />
   }
 

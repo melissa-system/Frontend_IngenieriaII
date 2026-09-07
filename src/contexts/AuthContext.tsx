@@ -9,12 +9,37 @@ import {
 import apiClient, { alExpirarSesion } from '../lib/apiClient'
 import { tokenStore } from '../lib/tokenStore'
 
+// Abonado o Empleado vinculado a la cuenta (ver GET /auth/perfil). Una
+// cuenta puede tener los dos a la vez — ej. alguien de la Junta que
+// también es abonado — de ahí el selector de perfil.
+interface VinculoAbonado {
+  id: number
+  nombre: string
+}
+interface VinculoEmpleado {
+  id: number
+  nombre: string
+}
+interface Vinculos {
+  empleado: VinculoEmpleado | null
+  abonado: VinculoAbonado | null
+}
+
+const SIN_VINCULOS: Vinculos = { empleado: null, abonado: null }
+
+// 'base': la vista normal según el rol de la cuenta (Administrador, Junta
+// Directiva, Fontanero o Abonado). 'abonado': fuerza la vista de abonado
+// aunque el rol de la cuenta sea otro — solo tiene sentido si vinculos.abonado
+// existe (ver cambiarPerfil).
+export type PerfilActivo = 'base' | 'abonado'
+
 interface User {
   id: string
   nombre: string
   username: string
   rol: string
   email: string
+  vinculos: Vinculos
 }
 
 interface AuthContextType {
@@ -24,6 +49,11 @@ interface AuthContextType {
   status: 'restoring' | 'authenticated' | 'unauthenticated'
   login: (email: string, password: string) => Promise<void>
   logout: () => void
+  /** Rol efectivo a mostrar: 'Abonado' cuando perfilActivo === 'abonado', si no, user.rol tal cual. */
+  rolEfectivo: string | null
+  perfilActivo: PerfilActivo
+  /** Cambia el perfil visible sin cerrar sesión. Solo tiene efecto si el destino es válido para esta cuenta. */
+  cambiarPerfil: (perfil: PerfilActivo) => void
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -60,6 +90,10 @@ function mapearUsuario(backendUser: BackendUser): User {
     username,
     rol: ROL_LABELS[backendUser.role ?? ''] ?? backendUser.role ?? 'Abonado',
     email,
+    // Se completan aparte con cargarVinculos(): /auth/login y /auth/refresh
+    // no traen esta información, y no vale la pena bloquear el login por
+    // ella (si falla, el selector de perfil simplemente no aparece).
+    vinculos: SIN_VINCULOS,
   }
 }
 
@@ -69,10 +103,51 @@ function aplicarSesion(data: AuthResponse, setUser: (u: User) => void): void {
   setUser(mapearUsuario(data.user))
 }
 
+// GET /auth/perfil ya resuelve ambos vínculos (ver AuthService.obtenerPerfilCompleto);
+// se reutiliza acá solo para completar 'vinculos' sin duplicar esa llamada
+// a la BD en otro endpoint nuevo.
+interface RespuestaPerfilVinculos {
+  vinculos?: Vinculos
+}
+
+async function cargarVinculos(
+  userId: string,
+  setUser: (updater: (prev: User | null) => User | null) => void,
+): Promise<void> {
+  try {
+    const { data } = await apiClient.get<RespuestaPerfilVinculos>('/auth/perfil')
+    const vinculos = data.vinculos ?? SIN_VINCULOS
+    setUser((prev) => (prev && prev.id === userId ? { ...prev, vinculos } : prev))
+  } catch {
+    // Silencioso a propósito: sin vinculos el selector de perfil no
+    // aparece, pero el resto de la sesión sigue funcionando normal.
+  }
+}
+
+const PERFIL_ACTIVO_KEY = 'siapb_perfil_activo'
+
+function leerPerfilGuardado(userId: string): PerfilActivo {
+  try {
+    const guardado = localStorage.getItem(`${PERFIL_ACTIVO_KEY}_${userId}`)
+    return guardado === 'abonado' ? 'abonado' : 'base'
+  } catch {
+    return 'base'
+  }
+}
+
+function guardarPerfil(userId: string, perfil: PerfilActivo): void {
+  try {
+    localStorage.setItem(`${PERFIL_ACTIVO_KEY}_${userId}`, perfil)
+  } catch {
+    // localStorage puede fallar (modo privado, cuota). No es crítico.
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [status, setStatus] =
     useState<'restoring' | 'authenticated' | 'unauthenticated'>('restoring')
+  const [perfilActivo, setPerfilActivo] = useState<PerfilActivo>('base')
 
   // Al recargar la página el Access Token se pierde (memoria volátil);
   // se intenta restaurar la sesión con el Refresh Token de la cookie httpOnly.
@@ -84,6 +159,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (cancelado) return
         aplicarSesion(data, setUser)
         setStatus('authenticated')
+        setPerfilActivo(leerPerfilGuardado(String(data.user.id)))
+        void cargarVinculos(String(data.user.id), setUser)
       })
       .catch(() => {
         // Sin sesión activa o refresh expirado: se queda deslogueado.
@@ -101,6 +178,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return alExpirarSesion(() => {
       setUser(null)
       setStatus('unauthenticated')
+      setPerfilActivo('base')
     })
   }, [])
 
@@ -112,6 +190,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       })
       aplicarSesion(data, setUser)
       setStatus('authenticated')
+      setPerfilActivo(leerPerfilGuardado(String(data.user.id)))
+      void cargarVinculos(String(data.user.id), setUser)
     },
     [],
   )
@@ -122,8 +202,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     tokenStore.clear()
     setUser(null)
     setStatus('unauthenticated')
+    setPerfilActivo('base')
     void apiClient.post('/auth/logout').catch(() => undefined)
   }, [])
+
+  // Solo se puede pasar a 'abonado' si la cuenta realmente tiene un abonado
+  // vinculado; de lo contrario no hace nada (evita un estado inconsistente
+  // si se llama por error o con datos vencidos).
+  const cambiarPerfil = useCallback(
+    (perfil: PerfilActivo) => {
+      if (!user) return
+      if (perfil === 'abonado' && !user.vinculos.abonado) return
+      setPerfilActivo(perfil)
+      guardarPerfil(user.id, perfil)
+    },
+    [user],
+  )
+
+  const rolEfectivo = user ? (perfilActivo === 'abonado' ? 'Abonado' : user.rol) : null
 
   return (
     <AuthContext.Provider
@@ -133,6 +229,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         status,
         login,
         logout,
+        rolEfectivo,
+        perfilActivo,
+        cambiarPerfil,
       }}
     >
       {children}

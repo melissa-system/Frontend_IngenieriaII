@@ -1,5 +1,6 @@
 import axios from 'axios';
 import apiClient from '../../lib/apiClient';
+import { RequiereConfirmacionError, extraerRequiereConfirmacion } from './erroresApi';
 
 const RESOURCE = '/abonados';
 
@@ -72,11 +73,19 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
 // Estas rutas requieren sesión de administrador: se usa apiClient (en vez de
 // fetch directo) porque su interceptor adjunta automáticamente el Access
 // Token (Authorization: Bearer) a cada petición.
-export const crearAbonado = async (payload: AbonadoPayload): Promise<Abonado> => {
+export const crearAbonado = async (
+  payload: AbonadoPayload,
+  confirmarVinculacion?: boolean,
+): Promise<Abonado> => {
   try {
-    const { data } = await apiClient.post<Abonado>(RESOURCE, payload);
+    const { data } = await apiClient.post<Abonado>(RESOURCE, {
+      ...payload,
+      ...(confirmarVinculacion ? { confirmarVinculacion: true } : {}),
+    });
     return data;
   } catch (error) {
+    const info = extraerRequiereConfirmacion(error);
+    if (info) throw new RequiereConfirmacionError(info);
     throw new Error(obtenerMensajeError(error, 'No se pudo registrar el abonado.'));
   }
 };

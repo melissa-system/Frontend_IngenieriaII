@@ -1,5 +1,6 @@
 import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { RequiereConfirmacionError, extraerRequiereConfirmacion } from './erroresApi'
 
 const RESOURCE = '/empleados'
 
@@ -51,11 +52,17 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
 
 export const crearEmpleado = async (
   payload: EmpleadoPayload,
+  confirmarVinculacion?: boolean,
 ): Promise<Empleado> => {
   try {
-    const { data } = await apiClient.post<Empleado>(RESOURCE, payload)
+    const { data } = await apiClient.post<Empleado>(RESOURCE, {
+      ...payload,
+      ...(confirmarVinculacion ? { confirmarVinculacion: true } : {}),
+    })
     return data
   } catch (error) {
+    const info = extraerRequiereConfirmacion(error)
+    if (info) throw new RequiereConfirmacionError(info)
     throw new Error(
       obtenerMensajeError(error, 'No se pudo registrar el empleado.'),
     )

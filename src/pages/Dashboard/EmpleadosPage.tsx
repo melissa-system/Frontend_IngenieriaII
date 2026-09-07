@@ -12,6 +12,10 @@ import {
   type EstadoEmpleado,
 } from '../../components/Services/empleados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
+import {
+  RequiereConfirmacionError,
+  type RequiereConfirmacionInfo,
+} from '../../components/Services/erroresApi'
 
 const PUESTOS = [
   'Junta Directiva',
@@ -163,6 +167,15 @@ function EmpleadosPage() {
     'idle' | 'found' | 'not-found' | 'error'
   >('idle')
   const [correoUsuario, setCorreoUsuario] = useState<string | null>(null)
+
+  // Confirmación de cédula cruzada: la cédula del nuevo empleado ya existe
+  // como Abonado. Se guarda el payload pendiente para reenviarlo con
+  // confirmarVinculacion: true si el usuario confirma que es la misma persona.
+  const [confirmacionCedula, setConfirmacionCedula] = useState<{
+    info: RequiereConfirmacionInfo
+    payload: EmpleadoPayload
+  } | null>(null)
+  const [confirmandoVinculacion, setConfirmandoVinculacion] = useState(false)
 
   const cargarEmpleados = useCallback(async () => {
     try {
@@ -367,11 +380,45 @@ function EmpleadosPage() {
           setConfirmacion('Empleado registrado correctamente.')
           setTimeout(() => setConfirmacion(null), 3000)
         })
-        .catch((err: Error) => {
-          setFormError({ nombre: err.message })
+        .catch((err: unknown) => {
+          if (err instanceof RequiereConfirmacionError) {
+            setConfirmacionCedula({ info: err.info, payload })
+            return
+          }
+          setFormError({
+            nombre:
+              err instanceof Error
+                ? err.message
+                : 'No se pudo registrar el empleado.',
+          })
         })
         .finally(() => setSubmitting(false))
     }
+  }
+
+  // El usuario confirmó que la cédula cruzada es la misma persona: se
+  // reenvía el mismo payload con confirmarVinculacion: true.
+  function confirmarVinculacionCedula() {
+    if (!confirmacionCedula) return
+    setConfirmandoVinculacion(true)
+    crearEmpleado(confirmacionCedula.payload, true)
+      .then((emp: Empleado) => {
+        setEmpleados((prev) => [...prev, emp])
+        setConfirmacionCedula(null)
+        setModalOpen(false)
+        setConfirmacion('Empleado registrado correctamente.')
+        setTimeout(() => setConfirmacion(null), 3000)
+      })
+      .catch((err: unknown) => {
+        setConfirmacionCedula(null)
+        setFormError({
+          nombre:
+            err instanceof Error
+              ? err.message
+              : 'No se pudo registrar el empleado.',
+        })
+      })
+      .finally(() => setConfirmandoVinculacion(false))
   }
 
   const inputClass =
@@ -820,6 +867,38 @@ function EmpleadosPage() {
                 className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
               >
                 Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal confirmación cédula cruzada ────────────── */}
+      {confirmacionCedula && (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+            <h2 className="text-lg font-semibold text-primary-900">
+              Cédula ya registrada
+            </h2>
+            <p className="mt-3 text-sm text-primary-600">
+              {confirmacionCedula.info.message}
+            </p>
+            <div className="mt-6 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={confirmarVinculacionCedula}
+                disabled={confirmandoVinculacion}
+                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {confirmandoVinculacion ? 'Guardando...' : 'Sí, es la misma persona'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirmacionCedula(null)}
+                disabled={confirmandoVinculacion}
+                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Cancelar
               </button>
             </div>
           </div>
