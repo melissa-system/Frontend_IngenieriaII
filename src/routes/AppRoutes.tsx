@@ -3,6 +3,7 @@ import MainLayout from '../layouts/MainLayout/MainLayout'
 import DashboardLayout from '../components/Dashboard/DashboardLayout'
 import ProtectedRoute from '../components/Dashboard/ProtectedRoute'
 import Home from '../pages/Home/Home'
+import RedirectSolicitudes from './RedirectSolicitudes'
 import Afiliacion from '../pages/Afiliacion/Afiliacion'
 import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
 import Login from '../pages/Login/Login'
@@ -11,7 +12,12 @@ import RestablecerPassword from '../pages/RestablecerPassword/RestablecerPasswor
 import VerificarCuenta from '../pages/VerificarCuenta/VerificarCuenta'
 import DashboardHome from '../pages/Dashboard/DashboardHome'
 import Abonados from '../pages/Dashboard/Abonados'
-import Solicitudes from '../pages/Dashboard/Solicitudes'
+import SolicitudesPajaAgua from '../pages/Dashboard/SolicitudesPajaAgua'
+import SolicitudesCambioDomicilio from '../pages/Dashboard/SolicitudesCambioDomicilio'
+import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambioRepresentante'
+import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
+import SolicitudesTrasladoMedidor from '../pages/Dashboard/SolicitudesTrasladoMedidor'
+import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
 import Inventario from '../pages/Dashboard/Inventario'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
 import Publicaciones from '../pages/Dashboard/Publicaciones'
@@ -49,7 +55,16 @@ function AppRoutes() {
       >
         <Route index element={<DashboardHome />} />
         <Route path="abonados" element={<Abonados />} />
-        <Route path="solicitudes" element={<Solicitudes />} />
+        <Route
+          path="solicitudes"
+          element={<RedirectSolicitudes />}
+        />
+        <Route path="solicitudes/paja-de-agua" element={<SolicitudesPajaAgua />} />
+        <Route path="solicitudes/cambio-domicilio" element={<SolicitudesCambioDomicilio />} />
+        <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
+        <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />
+        <Route path="solicitudes/traslado-medidor" element={<SolicitudesTrasladoMedidor />} />
+        <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="averias" element={<AveriasAdmin />} />
         <Route path="reportes" element={<Reportes />} />

@@ -21,6 +21,7 @@ export interface Empleado extends Omit<EmpleadoPayload, 'usuario_id' | 'email'> 
   estado: string
   fecha_registro: string
   usuario_id: number | null
+  usuario_email: string | null
   email: string | null
 }
 
@@ -148,6 +149,29 @@ export const buscarUsuarioPorEmail = async (
   } catch (error) {
     throw new Error(
       obtenerMensajeError(error, 'No se pudo consultar el correo.'),
+    )
+  }
+}
+
+export interface VincularCuentaResultado {
+  mensaje: string
+  empleado: Empleado
+}
+
+// Vincula (o crea si no existe) la cuenta de acceso del empleado usando su
+// correo: POST /empleados/:id/vincular-cuenta. La cuenta creada usa el rol
+// derivado del puesto del empleado.
+export const vincularCuentaEmpleado = async (
+  id: number | string,
+): Promise<VincularCuentaResultado> => {
+  try {
+    const { data } = await apiClient.post<VincularCuentaResultado>(
+      `${RESOURCE}/${id}/vincular-cuenta`,
+    )
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo vincular la cuenta al empleado.'),
     )
   }
 }

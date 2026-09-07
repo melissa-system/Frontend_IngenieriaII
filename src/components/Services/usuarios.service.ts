@@ -14,8 +14,8 @@ export interface Usuario {
   role_id: number;
   isActive: boolean;
   createdAt: string;
-  /** Abonado o Empleado al que está vinculada esta cuenta, si alguno. */
-  vinculo: VinculoUsuario | null;
+  /** Todos los Abonados/Empleados a los que está vinculada esta cuenta (pueden ser varios). */
+  vinculos: VinculoUsuario[];
 }
 
 export interface RolDisponible {

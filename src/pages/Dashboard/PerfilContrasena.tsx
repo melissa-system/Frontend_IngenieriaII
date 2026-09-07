@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import apiClient from '../../lib/apiClient'
-import PerfilTabs from '../../components/Dashboard/PerfilTabs'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
 
 // Espejo client-side de las reglas de fortaleza que aplica el backend en
@@ -93,7 +92,7 @@ function PerfilContrasena() {
     'absolute inset-y-0 right-0 flex items-center px-3 text-primary-400 transition-colors hover:text-primary-700'
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="mx-auto max-w-2xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -101,9 +100,7 @@ function PerfilContrasena() {
         </p>
       </div>
 
-      <PerfilTabs />
-
-      <div className="max-w-2xl rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
+      <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
         {exito && (
           <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
             Contraseña actualizada correctamente. Cierra sesión e inicia con tu

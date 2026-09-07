@@ -5,6 +5,7 @@ import {
   actualizarEmpleado,
   cambiarEstadoEmpleado,
   buscarUsuarioPorEmail,
+  vincularCuentaEmpleado,
   nombreVisible,
   type Empleado,
   type EmpleadoPayload,
@@ -153,6 +154,10 @@ function EmpleadosPage() {
   const [editando, setEditando] = useState(false)
   const edicionIdRef = useRef<number | null>(null)
 
+  // Empleado en edición (objeto completo, no solo el formulario): se usa en
+  // el panel "Cuenta de acceso" para saber si ya está vinculado.
+  const [empleadoEdicion, setEmpleadoEdicion] = useState<Empleado | null>(null)
+
   const [viewDetail, setViewDetail] = useState<Empleado | null>(null)
 
   const [confirmacion, setConfirmacion] = useState<string | null>(null)
@@ -176,6 +181,12 @@ function EmpleadosPage() {
     payload: EmpleadoPayload
   } | null>(null)
   const [confirmandoVinculacion, setConfirmandoVinculacion] = useState(false)
+
+  // Vinculación de la cuenta de acceso (por correo) de un empleado que aún
+  // no tiene usuario: se confirma dentro del formulario de edición.
+  const [vincularConfirmando, setVincularConfirmando] = useState(false)
+  const [vinculandoId, setVinculandoId] = useState<number | null>(null)
+  const [errorVincular, setErrorVincular] = useState<string | null>(null)
 
   const cargarEmpleados = useCallback(async () => {
     try {
@@ -247,6 +258,7 @@ function EmpleadosPage() {
     setFormError({})
     setEditando(false)
     edicionIdRef.current = null
+    setEmpleadoEdicion(null)
     setCedulaLookupStatus('idle')
     setCorreoLookupStatus('idle')
     setCorreoUsuario(null)
@@ -258,9 +270,12 @@ function EmpleadosPage() {
     setFormError({})
     setEditando(true)
     edicionIdRef.current = emp.id
+    setEmpleadoEdicion(emp)
     setCedulaLookupStatus('idle')
     setCorreoLookupStatus('idle')
     setCorreoUsuario(null)
+    setVincularConfirmando(false)
+    setErrorVincular(null)
     setModalOpen(true)
   }
 
@@ -420,6 +435,43 @@ function EmpleadosPage() {
       })
       .finally(() => setConfirmandoVinculacion(false))
   }
+
+  // El usuario confirmó la vinculación de la cuenta de acceso desde el
+  // formulario de edición: llama al backend, sincroniza la fila, el modal de
+  // detalle (si está abierto) y el propio formulario con el vínculo.
+  async function confirmarVincular() {
+    if (!empleadoEdicion) return
+    setVinculandoId(empleadoEdicion.id)
+    setErrorVincular(null)
+    try {
+      const { mensaje, empleado: actualizado } = await vincularCuentaEmpleado(
+        empleadoEdicion.id,
+      )
+      setEmpleados((prev) =>
+        prev.map((e) => (e.id === actualizado.id ? actualizado : e)),
+      )
+      if (viewDetail?.id === actualizado.id) setViewDetail(actualizado)
+      setEmpleadoEdicion(actualizado)
+      setVincularConfirmando(false)
+      setConfirmacion(mensaje)
+      setTimeout(() => setConfirmacion(null), 5000)
+    } catch (err) {
+      setErrorVincular(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo vincular la cuenta al empleado.',
+      )
+    } finally {
+      setVinculandoId(null)
+    }
+  }
+
+  // Correo PERSISTIDO del empleado en edición (el backend vincula con el que
+  // está guardado, no con el del formulario sin guardar).
+  const correoVinculacion = empleadoEdicion?.email?.trim() ?? ''
+  const correoDesactualizado =
+    !!empleadoEdicion &&
+    form.correo.trim().toLowerCase() !== correoVinculacion.toLowerCase()
 
   const inputClass =
     'mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
@@ -797,6 +849,101 @@ function EmpleadosPage() {
                   <p className="mt-1 text-xs text-red-600">{formError.correo}</p>
                 )}
               </div>
+
+              {/* ── Cuenta de acceso (solo edición) ───────── */}
+              {editando && empleadoEdicion && (
+                <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-4">
+                  <h3 className="text-sm font-medium text-primary-700">
+                    Cuenta de acceso
+                  </h3>
+                  {empleadoEdicion.usuario_id != null ? (
+                    <p className="mt-2 text-sm text-primary-600">
+                      Vinculada a{' '}
+                      <span className="break-all font-semibold text-primary-800">
+                        {empleadoEdicion.usuario_email ||
+                          `usuario #${empleadoEdicion.usuario_id}`}
+                      </span>
+                    </p>
+                  ) : (
+                    <div className="mt-2 space-y-2">
+                      {!correoVinculacion ? (
+                        <p className="text-sm text-primary-600">
+                          Este empleado no tiene correo guardado. Guarda primero
+                          el correo en el campo anterior para poder vincular la
+                          cuenta.
+                        </p>
+                      ) : !vincularConfirmando ? (
+                        <>
+                          <p className="text-sm text-primary-600">
+                            Sin cuenta de acceso vinculada. Se usará el correo{' '}
+                            <span className="break-all font-semibold text-primary-800">
+                              {correoVinculacion}
+                            </span>{' '}
+                            y, si no existe, se creará una cuenta con el rol del
+                            puesto ({empleadoEdicion.puesto}).
+                          </p>
+                          {correoDesactualizado && (
+                            <p className="text-xs font-medium text-amber-600">
+                              Modificaste el correo arriba sin guardar: la
+                              vinculación usará el correo guardado.
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setErrorVincular(null)
+                              setVincularConfirmando(true)
+                            }}
+                            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                          >
+                            Vincular cuenta
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-sm text-primary-600">
+                            Si el correo ya tiene una cuenta en el sistema, solo
+                            se vincula. Si todavía no existe, se creará
+                            automáticamente (con el rol de{' '}
+                            <span className="font-semibold text-primary-800">
+                              {empleadoEdicion.puesto}
+                            </span>
+                            ) y se enviará un correo para definir la contraseña.
+                          </p>
+                          {errorVincular && (
+                            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                              {errorVincular}
+                            </p>
+                          )}
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={confirmarVincular}
+                              disabled={vinculandoId !== null}
+                              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              {vinculandoId !== null
+                                ? 'Vinculando...'
+                                : 'Confirmar vinculación'}
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setVincularConfirmando(false)
+                                setErrorVincular(null)
+                              }}
+                              disabled={vinculandoId !== null}
+                              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              Cancelar
+                            </button>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {/* ── Botones ───────────────────────────────── */}
               <div className="flex items-center justify-end gap-3 pt-2">

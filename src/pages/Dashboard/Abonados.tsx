@@ -5,6 +5,7 @@ import {
   obtenerAbonados,
   actualizarAbonado,
   cambiarEstadoAbonado,
+  vincularCuentaAbonado,
   obtenerHistorialAbonado,
   nombreVisible,
   type Abonado,
@@ -207,6 +208,13 @@ function Abonados() {
     payload: AbonadoPayload
   } | null>(null)
   const [confirmandoVinculacion, setConfirmandoVinculacion] = useState(false)
+
+  // Vinculación de la cuenta de acceso (por correo) de un abonado que aún
+  // no tiene usuario: se confirma dentro del formulario de edición (estado
+  // de confirmación abierto, id en curso y error).
+  const [vincularConfirmando, setVincularConfirmando] = useState(false)
+  const [vinculandoId, setVinculandoId] = useState<string | number | null>(null)
+  const [errorVincular, setErrorVincular] = useState<string | null>(null)
 
   // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
   // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
@@ -535,6 +543,37 @@ function Abonados() {
     }
   }
 
+  // El usuario confirmó la vinculación de la cuenta de acceso desde el
+  // formulario de edición: llama al backend, sincroniza la fila, el modal
+  // de detalle (si está abierto) y el propio formulario con el vínculo.
+  async function confirmarVincular() {
+    if (!editando) return
+    const id = editando.id
+    setVinculandoId(id)
+    setErrorVincular(null)
+    try {
+      const { mensaje, abonado: actualizado } = await vincularCuentaAbonado(id)
+      setAbonados((prev) =>
+        prev.map((x) => (x.id === actualizado.id ? actualizado : x)),
+      )
+      if (viewDetail && viewDetail.id === actualizado.id) {
+        setViewDetail(actualizado)
+      }
+      setEditando(actualizado)
+      setVincularConfirmando(false)
+      setConfirmacion(mensaje)
+      setTimeout(() => setConfirmacion(null), 5000)
+    } catch (err) {
+      setErrorVincular(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo vincular la cuenta al abonado.',
+      )
+    } finally {
+      setVinculandoId(null)
+    }
+  }
+
   const esJuridica = form.tipo_abonado === 'Jurídica'
 
   const modalFormEl = !modalOpen ? null : (
@@ -730,6 +769,84 @@ function Abonados() {
                   className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   placeholder="Ej. G-1234567-2024"
                 />
+              </div>
+            )}
+
+            {editando && (
+              <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-4">
+                <h3 className="text-sm font-medium text-primary-700">
+                  Cuenta de acceso
+                </h3>
+                {editando.usuario_id != null ? (
+                  <p className="mt-2 text-sm text-primary-600">
+                    Vinculada a{' '}
+                    <span className="break-all font-semibold text-primary-800">
+                      {editando.usuario_email ||
+                        `usuario #${editando.usuario_id}`}
+                    </span>
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {!vincularConfirmando ? (
+                      <>
+                        <p className="text-sm text-primary-600">
+                          Sin cuenta de acceso vinculada. Se usará el correo{' '}
+                          <span className="break-all font-semibold text-primary-800">
+                            {editando.correo}
+                          </span>{' '}
+                          como cuenta.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setErrorVincular(null)
+                            setVincularConfirmando(true)
+                          }}
+                          className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                        >
+                          Vincular cuenta
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-primary-600">
+                          Si el correo ya tiene una cuenta en el sistema, solo
+                          se vincula. Si todavía no existe, se creará
+                          automáticamente y se enviará un correo para definir
+                          la contraseña.
+                        </p>
+                        {errorVincular && (
+                          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                            {errorVincular}
+                          </p>
+                        )}
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={confirmarVincular}
+                            disabled={vinculandoId !== null}
+                            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {vinculandoId !== null
+                              ? 'Vinculando...'
+                              : 'Confirmar vinculación'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVincularConfirmando(false)
+                              setErrorVincular(null)
+                            }}
+                            disabled={vinculandoId !== null}
+                            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
               </div>
             )}
 

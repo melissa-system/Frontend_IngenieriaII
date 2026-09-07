@@ -119,8 +119,15 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Solicitudes',
     icon: <SolicitudesIcon />,
-    to: '/dashboard/solicitudes',
-    roles: ['Administrador', 'Junta Directiva'],
+    roles: ['Administrador', 'Junta Directiva', 'Abonado'],
+    submenu: [
+      { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Domicilio', to: '/dashboard/solicitudes/cambio-domicilio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Medidor', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Traslado de Medidor', to: '/dashboard/solicitudes/traslado-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Otro', to: '/dashboard/solicitudes/otro', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+    ],
   },
   {
     label: 'Inventario',

@@ -7,7 +7,6 @@ import {
   type MenuItemConfig,
   type SubMenuItem,
 } from '../../lib/menuConfig'
-import { resolverUrlArchivo } from '../../lib/urlArchivos'
 
 // Aplana un submenú (incluyendo los grupos anidados) a la lista de rutas
 // que contiene, para saber si alguna está activa sin importar la profundidad.
@@ -454,17 +453,16 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                   : 'text-primary-200 hover:bg-primary-800 hover:text-white'
               }`}
             >
-              {user?.fotoUrl ? (
-                <img
-                  src={resolverUrlArchivo(user.fotoUrl)}
-                  alt="Foto de perfil"
-                  className="h-8 w-8 flex-none rounded-full object-cover"
-                />
-              ) : (
-                <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
-                  {user?.nombre.charAt(0).toUpperCase()}
-                </div>
-              )}
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2}
+                className="h-5 w-5 flex-none"
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0ZM4.501 20.118a7.5 7.5 0 0 1 14.998 0A17.933 17.933 0 0 1 12 21.75c-2.676 0-5.216-.584-7.499-1.632Z" />
+              </svg>
               <span className={`flex-1 truncate text-left ${collapsed ? 'lg:hidden' : ''}`}>
                 Perfil
               </span>
