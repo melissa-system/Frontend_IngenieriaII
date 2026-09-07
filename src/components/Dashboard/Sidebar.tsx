@@ -7,6 +7,7 @@ import {
   type MenuItemConfig,
   type SubMenuItem,
 } from '../../lib/menuConfig'
+import { resolverUrlArchivo } from '../../lib/urlArchivos'
 
 // Aplana un submenú (incluyendo los grupos anidados) a la lista de rutas
 // que contiene, para saber si alguna está activa sin importar la profundidad.
@@ -33,6 +34,37 @@ function Chevron({ expanded, collapsed }: { expanded: boolean; collapsed?: boole
     >
       <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
     </svg>
+  )
+}
+
+// Radio del curvado cóncavo (debe calzar con rounded-l-lg = 0.5rem = 8px del
+// propio ítem, para que la curva se sienta continua).
+const RADIO_CURVA = 8
+
+// Dos "mordidas" de 8x8px justo arriba y abajo del borde derecho del ítem
+// activo: en vez de una esquina recta pegada al borde del sidebar, el fondo
+// oscuro se curva hacia adentro y el blanco del ítem parece fundirse con lo
+// que sigue, como en la referencia. Se coloca como hermano del Link/botón,
+// dentro de un <li> con position:relative, para no interferir con su layout
+// interno (ícono + texto + chevron).
+function EsquinasFundidas() {
+  return (
+    <>
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-2 right-0 h-2 w-2"
+        style={{
+          background: `radial-gradient(circle at bottom right, white ${RADIO_CURVA}px, var(--color-primary-900) ${RADIO_CURVA}px)`,
+        }}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute -bottom-2 right-0 h-2 w-2"
+        style={{
+          background: `radial-gradient(circle at top right, white ${RADIO_CURVA}px, var(--color-primary-900) ${RADIO_CURVA}px)`,
+        }}
+      />
+    </>
   )
 }
 
@@ -196,28 +228,32 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   // profundidad — hoy solo se usa un nivel extra, en "Edición de página").
   function renderSubItem(sub: SubMenuItem, keyPrefix: string) {
     if (!sub.submenu) {
+      const active = isActive(sub.to!)
       return (
-        <li key={sub.to}>
+        <li key={sub.to} className="relative">
           <Link
             to={sub.to!}
             className={`block rounded-l-lg pl-3 pr-3 py-2 text-sm transition-colors ${
-              isActive(sub.to!)
+              active
                 ? 'bg-white text-primary-900 font-medium shadow-sm'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
             }`}
           >
             {sub.label}
           </Link>
+          {active && <EsquinasFundidas />}
         </li>
       )
     }
 
     const key = `${keyPrefix}__${sub.label}`
     const isExpanded = expanded[key] ?? false
-    const active = isSubmenuActive(sub.submenu)
+    // Mismo criterio que en renderItem: también se marca activo mientras
+    // está desplegado, no solo cuando ya estás en una de sus subpáginas.
+    const active = isSubmenuActive(sub.submenu) || isExpanded
 
     return (
-      <li key={key}>
+      <li key={key} className="relative">
         <button
           type="button"
           onClick={() => toggleExpand(key)}
@@ -230,6 +266,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <span className="flex-1 text-left">{sub.label}</span>
           <Chevron expanded={isExpanded} />
         </button>
+        {active && <EsquinasFundidas />}
         {isExpanded && (
           <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
             {sub.submenu.map((child) => renderSubItem(child, key))}
@@ -242,12 +279,16 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   function renderItem(item: MenuItemConfig) {
     const hasSubmenu = !!item.submenu?.length
     const isExpanded = expanded[item.label] ?? false
+    // Un ítem con submenú se marca como activo también mientras está
+    // desplegado (no solo cuando ya estás en una de sus subpáginas): así
+    // se ve el "clic" al abrirlo, en vez de quedar sin resaltar hasta
+    // navegar a algo de adentro.
     const active =
       (!!item.to && isActive(item.to)) ||
-      (hasSubmenu && isSubmenuActive(item.submenu!))
+      (hasSubmenu && (isSubmenuActive(item.submenu!) || isExpanded))
 
     return (
-      <li key={item.label}>
+      <li key={item.label} className="relative">
         {hasSubmenu ? (
           <>
             <button
@@ -305,6 +346,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
             <span className={collapsed ? 'lg:hidden' : ''}>{item.label}</span>
           </Link>
         )}
+        {active && <EsquinasFundidas />}
       </li>
     )
   }
@@ -445,9 +487,17 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                   : 'text-primary-200 hover:bg-primary-800 hover:text-white'
               }`}
             >
-              <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
-                {user?.nombre.charAt(0).toUpperCase()}
-              </div>
+              {user?.fotoUrl ? (
+                <img
+                  src={resolverUrlArchivo(user.fotoUrl)}
+                  alt="Foto de perfil"
+                  className="h-8 w-8 flex-none rounded-full object-cover"
+                />
+              ) : (
+                <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
+                  {user?.nombre.charAt(0).toUpperCase()}
+                </div>
+              )}
               <span className={`flex-1 truncate text-left ${collapsed ? 'lg:hidden' : ''}`}>
                 Perfil
               </span>

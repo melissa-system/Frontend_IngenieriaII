@@ -40,6 +40,8 @@ interface User {
   rol: string
   email: string
   vinculos: Vinculos
+  /** Foto de perfil (ver PerfilEditar.tsx). null hasta que carga o si nunca se subió una. */
+  fotoUrl: string | null
 }
 
 interface AuthContextType {
@@ -90,10 +92,12 @@ function mapearUsuario(backendUser: BackendUser): User {
     username,
     rol: ROL_LABELS[backendUser.role ?? ''] ?? backendUser.role ?? 'Abonado',
     email,
-    // Se completan aparte con cargarVinculos(): /auth/login y /auth/refresh
-    // no traen esta información, y no vale la pena bloquear el login por
-    // ella (si falla, el selector de perfil simplemente no aparece).
+    // Se completan aparte con cargarDatosExtendidos(): /auth/login y
+    // /auth/refresh no traen esta información, y no vale la pena bloquear
+    // el login por ella (si falla, el selector de perfil y la foto
+    // simplemente no aparecen).
     vinculos: SIN_VINCULOS,
+    fotoUrl: null,
   }
 }
 
@@ -103,24 +107,30 @@ function aplicarSesion(data: AuthResponse, setUser: (u: User) => void): void {
   setUser(mapearUsuario(data.user))
 }
 
-// GET /auth/perfil ya resuelve ambos vínculos (ver AuthService.obtenerPerfilCompleto);
-// se reutiliza acá solo para completar 'vinculos' sin duplicar esa llamada
-// a la BD en otro endpoint nuevo.
-interface RespuestaPerfilVinculos {
+// GET /auth/perfil ya resuelve ambos vínculos y la foto (ver
+// AuthService.obtenerPerfilCompleto); se reutiliza acá solo para completar
+// 'vinculos' y 'fotoUrl' sin duplicar esa llamada a la BD en otro endpoint
+// nuevo. PerfilEditar.tsx hace su propio fetch completo (PerfilCompleto)
+// porque necesita más campos (nombre, cédula, etc.) — este solo toma lo
+// que usan el header y el sidebar.
+interface RespuestaPerfilExtendida {
   vinculos?: Vinculos
+  foto_url?: string | null
 }
 
-async function cargarVinculos(
+async function cargarDatosExtendidos(
   userId: string,
   setUser: (updater: (prev: User | null) => User | null) => void,
 ): Promise<void> {
   try {
-    const { data } = await apiClient.get<RespuestaPerfilVinculos>('/auth/perfil')
+    const { data } = await apiClient.get<RespuestaPerfilExtendida>('/auth/perfil')
     const vinculos = data.vinculos ?? SIN_VINCULOS
-    setUser((prev) => (prev && prev.id === userId ? { ...prev, vinculos } : prev))
+    const fotoUrl = data.foto_url ?? null
+    setUser((prev) => (prev && prev.id === userId ? { ...prev, vinculos, fotoUrl } : prev))
   } catch {
     // Silencioso a propósito: sin vinculos el selector de perfil no
-    // aparece, pero el resto de la sesión sigue funcionando normal.
+    // aparece y sin foto se sigue mostrando la inicial, pero el resto de
+    // la sesión sigue funcionando normal.
   }
 }
 
@@ -160,7 +170,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         aplicarSesion(data, setUser)
         setStatus('authenticated')
         setPerfilActivo(leerPerfilGuardado(String(data.user.id)))
-        void cargarVinculos(String(data.user.id), setUser)
+        void cargarDatosExtendidos(String(data.user.id), setUser)
       })
       .catch(() => {
         // Sin sesión activa o refresh expirado: se queda deslogueado.
@@ -191,7 +201,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       aplicarSesion(data, setUser)
       setStatus('authenticated')
       setPerfilActivo(leerPerfilGuardado(String(data.user.id)))
-      void cargarVinculos(String(data.user.id), setUser)
+      void cargarDatosExtendidos(String(data.user.id), setUser)
     },
     [],
   )
