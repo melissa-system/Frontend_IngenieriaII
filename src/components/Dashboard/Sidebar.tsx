@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, type PerfilActivo } from '../../contexts/AuthContext'
 import {
@@ -36,6 +36,47 @@ function Chevron({ expanded, collapsed }: { expanded: boolean; collapsed?: boole
   )
 }
 
+// Íconos de las opciones de la burbuja de "Perfil" (ver más abajo).
+function IconEditarPerfil() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 flex-none">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487a2.1 2.1 0 1 1 2.97 2.97L7.5 19.79l-4 1 1-4Z" />
+    </svg>
+  )
+}
+
+function IconContrasena() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 flex-none">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 5.25a3 3 0 0 1 3 3m3 0a6 6 0 0 1-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1 1 21.75 8.25Z" />
+    </svg>
+  )
+}
+
+function IconCambioCuenta() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 flex-none">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" />
+    </svg>
+  )
+}
+
+function IconCheck() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 flex-none">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
+    </svg>
+  )
+}
+
+function IconCerrarSesion() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4 flex-none">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+    </svg>
+  )
+}
+
 interface SidebarProps {
   collapsed: boolean
   onToggleCollapse: () => void
@@ -43,15 +84,8 @@ interface SidebarProps {
   onCloseMobile: () => void
 }
 
-// Claves de expansión propias del bloque "Perfil" (submenú anidado de dos
-// niveles, armado a mano más abajo porque mezcla enlaces de ruta con
-// acciones de cambio de perfil, algo que el renderItem genérico no soporta).
-const PERFIL_KEY = 'Perfil'
-const MI_PERFIL_KEY = 'Perfil__MiPerfil'
-const CAMBIO_CUENTA_KEY = 'Perfil__CambioCuenta'
-
 function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
-  const { user, rolEfectivo, perfilActivo, cambiarPerfil } = useAuth()
+  const { user, rolEfectivo, perfilActivo, cambiarPerfil, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
   const role = rolEfectivo ?? ''
@@ -109,13 +143,22 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
     })
   }, [role])
 
-  // Auto-expande el bloque "Perfil" hasta el nivel de la ruta activa
-  // (Editar perfil / Cambio de contraseña), aparte del efecto anterior
-  // porque depende de location.pathname en cada navegación, no solo del rol.
+  // Burbuja de "Perfil": abre/cierra con su propio estado (no es un
+  // accordion de "expanded" como el resto del menú) y se cierra sola al
+  // hacer clic afuera.
+  const [perfilMenuOpen, setPerfilMenuOpen] = useState(false)
+  const perfilMenuRef = useRef<HTMLDivElement>(null)
+
   useEffect(() => {
-    if (!location.pathname.startsWith('/dashboard/perfil')) return
-    setExpanded((prev) => ({ ...prev, [PERFIL_KEY]: true, [MI_PERFIL_KEY]: true }))
-  }, [location.pathname])
+    if (!perfilMenuOpen) return
+    function alClicFuera(e: MouseEvent) {
+      if (perfilMenuRef.current && !perfilMenuRef.current.contains(e.target as Node)) {
+        setPerfilMenuOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', alClicFuera)
+    return () => document.removeEventListener('mousedown', alClicFuera)
+  }, [perfilMenuOpen])
 
   const toggleExpand = (label: string) => {
     // Si el sidebar está colapsado (solo pasa en escritorio), un submenú no
@@ -144,6 +187,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   // una pantalla que ya no aplica al perfil nuevo (ej. Administración).
   function seleccionarPerfil(perfil: PerfilActivo) {
     cambiarPerfil(perfil)
+    setPerfilMenuOpen(false)
     navigate('/dashboard')
   }
 
@@ -302,131 +346,111 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
       {perfilItem && (
         <div className="border-t border-primary-700 px-3 py-3">
-          {/* Todo este bloque se despliega hacia arriba (flex-col-reverse en
-              cada nivel): al estar pegado al fondo del sidebar, si abriera
-              hacia abajo como el resto del menú no habría espacio y se vería
-              cortado. Con la columna invertida el botón que dispara cada
-              nivel queda fijo donde está y sus opciones aparecen encima. */}
-          <ul className="space-y-1">
-            <li className="flex flex-col-reverse">
-              <button
-                type="button"
-                title="Perfil"
-                onClick={() => toggleExpand(PERFIL_KEY)}
-                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-                  collapsed ? 'lg:justify-center' : ''
-                } ${
-                  location.pathname.startsWith('/dashboard/perfil')
-                    ? 'bg-primary-700 text-white'
-                    : 'text-primary-200 hover:bg-primary-800 hover:text-white'
-                }`}
-              >
-                <span className="flex-none">{perfilItem.icon}</span>
-                <span className={`flex-1 text-left ${collapsed ? 'lg:hidden' : ''}`}>
-                  Perfil
-                </span>
-                <Chevron expanded={expanded[PERFIL_KEY] ?? false} collapsed={collapsed} />
-              </button>
+          {/* Burbuja flotante (como el menú de cuenta de un IDE/app de
+              escritorio): se despliega hacia arriba desde el chip del
+              usuario, sin empujar el resto del sidebar ni verse cortada al
+              estar pegada al fondo. */}
+          <div className="relative" ref={perfilMenuRef}>
+            {perfilMenuOpen && (
+              <div className="absolute bottom-full left-0 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-primary-700 bg-primary-800 shadow-2xl">
+                <div className="px-4 py-3">
+                  <p className="truncate text-sm font-medium text-white">{user?.nombre}</p>
+                  <p className="truncate text-xs text-primary-400">{user?.email}</p>
+                </div>
 
-              {expanded[PERFIL_KEY] && (
-                <ul
-                  className={`ml-2 mb-1 space-y-1 border-l border-primary-700 pl-4 ${
-                    collapsed ? 'lg:hidden' : ''
-                  }`}
-                >
-                  {/* ── Mi perfil: editar datos / cambiar contraseña ── */}
-                  <li className="flex flex-col-reverse">
+                <div className="border-t border-primary-700 py-1.5">
+                  <Link
+                    to="/dashboard/perfil"
+                    onClick={() => setPerfilMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                      isActive('/dashboard/perfil')
+                        ? 'text-white'
+                        : 'text-primary-200 hover:bg-primary-700 hover:text-white'
+                    }`}
+                  >
+                    <IconEditarPerfil />
+                    Editar perfil
+                  </Link>
+                  <Link
+                    to="/dashboard/perfil/contrasena"
+                    onClick={() => setPerfilMenuOpen(false)}
+                    className={`flex items-center gap-2.5 px-4 py-2 text-sm transition-colors ${
+                      isActive('/dashboard/perfil/contrasena')
+                        ? 'text-white'
+                        : 'text-primary-200 hover:bg-primary-700 hover:text-white'
+                    }`}
+                  >
+                    <IconContrasena />
+                    Cambio de contraseña
+                  </Link>
+                </div>
+
+                {/* ── Cambio de cuenta: perfiles disponibles con este correo ── */}
+                {puedeVerComoAbonado && (
+                  <div className="border-t border-primary-700 py-1.5">
+                    <p className="flex items-center gap-2.5 px-4 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-primary-400">
+                      <IconCambioCuenta />
+                      Cambio de cuenta
+                    </p>
                     <button
                       type="button"
-                      onClick={() => toggleExpand(MI_PERFIL_KEY)}
-                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
-                        location.pathname.startsWith('/dashboard/perfil')
-                          ? 'bg-primary-700 text-white font-medium'
-                          : 'text-primary-300 hover:bg-primary-800 hover:text-white'
-                      }`}
+                      onClick={() => seleccionarPerfil('base')}
+                      className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-primary-200 transition-colors hover:bg-primary-700 hover:text-white"
                     >
-                      <span className="flex-1 text-left">Mi perfil</span>
-                      <Chevron expanded={expanded[MI_PERFIL_KEY] ?? false} />
+                      <span className="flex-1 truncate">{user?.rol}</span>
+                      {perfilActivo === 'base' && <IconCheck />}
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => seleccionarPerfil('abonado')}
+                      className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-primary-200 transition-colors hover:bg-primary-700 hover:text-white"
+                    >
+                      <span className="flex-1 truncate">Abonado</span>
+                      {perfilActivo === 'abonado' && <IconCheck />}
+                    </button>
+                  </div>
+                )}
 
-                    {expanded[MI_PERFIL_KEY] && (
-                      <ul className="ml-2 mb-1 space-y-1 border-l border-primary-700 pl-4">
-                        <li>
-                          <Link
-                            to="/dashboard/perfil"
-                            className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
-                              isActive('/dashboard/perfil')
-                                ? 'bg-primary-700 text-white font-medium'
-                                : 'text-primary-300 hover:bg-primary-800 hover:text-white'
-                            }`}
-                          >
-                            Editar perfil
-                          </Link>
-                        </li>
-                        <li>
-                          <Link
-                            to="/dashboard/perfil/contrasena"
-                            className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
-                              isActive('/dashboard/perfil/contrasena')
-                                ? 'bg-primary-700 text-white font-medium'
-                                : 'text-primary-300 hover:bg-primary-800 hover:text-white'
-                            }`}
-                          >
-                            Cambio de contraseña
-                          </Link>
-                        </li>
-                      </ul>
-                    )}
-                  </li>
+                <div className="border-t border-primary-700 py-1.5">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setPerfilMenuOpen(false)
+                      logout()
+                    }}
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-300 transition-colors hover:bg-primary-700 hover:text-red-200"
+                  >
+                    <IconCerrarSesion />
+                    Cerrar sesión
+                  </button>
+                </div>
+              </div>
+            )}
 
-                  {/* ── Cambio de cuenta: perfiles disponibles con este correo ── */}
-                  {puedeVerComoAbonado && (
-                    <li className="flex flex-col-reverse">
-                      <button
-                        type="button"
-                        onClick={() => toggleExpand(CAMBIO_CUENTA_KEY)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-primary-300 transition-colors hover:bg-primary-800 hover:text-white"
-                      >
-                        <span className="flex-1 text-left">Cambio de cuenta</span>
-                        <Chevron expanded={expanded[CAMBIO_CUENTA_KEY] ?? false} />
-                      </button>
-
-                      {expanded[CAMBIO_CUENTA_KEY] && (
-                        <ul className="ml-2 mb-1 space-y-1 border-l border-primary-700 pl-4">
-                          <li>
-                            <button
-                              type="button"
-                              onClick={() => seleccionarPerfil('base')}
-                              className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                                perfilActivo === 'base'
-                                  ? 'bg-primary-700 text-white font-medium'
-                                  : 'text-primary-300 hover:bg-primary-800 hover:text-white'
-                              }`}
-                            >
-                              {user?.rol}
-                            </button>
-                          </li>
-                          <li>
-                            <button
-                              type="button"
-                              onClick={() => seleccionarPerfil('abonado')}
-                              className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-                                perfilActivo === 'abonado'
-                                  ? 'bg-primary-700 text-white font-medium'
-                                  : 'text-primary-300 hover:bg-primary-800 hover:text-white'
-                              }`}
-                            >
-                              Abonado
-                            </button>
-                          </li>
-                        </ul>
-                      )}
-                    </li>
-                  )}
-                </ul>
-              )}
-            </li>
-          </ul>
+            <button
+              type="button"
+              title="Perfil"
+              onClick={() => {
+                if (collapsed) onToggleCollapse()
+                setPerfilMenuOpen((prev) => !prev)
+              }}
+              className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-sm font-medium transition-colors ${
+                collapsed ? 'lg:justify-center' : ''
+              } ${
+                perfilMenuOpen || location.pathname.startsWith('/dashboard/perfil')
+                  ? 'bg-primary-800 text-white'
+                  : 'text-primary-200 hover:bg-primary-800 hover:text-white'
+              }`}
+            >
+              <div className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary-700 text-xs font-bold text-white">
+                {user?.nombre.charAt(0).toUpperCase()}
+              </div>
+              <span className={`flex-1 truncate text-left ${collapsed ? 'lg:hidden' : ''}`}>
+                {user?.nombre}
+              </span>
+              <Chevron expanded={perfilMenuOpen} collapsed={collapsed} />
+            </button>
+          </div>
         </div>
       )}
     </aside>
