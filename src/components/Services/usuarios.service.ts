@@ -1,5 +1,12 @@
 import apiClient from '../../lib/apiClient';
 
+export interface VinculoUsuario {
+  tipo: 'Abonado' | 'Empleado';
+  id: number;
+  nombre: string;
+  cedula: string;
+}
+
 export interface Usuario {
   id: number;
   email: string;
@@ -7,6 +14,8 @@ export interface Usuario {
   role_id: number;
   isActive: boolean;
   createdAt: string;
+  /** Abonado o Empleado al que está vinculada esta cuenta, si alguno. */
+  vinculo: VinculoUsuario | null;
 }
 
 export interface RolDisponible {

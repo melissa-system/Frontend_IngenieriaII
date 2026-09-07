@@ -242,7 +242,9 @@ export const Usuarios: React.FC = () => {
       u.email.toLowerCase().includes(termino) ||
       u.role.toLowerCase().includes(termino) ||
       (ROL_LABELS[u.role] || '').toLowerCase().includes(termino) ||
-      String(u.id).includes(termino);
+      String(u.id).includes(termino) ||
+      (u.vinculo?.nombre || '').toLowerCase().includes(termino) ||
+      (u.vinculo?.cedula || '').toLowerCase().includes(termino);
 
     const coincideRol =
       filtroRol === 'Todos' ||
@@ -341,7 +343,7 @@ export const Usuarios: React.FC = () => {
               setBusqueda(e.target.value);
               setPagina(1);
             }}
-            placeholder="Buscar por correo, rol o ID..."
+            placeholder="Buscar por correo, rol, ID, nombre o cédula vinculada..."
             className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
           />
           {busqueda && (
@@ -401,6 +403,7 @@ export const Usuarios: React.FC = () => {
                 <th className="px-4 py-3 text-left font-medium text-primary-700">ID</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Usuario / Correo</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Rol Asignado</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Vinculado a</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha Registro</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
@@ -409,7 +412,7 @@ export const Usuarios: React.FC = () => {
             <tbody className="divide-y divide-primary-50 text-primary-800">
               {cargando ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-primary-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
                     <div className="inline-flex items-center gap-2">
                       <div className="h-4 w-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
                       <span>Cargando usuarios desde el backend...</span>
@@ -418,7 +421,7 @@ export const Usuarios: React.FC = () => {
                 </tr>
               ) : usuariosFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-12 text-center text-primary-500">
+                  <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
                     <p className="font-medium">No se encontraron usuarios coincidentes.</p>
                     <p className="text-xs text-primary-400 mt-1">
                       Intenta ajustar el término de búsqueda o los filtros seleccionados.
@@ -460,6 +463,20 @@ export const Usuarios: React.FC = () => {
                         >
                           {rolLabel}
                         </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        {u.vinculo ? (
+                          <div>
+                            <p className="text-sm font-medium text-primary-800">
+                              {u.vinculo.nombre}
+                            </p>
+                            <p className="text-xs text-primary-400">
+                              {u.vinculo.tipo} · {u.vinculo.cedula}
+                            </p>
+                          </div>
+                        ) : (
+                          <span className="text-xs text-primary-400">Sin vincular</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
