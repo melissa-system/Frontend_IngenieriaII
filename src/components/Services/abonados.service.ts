@@ -31,6 +31,7 @@ export interface Abonado extends AbonadoPayload {
   estado: string;
   fecha_registro: string;
   usuario_id: number | string | null;
+  usuario_email: string | null;
 }
 
 // Nombre completo para mostrar en listas/tablas: concatena nombre +
@@ -90,9 +91,13 @@ export const crearAbonado = async (
   }
 };
 
-export const obtenerAbonados = async (): Promise<Abonado[]> => {
+export const obtenerAbonados = async (
+  buscar?: string,
+): Promise<Abonado[]> => {
   try {
-    const { data } = await apiClient.get<Abonado[]>(RESOURCE);
+    const { data } = await apiClient.get<Abonado[]>(RESOURCE, {
+      params: buscar ? { buscar } : {},
+    });
     return data;
   } catch (error) {
     throw new Error(obtenerMensajeError(error, 'No se pudieron cargar los abonados.'));
@@ -140,6 +145,28 @@ export const cambiarEstadoAbonado = async (
   } catch (error) {
     throw new Error(
       obtenerMensajeError(error, 'No se pudo cambiar el estado del abonado.'),
+    );
+  }
+};
+
+export interface VincularCuentaResultado {
+  mensaje: string;
+  abonado: Abonado;
+}
+
+// Vincula (o crea si no existe) la cuenta de acceso del abonado usando su
+// correo: POST /abonados/:id/vincular-cuenta.
+export const vincularCuentaAbonado = async (
+  id: number | string,
+): Promise<VincularCuentaResultado> => {
+  try {
+    const { data } = await apiClient.post<VincularCuentaResultado>(
+      `${RESOURCE}/${id}/vincular-cuenta`,
+    );
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo vincular la cuenta al abonado.'),
     );
   }
 };

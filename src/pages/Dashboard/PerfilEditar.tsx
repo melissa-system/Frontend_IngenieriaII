@@ -6,7 +6,6 @@ import {
   type PerfilCompleto,
 } from '../../components/Services/perfil.service'
 import { resolverUrlArchivo } from '../../lib/urlArchivos'
-import PerfilTabs from '../../components/Dashboard/PerfilTabs'
 
 function obtenerMensajeError(err: unknown): string {
   const data = (err as { response?: { data?: { message?: unknown } } })?.response
@@ -29,11 +28,11 @@ function IconCamara() {
   )
 }
 
-// Editar perfil: foto, información de usuario y datos de contacto en un
-// solo panel ancho (avatar a la izquierda, campos en grilla a la derecha).
-// El cambio de contraseña vive aparte (ver PerfilContrasena.tsx, enlazado
-// arriba con PerfilTabs) y el cambio de cuenta (Abonado <-> rol base) vive
-// en el propio menú del Sidebar.
+// Editar perfil: foto e información de contacto en un solo panel centrado
+// (avatar a la izquierda, campos en grilla a la derecha). El cambio de
+// contraseña vive aparte (ver PerfilContrasena.tsx, enlazado desde el menú
+// de 'Perfil' del Sidebar) y el cambio de cuenta (Abonado <-> rol base)
+// también vive en el propio menú del Sidebar.
 function PerfilEditar() {
   // ── Estado del perfil ───────────────────────────────────────────
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null)
@@ -176,15 +175,13 @@ function PerfilEditar() {
     'mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm text-primary-500'
 
   return (
-    <div className="max-w-5xl space-y-6">
+    <div className="mx-auto max-w-4xl space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
           Información de tu cuenta en SIAPB
         </p>
       </div>
-
-      <PerfilTabs />
 
       <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
         {(exitoFoto || exitoDatos) && (
@@ -278,12 +275,6 @@ function PerfilEditar() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-primary-700">
-                  Usuario
-                </label>
-                <input type="text" value={usuario} readOnly className={inputReadonlyClass} />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">
                   Nombre completo
                 </label>
                 <input
@@ -293,38 +284,38 @@ function PerfilEditar() {
                   className={inputReadonlyClass}
                 />
               </div>
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Cédula
+                </label>
+                <input
+                  type="text"
+                  value={perfil.cedula ?? ''}
+                  readOnly
+                  className={inputReadonlyClass}
+                />
+              </div>
             </div>
 
-            {(perfil.cedula || perfil.direccion) && (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {perfil.cedula && (
-                  <div>
-                    <label className="block text-sm font-medium text-primary-700">
-                      Cédula
-                    </label>
-                    <input
-                      type="text"
-                      value={perfil.cedula}
-                      readOnly
-                      className={inputReadonlyClass}
-                    />
-                  </div>
-                )}
-                {perfil.direccion && (
-                  <div>
-                    <label className="block text-sm font-medium text-primary-700">
-                      Dirección
-                    </label>
-                    <input
-                      type="text"
-                      value={perfil.direccion}
-                      readOnly
-                      className={inputReadonlyClass}
-                    />
-                  </div>
-                )}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Usuario
+                </label>
+                <input type="text" value={usuario} readOnly className={inputReadonlyClass} />
               </div>
-            )}
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Dirección
+                </label>
+                <input
+                  type="text"
+                  value={perfil.direccion ?? ''}
+                  readOnly
+                  className={inputReadonlyClass}
+                />
+              </div>
+            </div>
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>

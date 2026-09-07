@@ -245,8 +245,11 @@ export const Usuarios: React.FC = () => {
       u.role.toLowerCase().includes(termino) ||
       (ROL_LABELS[u.role] || '').toLowerCase().includes(termino) ||
       String(u.id).includes(termino) ||
-      (u.vinculo?.nombre || '').toLowerCase().includes(termino) ||
-      (u.vinculo?.cedula || '').toLowerCase().includes(termino);
+      u.vinculos.some(
+        (v) =>
+          (v.nombre || '').toLowerCase().includes(termino) ||
+          (v.cedula || '').toLowerCase().includes(termino),
+      );
 
     const coincideRol =
       filtroRol === 'Todos' ||
@@ -467,17 +470,23 @@ export const Usuarios: React.FC = () => {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {u.vinculo ? (
-                          <div>
-                            <p className="text-sm font-medium text-primary-800">
-                              {u.vinculo.nombre}
-                            </p>
-                            <p className="text-xs text-primary-400">
-                              {u.vinculo.tipo} · {u.vinculo.cedula}
-                            </p>
+                        {u.vinculos.length > 0 ? (
+                          <div className="space-y-1">
+                            {u.vinculos.map((v) => (
+                              <div key={`${v.tipo}-${v.id}`}>
+                                <p className="text-sm font-medium text-primary-800">
+                                  {v.nombre}
+                                </p>
+                                <p className="text-xs text-primary-400">
+                                  {v.tipo} · {v.cedula}
+                                </p>
+                              </div>
+                            ))}
                           </div>
                         ) : (
-                          <span className="text-xs text-primary-400">Sin vincular</span>
+                          <span className="text-xs text-primary-400">
+                            Sin vincular
+                          </span>
                         )}
                       </td>
                       <td className="px-4 py-3">
