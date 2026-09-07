@@ -6,6 +6,7 @@ import {
   type PerfilCompleto,
 } from '../../components/Services/perfil.service'
 import { resolverUrlArchivo } from '../../lib/urlArchivos'
+import PerfilTabs from '../../components/Dashboard/PerfilTabs'
 
 function obtenerMensajeError(err: unknown): string {
   const data = (err as { response?: { data?: { message?: unknown } } })?.response
@@ -15,9 +16,24 @@ function obtenerMensajeError(err: unknown): string {
   return 'No se pudo realizar la operación. Intenta nuevamente.'
 }
 
-// Editar perfil: información de usuario, foto y datos de contacto. El
-// cambio de contraseña vive aparte (ver PerfilContrasena.tsx) y el cambio
-// de cuenta (Abonado <-> rol base) vive en el propio menú del Sidebar.
+function IconCamara() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-4 w-4">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M6.827 6.175A2.31 2.31 0 0 1 5.186 7.23c-.38.054-.757.112-1.134.175C2.999 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9.574c0-1.067-.75-1.994-1.802-2.169a47.865 47.865 0 0 0-1.134-.175 2.31 2.31 0 0 1-1.64-1.055l-.822-1.316a2.192 2.192 0 0 0-1.736-1.039 48.774 48.774 0 0 0-5.232 0 2.192 2.192 0 0 0-1.736 1.039l-.821 1.316Z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 12.75a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0ZM18.75 10.5h.008v.008h-.008V10.5Z" />
+    </svg>
+  )
+}
+
+// Editar perfil: foto, información de usuario y datos de contacto en un
+// solo panel ancho (avatar a la izquierda, campos en grilla a la derecha).
+// El cambio de contraseña vive aparte (ver PerfilContrasena.tsx, enlazado
+// arriba con PerfilTabs) y el cambio de cuenta (Abonado <-> rol base) vive
+// en el propio menú del Sidebar.
 function PerfilEditar() {
   // ── Estado del perfil ───────────────────────────────────────────
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null)
@@ -71,8 +87,8 @@ function PerfilEditar() {
 
   if (errorCarga) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6">
-        <h1 className="text-2xl font-semibold text-primary-900">Editar perfil</h1>
+      <div className="max-w-5xl space-y-6">
+        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
         <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
           {errorCarga}
         </div>
@@ -160,269 +176,202 @@ function PerfilEditar() {
     'mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm text-primary-500'
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="max-w-5xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Editar perfil</h1>
+        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
           Información de tu cuenta en SIAPB
         </p>
       </div>
 
-      {/* ─── Tarjeta 1: Información de usuario ───────────────────── */}
-      <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-primary-900">
-          Información de usuario
-        </h2>
+      <PerfilTabs />
 
-        <div className="mt-5 flex items-center gap-4">
-          {perfil.foto_url ? (
-            <img
-              src={resolverUrlArchivo(perfil.foto_url)}
-              alt="Foto de perfil"
-              className="h-16 w-16 rounded-full object-cover"
-            />
-          ) : (
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary-700 text-xl font-bold text-white">
-              {inicial}
-            </div>
-          )}
-          <div>
-            <h3 className="text-xl font-semibold text-primary-900">
-              {nombreCompleto || usuario}
-            </h3>
-            <p className="text-sm text-primary-500">{perfil.role}</p>
-          </div>
-        </div>
-
-        <div className="mt-6 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Usuario
-            </label>
-            <input
-              type="text"
-              value={usuario}
-              readOnly
-              className={inputReadonlyClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Nombre completo
-            </label>
-            <input
-              type="text"
-              value={nombreCompleto}
-              readOnly
-              className={inputReadonlyClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Correo electrónico
-            </label>
-            <input
-              type="text"
-              value={perfil.email}
-              readOnly
-              className={inputReadonlyClass}
-            />
-          </div>
-          {perfil.cedula && (
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Cédula
-              </label>
-              <input
-                type="text"
-                value={perfil.cedula}
-                readOnly
-                className={inputReadonlyClass}
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* ─── Tarjeta 2: Foto de perfil ──────────────────────────── */}
-      <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-primary-900">
-          Foto de perfil
-        </h2>
-        <p className="mt-1 text-sm text-primary-500">
-          JPG, PNG, GIF o WEBP. Tamaño máximo: 2 MB.
-        </p>
-
-        {exitoFoto && (
-          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Foto actualizada correctamente.
+      <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
+        {(exitoFoto || exitoDatos) && (
+          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+            {exitoFoto && exitoDatos
+              ? 'Foto y datos actualizados correctamente.'
+              : exitoFoto
+                ? 'Foto actualizada correctamente.'
+                : 'Datos actualizados correctamente.'}
           </div>
         )}
-        {errorFoto && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errorFoto}
+        {(errorFoto || errorDatos) && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            {errorFoto || errorDatos}
           </div>
         )}
 
-        <div className="mt-5 flex flex-col items-center gap-4">
-          {previewFoto ? (
-            <img
-              src={previewFoto}
-              alt="Vista previa"
-              className="h-28 w-28 rounded-lg object-cover"
-            />
-          ) : perfil.foto_url ? (
-            <img
-              src={resolverUrlArchivo(perfil.foto_url)}
-              alt="Foto de perfil"
-              className="h-28 w-28 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="flex h-28 w-28 items-center justify-center rounded-lg bg-primary-700 text-3xl font-bold text-white">
-              {inicial}
-            </div>
-          )}
-
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/jpeg,image/png,image/gif,image/webp"
-            onChange={manejarFoto}
-            className="hidden"
-          />
-
-          {previewFoto ? (
-            <div className="flex items-center justify-end gap-3">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[13rem_1fr]">
+          {/* ── Columna izquierda: avatar con insignia de cámara ── */}
+          <div className="flex flex-col items-center gap-3 lg:items-start">
+            <div className="relative">
+              {previewFoto ? (
+                <img
+                  src={previewFoto}
+                  alt="Vista previa"
+                  className="h-28 w-28 rounded-full object-cover ring-4 ring-primary-50"
+                />
+              ) : perfil.foto_url ? (
+                <img
+                  src={resolverUrlArchivo(perfil.foto_url)}
+                  alt="Foto de perfil"
+                  className="h-28 w-28 rounded-full object-cover ring-4 ring-primary-50"
+                />
+              ) : (
+                <div className="flex h-28 w-28 items-center justify-center rounded-full bg-primary-700 text-3xl font-bold text-white ring-4 ring-primary-50">
+                  {inicial}
+                </div>
+              )}
               <button
                 type="button"
-                onClick={guardarFoto}
+                onClick={() => fileInputRef.current?.click()}
                 disabled={subiendoFoto}
-                className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+                aria-label="Cambiar foto de perfil"
+                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-white ring-2 ring-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {subiendoFoto ? 'Guardando…' : 'Guardar'}
+                <IconCamara />
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp"
+                onChange={manejarFoto}
+                className="hidden"
+              />
+            </div>
+
+            <div className="text-center lg:text-left">
+              <h3 className="text-base font-semibold text-primary-900">
+                {nombreCompleto || usuario}
+              </h3>
+              <p className="text-sm text-primary-500">{perfil.role}</p>
+            </div>
+
+            {previewFoto && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={guardarFoto}
+                  disabled={subiendoFoto}
+                  className="rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {subiendoFoto ? 'Guardando…' : 'Guardar foto'}
+                </button>
+                <button
+                  type="button"
+                  onClick={cancelarFoto}
+                  disabled={subiendoFoto}
+                  className="rounded-full border border-primary-300 px-4 py-1.5 text-xs font-semibold text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  Cancelar
+                </button>
+              </div>
+            )}
+            <p className="text-center text-xs text-primary-400 lg:text-left">
+              JPG, PNG, GIF o WEBP. Máx. 2 MB.
+            </p>
+          </div>
+
+          {/* ── Columna derecha: campos en grilla de 2 columnas ── */}
+          <form onSubmit={manejarActualizarDatos} className="space-y-5">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Usuario
+                </label>
+                <input type="text" value={usuario} readOnly className={inputReadonlyClass} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  value={nombreCompleto}
+                  readOnly
+                  className={inputReadonlyClass}
+                />
+              </div>
+            </div>
+
+            {(perfil.cedula || perfil.direccion) && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                {perfil.cedula && (
+                  <div>
+                    <label className="block text-sm font-medium text-primary-700">
+                      Cédula
+                    </label>
+                    <input
+                      type="text"
+                      value={perfil.cedula}
+                      readOnly
+                      className={inputReadonlyClass}
+                    />
+                  </div>
+                )}
+                {perfil.direccion && (
+                  <div>
+                    <label className="block text-sm font-medium text-primary-700">
+                      Dirección
+                    </label>
+                    <input
+                      type="text"
+                      value={perfil.direccion}
+                      readOnly
+                      className={inputReadonlyClass}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Correo electrónico
+                </label>
+                <input
+                  type="email"
+                  value={correo}
+                  onChange={(e) => setCorreo(e.target.value)}
+                  required
+                  className={inputClass}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-primary-700">
+                  Teléfono
+                </label>
+                <input
+                  type="tel"
+                  value={telefono}
+                  onChange={(e) => setTelefono(e.target.value)}
+                  placeholder="8741-8543"
+                  className={inputClass}
+                />
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={guardandoDatos}
+                className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {guardandoDatos ? 'Guardando…' : 'Guardar cambios'}
               </button>
               <button
                 type="button"
-                onClick={cancelarFoto}
-                disabled={subiendoFoto}
-                className="rounded-full border border-primary-300 px-5 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+                onClick={cancelarDatos}
+                disabled={guardandoDatos}
+                className="rounded-full border border-primary-300 px-6 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 Cancelar
               </button>
             </div>
-          ) : (
-            <button
-              type="button"
-              onClick={() => fileInputRef.current?.click()}
-              disabled={subiendoFoto}
-              className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {subiendoFoto ? 'Subiendo…' : 'Cambiar foto'}
-            </button>
-          )}
+          </form>
         </div>
-      </div>
-
-      {/* ─── Tarjeta 3: Actualizar datos ────────────────────────── */}
-      <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
-        <h2 className="text-lg font-semibold text-primary-900">
-          Actualizar datos
-        </h2>
-        <p className="mt-1 text-sm text-primary-500">
-          Solo puedes modificar el correo y teléfono.
-        </p>
-
-        {exitoDatos && (
-          <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Datos actualizados correctamente.
-          </div>
-        )}
-        {errorDatos && (
-          <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errorDatos}
-          </div>
-        )}
-
-        <form onSubmit={manejarActualizarDatos} className="mt-5 space-y-5">
-          <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Nombre completo
-            </label>
-            <input
-              type="text"
-              value={nombreCompleto}
-              readOnly
-              className={inputReadonlyClass}
-            />
-          </div>
-          {perfil.cedula && (
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Cédula
-              </label>
-              <input
-                type="text"
-                value={perfil.cedula}
-                readOnly
-                className={inputReadonlyClass}
-              />
-            </div>
-          )}
-          {perfil.direccion && (
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Dirección
-              </label>
-              <input
-                type="text"
-                value={perfil.direccion}
-                readOnly
-                className={inputReadonlyClass}
-              />
-            </div>
-          )}
-          <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Correo electrónico
-            </label>
-            <input
-              type="email"
-              value={correo}
-              onChange={(e) => setCorreo(e.target.value)}
-              required
-              className={inputClass}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Teléfono
-            </label>
-            <input
-              type="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(e.target.value)}
-              placeholder="8741-8543"
-              className={inputClass}
-            />
-          </div>
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="submit"
-              disabled={guardandoDatos}
-              className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {guardandoDatos ? 'Guardando…' : 'Guardar cambios'}
-            </button>
-            <button
-              type="button"
-              onClick={cancelarDatos}
-              disabled={guardandoDatos}
-              className="rounded-full border border-primary-300 px-5 py-2.5 text-sm font-semibold text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              Cancelar
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   )
