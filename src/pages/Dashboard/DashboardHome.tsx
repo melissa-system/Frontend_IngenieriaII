@@ -51,23 +51,57 @@ function fechaEnRango(fecha: string, desde: string, hasta: string): boolean {
   return fecha >= desde && fecha <= hasta
 }
 
+// Tarjeta de KPI con dos variantes: "dark" para las métricas más
+// destacadas (fondo degradado del azul institucional, con el ícono
+// repetido en grande y semitransparente de fondo) y "light" para el
+// resto (fondo blanco con el ícono en una insignia circular). Ambas
+// variantes se quedan dentro de la paleta primary-* — sin colores nuevos.
 function StatCard({
   title,
   value,
   subtitle,
   to,
+  icon,
+  variant = 'light',
 }: {
   title: string
   value: string
   subtitle: string
   to: string
+  icon: React.ReactNode
+  variant?: 'dark' | 'light'
 }) {
+  if (variant === 'dark') {
+    return (
+      <Link
+        to={to}
+        className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 p-5 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-5 -top-5 flex h-28 w-28 items-center justify-center rounded-full bg-white/5 text-white/10 transition-transform duration-300 group-hover:scale-110 [&>svg]:h-16 [&>svg]:w-16"
+        >
+          {icon}
+        </span>
+        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+          {icon}
+        </span>
+        <p className="relative mt-4 text-sm font-medium text-primary-200">{title}</p>
+        <p className="relative mt-1 text-3xl font-semibold">{value}</p>
+        <p className="relative mt-1 text-xs text-primary-300">{subtitle}</p>
+      </Link>
+    )
+  }
+
   return (
     <Link
       to={to}
-      className="block rounded-xl border border-primary-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+      className="block rounded-2xl border border-primary-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
     >
-      <p className="text-sm font-medium text-primary-500">{title}</p>
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+        {icon}
+      </span>
+      <p className="mt-4 text-sm font-medium text-primary-500">{title}</p>
       <p className="mt-1 text-3xl font-semibold text-primary-900">{value}</p>
       <p className="mt-1 text-xs text-primary-400">{subtitle}</p>
     </Link>
@@ -248,75 +282,90 @@ function DashboardHomeContenido() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
-          Panel de control
-        </h1>
-        <p className="mt-1 text-sm text-primary-500">
-          Resumen general del sistema SIAPB
-        </p>
-      </div>
+      {/* Panel superior: título + selector de rango + KPIs, agrupados en un
+          fondo degradado suave para darle jerarquía propia frente al resto
+          del contenido (en vez de que todo flote sobre el mismo gris). */}
+      <div className="rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-primary-900">
+              Panel de control
+            </h1>
+            <p className="mt-1 text-sm text-primary-500">
+              Resumen general del sistema SIAPB
+            </p>
+          </div>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={rango}
-          onChange={(e) => setRango(e.target.value as Rango)}
-          className="h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-        >
-          <option value="este-mes">Este mes</option>
-          <option value="este-trimestre">Este trimestre</option>
-          <option value="este-ano">Este a&ntilde;o</option>
-          <option value="personalizado">Personalizado</option>
-        </select>
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={rango}
+              onChange={(e) => setRango(e.target.value as Rango)}
+              className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="este-mes">Este mes</option>
+              <option value="este-trimestre">Este trimestre</option>
+              <option value="este-ano">Este a&ntilde;o</option>
+              <option value="personalizado">Personalizado</option>
+            </select>
 
-        {rango === 'personalizado' && (
-          <>
-            <input
-              type="date"
-              value={desdeCustom}
-              onChange={(e) => setDesdeCustom(e.target.value)}
-              className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-            />
-            <span className="text-sm text-primary-400">a</span>
-            <input
-              type="date"
-              value={hastaCustom}
-              onChange={(e) => setHastaCustom(e.target.value)}
-              className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-            />
-          </>
-        )}
-      </div>
+            {rango === 'personalizado' && (
+              <>
+                <input
+                  type="date"
+                  value={desdeCustom}
+                  onChange={(e) => setDesdeCustom(e.target.value)}
+                  className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+                />
+                <span className="text-sm text-primary-400">a</span>
+                <input
+                  type="date"
+                  value={hastaCustom}
+                  onChange={(e) => setHastaCustom(e.target.value)}
+                  className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+                />
+              </>
+            )}
+          </div>
+        </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Abonados"
-          value={String(totalAbonados)}
-          subtitle={`${activos} activos · ${totalAbonados - activos} inactivos`}
-          to="/dashboard/abonados"
-        />
-        <StatCard
-          title="Solicitudes Pendientes"
-          value={String(solicitudesPendientes)}
-          subtitle="Esperan aprobaci&oacute;n"
-          to="/dashboard/solicitudes"
-        />
-        <StatCard
-          title="Aver&iacute;as Activas"
-          value={String(averiasActivas)}
-          subtitle="Pendientes o en progreso"
-          to="/dashboard/averias"
-        />
-        <StatCard
-          title="Stock Bajo"
-          value={String(stockBajo)}
-          subtitle="Items por reabastecer"
-          to="/dashboard/inventario"
-        />
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            variant="dark"
+            icon={<IconAbonado />}
+            title="Total Abonados"
+            value={String(totalAbonados)}
+            subtitle={`${activos} activos · ${totalAbonados - activos} inactivos`}
+            to="/dashboard/abonados"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconSolicitud />}
+            title="Solicitudes Pendientes"
+            value={String(solicitudesPendientes)}
+            subtitle="Esperan aprobaci&oacute;n"
+            to="/dashboard/solicitudes"
+          />
+          <StatCard
+            variant="dark"
+            icon={<IconAveria />}
+            title="Aver&iacute;as Activas"
+            value={String(averiasActivas)}
+            subtitle="Pendientes o en progreso"
+            to="/dashboard/averias"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconStock />}
+            title="Stock Bajo"
+            value={String(stockBajo)}
+            subtitle="Items por reabastecer"
+            to="/dashboard/inventario"
+          />
+        </div>
       </div>
 
       {alertasActivas.length > 0 && (
-        <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
+        <div className="rounded-2xl bg-yellow-50 p-5 shadow-sm">
           <h2 className="text-base font-semibold text-yellow-800">
             Alertas r&aacute;pidas
           </h2>
@@ -334,7 +383,7 @@ function DashboardHomeContenido() {
       )}
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="overflow-hidden rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Solicitudes por Tipo
           </h2>
@@ -360,7 +409,7 @@ function DashboardHomeContenido() {
           </ResponsiveContainer>
         </div>
 
-        <div className="overflow-hidden rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Aver&iacute;as por Tipo
           </h2>

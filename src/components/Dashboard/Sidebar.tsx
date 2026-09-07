@@ -202,7 +202,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
             to={sub.to!}
             className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
               isActive(sub.to!)
-                ? 'bg-primary-700 text-white font-medium'
+                ? 'bg-white text-primary-900 font-medium shadow-sm'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
             }`}
           >
@@ -223,7 +223,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           onClick={() => toggleExpand(key)}
           className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
             active
-              ? 'bg-primary-700 text-white font-medium'
+              ? 'bg-white text-primary-900 font-medium shadow-sm'
               : 'text-primary-300 hover:bg-primary-800 hover:text-white'
           }`}
         >
@@ -258,7 +258,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                 collapsed ? 'lg:justify-center' : ''
               } ${
                 active
-                  ? 'bg-primary-700 text-white'
+                  ? 'bg-white text-primary-900 shadow-sm'
                   : 'text-primary-200 hover:bg-primary-800 hover:text-white'
               }`}
             >
@@ -297,7 +297,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               collapsed ? 'lg:justify-center' : ''
             } ${
               active
-                ? 'bg-primary-700 text-white'
+                ? 'bg-white text-primary-900 shadow-sm'
                 : 'text-primary-200 hover:bg-primary-800 hover:text-white'
             }`}
           >
