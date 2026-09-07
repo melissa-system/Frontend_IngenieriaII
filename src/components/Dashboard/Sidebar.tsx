@@ -26,7 +26,14 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
     const initial: Record<string, boolean> = {}
     for (const item of visibleItems) {
       if (item.submenu) {
-        const anyActive = item.submenu.some((sub) => location.pathname === sub.to)
+        // Mismo criterio que isActive: si el submenú trae query string hay
+        // que compararlo también, si no, solo el pathname.
+        const anyActive = item.submenu.some((sub) => {
+          const actual = sub.to.includes('?')
+            ? `${location.pathname}${location.search}`
+            : location.pathname
+          return actual === sub.to
+        })
         initial[item.label] = anyActive
       }
     }
@@ -47,9 +54,20 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
     setExpanded((prev) => ({ ...prev, [label]: !prev[label] }))
   }
 
-  const isActive = (to: string) => location.pathname === to
+  // Algunos submenús comparten la misma ruta y se distinguen solo por un
+  // query string (ej. Publicaciones = /dashboard/administrativo, Documentos
+  // = /dashboard/administrativo?tab=documentos). Si "to" trae query, hay que
+  // comparar pathname + search completos; si no trae, comparar solo el
+  // pathname (así una ruta sin query nunca "roba" el resaltado de otra que
+  // sí lo tiene, y viceversa).
+  const isActive = (to: string) => {
+    const actual = to.includes('?')
+      ? `${location.pathname}${location.search}`
+      : location.pathname
+    return actual === to
+  }
   const isSubmenuActive = (items: { to: string }[]) =>
-    items.some((item) => location.pathname === item.to)
+    items.some((item) => isActive(item.to))
 
   function renderItem(item: MenuItemConfig) {
     const hasSubmenu = !!item.submenu?.length

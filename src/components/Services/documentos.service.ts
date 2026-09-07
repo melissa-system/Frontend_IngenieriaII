@@ -86,10 +86,13 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
   return fallback;
 }
 
-// Sube un documento nuevo (o una nueva versión de uno existente, si coincide
-// nombre + tipo con un documento vigente). Usa apiClient para que el
-// interceptor adjunte el Access Token, y reporta el progreso de la subida
-// vía onProgress (0-100) para poder mostrar una barra de carga.
+// Sube un documento NUEVO. El nombre debe ser único en todo el repositorio
+// (el backend lo rechaza si ya existe uno con ese nombre) — para reemplazar
+// el archivo de un documento existente hay que usar agregarNuevaVersion
+// sobre ESE documento puntual, no volver a crear uno con el mismo nombre.
+// Usa apiClient para que el interceptor adjunte el Access Token, y reporta
+// el progreso de la subida vía onProgress (0-100) para poder mostrar una
+// barra de carga.
 //
 // Nota: desde la migración a Cloudinary, el progreso reportado corresponde a
 // la subida navegador -> backend. El backend todavía tiene que reenviar el
@@ -122,13 +125,93 @@ export const crearDocumento = async (
   }
 };
 
-export const obtenerDocumentos = async (): Promise<Documento[]> => {
+// Sube un archivo nuevo como siguiente versión de un documento EXISTENTE
+// (identificado por id). El backend inhabilita la versión vigente actual
+// (se conserva, no se borra) y crea la fila nueva con version+1, mismo
+// nombre/tipo/visibilidad.
+export const agregarNuevaVersionDocumento = async (
+  id: string | number,
+  archivo: File,
+  onProgress?: (porcentaje: number) => void,
+): Promise<Documento> => {
+  const formData = new FormData();
+  formData.append('archivo', archivo);
+
   try {
-    const { data } = await apiClient.get<Documento[]>(RESOURCE);
+    const { data } = await apiClient.post<Documento>(
+      `${RESOURCE}/${id}/version`,
+      formData,
+      {
+        onUploadProgress: (evento: AxiosProgressEvent) => {
+          if (!onProgress || !evento.total) return;
+          onProgress(Math.round((evento.loaded / evento.total) * 100));
+        },
+      },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo agregar la nueva versión.'),
+    );
+  }
+};
+
+export interface FiltroDocumentos {
+  tipo?: TipoDocumento | '';
+  nombre?: string;
+}
+
+// Arma el query string a partir del filtro, omitiendo valores vacíos para
+// no mandar ?tipo=&nombre= de más.
+function armarQuery(filtro?: FiltroDocumentos): string {
+  const params = new URLSearchParams();
+  if (filtro?.tipo) params.set('tipo', filtro.tipo);
+  if (filtro?.nombre?.trim()) params.set('nombre', filtro.nombre.trim());
+  const query = params.toString();
+  return query ? `?${query}` : '';
+}
+
+export const obtenerDocumentos = async (
+  filtro?: FiltroDocumentos,
+): Promise<Documento[]> => {
+  try {
+    const { data } = await apiClient.get<Documento[]>(
+      `${RESOURCE}${armarQuery(filtro)}`,
+    );
     return data;
   } catch (error) {
     throw new Error(obtenerMensajeError(error, 'No se pudieron cargar los documentos.'));
   }
+};
+
+// "Documentos oficiales": lo que ve un abonado (o cualquier usuario con
+// sesión) desde su perfil — vigentes, tanto Interno como Público. Requiere
+// sesión (usa apiClient para que viaje el Access Token), pero no requiere
+// ser admin. Admite filtrar por tipo, igual que obtenerDocumentos.
+export const obtenerDocumentosOficiales = async (
+  filtro?: Pick<FiltroDocumentos, 'tipo'>,
+): Promise<Documento[]> => {
+  try {
+    const { data } = await apiClient.get<Documento[]>(
+      `${RESOURCE}/oficiales${armarQuery(filtro)}`,
+    );
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar los documentos oficiales.'),
+    );
+  }
+};
+
+// Documentos marcados como 'Público', para mostrarlos como card en la
+// sección de Noticias del landing. Ruta pública: fetch simple, sin token
+// (igual que obtenerPublicaciones en publicaciones.service.ts).
+export const obtenerDocumentosPublicos = async (): Promise<Documento[]> => {
+  const response = await fetch(`${API_BASE_URL}${RESOURCE}/publicos`);
+  if (!response.ok) {
+    throw new Error(`Error en el servidor: ${response.status}`);
+  }
+  return await response.json();
 };
 
 export const actualizarDocumento = async (

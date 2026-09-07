@@ -14,13 +14,15 @@ import Abonados from '../pages/Dashboard/Abonados'
 import Solicitudes from '../pages/Dashboard/Solicitudes'
 import Inventario from '../pages/Dashboard/Inventario'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
-import Administrativo from '../pages/Dashboard/Administrativo'
+import Publicaciones from '../pages/Dashboard/Publicaciones'
+import DocumentosAdmin from '../pages/Dashboard/DocumentosAdmin'
 import Seguridad from '../pages/Dashboard/Seguridad'
 import Perfil from '../pages/Dashboard/Perfil'
 import Reportes from '../pages/Dashboard/Reportes'
 import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
 import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
 import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
+import DocumentosOficialesPage from '../pages/Dashboard/DocumentosOficialesPage'
 
 function AppRoutes() {
   return (
@@ -50,12 +52,14 @@ function AppRoutes() {
         <Route path="inventario" element={<Inventario />} />
         <Route path="averias" element={<AveriasAdmin />} />
         <Route path="reportes" element={<Reportes />} />
-        <Route path="administrativo" element={<Administrativo />} />
+        <Route path="administrativo" element={<Publicaciones />} />
+        <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />
         <Route path="perfil" element={<Perfil />} />
         <Route path="contacto-asada" element={<ContactoAsadaPage />} />
         <Route path="horario-asada" element={<HorarioAsadaPage />} />
         <Route path="personal" element={<EmpleadosPage />} />
+        <Route path="documentos-oficiales" element={<DocumentosOficialesPage />} />
       </Route>
 
       <Route

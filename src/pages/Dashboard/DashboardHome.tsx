@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   BarChart,
   Bar,
@@ -142,6 +143,20 @@ function AlertCard({
 }
 
 function DashboardHome() {
+  const { user } = useAuth()
+
+  // Este panel es de analítica administrativa (mock de abonados, averías,
+  // solicitudes, inventario) — no tiene sentido para un abonado. Un abonado
+  // que llega a /dashboard (por ejemplo, justo tras iniciar sesión) se
+  // manda directo a su propia sección en vez de ver esto.
+  if (user?.rol === 'Abonado') {
+    return <Navigate to="/dashboard/documentos-oficiales" replace />
+  }
+
+  return <DashboardHomeContenido />
+}
+
+function DashboardHomeContenido() {
   const [rango, setRango] = useState<Rango>('este-mes')
   const [desdeCustom, setDesdeCustom] = useState('')
   const [hastaCustom, setHastaCustom] = useState('')

@@ -3,6 +3,11 @@ import {
   obtenerPublicaciones,
   type Publicacion,
 } from '../../components/Services/publicaciones.service'
+import {
+  obtenerDocumentosPublicos,
+  obtenerUrlArchivo,
+  type Documento,
+} from '../../components/Services/documentos.service'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -16,8 +21,47 @@ function formatearFecha(fechaIso: string): string {
   }
 }
 
+// Noticias mezcla dos fuentes distintas en un solo feed: publicaciones
+// reales (avisos redactados a mano) y documentos marcados como 'Público'
+// (actas, informes, etc. que el administrativo quiere promocionar en el
+// landing sin tener que redactar un aviso aparte). No se crea ninguna fila
+// nueva en 'publicaciones' para esto: el card se arma en el frontend a
+// partir de los datos del documento.
+interface ItemFeed {
+  id: string;
+  fecha: string;
+  categoria: string;
+  titulo: string;
+  contenido: string;
+  esDocumento: boolean;
+  urlDescarga?: string;
+}
+
+function desdePublicacion(p: Publicacion): ItemFeed {
+  return {
+    id: `pub-${p.id}`,
+    fecha: p.fecha_publicacion,
+    categoria: p.categoria,
+    titulo: p.titulo,
+    contenido: p.contenido,
+    esDocumento: false,
+  };
+}
+
+function desdeDocumento(d: Documento): ItemFeed {
+  return {
+    id: `doc-${d.id}`,
+    fecha: d.fecha_carga,
+    categoria: d.tipo,
+    titulo: d.nombre,
+    contenido: 'Documento oficial disponible para descarga.',
+    esDocumento: true,
+    urlDescarga: obtenerUrlArchivo(d.ubicacion),
+  };
+}
+
 function News() {
-  const [noticias, setNoticias] = useState<Publicacion[]>([])
+  const [noticias, setNoticias] = useState<ItemFeed[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
@@ -38,18 +82,33 @@ function News() {
   useEffect(() => {
     let cancelado = false
 
-    obtenerPublicaciones()
-      .then((data) => {
-        if (!cancelado) setNoticias(data)
-      })
-      .catch((err) => {
-        if (!cancelado) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : 'No se pudieron cargar las noticias.',
-          )
+    // Se piden por separado (si una falla no debe tumbar la otra) y se
+    // combinan en un solo feed ordenado por fecha, más reciente primero.
+    Promise.allSettled([obtenerPublicaciones(), obtenerDocumentosPublicos()])
+      .then(([resPublicaciones, resDocumentos]) => {
+        if (cancelado) return
+
+        const publicaciones =
+          resPublicaciones.status === 'fulfilled'
+            ? resPublicaciones.value.map(desdePublicacion)
+            : []
+        const documentos =
+          resDocumentos.status === 'fulfilled'
+            ? resDocumentos.value.map(desdeDocumento)
+            : []
+
+        if (
+          resPublicaciones.status === 'rejected' &&
+          resDocumentos.status === 'rejected'
+        ) {
+          setError('No se pudieron cargar las noticias.')
+          return
         }
+
+        const combinado = [...publicaciones, ...documentos].sort(
+          (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
+        )
+        setNoticias(combinado)
       })
       .finally(() => {
         if (!cancelado) setLoading(false)
@@ -114,9 +173,16 @@ function News() {
                   style={{ flex: `0 0 ${slideWidth}%` }}
                 >
                   <article className="group flex h-full cursor-default flex-col rounded-2xl border border-primary-200 bg-white p-6 text-left shadow-sm transition-all duration-300 hover:-translate-y-1 hover:border-primary-300 hover:shadow-lg">
-                    <span className="inline-block w-fit rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700 uppercase">
-                      {item.categoria}
-                    </span>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-block w-fit rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700 uppercase">
+                        {item.categoria}
+                      </span>
+                      {item.esDocumento && (
+                        <span className="inline-block w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 uppercase">
+                          Documento
+                        </span>
+                      )}
+                    </div>
                     <h3 className="mt-4 text-lg font-semibold text-primary-900">
                       {item.titulo}
                     </h3>
@@ -124,8 +190,18 @@ function News() {
                       {item.contenido}
                     </p>
                     <p className="mt-4 text-xs text-primary-400">
-                      {formatearFecha(item.fecha_publicacion)}
+                      {formatearFecha(item.fecha)}
                     </p>
+                    {item.esDocumento && item.urlDescarga && (
+                      <a
+                        href={item.urlDescarga}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-800"
+                      >
+                        Descargar
+                      </a>
+                    )}
                   </article>
                 </div>
               ))}
