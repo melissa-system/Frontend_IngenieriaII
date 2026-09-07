@@ -446,7 +446,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                 {user?.nombre.charAt(0).toUpperCase()}
               </div>
               <span className={`flex-1 truncate text-left ${collapsed ? 'lg:hidden' : ''}`}>
-                {user?.nombre}
+                Perfil
               </span>
               <Chevron expanded={perfilMenuOpen} collapsed={collapsed} />
             </button>

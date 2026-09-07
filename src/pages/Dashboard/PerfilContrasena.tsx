@@ -2,6 +2,7 @@ import { useState, type FormEvent } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import apiClient from '../../lib/apiClient'
 import PerfilTabs from '../../components/Dashboard/PerfilTabs'
+import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
 
 // Espejo client-side de las reglas de fortaleza que aplica el backend en
 // CambiarPasswordDto (min 8 caracteres, mayuscula, numero).
@@ -34,6 +35,9 @@ function PerfilContrasena() {
   const [passwordActual, setPasswordActual] = useState('')
   const [nuevaPassword, setNuevaPassword] = useState('')
   const [confirmarPassword, setConfirmarPassword] = useState('')
+  const [mostrarActual, setMostrarActual] = useState(false)
+  const [mostrarNueva, setMostrarNueva] = useState(false)
+  const [mostrarConfirmar, setMostrarConfirmar] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [exito, setExito] = useState(false)
@@ -84,7 +88,9 @@ function PerfilContrasena() {
   }
 
   const inputClass =
-    'mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
+    'w-full rounded-lg border border-primary-200 px-4 py-2.5 pr-11 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
+  const botonOjoClass =
+    'absolute inset-y-0 right-0 flex items-center px-3 text-primary-400 transition-colors hover:text-primary-700'
 
   return (
     <div className="max-w-5xl space-y-6">
@@ -115,40 +121,70 @@ function PerfilContrasena() {
             <label className="block text-sm font-medium text-primary-700">
               Contraseña actual
             </label>
-            <input
-              type="password"
-              value={passwordActual}
-              onChange={(e) => setPasswordActual(e.target.value)}
-              required
-              autoComplete="current-password"
-              className={inputClass}
-            />
+            <div className="relative mt-1">
+              <input
+                type={mostrarActual ? 'text' : 'password'}
+                value={passwordActual}
+                onChange={(e) => setPasswordActual(e.target.value)}
+                required
+                autoComplete="current-password"
+                className={inputClass}
+              />
+              <button
+                type="button"
+                aria-label={mostrarActual ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setMostrarActual((p) => !p)}
+                className={botonOjoClass}
+              >
+                {mostrarActual ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-primary-700">
               Nueva contraseña
             </label>
-            <input
-              type="password"
-              value={nuevaPassword}
-              onChange={(e) => setNuevaPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              className={inputClass}
-            />
+            <div className="relative mt-1">
+              <input
+                type={mostrarNueva ? 'text' : 'password'}
+                value={nuevaPassword}
+                onChange={(e) => setNuevaPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              <button
+                type="button"
+                aria-label={mostrarNueva ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setMostrarNueva((p) => !p)}
+                className={botonOjoClass}
+              >
+                {mostrarNueva ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
+              </button>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-medium text-primary-700">
               Confirmar nueva contraseña
             </label>
-            <input
-              type="password"
-              value={confirmarPassword}
-              onChange={(e) => setConfirmarPassword(e.target.value)}
-              required
-              autoComplete="new-password"
-              className={inputClass}
-            />
+            <div className="relative mt-1">
+              <input
+                type={mostrarConfirmar ? 'text' : 'password'}
+                value={confirmarPassword}
+                onChange={(e) => setConfirmarPassword(e.target.value)}
+                required
+                autoComplete="new-password"
+                className={inputClass}
+              />
+              <button
+                type="button"
+                aria-label={mostrarConfirmar ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                onClick={() => setMostrarConfirmar((p) => !p)}
+                className={botonOjoClass}
+              >
+                {mostrarConfirmar ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
+              </button>
+            </div>
           </div>
           <div className="flex items-center justify-end gap-3">
             <button

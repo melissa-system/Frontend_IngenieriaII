@@ -8,6 +8,7 @@ import {
   type Usuario,
   type RolDisponible,
 } from '../Services/usuarios.service';
+import { OjoAbiertoIcon, OjoCerradoIcon } from '../auth/EyeIcons';
 
 const ROL_LABELS: Record<string, string> = {
   super_admin: 'Junta Directiva',
@@ -82,6 +83,7 @@ export const Usuarios: React.FC = () => {
   const [modalCrearAbierto, setModalCrearAbierto] = useState(false);
   const [nuevoEmail, setNuevoEmail] = useState('');
   const [nuevoPassword, setNuevoPassword] = useState('');
+  const [mostrarNuevoPassword, setMostrarNuevoPassword] = useState(false);
   const [nuevoRoleId, setNuevoRoleId] = useState<number | ''>('');
   const [guardandoUsuario, setGuardandoUsuario] = useState(false);
   const [errorModalCrear, setErrorModalCrear] = useState<string | null>(null);
@@ -600,14 +602,24 @@ export const Usuarios: React.FC = () => {
                 <label className="block text-sm font-medium text-primary-700">
                   Contraseña Inicial (mínimo 8 caracteres)
                 </label>
-                <input
-                  type="password"
-                  required
-                  value={nuevoPassword}
-                  onChange={(e) => setNuevoPassword(e.target.value)}
-                  placeholder="••••••••"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
+                <div className="relative mt-1">
+                  <input
+                    type={mostrarNuevoPassword ? 'text' : 'password'}
+                    required
+                    value={nuevoPassword}
+                    onChange={(e) => setNuevoPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full rounded-lg border border-primary-200 px-3 py-2 pr-11 text-sm focus:border-primary-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    aria-label={mostrarNuevoPassword ? 'Ocultar contraseña' : 'Mostrar contraseña'}
+                    onClick={() => setMostrarNuevoPassword((p) => !p)}
+                    className="absolute inset-y-0 right-0 flex items-center px-3 text-primary-400 transition-colors hover:text-primary-700"
+                  >
+                    {mostrarNuevoPassword ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
+                  </button>
+                </div>
               </div>
 
               <div>
