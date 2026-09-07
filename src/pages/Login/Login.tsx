@@ -3,6 +3,13 @@ import { useNavigate, useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
 import logo from '../../assets/logo.png'
+import heroImg from '../../assets/hero.jpg'
+import heroImgMobile from '../../assets/hero-mobile.jpg'
+
+// Mismo overlay que usa el Hero del landing (Hero.tsx) sobre la foto: así el
+// login se siente parte del mismo sitio, no una pantalla aparte.
+const SOMBRA_HEADER =
+  'bg-gradient-to-r from-primary-900/90 via-primary-900/70 to-primary-900/30'
 
 // Traduce errores de red/validación del backend a un mensaje legible.
 function obtenerMensajeError(error: unknown): string {
@@ -129,128 +136,165 @@ function Login() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-gray-50 p-6">
-        <div className="mb-6 text-center">
-          <img
-            src={logo}
-            alt="ASADA Pueblo Nuevo"
-            className="mx-auto h-16 w-auto object-contain sm:h-20"
+    <div className="relative flex min-h-screen items-center justify-center px-4 py-8">
+      {/* Fondo solo en mobile: la foto y la sombra del header, detrás de la
+          card (que queda flotando centrada encima). Desde md+ esta capa se
+          oculta porque la foto pasa a vivir dentro de la card, como panel
+          lateral (ver más abajo). */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-cover bg-center md:hidden"
+        style={{ backgroundImage: `url(${heroImgMobile})` }}
+      />
+      <div aria-hidden="true" className={`absolute inset-0 md:hidden ${SOMBRA_HEADER}`} />
+
+      {/* Card: en mobile es solo el panel del formulario (foto abajo, de
+          fondo); desde md+ se parte en dos, foto a la izquierda y
+          formulario a la derecha, como en el diseño de referencia. */}
+      <div className="relative z-10 flex w-full max-w-sm overflow-hidden rounded-3xl bg-white shadow-2xl md:max-w-4xl">
+        {/* Panel foto: mismo criterio del Hero (foto + misma sombra),
+            visible solo desde md. La curva blanca de la derecha se funde
+            con el panel del formulario. */}
+        <div className="relative hidden w-1/2 md:block">
+          <div
+            className="absolute inset-0 bg-cover bg-center"
+            style={{ backgroundImage: `url(${heroImg})` }}
           />
-          <p className="mt-3 text-sm text-primary-500">
-            Sistema de Información de Abonados Pueblo Nuevo
-          </p>
+          <div className={`absolute inset-0 ${SOMBRA_HEADER}`} />
+          <svg
+            aria-hidden="true"
+            className="pointer-events-none absolute inset-y-0 right-0 h-full w-24 text-white"
+            viewBox="0 0 100 800"
+            preserveAspectRatio="none"
+            fill="currentColor"
+          >
+            <path d="M100,0 C60,110 87,230 52,340 C27,420 20,480 47,560 C75,640 52,725 100,800 Z" />
+          </svg>
         </div>
 
-        {mensajeExito && (
-          <div
-            role="status"
-            className="mb-4 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800"
-          >
-            {mensajeExito}
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label
-              htmlFor="email"
-              className="block text-sm font-medium text-primary-900"
-            >
-              Correo electrónico
-            </label>
-            <input
-              id="email"
-              type="email"
-              required
-              autoComplete="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="correo@ejemplo.com"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 placeholder-primary-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        {/* Panel formulario */}
+        <div className="w-full px-6 py-10 md:w-1/2 md:px-12">
+          <div className="mb-6 text-center">
+            <img
+              src={logo}
+              alt="ASADA Pueblo Nuevo"
+              className="mx-auto h-16 w-auto object-contain sm:h-20"
             />
+            <p className="mt-3 text-sm text-primary-500">
+              Sistema de Información de Abonados Pueblo Nuevo
+            </p>
           </div>
 
-          <div>
-            <label
-              htmlFor="password"
-              className="block text-sm font-medium text-primary-900"
-            >
-              Contraseña
-            </label>
-            <div className="relative mt-1">
-              <input
-                id="password"
-                type={mostrarPassword ? 'text' : 'password'}
-                required
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                className="w-full rounded-lg border border-primary-200 px-4 py-2.5 pr-11 text-primary-900 placeholder-primary-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              />
-              <button
-                type="button"
-                aria-label={
-                  mostrarPassword
-                    ? 'Ocultar contraseña'
-                    : 'Mostrar contraseña'
-                }
-                onClick={() => setMostrarPassword((prev) => !prev)}
-                className="absolute inset-y-0 right-0 flex items-center px-3 text-primary-400 transition-colors hover:text-primary-700"
-              >
-                {mostrarPassword ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
-              </button>
-            </div>
-          </div>
-
-          {bloqueoSegundos > 0 ? (
+          {mensajeExito && (
             <div
-              role="alert"
-              className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+              role="status"
+              className="mb-4 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800"
             >
-              <p className="font-semibold">
-                Demasiados intentos fallidos de inicio de sesión.
-              </p>
-              <p className="mt-1">
-                Por seguridad tu acceso quedó bloqueado temporalmente. Podrás
-                intentar de nuevo en{' '}
-                <span className="font-mono font-bold">
-                  {formatearTiempo(bloqueoSegundos)}
-                </span>
-                .
-              </p>
+              {mensajeExito}
             </div>
-          ) : (
-            error && (
-              <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-                {error}
-              </p>
-            )
           )}
 
-          <button
-            type="submit"
-            disabled={!puedeEnviar || loading || bloqueoSegundos > 0}
-            className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {loading ? 'Ingresando...' : 'Iniciar sesión'}
-          </button>
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label
+                htmlFor="email"
+                className="block text-sm font-medium text-primary-900"
+              >
+                Correo electrónico
+              </label>
+              <input
+                id="email"
+                type="email"
+                required
+                autoComplete="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="correo@ejemplo.com"
+                className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 placeholder-primary-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="password"
+                className="block text-sm font-medium text-primary-900"
+              >
+                Contraseña
+              </label>
+              <div className="relative mt-1">
+                <input
+                  id="password"
+                  type={mostrarPassword ? 'text' : 'password'}
+                  required
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="w-full rounded-lg border border-primary-200 px-4 py-2.5 pr-11 text-primary-900 placeholder-primary-300 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                />
+                <button
+                  type="button"
+                  aria-label={
+                    mostrarPassword
+                      ? 'Ocultar contraseña'
+                      : 'Mostrar contraseña'
+                  }
+                  onClick={() => setMostrarPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-primary-400 transition-colors hover:text-primary-700"
+                >
+                  {mostrarPassword ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
+                </button>
+              </div>
+            </div>
+
+            {bloqueoSegundos > 0 ? (
+              <div
+                role="alert"
+                className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+              >
+                <p className="font-semibold">
+                  Demasiados intentos fallidos de inicio de sesión.
+                </p>
+                <p className="mt-1">
+                  Por seguridad tu acceso quedó bloqueado temporalmente. Podrás
+                  intentar de nuevo en{' '}
+                  <span className="font-mono font-bold">
+                    {formatearTiempo(bloqueoSegundos)}
+                  </span>
+                  .
+                </p>
+              </div>
+            ) : (
+              error && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  {error}
+                </p>
+              )
+            )}
+
+            <button
+              type="submit"
+              disabled={!puedeEnviar || loading || bloqueoSegundos > 0}
+              className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {loading ? 'Ingresando...' : 'Iniciar sesión'}
+            </button>
+
+            <Link
+              to="/recuperar-password"
+              className="block text-center text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+            >
+              ¿Olvidaste tu contraseña?
+            </Link>
+          </form>
 
           <Link
-            to="/recuperar-password"
-            className="block text-center text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+            to="/"
+            className="mt-5 block text-center text-sm font-medium text-primary-600 hover:text-primary-700"
           >
-            ¿Olvidaste tu contraseña?
+            ← Volver al sitio
           </Link>
-        </form>
-
-        <Link
-          to="/"
-          className="mt-5 block text-center text-sm font-medium text-primary-600 hover:text-primary-700"
-        >
-          ← Volver al sitio
-        </Link>
+        </div>
       </div>
     </div>
   )
