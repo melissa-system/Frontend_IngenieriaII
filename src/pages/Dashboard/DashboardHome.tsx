@@ -4,6 +4,8 @@ import { useAuth } from '../../contexts/AuthContext'
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -26,6 +28,17 @@ import {
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
 const COLORS = ['#073763', '#13416b', '#395f82', '#6a87a1', '#9cafc1']
+
+// Mismos colores de estado que usa Solicitudes.tsx, para que la lista de
+// "Últimas solicitudes" del panel se vea igual que la tabla completa.
+const ESTADO_COLORS: Record<string, string> = {
+  Pendiente: 'bg-yellow-100 text-yellow-700',
+  Aprobada: 'bg-green-100 text-green-700',
+  Rechazada: 'bg-red-100 text-red-700',
+  Completada: 'bg-blue-100 text-blue-700',
+}
+
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 function getRange(rango: Rango): { desde: string; hasta: string } {
   const now = new Date()
@@ -280,13 +293,44 @@ function DashboardHomeContenido() {
     [],
   )
 
+  // Las 5 solicitudes más recientes, para la lista de actividad del panel
+  // (independiente del rango seleccionado arriba, siempre "lo último").
+  const ultimasSolicitudes = useMemo(
+    () => [...MOCK_SOLICITUDES].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 5),
+    [],
+  )
+
+  // Total acumulado de abonados registrados por mes — para el gráfico de
+  // tendencia. Se usa fechaRegistro (no el filtro de rango de arriba) porque
+  // el objetivo es mostrar el crecimiento histórico, no un corte puntual.
+  const abonadosPorMes = useMemo(() => {
+    const porMes: Record<string, number> = {}
+    for (const a of MOCK_ABONADOS) {
+      const mes = MESES_CORTOS[Number(a.fechaRegistro.slice(5, 7)) - 1]
+      porMes[mes] = (porMes[mes] ?? 0) + 1
+    }
+    let acumulado = 0
+    return MESES_CORTOS.filter((mes) => porMes[mes] !== undefined).map((mes) => {
+      acumulado += porMes[mes]
+      return { mes, total: acumulado }
+    })
+  }, [])
+
   return (
     <div className="space-y-6">
       {/* Panel superior: título + selector de rango + KPIs, agrupados en un
           fondo degradado suave para darle jerarquía propia frente al resto
           del contenido (en vez de que todo flote sobre el mismo gris). */}
-      <div className="rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl"
+        />
+        <div className="relative flex flex-wrap items-center justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-primary-900">
               Panel de control
@@ -382,7 +426,46 @@ function DashboardHomeContenido() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+      {/* Fila 1: actividad reciente (ancha) + solicitudes por tipo (angosta) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-primary-900">
+              Últimas solicitudes
+            </h2>
+            <Link
+              to="/dashboard/solicitudes"
+              className="text-xs font-semibold text-primary-600 hover:text-primary-800"
+            >
+              Ver todas
+            </Link>
+          </div>
+          <p className="mt-1 text-sm text-primary-400">Actividad más reciente</p>
+
+          <div className="mt-3 divide-y divide-primary-50">
+            {ultimasSolicitudes.map((s) => (
+              <div key={s.id} className="flex items-center gap-3 py-3">
+                <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-primary-700 text-sm font-bold text-white">
+                  {s.solicitante.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-primary-900">{s.solicitante}</p>
+                  <p className="truncate text-xs text-primary-400">{s.correo}</p>
+                </div>
+                <span className="hidden shrink-0 truncate text-xs text-primary-500 sm:block sm:w-36">
+                  {s.tipo}
+                </span>
+                <span
+                  className={`hidden shrink-0 rounded-full px-3 py-1 text-xs font-semibold sm:inline-block ${ESTADO_COLORS[s.estado]}`}
+                >
+                  {s.estado}
+                </span>
+                <span className="w-20 flex-none text-right text-xs text-primary-400">{s.fecha}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
         <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Solicitudes por Tipo
@@ -408,7 +491,10 @@ function DashboardHomeContenido() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
+      {/* Fila 2: averías por tipo (angosta) + tendencia de abonados (ancha) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Aver&iacute;as por Tipo
@@ -472,6 +558,55 @@ function DashboardHomeContenido() {
                 )}
               />
             </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm lg:col-span-2">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Abonados registrados
+          </h2>
+          <p className="mt-1 text-sm text-primary-400">Total acumulado por mes</p>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={abonadosPorMes} margin={{ top: 16, right: 8, bottom: 0, left: -16 }}>
+              <defs>
+                <linearGradient id="colorAbonados" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#073763" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#073763" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e6ebef" vertical={false} />
+              <XAxis
+                dataKey="mes"
+                tick={{ fontSize: 12, fill: '#395f82' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 12, fill: '#395f82' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || payload.length === 0) return null
+                  return (
+                    <div className="rounded-lg bg-primary-900 px-3 py-2 text-center text-white shadow-lg">
+                      <p className="text-sm font-semibold">{payload[0].value} abonados</p>
+                      <p className="text-[11px] text-primary-300">{label}</p>
+                    </div>
+                  )
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="total"
+                stroke="#073763"
+                strokeWidth={2.5}
+                fill="url(#colorAbonados)"
+                activeDot={{ r: 5 }}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
