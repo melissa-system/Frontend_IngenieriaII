@@ -37,11 +37,12 @@ function Chevron({ expanded, collapsed }: { expanded: boolean; collapsed?: boole
   )
 }
 
-// Radio del curvado cóncavo (debe calzar con rounded-l-lg = 0.5rem = 8px del
-// propio ítem, para que la curva se sienta continua).
-const RADIO_CURVA = 8
+// Radio del curvado cóncavo (debe calzar con rounded-l-2xl = 1rem = 16px del
+// propio ítem, para que la curva se sienta continua y bien marcada, como en
+// la referencia).
+const RADIO_CURVA = 16
 
-// Dos "mordidas" de 8x8px justo arriba y abajo del borde derecho del ítem
+// Dos "mordidas" de 16x16px justo arriba y abajo del borde derecho del ítem
 // activo: en vez de una esquina recta pegada al borde del sidebar, el fondo
 // oscuro se curva hacia adentro y el blanco del ítem parece fundirse con lo
 // que sigue, como en la referencia. Se coloca como hermano del Link/botón,
@@ -52,14 +53,14 @@ function EsquinasFundidas() {
     <>
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -top-2 right-0 h-2 w-2"
+        className="pointer-events-none absolute -top-4 right-0 h-4 w-4"
         style={{
           background: `radial-gradient(circle at bottom right, white ${RADIO_CURVA}px, var(--color-primary-900) ${RADIO_CURVA}px)`,
         }}
       />
       <span
         aria-hidden="true"
-        className="pointer-events-none absolute -bottom-2 right-0 h-2 w-2"
+        className="pointer-events-none absolute -bottom-4 right-0 h-4 w-4"
         style={{
           background: `radial-gradient(circle at top right, white ${RADIO_CURVA}px, var(--color-primary-900) ${RADIO_CURVA}px)`,
         }}
@@ -233,7 +234,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <li key={sub.to} className="relative">
           <Link
             to={sub.to!}
-            className={`block rounded-l-lg pl-3 pr-3 py-2 text-sm transition-colors ${
+            className={`block rounded-l-2xl pl-3 pr-3 py-2 text-sm transition-colors ${
               active
                 ? 'bg-white text-primary-900 font-medium shadow-sm'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -257,7 +258,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <button
           type="button"
           onClick={() => toggleExpand(key)}
-          className={`flex w-full items-center gap-2 rounded-l-lg px-3 py-2 text-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-l-2xl px-3 py-2 text-sm transition-colors ${
             active
               ? 'bg-white text-primary-900 font-medium shadow-sm'
               : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -295,7 +296,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               type="button"
               title={item.label}
               onClick={() => toggleExpand(item.label)}
-              className={`flex w-full items-center gap-3 rounded-l-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-l-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
                 collapsed ? 'lg:justify-center' : ''
               } ${
                 active
@@ -334,7 +335,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <Link
             to={item.to!}
             title={item.label}
-            className={`flex items-center gap-3 rounded-l-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 rounded-l-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
               collapsed ? 'lg:justify-center' : ''
             } ${
               active
