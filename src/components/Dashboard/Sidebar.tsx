@@ -200,7 +200,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <li key={sub.to}>
           <Link
             to={sub.to!}
-            className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+            className={`block rounded-l-lg pl-3 pr-3 py-2 text-sm transition-colors ${
               isActive(sub.to!)
                 ? 'bg-white text-primary-900 font-medium shadow-sm'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -221,7 +221,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <button
           type="button"
           onClick={() => toggleExpand(key)}
-          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-l-lg px-3 py-2 text-sm transition-colors ${
             active
               ? 'bg-white text-primary-900 font-medium shadow-sm'
               : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -254,7 +254,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               type="button"
               title={item.label}
               onClick={() => toggleExpand(item.label)}
-              className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-l-lg px-3 py-2.5 text-sm font-medium transition-colors ${
                 collapsed ? 'lg:justify-center' : ''
               } ${
                 active
@@ -293,7 +293,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <Link
             to={item.to!}
             title={item.label}
-            className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 rounded-l-lg px-3 py-2.5 text-sm font-medium transition-colors ${
               collapsed ? 'lg:justify-center' : ''
             } ${
               active
@@ -340,7 +340,10 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         </button>
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 py-4">
+      {/* Sin padding a la derecha: así el ítem activo (fondo blanco) llega
+          hasta el borde real del sidebar y se funde con lo que sigue, en vez
+          de quedar como una pastilla flotando con un margen oscuro alrededor. */}
+      <nav className="flex-1 overflow-y-auto py-4 pl-3">
         <ul className="space-y-1">{mainItems.map(renderItem)}</ul>
       </nav>
 
