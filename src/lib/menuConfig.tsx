@@ -2,8 +2,11 @@ import type { ReactNode } from 'react'
 
 export interface SubMenuItem {
   label: string
-  to: string
+  // Un SubMenuItem es una hoja (con "to", navega) o un grupo (con
+  // "submenu", se despliega en más opciones) — nunca ambos.
+  to?: string
   roles: string[]
+  submenu?: SubMenuItem[]
 }
 
 export interface MenuItemConfig {
@@ -145,8 +148,14 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Documentos', to: '/dashboard/documentos', roles: ['Administrador', 'Junta Directiva'] },
-      { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
-      { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
+      {
+        label: 'Edición de página',
+        roles: ['Administrador', 'Junta Directiva'],
+        submenu: [
+          { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
+          { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
+        ],
+      },
     ],
   },
   {
@@ -171,11 +180,23 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   },
 ]
 
+// Filtra un submenú por rol de forma recursiva: un grupo (sub.submenu) solo
+// sobrevive si le queda al menos una opción visible para el rol.
+function filterSubMenuByRole(subs: SubMenuItem[], role: string): SubMenuItem[] {
+  return subs
+    .filter((sub) => sub.roles.includes(role))
+    .map((sub) => ({
+      ...sub,
+      submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role) : undefined,
+    }))
+    .filter((sub) => !sub.submenu || sub.submenu.length > 0)
+}
+
 export function filterMenuByRole(items: MenuItemConfig[], role: string): MenuItemConfig[] {
   return items
     .filter((item) => item.roles.includes(role))
     .map((item) => ({
       ...item,
-      submenu: item.submenu?.filter((sub) => sub.roles.includes(role)),
+      submenu: item.submenu ? filterSubMenuByRole(item.submenu, role) : undefined,
     }))
 }

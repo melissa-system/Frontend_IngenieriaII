@@ -1,7 +1,21 @@
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, type PerfilActivo } from '../../contexts/AuthContext'
-import { MENU_CONFIG, filterMenuByRole, type MenuItemConfig } from '../../lib/menuConfig'
+import {
+  MENU_CONFIG,
+  filterMenuByRole,
+  type MenuItemConfig,
+  type SubMenuItem,
+} from '../../lib/menuConfig'
+
+// Aplana un submenú (incluyendo los grupos anidados) a la lista de rutas
+// que contiene, para saber si alguna está activa sin importar la profundidad.
+function rutasDe(subs: SubMenuItem[]): string[] {
+  return subs.flatMap((s) => [
+    ...(s.to ? [s.to] : []),
+    ...(s.submenu ? rutasDe(s.submenu) : []),
+  ])
+}
 
 // Ícono de flecha usado como chevron en todos los toggles de submenú
 // (nivel 1, 2 y 3) — evita repetir el mismo SVG en cada lugar.
@@ -55,18 +69,35 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
+    // Mismo criterio que isActive: si la ruta trae query string hay que
+    // compararlo también, si no, solo el pathname.
+    const rutaActiva = (to: string) => {
+      const actual = to.includes('?')
+        ? `${location.pathname}${location.search}`
+        : location.pathname
+      return actual === to
+    }
+    // Recorre un submenú (con posibles grupos anidados) y arma las claves
+    // de expansión de todo ancestro que contenga la ruta activa.
+    const clavesActivas = (subs: SubMenuItem[], prefix: string): Record<string, boolean> => {
+      const out: Record<string, boolean> = {}
+      for (const sub of subs) {
+        if (sub.submenu) {
+          const key = `${prefix}__${sub.label}`
+          if (rutasDe(sub.submenu).some(rutaActiva)) {
+            out[key] = true
+            Object.assign(out, clavesActivas(sub.submenu, key))
+          }
+        }
+      }
+      return out
+    }
+
     const initial: Record<string, boolean> = {}
     for (const item of visibleItems) {
       if (item.submenu) {
-        // Mismo criterio que isActive: si el submenú trae query string hay
-        // que compararlo también, si no, solo el pathname.
-        const anyActive = item.submenu.some((sub) => {
-          const actual = sub.to.includes('?')
-            ? `${location.pathname}${location.search}`
-            : location.pathname
-          return actual === sub.to
-        })
-        initial[item.label] = anyActive
+        initial[item.label] = rutasDe(item.submenu).some(rutaActiva)
+        Object.assign(initial, clavesActivas(item.submenu, item.label))
       }
     }
     setExpanded((prev) => {
@@ -106,8 +137,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
       : location.pathname
     return actual === to
   }
-  const isSubmenuActive = (items: { to: string }[]) =>
-    items.some((item) => isActive(item.to))
+  const isSubmenuActive = (items: SubMenuItem[]) => rutasDe(items).some(isActive)
 
   // Cambia el perfil activo (rol base <-> Abonado) y vuelve al home del
   // dashboard, igual que el switcher del DashboardHeader — evita quedar en
@@ -115,6 +145,54 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   function seleccionarPerfil(perfil: PerfilActivo) {
     cambiarPerfil(perfil)
     navigate('/dashboard')
+  }
+
+  // Renderiza una opción de submenú: enlace directo (hoja) o, si trae su
+  // propio "submenu", un grupo desplegable más (recursivo, cualquier
+  // profundidad — hoy solo se usa un nivel extra, en "Edición de página").
+  function renderSubItem(sub: SubMenuItem, keyPrefix: string) {
+    if (!sub.submenu) {
+      return (
+        <li key={sub.to}>
+          <Link
+            to={sub.to!}
+            className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+              isActive(sub.to!)
+                ? 'bg-primary-700 text-white font-medium'
+                : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+            }`}
+          >
+            {sub.label}
+          </Link>
+        </li>
+      )
+    }
+
+    const key = `${keyPrefix}__${sub.label}`
+    const isExpanded = expanded[key] ?? false
+    const active = isSubmenuActive(sub.submenu)
+
+    return (
+      <li key={key}>
+        <button
+          type="button"
+          onClick={() => toggleExpand(key)}
+          className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+            active
+              ? 'bg-primary-700 text-white font-medium'
+              : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+          }`}
+        >
+          <span className="flex-1 text-left">{sub.label}</span>
+          <Chevron expanded={isExpanded} />
+        </button>
+        {isExpanded && (
+          <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
+            {sub.submenu.map((child) => renderSubItem(child, key))}
+          </ul>
+        )}
+      </li>
+    )
   }
 
   function renderItem(item: MenuItemConfig) {
@@ -163,20 +241,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                   collapsed ? 'lg:hidden' : ''
                 }`}
               >
-                {item.submenu!.map((sub) => (
-                  <li key={sub.to}>
-                    <Link
-                      to={sub.to}
-                      className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
-                        isActive(sub.to)
-                          ? 'bg-primary-700 text-white font-medium'
-                          : 'text-primary-300 hover:bg-primary-800 hover:text-white'
-                      }`}
-                    >
-                      {sub.label}
-                    </Link>
-                  </li>
-                ))}
+                {item.submenu!.map((sub) => renderSubItem(sub, item.label))}
               </ul>
             )}
           </>
@@ -237,8 +302,13 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
       {perfilItem && (
         <div className="border-t border-primary-700 px-3 py-3">
+          {/* Todo este bloque se despliega hacia arriba (flex-col-reverse en
+              cada nivel): al estar pegado al fondo del sidebar, si abriera
+              hacia abajo como el resto del menú no habría espacio y se vería
+              cortado. Con la columna invertida el botón que dispara cada
+              nivel queda fijo donde está y sus opciones aparecen encima. */}
           <ul className="space-y-1">
-            <li>
+            <li className="flex flex-col-reverse">
               <button
                 type="button"
                 title="Perfil"
@@ -260,12 +330,12 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
               {expanded[PERFIL_KEY] && (
                 <ul
-                  className={`ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4 ${
+                  className={`ml-2 mb-1 space-y-1 border-l border-primary-700 pl-4 ${
                     collapsed ? 'lg:hidden' : ''
                   }`}
                 >
                   {/* ── Mi perfil: editar datos / cambiar contraseña ── */}
-                  <li>
+                  <li className="flex flex-col-reverse">
                     <button
                       type="button"
                       onClick={() => toggleExpand(MI_PERFIL_KEY)}
@@ -280,7 +350,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                     </button>
 
                     {expanded[MI_PERFIL_KEY] && (
-                      <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
+                      <ul className="ml-2 mb-1 space-y-1 border-l border-primary-700 pl-4">
                         <li>
                           <Link
                             to="/dashboard/perfil"
@@ -311,7 +381,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
                   {/* ── Cambio de cuenta: perfiles disponibles con este correo ── */}
                   {puedeVerComoAbonado && (
-                    <li>
+                    <li className="flex flex-col-reverse">
                       <button
                         type="button"
                         onClick={() => toggleExpand(CAMBIO_CUENTA_KEY)}
@@ -322,7 +392,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                       </button>
 
                       {expanded[CAMBIO_CUENTA_KEY] && (
-                        <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
+                        <ul className="ml-2 mb-1 space-y-1 border-l border-primary-700 pl-4">
                           <li>
                             <button
                               type="button"
