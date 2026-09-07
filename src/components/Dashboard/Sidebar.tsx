@@ -1,7 +1,26 @@
 import { useState, useEffect } from 'react'
-import { Link, useLocation } from 'react-router-dom'
-import { useAuth } from '../../contexts/AuthContext'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { useAuth, type PerfilActivo } from '../../contexts/AuthContext'
 import { MENU_CONFIG, filterMenuByRole, type MenuItemConfig } from '../../lib/menuConfig'
+
+// Ícono de flecha usado como chevron en todos los toggles de submenú
+// (nivel 1, 2 y 3) — evita repetir el mismo SVG en cada lugar.
+function Chevron({ expanded, collapsed }: { expanded: boolean; collapsed?: boolean }) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      className={`h-4 w-4 flex-none transition-transform ${expanded ? 'rotate-180' : ''} ${
+        collapsed ? 'lg:hidden' : ''
+      }`}
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
 
 interface SidebarProps {
   collapsed: boolean
@@ -10,15 +29,28 @@ interface SidebarProps {
   onCloseMobile: () => void
 }
 
+// Claves de expansión propias del bloque "Perfil" (submenú anidado de dos
+// niveles, armado a mano más abajo porque mezcla enlaces de ruta con
+// acciones de cambio de perfil, algo que el renderItem genérico no soporta).
+const PERFIL_KEY = 'Perfil'
+const MI_PERFIL_KEY = 'Perfil__MiPerfil'
+const CAMBIO_CUENTA_KEY = 'Perfil__CambioCuenta'
+
 function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: SidebarProps) {
-  const { rolEfectivo } = useAuth()
+  const { user, rolEfectivo, perfilActivo, cambiarPerfil } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const role = rolEfectivo ?? ''
 
   const visibleItems = filterMenuByRole(MENU_CONFIG, role)
 
   const mainItems = visibleItems.filter((item) => item.label !== 'Perfil')
   const perfilItem = visibleItems.find((item) => item.label === 'Perfil')
+
+  // Solo tiene sentido ofrecer "Cambio de cuenta" si la cuenta realmente
+  // tiene un Abonado vinculado y su rol normal no es ya 'Abonado' (mismo
+  // criterio que el botón del DashboardHeader).
+  const puedeVerComoAbonado = !!user?.vinculos.abonado && user.rol !== 'Abonado'
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
@@ -46,6 +78,14 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
     })
   }, [role])
 
+  // Auto-expande el bloque "Perfil" hasta el nivel de la ruta activa
+  // (Editar perfil / Cambio de contraseña), aparte del efecto anterior
+  // porque depende de location.pathname en cada navegación, no solo del rol.
+  useEffect(() => {
+    if (!location.pathname.startsWith('/dashboard/perfil')) return
+    setExpanded((prev) => ({ ...prev, [PERFIL_KEY]: true, [MI_PERFIL_KEY]: true }))
+  }, [location.pathname])
+
   const toggleExpand = (label: string) => {
     // Si el sidebar está colapsado (solo pasa en escritorio), un submenú no
     // tiene espacio para mostrarse: primero se expande el sidebar completo
@@ -68,6 +108,14 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   }
   const isSubmenuActive = (items: { to: string }[]) =>
     items.some((item) => isActive(item.to))
+
+  // Cambia el perfil activo (rol base <-> Abonado) y vuelve al home del
+  // dashboard, igual que el switcher del DashboardHeader — evita quedar en
+  // una pantalla que ya no aplica al perfil nuevo (ej. Administración).
+  function seleccionarPerfil(perfil: PerfilActivo) {
+    cambiarPerfil(perfil)
+    navigate('/dashboard')
+  }
 
   function renderItem(item: MenuItemConfig) {
     const hasSubmenu = !!item.submenu?.length
@@ -189,7 +237,126 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
       {perfilItem && (
         <div className="border-t border-primary-700 px-3 py-3">
-          <ul className="space-y-1">{renderItem(perfilItem)}</ul>
+          <ul className="space-y-1">
+            <li>
+              <button
+                type="button"
+                title="Perfil"
+                onClick={() => toggleExpand(PERFIL_KEY)}
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
+                  collapsed ? 'lg:justify-center' : ''
+                } ${
+                  location.pathname.startsWith('/dashboard/perfil')
+                    ? 'bg-primary-700 text-white'
+                    : 'text-primary-200 hover:bg-primary-800 hover:text-white'
+                }`}
+              >
+                <span className="flex-none">{perfilItem.icon}</span>
+                <span className={`flex-1 text-left ${collapsed ? 'lg:hidden' : ''}`}>
+                  Perfil
+                </span>
+                <Chevron expanded={expanded[PERFIL_KEY] ?? false} collapsed={collapsed} />
+              </button>
+
+              {expanded[PERFIL_KEY] && (
+                <ul
+                  className={`ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4 ${
+                    collapsed ? 'lg:hidden' : ''
+                  }`}
+                >
+                  {/* ── Mi perfil: editar datos / cambiar contraseña ── */}
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => toggleExpand(MI_PERFIL_KEY)}
+                      className={`flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                        location.pathname.startsWith('/dashboard/perfil')
+                          ? 'bg-primary-700 text-white font-medium'
+                          : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+                      }`}
+                    >
+                      <span className="flex-1 text-left">Mi perfil</span>
+                      <Chevron expanded={expanded[MI_PERFIL_KEY] ?? false} />
+                    </button>
+
+                    {expanded[MI_PERFIL_KEY] && (
+                      <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
+                        <li>
+                          <Link
+                            to="/dashboard/perfil"
+                            className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                              isActive('/dashboard/perfil')
+                                ? 'bg-primary-700 text-white font-medium'
+                                : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+                            }`}
+                          >
+                            Editar perfil
+                          </Link>
+                        </li>
+                        <li>
+                          <Link
+                            to="/dashboard/perfil/contrasena"
+                            className={`block rounded-lg px-3 py-2 text-sm transition-colors ${
+                              isActive('/dashboard/perfil/contrasena')
+                                ? 'bg-primary-700 text-white font-medium'
+                                : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+                            }`}
+                          >
+                            Cambio de contraseña
+                          </Link>
+                        </li>
+                      </ul>
+                    )}
+                  </li>
+
+                  {/* ── Cambio de cuenta: perfiles disponibles con este correo ── */}
+                  {puedeVerComoAbonado && (
+                    <li>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpand(CAMBIO_CUENTA_KEY)}
+                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm text-primary-300 transition-colors hover:bg-primary-800 hover:text-white"
+                      >
+                        <span className="flex-1 text-left">Cambio de cuenta</span>
+                        <Chevron expanded={expanded[CAMBIO_CUENTA_KEY] ?? false} />
+                      </button>
+
+                      {expanded[CAMBIO_CUENTA_KEY] && (
+                        <ul className="ml-2 mt-1 space-y-1 border-l border-primary-700 pl-4">
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => seleccionarPerfil('base')}
+                              className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                perfilActivo === 'base'
+                                  ? 'bg-primary-700 text-white font-medium'
+                                  : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+                              }`}
+                            >
+                              {user?.rol}
+                            </button>
+                          </li>
+                          <li>
+                            <button
+                              type="button"
+                              onClick={() => seleccionarPerfil('abonado')}
+                              className={`block w-full rounded-lg px-3 py-2 text-left text-sm transition-colors ${
+                                perfilActivo === 'abonado'
+                                  ? 'bg-primary-700 text-white font-medium'
+                                  : 'text-primary-300 hover:bg-primary-800 hover:text-white'
+                              }`}
+                            >
+                              Abonado
+                            </button>
+                          </li>
+                        </ul>
+                      )}
+                    </li>
+                  )}
+                </ul>
+              )}
+            </li>
+          </ul>
         </div>
       )}
     </aside>

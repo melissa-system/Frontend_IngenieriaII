@@ -162,9 +162,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Abonado'],
   },
   {
+    // Sin "to": el Sidebar arma su propio submenú anidado para este ítem
+    // (Mi perfil / Cambio de cuenta) en vez de usar el renderItem genérico.
+    // Se mantiene acá solo para el filtrado por rol y el ícono.
     label: 'Perfil',
     icon: <PerfilIcon />,
-    to: '/dashboard/perfil',
     roles: ['Administrador', 'Fontanero', 'Junta Directiva', 'Abonado'],
   },
 ]

@@ -17,7 +17,8 @@ import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
 import Publicaciones from '../pages/Dashboard/Publicaciones'
 import DocumentosAdmin from '../pages/Dashboard/DocumentosAdmin'
 import Seguridad from '../pages/Dashboard/Seguridad'
-import Perfil from '../pages/Dashboard/Perfil'
+import PerfilEditar from '../pages/Dashboard/PerfilEditar'
+import PerfilContrasena from '../pages/Dashboard/PerfilContrasena'
 import Reportes from '../pages/Dashboard/Reportes'
 import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
 import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
@@ -55,7 +56,8 @@ function AppRoutes() {
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />
-        <Route path="perfil" element={<Perfil />} />
+        <Route path="perfil" element={<PerfilEditar />} />
+        <Route path="perfil/contrasena" element={<PerfilContrasena />} />
         <Route path="contacto-asada" element={<ContactoAsadaPage />} />
         <Route path="horario-asada" element={<HorarioAsadaPage />} />
         <Route path="personal" element={<EmpleadosPage />} />
