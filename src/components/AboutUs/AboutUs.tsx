@@ -163,11 +163,17 @@ function AboutUs() {
               Nuestra historia
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-primary-800">
-              Desde nuestros inicios, hemos trabajado incansablemente para
-              garantizar el acceso al agua potable a cada hogar de Pueblo Nuevo,
-              adaptándonos a los desafíos y creciendo junto a nuestra comunidad.
-              Cada día renovamos nuestro compromiso de ofrecer un servicio de
-              calidad, con transparencia y responsabilidad.
+              El acueducto de Pueblo Nuevo se construyó en el año 2005, mismo
+              año en que la ASADA inició formalmente su funcionamiento con
+              cédula jurídica 3-002-458332. En marzo del 2014 se firmó el
+              convenio de delegación con el AyA (Instituto Costarricense de
+              Acueductos y Alcantarillados), conforme al Reglamento de las
+              Asociaciones Administradoras de Sistemas de Acueductos y
+              Alcantarillados Comunales. La ASADA cuenta además con el Permiso
+              Sanitario de Funcionamiento otorgado por el Ministerio de Salud,
+              y trabaja día a día para llevar un servicio de agua continuo y
+              de calidad a las familias de Pueblo Nuevo, en el distrito de
+              Paquera, cantón y provincia de Puntarenas.
             </p>
           </div>
         </div>
@@ -234,10 +240,10 @@ function AboutUs() {
                   Nuestra Misión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
-                  Brindar un servicio de agua potable eficiente, continuo y de
-                  calidad a la comunidad de Pueblo Nuevo, garantizando el buen
-                  uso y la administración responsable de los recursos
-                  hídricos en beneficio de nuestros abonados.
+                  Somos una ASADA administradora del recurso hídrico,
+                  responsable de que la comunidad de Pueblo Nuevo tenga un
+                  servicio de agua de calidad, amigable y saludable con el
+                  ambiente.
                 </p>
               </div>
               <div className="flex flex-col items-center justify-center rounded-2xl bg-primary-600 px-10 py-16 text-center text-white shadow-sm">
@@ -260,10 +266,9 @@ function AboutUs() {
                   Nuestra Visión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
-                  Ser una ASADA modelo, reconocida por la gestión responsable
-                  del recurso hídrico, la mejora continua de su
-                  infraestructura y el compromiso con el desarrollo
-                  sostenible de la comunidad.
+                  Una ASADA consolidada, con conocimiento hídrico, gestando
+                  recursos para el desarrollo de la comunidad, con una
+                  calidad de vida amigable y saludable con el ambiente.
                 </p>
               </div>
             </div>
