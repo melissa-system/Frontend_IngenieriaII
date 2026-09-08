@@ -9,6 +9,7 @@ import {
   type RolDisponible,
 } from '../Services/usuarios.service';
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../auth/EyeIcons';
+import { useAuth } from '../../contexts/AuthContext';
 
 const ROL_LABELS: Record<string, string> = {
   super_admin: 'Junta Directiva',
@@ -40,19 +41,22 @@ const USUARIOS_POR_PAGINA = 8;
 function EstadoSwitch({
   activo,
   disabled,
+  title,
   onChange,
 }: {
   activo: boolean
   disabled?: boolean
+  title?: string
   onChange: () => void
 }) {
+  const tituloPorDefecto = `Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`;
   return (
     <button
       type="button"
       role="switch"
       aria-checked={activo}
-      aria-label={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
-      title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      aria-label={title ?? tituloPorDefecto}
+      title={title ?? tituloPorDefecto}
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -69,6 +73,7 @@ function EstadoSwitch({
 }
 
 export const Usuarios: React.FC = () => {
+  const { user: usuarioActual } = useAuth();
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [rolesDisponibles, setRolesDisponibles] = useState<RolDisponible[]>([]);
   const [busqueda, setBusqueda] = useState('');
@@ -278,6 +283,12 @@ export const Usuarios: React.FC = () => {
   const rolesVisibles = rolesDisponibles.filter((rol) =>
     ROLES_VISIBLES.includes(rol.name),
   );
+
+  // Nadie puede inhabilitar su propia cuenta (se quedaría sin forma de
+  // reactivarla). El backend también lo valida; esto solo evita que se
+  // abra el modal para intentarlo.
+  const esUsuarioActual = (id: number) =>
+    usuarioActual !== null && String(id) === usuarioActual.id;
 
   return (
     <div className="space-y-6">
@@ -494,6 +505,12 @@ export const Usuarios: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <EstadoSwitch
                             activo={u.isActive}
+                            disabled={esUsuarioActual(u.id)}
+                            title={
+                              esUsuarioActual(u.id)
+                                ? 'No podés inhabilitar tu propia cuenta'
+                                : undefined
+                            }
                             onChange={() =>
                               setModalCambioEstado({
                                 usuario: u,
