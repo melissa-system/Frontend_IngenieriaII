@@ -97,8 +97,11 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   // Solo tiene sentido ofrecer "Cambio de cuenta" si la cuenta realmente
   // tiene un Abonado vinculado y su rol normal no es ya 'Abonado' (mismo
-  // criterio que el botón del DashboardHeader).
+  // criterio que el botón del DashboardHeader). Caso inverso: rol base
+  // 'Abonado' con un Empleado vinculado — mutuamente excluyente con el
+  // anterior (el rol base no puede ser 'Abonado' y otra cosa a la vez).
   const puedeVerComoAbonado = !!user?.vinculos.abonado && user.rol !== 'Abonado'
+  const puedeVerComoEmpleado = !!user?.vinculos.empleado?.rol && user.rol === 'Abonado'
 
   const [expanded, setExpanded] = useState<Record<string, boolean>>({})
 
@@ -397,7 +400,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                 </div>
 
                 {/* ── Cambio de cuenta: perfiles disponibles con este correo ── */}
-                {puedeVerComoAbonado && (
+                {(puedeVerComoAbonado || puedeVerComoEmpleado) && (
                   <div className="border-t border-primary-700 py-1.5">
                     <p className="flex items-center gap-2.5 px-4 pt-1 pb-1.5 text-xs font-semibold uppercase tracking-wide text-primary-400">
                       <IconCambioCuenta />
@@ -411,14 +414,26 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                       <span className="flex-1 truncate">{user?.rol}</span>
                       {perfilActivo === 'base' && <IconCheck />}
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => seleccionarPerfil('abonado')}
-                      className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-primary-200 transition-colors hover:bg-primary-700 hover:text-white"
-                    >
-                      <span className="flex-1 truncate">Abonado</span>
-                      {perfilActivo === 'abonado' && <IconCheck />}
-                    </button>
+                    {puedeVerComoAbonado && (
+                      <button
+                        type="button"
+                        onClick={() => seleccionarPerfil('abonado')}
+                        className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-primary-200 transition-colors hover:bg-primary-700 hover:text-white"
+                      >
+                        <span className="flex-1 truncate">Abonado</span>
+                        {perfilActivo === 'abonado' && <IconCheck />}
+                      </button>
+                    )}
+                    {puedeVerComoEmpleado && (
+                      <button
+                        type="button"
+                        onClick={() => seleccionarPerfil('empleado')}
+                        className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-primary-200 transition-colors hover:bg-primary-700 hover:text-white"
+                      >
+                        <span className="flex-1 truncate">{user?.vinculos.empleado?.puesto}</span>
+                        {perfilActivo === 'empleado' && <IconCheck />}
+                      </button>
+                    )}
                   </div>
                 )}
 

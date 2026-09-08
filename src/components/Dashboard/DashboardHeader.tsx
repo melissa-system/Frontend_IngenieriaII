@@ -22,11 +22,23 @@ function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
 
   // Solo tiene sentido ofrecer el cambio si la cuenta realmente es abonada
   // vinculada Y su rol normal no es ya 'Abonado' (si ya lo es, no hay nada
-  // que "ver como").
+  // que "ver como"). Caso inverso: personal cuyo rol base SÍ es Abonado
+  // pero también tiene un Empleado vinculado (ej. alguien de la Junta que
+  // se registró primero como abonado) — mutuamente excluyente con el
+  // anterior, porque el rol base no puede ser 'Abonado' y otra cosa a la vez.
   const puedeVerComoAbonado = !!user?.vinculos.abonado && user.rol !== 'Abonado'
+  const puedeVerComoEmpleado = !!user?.vinculos.empleado?.rol && user.rol === 'Abonado'
+
+  const etiquetaAlterno = puedeVerComoAbonado
+    ? 'Abonado'
+    : (user?.vinculos.empleado?.puesto ?? '')
 
   function alternarPerfil() {
-    cambiarPerfil(perfilActivo === 'abonado' ? 'base' : 'abonado')
+    if (puedeVerComoAbonado) {
+      cambiarPerfil(perfilActivo === 'abonado' ? 'base' : 'abonado')
+    } else if (puedeVerComoEmpleado) {
+      cambiarPerfil(perfilActivo === 'empleado' ? 'base' : 'empleado')
+    }
     // El home del dashboard decide qué mostrar según el perfil activo
     // (ver DashboardHome.tsx) — volver ahí después de cambiar evita quedar
     // en una pantalla que ya no aplica al perfil nuevo (ej. Administración).
@@ -47,19 +59,19 @@ function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
       </button>
 
       <div className="flex flex-1 items-center justify-end gap-3 sm:gap-4">
-        {puedeVerComoAbonado && (
+        {(puedeVerComoAbonado || puedeVerComoEmpleado) && (
           <button
             type="button"
             onClick={alternarPerfil}
             title={
-              perfilActivo === 'abonado'
+              perfilActivo !== 'base'
                 ? `Volver a tu vista de ${user?.rol}`
-                : 'Ver como Abonado'
+                : `Ver como ${etiquetaAlterno}`
             }
             className="rounded-lg px-2 py-1.5 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-800 sm:rounded-full sm:border sm:border-primary-200 sm:px-3"
           >
             <span className="hidden sm:inline">
-              {perfilActivo === 'abonado' ? `Volver a ${user?.rol}` : 'Ver como Abonado'}
+              {perfilActivo !== 'base' ? `Volver a ${user?.rol}` : `Ver como ${etiquetaAlterno}`}
             </span>
             <span className="sm:hidden">
               <CambiarPerfilIcon />

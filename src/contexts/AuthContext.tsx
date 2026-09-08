@@ -19,6 +19,11 @@ interface VinculoAbonado {
 interface VinculoEmpleado {
   id: number
   nombre: string
+  puesto: string
+  /** Rol (enum crudo, ej. 'admin') que le correspondería a este vínculo
+   * según su puesto — null si el puesto no está mapeado a un rol, en cuyo
+   * caso no tiene sentido ofrecer "ver como Empleado" (ver cambiarPerfil). */
+  rol: string | null
 }
 interface Vinculos {
   empleado: VinculoEmpleado | null
@@ -28,10 +33,12 @@ interface Vinculos {
 const SIN_VINCULOS: Vinculos = { empleado: null, abonado: null }
 
 // 'base': la vista normal según el rol de la cuenta (Administrador, Junta
-// Directiva, Fontanero o Abonado). 'abonado': fuerza la vista de abonado
-// aunque el rol de la cuenta sea otro — solo tiene sentido si vinculos.abonado
-// existe (ver cambiarPerfil).
-export type PerfilActivo = 'base' | 'abonado'
+// Directiva, Fontanero o Abonado). 'abonado'/'empleado': fuerza la vista del
+// vínculo correspondiente aunque el rol base de la cuenta sea otro — solo
+// tiene sentido si ese vínculo existe (ver cambiarPerfil). Cubre los dos
+// sentidos: personal que también es abonado, y abonados con un Empleado
+// vinculado (ej. Junta Directiva).
+export type PerfilActivo = 'base' | 'abonado' | 'empleado'
 
 interface User {
   id: string
@@ -224,20 +231,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     void apiClient.post('/auth/logout').catch(() => undefined)
   }, [])
 
-  // Solo se puede pasar a 'abonado' si la cuenta realmente tiene un abonado
-  // vinculado; de lo contrario no hace nada (evita un estado inconsistente
-  // si se llama por error o con datos vencidos).
+  // Solo se puede pasar a 'abonado'/'empleado' si la cuenta realmente tiene
+  // ese vínculo (y, para 'empleado', si su puesto mapea a un rol); de lo
+  // contrario no hace nada (evita un estado inconsistente si se llama por
+  // error o con datos vencidos).
   const cambiarPerfil = useCallback(
     (perfil: PerfilActivo) => {
       if (!user) return
       if (perfil === 'abonado' && !user.vinculos.abonado) return
+      if (perfil === 'empleado' && !user.vinculos.empleado?.rol) return
       setPerfilActivo(perfil)
       guardarPerfil(user.id, perfil)
     },
     [user],
   )
 
-  const rolEfectivo = user ? (perfilActivo === 'abonado' ? 'Abonado' : user.rol) : null
+  const rolEfectivo = user
+    ? perfilActivo === 'abonado'
+      ? 'Abonado'
+      : perfilActivo === 'empleado'
+        ? (ROL_LABELS[user.vinculos.empleado?.rol ?? ''] ?? user.rol)
+        : user.rol
+    : null
 
   return (
     <AuthContext.Provider
