@@ -1,6 +1,7 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import { Link, Navigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
   BarChart,
   Bar,
@@ -17,7 +18,6 @@ import {
   Legend,
 } from 'recharts'
 import {
-  MOCK_ABONADOS,
   MOCK_AVERIAS_ADMIN,
   MOCK_SOLICITUDES,
   MOCK_INVENTARIO,
@@ -209,6 +209,27 @@ function DashboardHomeContenido() {
   const [desdeCustom, setDesdeCustom] = useState('')
   const [hastaCustom, setHastaCustom] = useState('')
 
+  // Abonados es el único módulo ya conectado al backend real en este panel
+  // (Averías, Solicitudes e Inventario siguen con datos de ejemplo hasta que
+  // esas páginas tengan su propio listado real — ver MOCK_* más abajo). Se
+  // carga una sola vez al entrar; mientras carga, las tarjetas de Abonados
+  // simplemente muestran 0 en vez de un spinner, que no vale la pena acá.
+  const [abonadosReales, setAbonadosReales] = useState<Abonado[]>([])
+  useEffect(() => {
+    let cancelado = false
+    obtenerAbonados()
+      .then((data) => {
+        if (!cancelado) setAbonadosReales(data)
+      })
+      .catch(() => {
+        // Silencioso a propósito: si falla, el panel simplemente muestra 0
+        // para Abonados en vez de romper el resto del dashboard.
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
   const { desde, hasta } = useMemo(() => {
     if (rango === 'personalizado' && desdeCustom && hastaCustom) {
       return { desde: desdeCustom, hasta: hastaCustom }
@@ -217,8 +238,8 @@ function DashboardHomeContenido() {
   }, [rango, desdeCustom, hastaCustom])
 
   const abonadosFiltrados = useMemo(
-    () => MOCK_ABONADOS.filter((a) => fechaEnRango(a.fechaRegistro, desde, hasta)),
-    [desde, hasta],
+    () => abonadosReales.filter((a) => fechaEnRango(a.fecha_registro, desde, hasta)),
+    [abonadosReales, desde, hasta],
   )
 
   const solicitudesFiltradas = useMemo(
@@ -249,6 +270,13 @@ function DashboardHomeContenido() {
 
   const stockCritico = MOCK_INVENTARIO.filter((i) => i.stock <= Math.floor(i.stockMinimo / 2)).length
 
+  // Estas dos sí son reales (vienen de abonadosReales, no de MOCK_ABONADOS):
+  // "inactivos" refleja el estado del abonado, y "sin cuenta" detecta
+  // abonados con correo registrado pero sin usuario vinculado todavía (ej.
+  // si el correo de bienvenida falló o nadie lo vinculó a mano después).
+  const abonadosInactivos = abonadosReales.filter((a) => a.estado === 'Inactivo').length
+  const abonadosSinCuenta = abonadosReales.filter((a) => !a.usuario_id).length
+
   const alertasActivas = useMemo(
     () =>
       [
@@ -277,15 +305,23 @@ function DashboardHomeContenido() {
           to: '/dashboard/inventario',
         },
         {
-          key: 'abonados',
+          key: 'abonados-inactivos',
           icon: <IconAbonado />,
           color: 'bg-blue-100 text-blue-600',
           mensaje: 'Abonados inactivos',
-          count: MOCK_ABONADOS.filter((a) => a.estado === 'Inactivo').length,
+          count: abonadosInactivos,
+          to: '/dashboard/abonados',
+        },
+        {
+          key: 'abonados-sin-cuenta',
+          icon: <IconAbonado />,
+          color: 'bg-purple-100 text-purple-600',
+          mensaje: 'Abonados sin cuenta de acceso vinculada',
+          count: abonadosSinCuenta,
           to: '/dashboard/abonados',
         },
       ].filter((a) => a.count > 0),
-    [averiasSinAsignar, solicitudesSinNotificar, stockCritico],
+    [averiasSinAsignar, solicitudesSinNotificar, stockCritico, abonadosInactivos, abonadosSinCuenta],
   )
 
   const totalAveriasPorTipo = useMemo(
@@ -301,12 +337,12 @@ function DashboardHomeContenido() {
   )
 
   // Total acumulado de abonados registrados por mes — para el gráfico de
-  // tendencia. Se usa fechaRegistro (no el filtro de rango de arriba) porque
+  // tendencia. Se usa fecha_registro (no el filtro de rango de arriba) porque
   // el objetivo es mostrar el crecimiento histórico, no un corte puntual.
   const abonadosPorMes = useMemo(() => {
     const porMes: Record<string, number> = {}
-    for (const a of MOCK_ABONADOS) {
-      const mes = MESES_CORTOS[Number(a.fechaRegistro.slice(5, 7)) - 1]
+    for (const a of abonadosReales) {
+      const mes = MESES_CORTOS[Number(a.fecha_registro.slice(5, 7)) - 1]
       porMes[mes] = (porMes[mes] ?? 0) + 1
     }
     let acumulado = 0
@@ -314,7 +350,7 @@ function DashboardHomeContenido() {
       acumulado += porMes[mes]
       return { mes, total: acumulado }
     })
-  }, [])
+  }, [abonadosReales])
 
   return (
     <div className="space-y-6">
