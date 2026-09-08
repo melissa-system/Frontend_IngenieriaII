@@ -191,7 +191,10 @@ export const MENU_CONFIG: MenuItemConfig[] = [
 // sobrevive si le queda al menos una opción visible para el rol.
 function filterSubMenuByRole(subs: SubMenuItem[], role: string): SubMenuItem[] {
   return subs
-    .filter((sub) => sub.roles.includes(role))
+    // 'Junta Directiva' (SUPER_ADMIN) ve todo, igual que la "Regla de Oro"
+    // del RolesGuard del backend — así no hay que acordarse de agregarlo a
+    // mano en cada ítem nuevo (eso fue justo lo que faltó en varios).
+    .filter((sub) => role === 'Junta Directiva' || sub.roles.includes(role))
     .map((sub) => ({
       ...sub,
       submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role) : undefined,
@@ -201,7 +204,7 @@ function filterSubMenuByRole(subs: SubMenuItem[], role: string): SubMenuItem[] {
 
 export function filterMenuByRole(items: MenuItemConfig[], role: string): MenuItemConfig[] {
   return items
-    .filter((item) => item.roles.includes(role))
+    .filter((item) => role === 'Junta Directiva' || item.roles.includes(role))
     .map((item) => ({
       ...item,
       submenu: item.submenu ? filterSubMenuByRole(item.submenu, role) : undefined,
