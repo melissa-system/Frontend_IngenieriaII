@@ -15,6 +15,14 @@ export interface PerfilCompleto {
   direccion?: string | null
   puesto: string | null
   tipo_asociacion: 'empleado' | 'abonado' | null
+  // Solo para abonados jurídicos: representa el representante legal actual
+  // (lo consume la vista de "cambio de representante").
+  juridico?: {
+    nombre_representante_legal: string | null
+    cedula_representante: string | null
+    representante_direccion: string | null
+    representante_correo: string | null
+  } | null
 }
 
 export interface ActualizarPerfilPayload {
