@@ -6,7 +6,7 @@ import {
   useCallback,
   type ReactNode,
 } from 'react'
-import apiClient, { alExpirarSesion } from '../lib/apiClient'
+import apiClient, { alExpirarSesion, establecerPerfilActivoParaRefresh } from '../lib/apiClient'
 import { tokenStore } from '../lib/tokenStore'
 
 // Abonado o Empleado vinculado a la cuenta (ver GET /auth/perfil). Una
@@ -61,8 +61,8 @@ interface AuthContextType {
   /** Rol efectivo a mostrar: 'Abonado' cuando perfilActivo === 'abonado', si no, user.rol tal cual. */
   rolEfectivo: string | null
   perfilActivo: PerfilActivo
-  /** Cambia el perfil visible sin cerrar sesión. Solo tiene efecto si el destino es válido para esta cuenta. */
-  cambiarPerfil: (perfil: PerfilActivo) => void
+  /** Cambia el perfil visible sin cerrar sesión (llama al backend para re-emitir el token con el rol correspondiente). Solo tiene efecto si el destino es válido para esta cuenta. */
+  cambiarPerfil: (perfil: PerfilActivo) => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -168,6 +168,24 @@ function guardarPerfil(userId: string, perfil: PerfilActivo): void {
   }
 }
 
+// POST /auth/cambiar-perfil: re-emite el Access Token con el rol del
+// vínculo elegido (verificado en el backend, ver AuthService.cambiarPerfilToken).
+// 'base' no necesita llamada — el token que ya se tiene alcanza. Devuelve si
+// se pudo aplicar, para que quien llama decida si de verdad queda en ese
+// perfil o se queda/vuelve a 'base'.
+async function sincronizarPerfilActivo(perfil: PerfilActivo): Promise<boolean> {
+  if (perfil === 'base') return true
+  try {
+    const { data } = await apiClient.post<{ accessToken: string }>('/auth/cambiar-perfil', {
+      perfil,
+    })
+    tokenStore.set(data.accessToken)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [status, setStatus] =
@@ -180,12 +198,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     let cancelado = false
     void apiClient
       .post<AuthResponse>('/auth/refresh')
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (cancelado) return
         aplicarSesion(data, setUser)
+        const userId = String(data.user.id)
+        const perfilGuardado = leerPerfilGuardado(userId)
+        const aplicado = await sincronizarPerfilActivo(perfilGuardado)
+        if (cancelado) return
+        setPerfilActivo(aplicado ? perfilGuardado : 'base')
         setStatus('authenticated')
-        setPerfilActivo(leerPerfilGuardado(String(data.user.id)))
-        void cargarDatosExtendidos(String(data.user.id), setUser)
+        void cargarDatosExtendidos(userId, setUser)
       })
       .catch(() => {
         // Sin sesión activa o refresh expirado: se queda deslogueado.
@@ -214,9 +236,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       })
       aplicarSesion(data, setUser)
+      const userId = String(data.user.id)
+      const perfilGuardado = leerPerfilGuardado(userId)
+      const aplicado = await sincronizarPerfilActivo(perfilGuardado)
+      setPerfilActivo(aplicado ? perfilGuardado : 'base')
       setStatus('authenticated')
-      setPerfilActivo(leerPerfilGuardado(String(data.user.id)))
-      void cargarDatosExtendidos(String(data.user.id), setUser)
+      void cargarDatosExtendidos(userId, setUser)
     },
     [],
   )
@@ -236,15 +261,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // contrario no hace nada (evita un estado inconsistente si se llama por
   // error o con datos vencidos).
   const cambiarPerfil = useCallback(
-    (perfil: PerfilActivo) => {
+    async (perfil: PerfilActivo): Promise<void> => {
       if (!user) return
       if (perfil === 'abonado' && !user.vinculos.abonado) return
       if (perfil === 'empleado' && !user.vinculos.empleado?.rol) return
+      // Solo queda en el perfil pedido si el backend de verdad re-emitió el
+      // token con ese rol (ver sincronizarPerfilActivo) — si no, no tiene
+      // sentido mostrar un menú al que las llamadas van a responder 403.
+      const aplicado = await sincronizarPerfilActivo(perfil)
+      if (!aplicado) return
       setPerfilActivo(perfil)
       guardarPerfil(user.id, perfil)
     },
     [user],
   )
+
+  // apiClient no es un componente de React: se le avisa por fuera cada vez
+  // que cambia el perfil activo, para que su propio refresh silencioso
+  // (cuando expira el Access Token a mitad de sesión) también re-emita con
+  // el rol correcto en vez de volver siempre al rol base real.
+  useEffect(() => {
+    establecerPerfilActivoParaRefresh(perfilActivo)
+  }, [perfilActivo])
 
   const rolEfectivo = user
     ? perfilActivo === 'abonado'

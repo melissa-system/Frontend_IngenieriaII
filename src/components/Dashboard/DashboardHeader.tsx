@@ -33,11 +33,11 @@ function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
     ? 'Abonado'
     : (user?.vinculos.empleado?.puesto ?? '')
 
-  function alternarPerfil() {
+  async function alternarPerfil() {
     if (puedeVerComoAbonado) {
-      cambiarPerfil(perfilActivo === 'abonado' ? 'base' : 'abonado')
+      await cambiarPerfil(perfilActivo === 'abonado' ? 'base' : 'abonado')
     } else if (puedeVerComoEmpleado) {
-      cambiarPerfil(perfilActivo === 'empleado' ? 'base' : 'empleado')
+      await cambiarPerfil(perfilActivo === 'empleado' ? 'base' : 'empleado')
     }
     // El home del dashboard decide qué mostrar según el perfil activo
     // (ver DashboardHome.tsx) — volver ahí después de cambiar evita quedar

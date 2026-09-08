@@ -36,6 +36,20 @@ function esRutaAuth(url: string): boolean {
   return url.includes('/auth/login') || url.includes('/auth/refresh') || url.includes('/auth/logout')
 }
 
+// Perfil activo actual (ver selector de perfil en AuthContext.tsx). apiClient
+// no es un componente de React y no tiene acceso al contexto, así que
+// AuthContext mantiene esta variable de módulo sincronizada con su propio
+// estado (ver el useEffect ahí). Sirve para que el refresh SILENCIOSO de acá
+// abajo (cuando expira el Access Token a mitad de sesión) también vuelva a
+// pedir el rol correcto — si no, /auth/refresh siempre emite con el rol
+// base real de la cuenta, y alguien viendo "como Empleado" perdería ese
+// perfil sin aviso en cuanto expirara el token (cada 15 min).
+type PerfilActivoInterno = 'base' | 'abonado' | 'empleado'
+let perfilActivoActual: PerfilActivoInterno = 'base'
+export function establecerPerfilActivoParaRefresh(perfil: PerfilActivoInterno): void {
+  perfilActivoActual = perfil
+}
+
 // --- Refresh silencioso con cola (single-flight) ---
 // Si varias peticiones fallan con 401 al mismo tiempo, todas comparten la MISMA
 // promesa de refresh: se ejecuta una sola llamada a /auth/refresh y los demás
@@ -54,9 +68,23 @@ async function refrescarSesion(): Promise<string> {
       .post<AuthResponse>(`${API_BASE_URL}/auth/refresh`, null, {
         withCredentials: true,
       })
-      .then(({ data }) => {
-        tokenStore.set(data.accessToken)
-        return data.accessToken
+      .then(async ({ data }) => {
+        let token = data.accessToken
+        if (perfilActivoActual !== 'base') {
+          try {
+            const { data: cambio } = await axios.post<AuthResponse>(
+              `${API_BASE_URL}/auth/cambiar-perfil`,
+              { perfil: perfilActivoActual },
+              { headers: { Authorization: `Bearer ${token}` }, withCredentials: true },
+            )
+            token = cambio.accessToken
+          } catch {
+            // Si el vínculo ya no aplica o falla la llamada, se sigue con
+            // el token base recién emitido en vez de tumbar el refresh.
+          }
+        }
+        tokenStore.set(token)
+        return token
       })
       .finally(() => {
         promesaRefresh = null
