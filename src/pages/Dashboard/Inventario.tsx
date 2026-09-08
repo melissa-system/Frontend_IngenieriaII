@@ -159,6 +159,7 @@ function Inventario() {
   }
 
   const inputCls = 'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
+  const selectCls = 'mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
   const labelCls = 'block text-sm font-medium text-primary-700'
   const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40'
   const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
@@ -184,13 +185,13 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Categoría</label>
-              <select value={newItemForm.categoria} onChange={(e) => setNewItemForm((p) => ({ ...p, categoria: e.target.value }))} className={inputCls}>
+              <select value={newItemForm.categoria} onChange={(e) => setNewItemForm((p) => ({ ...p, categoria: e.target.value }))} className={selectCls}>
                 {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Ubicación</label>
-              <select value={newItemForm.ubicacion} onChange={(e) => setNewItemForm((p) => ({ ...p, ubicacion: e.target.value }))} className={inputCls}>
+              <select value={newItemForm.ubicacion} onChange={(e) => setNewItemForm((p) => ({ ...p, ubicacion: e.target.value }))} className={selectCls}>
                 {UBICACIONES.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -203,7 +204,7 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Tipo de proveedor</label>
-              <select value={newItemForm.tipoProveedor} onChange={(e) => setNewItemForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+              <select value={newItemForm.tipoProveedor} onChange={(e) => setNewItemForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                 <option value="Físico">Físico</option>
                 <option value="Jurídico">Jurídico</option>
               </select>
@@ -218,10 +219,10 @@ function Inventario() {
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={handleAddItem} disabled={!newItemForm.nombre || !newItemForm.proveedor}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">Agregar item</button>
+            <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -251,13 +252,13 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Categoría</label>
-              <select value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))} className={inputCls}>
+              <select value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))} className={selectCls}>
                 {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
               <label className={labelCls}>Ubicación</label>
-              <select value={form.ubicacion} onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))} className={inputCls}>
+              <select value={form.ubicacion} onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))} className={selectCls}>
                 {UBICACIONES.map((u) => <option key={u} value={u}>{u}</option>)}
               </select>
             </div>
@@ -270,7 +271,7 @@ function Inventario() {
             </div>
             <div>
               <label className={labelCls}>Tipo de proveedor</label>
-              <select value={form.tipoProveedor} onChange={(e) => setForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+              <select value={form.tipoProveedor} onChange={(e) => setForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                 <option value="Físico">Físico</option>
                 <option value="Jurídico">Jurídico</option>
               </select>
@@ -311,10 +312,10 @@ function Inventario() {
           </div>
 
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setEditItem(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={() => handleEditItem(editItem.id, form)}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">Guardar cambios</button>
+            <button type="button" onClick={() => setEditItem(null)}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -343,14 +344,14 @@ function Inventario() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Tipo</label>
-                <select value={newProvForm.tipo} onChange={(e) => setNewProvForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+                <select value={newProvForm.tipo} onChange={(e) => setNewProvForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                   <option value="Físico">Físico</option>
                   <option value="Jurídico">Jurídico</option>
                 </select>
               </div>
               <div>
                 <label className={labelCls}>Estado</label>
-                <select value={newProvForm.estado} onChange={(e) => setNewProvForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={inputCls}>
+                <select value={newProvForm.estado} onChange={(e) => setNewProvForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={selectCls}>
                   <option value="Activo">Activo</option>
                   <option value="Inactivo">Inactivo</option>
                 </select>
@@ -376,10 +377,10 @@ function Inventario() {
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={handleAddProveedor} disabled={!newProvForm.nombre}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">Agregar proveedor</button>
+            <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -409,14 +410,14 @@ function Inventario() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className={labelCls}>Tipo</label>
-                <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={inputCls}>
+                <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
                   <option value="Físico">Físico</option>
                   <option value="Jurídico">Jurídico</option>
                 </select>
               </div>
               <div>
                 <label className={labelCls}>Estado</label>
-                <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={inputCls}>
+                <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={selectCls}>
                   <option value="Activo">Activo</option>
                   <option value="Inactivo">Inactivo</option>
                 </select>
@@ -442,10 +443,10 @@ function Inventario() {
             </div>
           </div>
           <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => setEditProv(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
             <button type="button" onClick={() => handleEditProveedor(editProv.id, form)}
               className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">Guardar cambios</button>
+            <button type="button" onClick={() => setEditProv(null)}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
           </div>
         </div>
       </div>
@@ -481,7 +482,7 @@ function Inventario() {
         <button type="button" onClick={() => setTab('inventario')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors
             ${tab === 'inventario' ? 'bg-white text-primary-900 shadow-sm' : 'text-primary-600 hover:text-primary-800'}`}>
-          Inventario
+          Productos
         </button>
         <button type="button" onClick={() => setTab('proveedores')}
           className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors
@@ -532,7 +533,7 @@ function Inventario() {
           )}
 
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
+            <div className="relative sm:max-w-md sm:flex-1">
               <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
               </svg>
@@ -543,7 +544,7 @@ function Inventario() {
               />
             </div>
             <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
-              className="rounded-lg border border-primary-200 px-3 py-2.5 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+              className="w-full rounded-full border border-primary-200 px-4 py-2.5 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none sm:w-auto sm:min-w-[200px]">
               <option value="Todas">Todas las categorías</option>
               {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
             </select>
@@ -627,6 +628,18 @@ function Inventario() {
       )}
 
       {tab === 'proveedores' && (
+        <>
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text" placeholder="Buscar por nombre, contacto o teléfono..."
+              value={search} onChange={(e) => setSearch(e.target.value)}
+              className="w-full rounded-lg border border-primary-200 py-2.5 pl-9 pr-4 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none sm:w-96"
+            />
+          </div>
+
         <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50">
@@ -680,6 +693,7 @@ function Inventario() {
             </tbody>
           </table>
         </div>
+        </>
       )}
 
       <AddItemModal />

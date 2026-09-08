@@ -24,12 +24,15 @@ body {
   color: var(--color-primary-900);
 }
 
-/* Oculta la barra de scroll visible mientras se mantiene el scroll funcional */
-html {
+/* Oculta la barra de scroll visible mientras se mantiene el scroll funcional.
+   Aplica a todo el sitio (universal, no solo html): el layout del dashboard,
+   el sidebar, y cualquier contenedor con scroll propio (modales de
+   formularios con overflow-y-auto, tablas con overflow-x-auto, etc). */
+* {
   scrollbar-width: none; /* Firefox */
   -ms-overflow-style: none; /* IE/Edge */
 }
 
-html::-webkit-scrollbar {
+*::-webkit-scrollbar {
   display: none; /* Chrome/Safari/Edge (Chromium) */
 }

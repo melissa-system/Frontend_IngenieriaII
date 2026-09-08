@@ -1,7 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
+import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
+import { partirNombreCompleto } from '../../lib/nombres'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -84,12 +86,19 @@ function ReportarAveria() {
       tipoId === 'nacional' ? cedula : `DIMEX ${numeroDimex}`
     const descripcionFinal = `Reportado por: ${nombreFinal} (${identificacionReportante}). Detalle: ${detalle}`
 
+    // El formulario sigue pidiendo un solo "nombre completo" (autocompletado
+    // por cédula o escrito a mano); la división en nombre/apellido1/apellido2
+    // para la base de datos se hace acá, no con campos separados en el form.
+    const { nombre, apellido1, apellido2 } = partirNombreCompleto(nombreFinal)
+
     try {
       await crearAveria({
         tipo_averia: tipoFinal,
         descripcion: descripcionFinal,
         cedula_reportante: identificacionReportante,
-        nombre_reportante: nombreFinal,
+        nombre_reportante: nombre,
+        apellido1_reportante: apellido1 || undefined,
+        apellido2_reportante: apellido2 || undefined,
       })
       setSubmitted(true)
     } catch (error) {
@@ -159,7 +168,7 @@ function ReportarAveria() {
                 setNumeroDimex('')
                 setNombreDimex('')
               }}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecciona una opción
@@ -186,7 +195,11 @@ function ReportarAveria() {
                     required
                     value={cedula}
                     disabled={datosListos}
-                    onChange={(e) => setCedula(e.target.value)}
+                    // Separamos con guiones mientras se escribe
+                    // (X-XXXX-XXXX), aunque el usuario no los ponga.
+                    onChange={(e) =>
+                      setCedula(formatearCedula(e.target.value, 'fisica'))
+                    }
                     placeholder="Ej. 1-2345-6789"
                     className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
                   />
@@ -315,7 +328,7 @@ function ReportarAveria() {
                   required
                   value={tipoAveria}
                   onChange={(e) => setTipoAveria(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 >
                   <option value="" disabled>
                     Selecciona una opción

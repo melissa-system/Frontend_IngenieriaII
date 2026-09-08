@@ -2,8 +2,11 @@ import type { ReactNode } from 'react'
 
 export interface SubMenuItem {
   label: string
-  to: string
+  // Un SubMenuItem es una hoja (con "to", navega) o un grupo (con
+  // "submenu", se despliega en más opciones) — nunca ambos.
+  to?: string
   roles: string[]
+  submenu?: SubMenuItem[]
 }
 
 export interface MenuItemConfig {
@@ -63,7 +66,15 @@ function AveriasIcon() {
 function AdminIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5.586a1 1 0 0 1 .707.293l5.414 5.414a1 1 0 0 1 .293.707V19a2 2 0 0 1-2 2Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M15 19.128a9.38 9.38 0 0 0 2.625.372 9.337 9.337 0 0 0 4.121-.952 4.125 4.125 0 0 0-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 0 1 8.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0 1 11.964-3.07M12 6.375a3.375 3.375 0 1 1-6.75 0 3.375 3.375 0 0 1 6.75 0Zm8.25 2.25a2.625 2.625 0 1 1-5.25 0 2.625 2.625 0 0 1 5.25 0Z" />
+    </svg>
+  )
+}
+
+function PersonalIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0" />
     </svg>
   )
 }
@@ -84,6 +95,14 @@ function PerfilIcon() {
   )
 }
 
+function DocumentosOficialesIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
+  )
+}
+
 export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Dashboard',
@@ -100,8 +119,15 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Solicitudes',
     icon: <SolicitudesIcon />,
-    to: '/dashboard/solicitudes',
-    roles: ['Administrador', 'Junta Directiva'],
+    roles: ['Administrador', 'Junta Directiva', 'Abonado'],
+    submenu: [
+      { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Domicilio', to: '/dashboard/solicitudes/cambio-domicilio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Medidor', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Traslado de Medidor', to: '/dashboard/solicitudes/traslado-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Otro', to: '/dashboard/solicitudes/otro', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+    ],
   },
   {
     label: 'Inventario',
@@ -116,13 +142,27 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Administrador', 'Fontanero'],
   },
   {
+    label: 'Personal',
+    icon: <PersonalIcon />,
+    to: '/dashboard/personal',
+    roles: ['Administrador'],
+  },
+  {
     label: 'Administración',
     icon: <AdminIcon />,
-    roles: ['Administrador'],
+    roles: ['Administrador', 'Junta Directiva'],
     submenu: [
-      { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador'] },
-      { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador'] },
-      { label: 'Documentos', to: '/dashboard/administrativo?tab=documentos', roles: ['Administrador'] },
+      { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Documentos', to: '/dashboard/documentos', roles: ['Administrador', 'Junta Directiva'] },
+      {
+        label: 'Edición de página',
+        roles: ['Administrador', 'Junta Directiva'],
+        submenu: [
+          { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
+          { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
+        ],
+      },
     ],
   },
   {
@@ -132,18 +172,41 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Administrador'],
   },
   {
+    label: 'Documentos Oficiales',
+    icon: <DocumentosOficialesIcon />,
+    to: '/dashboard/documentos-oficiales',
+    roles: ['Abonado'],
+  },
+  {
+    // Sin "to": el Sidebar arma su propio submenú anidado para este ítem
+    // (Mi perfil / Cambio de cuenta) en vez de usar el renderItem genérico.
+    // Se mantiene acá solo para el filtrado por rol y el ícono.
     label: 'Perfil',
     icon: <PerfilIcon />,
-    to: '/dashboard/perfil',
-    roles: ['Administrador', 'Fontanero', 'Junta Directiva'],
+    roles: ['Administrador', 'Fontanero', 'Junta Directiva', 'Abonado'],
   },
 ]
 
+// Filtra un submenú por rol de forma recursiva: un grupo (sub.submenu) solo
+// sobrevive si le queda al menos una opción visible para el rol.
+function filterSubMenuByRole(subs: SubMenuItem[], role: string): SubMenuItem[] {
+  return subs
+    // 'Junta Directiva' (SUPER_ADMIN) ve todo, igual que la "Regla de Oro"
+    // del RolesGuard del backend — así no hay que acordarse de agregarlo a
+    // mano en cada ítem nuevo (eso fue justo lo que faltó en varios).
+    .filter((sub) => role === 'Junta Directiva' || sub.roles.includes(role))
+    .map((sub) => ({
+      ...sub,
+      submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role) : undefined,
+    }))
+    .filter((sub) => !sub.submenu || sub.submenu.length > 0)
+}
+
 export function filterMenuByRole(items: MenuItemConfig[], role: string): MenuItemConfig[] {
   return items
-    .filter((item) => item.roles.includes(role))
+    .filter((item) => role === 'Junta Directiva' || item.roles.includes(role))
     .map((item) => ({
       ...item,
-      submenu: item.submenu?.filter((sub) => sub.roles.includes(role)),
+      submenu: item.submenu ? filterSubMenuByRole(item.submenu, role) : undefined,
     }))
 }

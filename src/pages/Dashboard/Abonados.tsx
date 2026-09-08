@@ -1,20 +1,54 @@
-import { useState } from 'react'
-import { MOCK_ABONADOS, type Abonado, type MedidorInfo } from '../../lib/mockData'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import {
+  crearAbonado,
+  obtenerAbonado,
+  obtenerAbonados,
+  actualizarAbonado,
+  cambiarEstadoAbonado,
+  vincularCuentaAbonado,
+  obtenerHistorialAbonado,
+  nombreVisible,
+  type Abonado,
+  type AbonadoPayload,
+  type AbonadoUpdatePayload,
+  type EstadoAbonado,
+  type HistorialAbonado,
+  type TipoAbonado,
+} from '../../components/Services/abonados.service'
+import { formatearCedula } from '../../components/Services/solicitudes.service'
+import {
+  RequiereConfirmacionError,
+  type RequiereConfirmacionInfo,
+} from '../../components/Services/erroresApi'
 
-type ModalMode = 'create' | 'edit' | null
+interface FormState {
+  tipo_abonado: TipoAbonado
+  nombre: string
+  nombre_representante_legal: string
+  cedula_representante: string
+  cedula: string
+  telefono: string
+  correo: string
+  direccion: string
+  numero_plano_catastrado: string
+}
 
-const emptyForm: Omit<Abonado, 'id'> = {
-  cedula: '',
+const EMPTY_FORM: FormState = {
+  tipo_abonado: 'Física',
   nombre: '',
-  tipo: 'Física',
+  nombre_representante_legal: '',
+  cedula_representante: '',
+  cedula: '',
   telefono: '',
   correo: '',
   direccion: '',
-  beneficiario: '',
-  medidor: { numero: '', diametro: '', ubicacion: '' },
-  estado: 'Activo',
-  fechaRegistro: new Date().toISOString().slice(0, 10),
+  numero_plano_catastrado: '',
 }
+
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+// Paginación client-side de la tabla de abonados
+const ABONADOS_POR_PAGINA = 10
 
 function getEstadoColor(estado: string) {
   if (estado === 'Activo') return 'bg-green-100 text-green-700'
@@ -26,87 +60,540 @@ function getTipoBadge(tipo: string) {
   return 'bg-purple-100 text-purple-700'
 }
 
-function Abonados() {
-  const [abonados, setAbonados] = useState<Abonado[]>(MOCK_ABONADOS)
-  const [search, setSearch] = useState('')
-  const [modal, setModal] = useState<ModalMode>(null)
-  const [selected, setSelected] = useState<Abonado | null>(null)
-  const [form, setForm] = useState<Omit<Abonado, 'id'>>(emptyForm)
-  const [viewDetail, setViewDetail] = useState<Abonado | null>(null)
+// Arma el estado del formulario a partir de un abonado (precarga del modal).
+// Los campos opcionales llegan como null desde la BD y se normalizan a ''.
+function formDesdeAbonado(a: Abonado): FormState {
+  return {
+    tipo_abonado: a.tipo_abonado,
+    nombre: a.nombre,
+    nombre_representante_legal: a.nombre_representante_legal ?? '',
+    cedula_representante: a.cedula_representante ?? '',
+    cedula: a.cedula,
+    telefono: a.telefono,
+    correo: a.correo,
+    direccion: a.direccion,
+    numero_plano_catastrado: a.numero_plano_catastrado ?? '',
+  }
+}
 
-  const filtered = abonados.filter(
-    (a) =>
-      a.nombre.toLowerCase().includes(search.toLowerCase()) ||
-      a.cedula.includes(search) ||
-      a.telefono.includes(search) ||
-      a.direccion.toLowerCase().includes(search.toLowerCase()),
+const CAMPO_LABELS: Record<string, string> = {
+  nombre: 'Nombre / Razón social',
+  nombre_representante_legal: 'Representante legal',
+  cedula_representante: 'Cédula del representante',
+  telefono: 'Teléfono',
+  correo: 'Correo electrónico',
+  direccion: 'Dirección',
+  numero_plano_catastrado: 'N° de plano',
+  estado: 'Estado',
+}
+
+function mostrarValorHistorial(v: string | null) {
+  return v === null || v.trim() === '' ? '(vacío)' : v
+}
+
+function formatearFechaHistorial(fecha: string) {
+  const d = new Date(fecha)
+  if (Number.isNaN(d.getTime())) return fecha
+  return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// Interruptor para activar/desactivar un abonado. No guarda nada por sí
+// mismo: solo dispara la confirmación que luego llama al backend.
+function EstadoSwitch({
+  estado,
+  disabled,
+  onChange,
+}: {
+  estado: string
+  disabled?: boolean
+  onChange: () => void
+}) {
+  const activo = estado === 'Activo'
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      aria-label={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      disabled={disabled}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+          activo ? 'translate-x-[18px]' : 'translate-x-[3px]'
+        }`}
+      />
+    </button>
+  )
+}
+
+// Normaliza texto para buscar sin depender de mayúsculas, acentos,
+// guiones ni espacios (ej: "ab20260001" encuentra "AB-2026-0001").
+function normalizarBusqueda(t: string) {
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function validarForm(form: FormState): string | null {
+  if (!form.nombre.trim()) {
+    return form.tipo_abonado === 'Jurídica'
+      ? 'La razón social es obligatoria.'
+      : 'El nombre es obligatorio.'
+  }
+  if (!form.cedula.trim()) return 'La cédula es obligatoria.'
+  if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
+  if (!form.correo.trim()) return 'El correo es obligatorio.'
+  if (!EMAIL_REGEX.test(form.correo.trim())) {
+    return 'El correo electrónico no tiene un formato válido.'
+  }
+  if (!form.direccion.trim()) return 'La dirección es obligatoria.'
+  if (form.tipo_abonado === 'Jurídica') {
+    if (!form.nombre_representante_legal.trim()) {
+      return 'El nombre del representante legal es obligatorio para persona jurídica.'
+    }
+    if (!form.cedula_representante.trim()) {
+      return 'La cédula del representante legal es obligatoria para persona jurídica.'
+    }
+  }
+  return null
+}
+
+function Abonados() {
+  const [abonados, setAbonados] = useState<Abonado[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+
+  const [search, setSearch] = useState('')
+  const [pagina, setPagina] = useState(1)
+  const [modalOpen, setModalOpen] = useState(false)
+  const [form, setForm] = useState<FormState>(EMPTY_FORM)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [editando, setEditando] = useState<Abonado | null>(null)
+  // Id del abonado en edición: descarta respuestas tardías de la precarga
+  // si el modal se cerró o se abrió con otro abonado antes de responder.
+  const edicionIdRef = useRef<string | number | null>(null)
+
+  const [viewDetail, setViewDetail] = useState<Abonado | null>(null)
+  const [historialDetalle, setHistorialDetalle] = useState<HistorialAbonado[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
+  const [confirmacion, setConfirmacion] = useState<string | null>(null)
+
+  // Gestión de estado del abonado: confirmación pendiente, id en curso
+  // (deshabilita el interruptor) y error mostrado dentro del modal.
+  const [cambioEstado, setCambioEstado] = useState<{
+    abonado: Abonado
+    nuevo: EstadoAbonado
+  } | null>(null)
+  const [cambiandoEstadoId, setCambiandoEstadoId] = useState<
+    string | number | null
+  >(null)
+  const [errorCambioEstado, setErrorCambioEstado] = useState<string | null>(
+    null,
   )
 
-  function openCreate() {
-    setForm(emptyForm)
-    setSelected(null)
-    setModal('create')
-  }
+  // Confirmación de cédula cruzada: la cédula del nuevo abonado ya existe
+  // como Empleado. Se guarda el payload pendiente para reenviarlo con
+  // confirmarVinculacion: true si el usuario confirma que es la misma persona.
+  const [confirmacionCedula, setConfirmacionCedula] = useState<{
+    info: RequiereConfirmacionInfo
+    payload: AbonadoPayload
+  } | null>(null)
+  const [confirmandoVinculacion, setConfirmandoVinculacion] = useState(false)
 
-  function openEdit(a: Abonado) {
-    setSelected(a)
-    setForm({
-      cedula: a.cedula,
-      nombre: a.nombre,
-      tipo: a.tipo,
-      telefono: a.telefono,
-      correo: a.correo,
-      direccion: a.direccion,
-      beneficiario: a.beneficiario,
-      medidor: { ...a.medidor },
-      estado: a.estado,
-      fechaRegistro: a.fechaRegistro,
-    })
-    setModal('edit')
-  }
+  // Vinculación de la cuenta de acceso (por correo) de un abonado que aún
+  // no tiene usuario: se confirma dentro del formulario de edición (estado
+  // de confirmación abierto, id en curso y error).
+  const [vincularConfirmando, setVincularConfirmando] = useState(false)
+  const [vinculandoId, setVinculandoId] = useState<string | number | null>(null)
+  const [errorVincular, setErrorVincular] = useState<string | null>(null)
 
-  function handleSave() {
-    if (modal === 'create') {
-      const nuevo: Abonado = {
-        id: String(Date.now()),
-        ...form,
-      }
-      setAbonados((prev) => [nuevo, ...prev])
-    } else if (modal === 'edit' && selected) {
-      setAbonados((prev) =>
-        prev.map((a) => (a.id === selected.id ? { ...a, ...form } : a)),
+  // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
+  // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
+  // así que esos siempre se completan a mano.
+  const [buscandoCedula, setBuscandoCedula] = useState(false)
+  const [cedulaLookupStatus, setCedulaLookupStatus] = useState<
+    'idle' | 'found' | 'not-found' | 'error'
+  >('idle')
+
+  async function cargarAbonados() {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const data = await obtenerAbonados()
+      setAbonados(data)
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo conectar con el servidor.',
       )
-    }
-    setModal(null)
-    setSelected(null)
-  }
-
-  function updateField(field: string, value: string) {
-    if (field.startsWith('medidor.')) {
-      const key = field.split('.')[1] as keyof MedidorInfo
-      setForm((prev) => ({
-        ...prev,
-        medidor: { ...prev.medidor, [key]: value },
-      }))
-    } else {
-      setForm((prev) => ({ ...prev, [field]: value }))
+    } finally {
+      setLoading(false)
     }
   }
 
-  function ModalForm() {
-    if (!modal) return null
-    const isCreate = modal === 'create'
+  useEffect(() => {
+    cargarAbonados()
+  }, [])
 
-    return (
+  // Aplica el cambio de estado confirmado y sincroniza la fila de la
+  // tabla y el modal de detalle con lo que devolvió el backend.
+  async function confirmarCambioEstado() {
+    if (!cambioEstado) return
+    const { abonado, nuevo } = cambioEstado
+    setCambiandoEstadoId(abonado.id)
+    setErrorCambioEstado(null)
+    try {
+      const actualizado = await cambiarEstadoAbonado(abonado.id, nuevo)
+      setAbonados((prev) =>
+        prev.map((x) => (x.id === abonado.id ? actualizado : x)),
+      )
+      // Si el detalle está abierto con este abonado, sincroniza su ficha
+      // y recarga el historial para que el cambio recién hecho aparezca.
+      if (viewDetail && viewDetail.id === abonado.id) {
+        setViewDetail(actualizado)
+        try {
+          setHistorialDetalle(await obtenerHistorialAbonado(abonado.id))
+        } catch {
+          // Si falla la recarga del historial, quedará como estaba; no
+          // afecta al cambio de estado ya guardado.
+        }
+      }
+      setCambioEstado(null)
+    } catch (err) {
+      setErrorCambioEstado(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo cambiar el estado del abonado.',
+      )
+    } finally {
+      setCambiandoEstadoId(null)
+    }
+  }
+
+  const q = normalizarBusqueda(search)
+  const filtered =
+    q === ''
+      ? abonados
+      : abonados.filter(
+          (a) =>
+            normalizarBusqueda(nombreVisible(a)).includes(q) ||
+            normalizarBusqueda(a.cedula).includes(q) ||
+            normalizarBusqueda(a.numero_abonado).includes(q) ||
+            normalizarBusqueda(a.telefono).includes(q) ||
+            normalizarBusqueda(a.direccion).includes(q),
+        )
+
+  // Paginación derivada: si la lista encoge, paginaActual se autocorrige
+  // y nunca se queda apuntando a una página vacía.
+  const totalPaginas = Math.max(
+    1,
+    Math.ceil(filtered.length / ABONADOS_POR_PAGINA),
+  )
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const primeraFila = (paginaActual - 1) * ABONADOS_POR_PAGINA
+  const filasVisibles = filtered.slice(
+    primeraFila,
+    primeraFila + ABONADOS_POR_PAGINA,
+  )
+  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+
+  // Buscar siempre regresa a la primera página; navegar páginas NO toca el
+  // término de búsqueda, así que el filtro se mantiene entre páginas.
+  function manejarBusqueda(valor: string) {
+    setSearch(valor)
+    setPagina(1)
+  }
+
+  function cerrarModal() {
+    edicionIdRef.current = null
+    setModalOpen(false)
+    setEditando(null)
+  }
+
+  function openCreate() {
+    edicionIdRef.current = null
+    setForm(EMPTY_FORM)
+    setFormError(null)
+    setCedulaLookupStatus('idle')
+    setModalOpen(true)
+  }
+
+  // Precarga en dos pasos: el modal abre al instante con los datos de la
+  // fila y, en segundo plano, GET /abonados/:id refresca los campos con lo
+  // que hay en la BD por si la lista quedó desactualizada.
+  function openEditar(abonado: Abonado) {
+    edicionIdRef.current = abonado.id
+    setEditando(abonado)
+    setForm(formDesdeAbonado(abonado))
+    setFormError(null)
+    setCedulaLookupStatus('idle')
+    setModalOpen(true)
+
+    obtenerAbonado(abonado.id)
+      .then((fresco) => {
+        if (edicionIdRef.current !== fresco.id) return
+        setEditando(fresco)
+        setForm(formDesdeAbonado(fresco))
+      })
+      .catch(() => {})
+  }
+
+  // Abre el modal de detalle y carga su historial de cambios.
+  function openDetalle(abonado: Abonado) {
+    setViewDetail(abonado)
+    setHistorialDetalle([])
+    setHistorialError(null)
+    setHistorialLoading(true)
+    obtenerHistorialAbonado(abonado.id)
+      .then(setHistorialDetalle)
+      .catch(() => setHistorialError('No se pudo cargar el historial de cambios.'))
+      .finally(() => setHistorialLoading(false))
+  }
+
+  function updateField(field: keyof FormState, value: string) {
+    setForm((prev) => ({ ...prev, [field]: value }))
+    // Si cambian la cédula a mano, el resultado de la búsqueda anterior ya no aplica
+    if (field === 'cedula' && cedulaLookupStatus !== 'idle') {
+      setCedulaLookupStatus('idle')
+    }
+  }
+
+  // Consulta la API de Hacienda por el número de cédula (física o jurídica)
+  // y, si encuentra un nombre, rellena "Nombre completo" automáticamente.
+  async function buscarPorCedula() {
+    const digitos = form.cedula.replace(/\D/g, '')
+    if (!digitos) return
+
+    setBuscandoCedula(true)
+    setCedulaLookupStatus('idle')
+    try {
+      const res = await fetch(
+        `https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`,
+      )
+      const text = await res.text()
+      let data: { nombre?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = {}
+      }
+
+      if (data.nombre) {
+        // Hacienda devuelve el nombre completo como un solo string: en
+        // persona física va directo a "Nombre" (campo de texto libre) y en
+        // jurídica es la razón social completa.
+        updateField('nombre', data.nombre)
+        setCedulaLookupStatus('found')
+      } else {
+        setCedulaLookupStatus('not-found')
+      }
+    } catch {
+      setCedulaLookupStatus('error')
+    } finally {
+      setBuscandoCedula(false)
+    }
+  }
+
+  function changeTipo(tipo: TipoAbonado) {
+    // Al cambiar de tipo, limpiamos los campos que no aplican al nuevo tipo
+    // y re-formateamos la cédula (física y jurídica agrupan los guiones distinto)
+    setForm((prev) => ({
+      ...prev,
+      tipo_abonado: tipo,
+      cedula: formatearCedula(prev.cedula, tipo === 'Jurídica' ? 'juridica' : 'fisica'),
+      numero_plano_catastrado: tipo === 'Física' ? prev.numero_plano_catastrado : '',
+      nombre_representante_legal: tipo === 'Jurídica' ? prev.nombre_representante_legal : '',
+      cedula_representante: tipo === 'Jurídica' ? prev.cedula_representante : '',
+    }))
+  }
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    const validationError = validarForm(form)
+    if (validationError) {
+      setFormError(validationError)
+      return
+    }
+
+    if (editando) {
+      // El backend solo acepta los campos de contacto: tipo, cédula y estado
+      // quedan fijos. El plano catastrado se envía siempre en física para
+      // que vaciarlo también persista (el backend lo guarda como NULL).
+      const payload: AbonadoUpdatePayload = {
+        nombre: form.nombre.trim(),
+        telefono: form.telefono.trim(),
+        correo: form.correo.trim(),
+        direccion: form.direccion.trim(),
+        ...(form.tipo_abonado === 'Jurídica'
+          ? {
+              nombre_representante_legal: form.nombre_representante_legal.trim(),
+              cedula_representante: form.cedula_representante.trim(),
+            }
+          : {}),
+        ...(form.tipo_abonado === 'Física'
+          ? {
+              numero_plano_catastrado: form.numero_plano_catastrado.trim(),
+            }
+          : {}),
+      }
+
+      setSubmitting(true)
+      setFormError(null)
+      try {
+        const actualizado = await actualizarAbonado(editando.id, payload)
+        setAbonados((prev) =>
+          prev.map((a) => (a.id === actualizado.id ? actualizado : a)),
+        )
+        cerrarModal()
+        setConfirmacion('Abonado actualizado correctamente.')
+        setTimeout(() => setConfirmacion(null), 3000)
+      } catch (err) {
+        setFormError(
+          err instanceof Error
+            ? err.message
+            : 'No se pudieron guardar los cambios. Intenta de nuevo.',
+        )
+      } finally {
+        setSubmitting(false)
+      }
+      return
+    }
+
+    setSubmitting(true)
+    setFormError(null)
+
+    const payload: AbonadoPayload = {
+      tipo_abonado: form.tipo_abonado,
+      nombre: form.nombre.trim(),
+      cedula: form.cedula.trim(),
+      telefono: form.telefono.trim(),
+      correo: form.correo.trim(),
+      direccion: form.direccion.trim(),
+      ...(form.tipo_abonado === 'Jurídica'
+        ? {
+            nombre_representante_legal: form.nombre_representante_legal.trim(),
+            cedula_representante: form.cedula_representante.trim(),
+          }
+        : {}),
+      ...(form.tipo_abonado === 'Física'
+        ? {
+            ...(form.numero_plano_catastrado.trim()
+              ? { numero_plano_catastrado: form.numero_plano_catastrado.trim() }
+              : {}),
+          }
+        : {}),
+    }
+
+    try {
+      const creado = await crearAbonado(payload)
+      setAbonados((prev) => [creado, ...prev])
+      cerrarModal()
+      setConfirmacion(
+        `Abonado registrado correctamente con el número ${creado.numero_abonado}.`,
+      )
+      setTimeout(() => setConfirmacion(null), 3000)
+    } catch (err) {
+      if (err instanceof RequiereConfirmacionError) {
+        setConfirmacionCedula({ info: err.info, payload })
+        return
+      }
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar el abonado. Intenta de nuevo.',
+      )
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  // El usuario confirmó que la cédula cruzada es la misma persona: se
+  // reenvía el mismo payload con confirmarVinculacion: true.
+  async function confirmarVinculacionCedula() {
+    if (!confirmacionCedula) return
+    setConfirmandoVinculacion(true)
+    try {
+      const creado = await crearAbonado(confirmacionCedula.payload, true)
+      setAbonados((prev) => [creado, ...prev])
+      setConfirmacionCedula(null)
+      cerrarModal()
+      setConfirmacion(
+        `Abonado registrado correctamente con el número ${creado.numero_abonado}.`,
+      )
+      setTimeout(() => setConfirmacion(null), 3000)
+    } catch (err) {
+      setConfirmacionCedula(null)
+      setFormError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar el abonado. Intenta de nuevo.',
+      )
+    } finally {
+      setConfirmandoVinculacion(false)
+    }
+  }
+
+  // El usuario confirmó la vinculación de la cuenta de acceso desde el
+  // formulario de edición: llama al backend, sincroniza la fila, el modal
+  // de detalle (si está abierto) y el propio formulario con el vínculo.
+  async function confirmarVincular() {
+    if (!editando) return
+    const id = editando.id
+    setVinculandoId(id)
+    setErrorVincular(null)
+    try {
+      const { mensaje, abonado: actualizado } = await vincularCuentaAbonado(id)
+      setAbonados((prev) =>
+        prev.map((x) => (x.id === actualizado.id ? actualizado : x)),
+      )
+      if (viewDetail && viewDetail.id === actualizado.id) {
+        setViewDetail(actualizado)
+      }
+      setEditando(actualizado)
+      setVincularConfirmando(false)
+      setConfirmacion(mensaje)
+      setTimeout(() => setConfirmacion(null), 5000)
+    } catch (err) {
+      setErrorVincular(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo vincular la cuenta al abonado.',
+      )
+    } finally {
+      setVinculandoId(null)
+    }
+  }
+
+  const esJuridica = form.tipo_abonado === 'Jurídica'
+
+  const modalFormEl = !modalOpen ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">
-              {isCreate ? 'Nuevo Abonado' : 'Editar Abonado'}
-            </h2>
+            <div>
+              <h2 className="text-xl font-semibold text-primary-900">
+                {editando ? 'Editar Abonado' : 'Nuevo Abonado'}
+              </h2>
+              {editando && (
+                <p className="mt-0.5 text-xs text-primary-500">
+                  {editando.numero_abonado} · {editando.tipo_abonado} · Cédula{' '}
+                  {editando.cedula}
+                </p>
+              )}
+            </div>
             <button
               type="button"
-              onClick={() => setModal(null)}
+              onClick={() => cerrarModal()}
               className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -115,41 +602,126 @@ function Abonados() {
             </button>
           </div>
 
-          <div className="space-y-5">
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Cedula</label>
+          <form onSubmit={handleSubmit} className="space-y-5">
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Tipo de abonado
+              </label>
+              <select
+                value={form.tipo_abonado}
+                onChange={(e) => changeTipo(e.target.value as TipoAbonado)}
+                disabled={!!editando}
+                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:cursor-not-allowed disabled:bg-primary-50 disabled:text-primary-500"
+              >
+                <option value="Física">Física</option>
+                <option value="Jurídica">Jurídica</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                {esJuridica ? 'Cédula jurídica' : 'Cédula'}
+              </label>
+              <div className="mt-1 flex gap-2">
                 <input
                   type="text"
                   value={form.cedula}
-                  onChange={(e) => updateField('cedula', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  placeholder="1-2345-6789"
+                  onChange={(e) =>
+                    updateField(
+                      'cedula',
+                      formatearCedula(
+                        e.target.value,
+                        esJuridica ? 'juridica' : 'fisica',
+                      ),
+                    )
+                  }
+                  readOnly={!!editando}
+                  className={`w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none ${
+                    editando
+                      ? 'cursor-not-allowed bg-primary-50 text-primary-500'
+                      : ''
+                  }`}
+                  placeholder={esJuridica ? '3-101-123456' : '1-2345-6789'}
                 />
+                {!editando && (
+                  <button
+                    type="button"
+                    onClick={buscarPorCedula}
+                    disabled={buscandoCedula || !form.cedula.trim()}
+                    className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    {buscandoCedula ? 'Buscando...' : 'Buscar'}
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Nombre completo</label>
-                <input
-                  type="text"
-                  value={form.nombre}
-                  onChange={(e) => updateField('nombre', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  placeholder="Nombre del abonado"
-                />
+              {cedulaLookupStatus === 'found' && (
+                <p className="mt-1.5 text-xs font-medium text-green-600">
+                  {esJuridica
+                    ? 'Nombre encontrado y completado automáticamente.'
+                    : 'Nombre encontrado y completado automáticamente.'}
+                </p>
+              )}
+              {cedulaLookupStatus === 'not-found' && (
+                <p className="mt-1.5 text-xs text-primary-500">
+                  No encontramos datos para esa cédula. Completa el nombre a mano.
+                </p>
+              )}
+              {cedulaLookupStatus === 'error' && (
+                <p className="mt-1.5 text-xs text-primary-500">
+                  No pudimos verificar la cédula automáticamente. Completa el nombre a mano.
+                </p>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                {esJuridica ? 'Razón social' : 'Nombre completo'}
+              </label>
+              <input
+                type="text"
+                value={form.nombre}
+                onChange={(e) => updateField('nombre', e.target.value)}
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre y apellidos'}
+              />
+            </div>
+
+            {esJuridica && (
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Nombre del representante legal
+                  </label>
+                  <input
+                    type="text"
+                    value={form.nombre_representante_legal}
+                    onChange={(e) =>
+                      updateField('nombre_representante_legal', e.target.value)
+                    }
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    placeholder="Nombre completo del representante"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Cédula del representante
+                  </label>
+                  <input
+                    type="text"
+                    value={form.cedula_representante}
+                    onChange={(e) =>
+                      updateField('cedula_representante', e.target.value)
+                    }
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    placeholder="1-2345-6789"
+                  />
+                </div>
               </div>
+            )}
+
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-primary-700">Tipo</label>
-                <select
-                  value={form.tipo}
-                  onChange={(e) => updateField('tipo', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                >
-                  <option value="Física">Física</option>
-                  <option value="Jurídica">Jurídica</option>
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Telefono</label>
+                <label className="block text-sm font-medium text-primary-700">Teléfono</label>
                 <input
                   type="text"
                   value={form.telefono}
@@ -159,7 +731,9 @@ function Abonados() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-primary-700">Correo electronico</label>
+                <label className="block text-sm font-medium text-primary-700">
+                  Correo electrónico
+                </label>
                 <input
                   type="email"
                   value={form.correo}
@@ -168,112 +742,244 @@ function Abonados() {
                   placeholder="correo@example.com"
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Beneficiario</label>
-                <input
-                  type="text"
-                  value={form.beneficiario}
-                  onChange={(e) => updateField('beneficiario', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  placeholder="Nombre del beneficiario"
-                />
-              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary-700">Direccion</label>
+              <label className="block text-sm font-medium text-primary-700">Dirección</label>
               <textarea
                 value={form.direccion}
                 onChange={(e) => updateField('direccion', e.target.value)}
                 rows={2}
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                placeholder="Direccion completa"
+                placeholder="Dirección completa"
               />
             </div>
 
-            <div className="border-t border-primary-100 pt-4">
-              <h3 className="mb-3 text-base font-semibold text-primary-900">Datos del Medidor</h3>
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                <div>
-                  <label className="block text-sm font-medium text-primary-700">Numero de medidor</label>
-                  <input
-                    type="text"
-                    value={form.medidor.numero}
-                    onChange={(e) => updateField('medidor.numero', e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    placeholder="M-001"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-700">Diametro</label>
-                  <select
-                    value={form.medidor.diametro}
-                    onChange={(e) => updateField('medidor.diametro', e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  >
-                    <option value="">Seleccionar</option>
-                    <option value='1/2"'>1/2"</option>
-                    <option value='3/4"'>3/4"</option>
-                    <option value='1"'>1"</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-primary-700">Ubicacion</label>
-                  <select
-                    value={form.medidor.ubicacion}
-                    onChange={(e) => updateField('medidor.ubicacion', e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  >
-                    <option value="">Seleccionar</option>
-                    <option value="Exterior">Exterior</option>
-                    <option value="Interior">Interior</option>
-                  </select>
-                </div>
-              </div>
-            </div>
-
-            {!isCreate && (
+            {!esJuridica && (
               <div>
-                <label className="block text-sm font-medium text-primary-700">Estado</label>
-                <select
-                  value={form.estado}
-                  onChange={(e) => updateField('estado', e.target.value)}
+                <label className="block text-sm font-medium text-primary-700">
+                  Número de plano catastrado (opcional)
+                </label>
+                <input
+                  type="text"
+                  value={form.numero_plano_catastrado}
+                  onChange={(e) =>
+                    updateField('numero_plano_catastrado', e.target.value)
+                  }
                   className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                >
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </select>
+                  placeholder="Ej. G-1234567-2024"
+                />
               </div>
             )}
-          </div>
 
-          <div className="mt-6 flex justify-end gap-3">
+            {editando && (
+              <div className="rounded-lg border border-primary-100 bg-primary-50/40 p-4">
+                <h3 className="text-sm font-medium text-primary-700">
+                  Cuenta de acceso
+                </h3>
+                {editando.usuario_id != null ? (
+                  <p className="mt-2 text-sm text-primary-600">
+                    Vinculada a{' '}
+                    <span className="break-all font-semibold text-primary-800">
+                      {editando.usuario_email ||
+                        `usuario #${editando.usuario_id}`}
+                    </span>
+                  </p>
+                ) : (
+                  <div className="mt-2 space-y-2">
+                    {!vincularConfirmando ? (
+                      <>
+                        <p className="text-sm text-primary-600">
+                          Sin cuenta de acceso vinculada. Se usará el correo{' '}
+                          <span className="break-all font-semibold text-primary-800">
+                            {editando.correo}
+                          </span>{' '}
+                          como cuenta.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setErrorVincular(null)
+                            setVincularConfirmando(true)
+                          }}
+                          className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+                        >
+                          Vincular cuenta
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-sm text-primary-600">
+                          Si el correo ya tiene una cuenta en el sistema, solo
+                          se vincula. Si todavía no existe, se creará
+                          automáticamente y se enviará un correo para definir
+                          la contraseña.
+                        </p>
+                        {errorVincular && (
+                          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                            {errorVincular}
+                          </p>
+                        )}
+                        <div className="flex justify-end gap-2">
+                          <button
+                            type="button"
+                            onClick={confirmarVincular}
+                            disabled={vinculandoId !== null}
+                            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {vinculandoId !== null
+                              ? 'Vinculando...'
+                              : 'Confirmar vinculación'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVincularConfirmando(false)
+                              setErrorVincular(null)
+                            }}
+                            disabled={vinculandoId !== null}
+                            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {formError && (
+              <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                {formError}
+              </p>
+            )}
+
+            <div className="flex justify-end gap-3 pt-2">
+              <button
+                type="submit"
+                disabled={submitting}
+                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+              >
+                {submitting
+                  ? 'Guardando...'
+                  : editando
+                    ? 'Guardar cambios'
+                    : 'Crear abonado'}
+              </button>
+              <button
+                type="button"
+                onClick={() => cerrarModal()}
+                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    )
+
+  // Confirmación del cambio de estado: muestra de dónde a dónde va el
+  // abonado antes de tocar la base de datos.
+  const cambioEstadoModalEl =
+    cambioEstado === null ? null : (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Cambiar estado del abonado
+          </h2>
+          <p className="mt-3 text-sm text-primary-600">
+            ¿Seguro que deseas cambiar el estado de{' '}
+            <span className="font-semibold text-primary-800">
+              {nombreVisible(cambioEstado.abonado)}
+            </span>
+            ?
+          </p>
+          <p className="mt-3 flex items-center gap-2 text-sm">
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(cambioEstado.abonado.estado)}`}
+            >
+              {cambioEstado.abonado.estado}
+            </span>
+            <span aria-hidden="true" className="text-primary-400">→</span>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(cambioEstado.nuevo)}`}
+            >
+              {cambioEstado.nuevo}
+            </span>
+          </p>
+          <p className="mt-3 text-xs text-primary-400">
+            El cambio queda registrado en el historial con tu usuario.
+          </p>
+          {errorCambioEstado && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              {errorCambioEstado}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
             <button
               type="button"
-              onClick={() => setModal(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+              onClick={confirmarCambioEstado}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Cancelar
+              {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
             </button>
             <button
               type="button"
-              onClick={handleSave}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+              onClick={() => setCambioEstado(null)}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {isCreate ? 'Crear abonado' : 'Guardar cambios'}
+              Cancelar
             </button>
           </div>
         </div>
       </div>
     )
-  }
 
-  function DetailModal() {
-    if (!viewDetail) return null
-    const a = viewDetail
-    return (
+  // Confirmación de cédula cruzada: la cédula ya está registrada como
+  // Empleado. Se muestra encima del modal de creación (no lo cierra) para
+  // que "Cancelar" regrese al formulario tal cual quedó.
+  const confirmacionCedulaModalEl =
+    confirmacionCedula === null ? null : (
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Cédula ya registrada
+          </h2>
+          <p className="mt-3 text-sm text-primary-600">
+            {confirmacionCedula.info.message}
+          </p>
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={confirmarVinculacionCedula}
+              disabled={confirmandoVinculacion}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {confirmandoVinculacion ? 'Guardando...' : 'Sí, es la misma persona'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setConfirmacionCedula(null)}
+              disabled={confirmandoVinculacion}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
+  const a = viewDetail
+  const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
+  const detailModalEl = !a ? null : (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-        <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
             <button
@@ -288,28 +994,86 @@ function Abonados() {
           </div>
           <div className="space-y-3 text-sm">
             <div className="grid grid-cols-2 gap-2">
-              <span className="font-medium text-primary-700">Cedula:</span>
-              <span className="text-primary-900">{a.cedula}</span>
-              <span className="font-medium text-primary-700">Nombre:</span>
-              <span className="text-primary-900">{a.nombre}</span>
+              <span className="font-medium text-primary-700">N° Abonado:</span>
+              <span className="font-mono text-primary-900">{a.numero_abonado}</span>
+              <span className="font-medium text-primary-700">
+                {esJuridicaDetalle ? 'Razón social:' : 'Nombre:'}
+              </span>
+              <span className="text-primary-900">{nombreVisible(a)}</span>
               <span className="font-medium text-primary-700">Tipo:</span>
-              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(a.tipo)}`}>{a.tipo}</span>
-              <span className="font-medium text-primary-700">Telefono:</span>
+              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(a.tipo_abonado)}`}>
+                {a.tipo_abonado}
+              </span>
+              {esJuridicaDetalle && (
+                <>
+                  <span className="font-medium text-primary-700">Representante legal:</span>
+                  <span className="text-primary-900">{a.nombre_representante_legal}</span>
+                  <span className="font-medium text-primary-700">Cédula del representante:</span>
+                  <span className="font-mono text-primary-900">{a.cedula_representante}</span>
+                </>
+              )}
+              <span className="font-medium text-primary-700">Cédula:</span>
+              <span className="font-mono text-primary-900">{a.cedula}</span>
+              <span className="font-medium text-primary-700">Teléfono:</span>
               <span className="text-primary-900">{a.telefono}</span>
               <span className="font-medium text-primary-700">Correo:</span>
               <span className="text-primary-900">{a.correo}</span>
-              <span className="font-medium text-primary-700">Direccion:</span>
+              <span className="font-medium text-primary-700">Dirección:</span>
               <span className="text-primary-900">{a.direccion}</span>
-              <span className="font-medium text-primary-700">Beneficiario:</span>
-              <span className="text-primary-900">{a.beneficiario}</span>
-              <span className="font-medium text-primary-700">Medidor:</span>
-              <span className="text-primary-900">{a.medidor.numero} ({a.medidor.diametro} - {a.medidor.ubicacion})</span>
+              {!esJuridicaDetalle && a.numero_plano_catastrado && (
+                <>
+                  <span className="font-medium text-primary-700">N° de plano:</span>
+                  <span className="text-primary-900">{a.numero_plano_catastrado}</span>
+                </>
+              )}
               <span className="font-medium text-primary-700">Estado:</span>
-              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(a.estado)}`}>{a.estado}</span>
+              <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(a.estado)}`}>
+                {a.estado}
+              </span>
               <span className="font-medium text-primary-700">Registro:</span>
-              <span className="text-primary-900">{a.fechaRegistro}</span>
+              <span className="text-primary-900">{a.fecha_registro}</span>
             </div>
           </div>
+
+          <div className="mt-5 border-t border-primary-100 pt-4">
+            <h3 className="mb-3 text-sm font-medium text-primary-700">
+              Historial de cambios
+            </h3>
+            {historialLoading ? (
+              <p className="text-xs text-primary-400">Cargando historial...</p>
+            ) : historialError ? (
+              <p className="text-xs font-medium text-red-500">{historialError}</p>
+            ) : historialDetalle.length === 0 ? (
+              <p className="text-xs text-primary-400">Sin cambios registrados.</p>
+            ) : (
+              <ul>
+                {historialDetalle.map((h, i) => (
+                  <li key={h.id} className="relative flex gap-3 pb-4 last:pb-0">
+                    {i < historialDetalle.length - 1 && (
+                      <span className="absolute left-[5px] top-4 h-full w-px bg-primary-200" />
+                    )}
+                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-blue-500" />
+                    <div className="min-w-0 text-xs">
+                      <p className="font-medium text-primary-900">
+                        {CAMPO_LABELS[h.campo] ?? h.campo}:{' '}
+                        <span className="text-red-500 line-through">
+                          {mostrarValorHistorial(h.valor_anterior)}
+                        </span>
+                        {' → '}
+                        <span className="text-green-600">
+                          {mostrarValorHistorial(h.valor_nuevo)}
+                        </span>
+                      </p>
+                      <p className="mt-0.5 break-all text-primary-400">
+                        {formatearFechaHistorial(h.fecha)} · {h.usuario_email}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
           <div className="mt-6 flex justify-end">
             <button
               type="button"
@@ -322,17 +1086,16 @@ function Abonados() {
         </div>
       </div>
     )
-  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-semibold text-primary-900">
-            Gestion de Abonados
+            Gestión de Abonados
           </h1>
           <p className="mt-1 text-sm text-primary-500">
-            {abonados.length} abonados registrados
+            {loading ? 'Cargando...' : `${abonados.length} abonados registrados`}
           </p>
         </div>
         <button
@@ -344,78 +1107,239 @@ function Abonados() {
         </button>
       </div>
 
-      <input
-        type="text"
-        placeholder="Buscar por nombre, cedula, telefono o direccion..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none sm:w-96"
-      />
+      {confirmacion && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {confirmacion}
+        </div>
+      )}
 
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-primary-100 text-sm">
-          <thead className="bg-primary-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Cedula</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Telefono</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Registro</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-primary-50">
-            {filtered.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                  No se encontraron abonados.
-                </td>
-              </tr>
-            ) : (
-              filtered.map((abonado) => (
-                <tr key={abonado.id} className="hover:bg-primary-50/50">
-                  <td className="px-4 py-3 font-mono text-primary-700">{abonado.cedula}</td>
-                  <td className="px-4 py-3 font-medium text-primary-900">{abonado.nombre}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(abonado.tipo)}`}>
-                      {abonado.tipo}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-primary-600">{abonado.telefono}</td>
-                  <td className="px-4 py-3">
-                    <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${getEstadoColor(abonado.estado)}`}>
-                      {abonado.estado}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-primary-500">{abonado.fechaRegistro}</td>
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(abonado)}
-                        className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setViewDetail(abonado)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Ver
-                      </button>
-                    </div>
-                  </td>
-                </tr>
-              ))
-            )}
-          </tbody>
-        </table>
+      <div className="relative w-full sm:w-96">
+        <svg
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          />
+        </svg>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
+          value={search}
+          onChange={(e) => manejarBusqueda(e.target.value)}
+          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => manejarBusqueda('')}
+            title="Limpiar búsqueda"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
       </div>
 
-      <ModalForm />
-      <DetailModal />
+      {loadError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
+          <p className="text-sm font-medium text-red-600">{loadError}</p>
+          <button
+            type="button"
+            onClick={cargarAbonados}
+            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-primary-100 text-sm">
+            <thead className="bg-primary-50">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Teléfono</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Registro</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-primary-50">
+              {loading ? (
+                Array.from({ length: 5 }).map((_, fila) => (
+                  <tr key={`skeleton-${fila}`}>
+                    {Array.from({ length: 7 }).map((__, col) => (
+                      <td key={col} className="px-4 py-3.5">
+                        <div
+                          className={`animate-pulse rounded bg-primary-100 ${
+                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
+                <tr>
+                  <td colSpan={7} className="px-4 py-12 text-center">
+                    <svg
+                      className="mx-auto h-8 w-8 text-primary-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                      />
+                    </svg>
+                    {search ? (
+                      <>
+                        <p className="mt-3 text-sm font-medium text-primary-600">
+                          No encontramos abonados para "{search}"
+                        </p>
+                        <p className="mt-1 text-xs text-primary-400">
+                          Revisa el término escrito o prueba con otro criterio.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => manejarBusqueda('')}
+                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
+                        >
+                          Limpiar búsqueda
+                        </button>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm font-medium text-primary-600">
+                        Aún no hay abonados registrados. Usa el botón "+ Nuevo
+                        abonado" para crear el primero.
+                      </p>
+                    )}
+                  </td>
+                </tr>
+              ) : (
+                filasVisibles.map((abonado) => (
+                  <tr key={abonado.id} className="hover:bg-primary-50/50">
+                    <td className="px-4 py-3 font-mono text-primary-700">{abonado.cedula}</td>
+                    <td className="px-4 py-3 font-medium text-primary-900">{nombreVisible(abonado)}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getTipoBadge(abonado.tipo_abonado)}`}>
+                        {abonado.tipo_abonado}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-primary-600">{abonado.telefono}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <EstadoSwitch
+                          estado={abonado.estado}
+                          disabled={cambiandoEstadoId === abonado.id}
+                          onChange={() => {
+                            setErrorCambioEstado(null)
+                            setCambioEstado({
+                              abonado,
+                              nuevo:
+                                abonado.estado === 'Activo'
+                                  ? 'Inactivo'
+                                  : 'Activo',
+                            })
+                          }}
+                        />
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(abonado.estado)}`}
+                        >
+                          {abonado.estado}
+                        </span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-primary-500">{abonado.fecha_registro}</td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditar(abonado)}
+                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openDetalle(abonado)}
+                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
+                        >
+                          Ver
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+
+          {!loading && abonados.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-primary-500">
+                Mostrando{' '}
+                {filtered.length === 0
+                  ? 0
+                  : `${primeraFila + 1}–${Math.min(primeraFila + ABONADOS_POR_PAGINA, filtered.length)}`}{' '}
+                de {filtered.length} abonados
+                {search ? ` (filtro: "${search}")` : ''}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹ Anterior
+                </button>
+                {numerosPagina.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPagina(n)}
+                    disabled={n === paginaActual}
+                    aria-current={n === paginaActual ? 'page' : undefined}
+                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
+                      n === paginaActual
+                        ? 'bg-primary-700 text-white'
+                        : 'text-primary-700 hover:bg-primary-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente ›
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {modalFormEl}
+      {detailModalEl}
+      {cambioEstadoModalEl}
+      {confirmacionCedulaModalEl}
     </div>
   )
 }

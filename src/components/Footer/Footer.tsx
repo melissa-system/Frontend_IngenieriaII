@@ -1,5 +1,7 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import logoFooter from '../../assets/logo-footer.png'
+import { obtenerConfiguracion, type Configuracion } from '../Services/configuracion.service'
 
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
@@ -10,7 +12,57 @@ const NAV_LINKS = [
   { label: 'Ubicación', to: '/#ubicacion' },
 ]
 
+// Valores por defecto (actuales hardcodeados) — se usan si la API falla
+const DEFAULTS = {
+  direccion: 'Pueblo Nuevo, Paquera, Puntarenas',
+  telefono: '8741-8543',
+  telefonoLink: '+50687418543',
+  correo: 'asadapueblonuevo06@gmail.com',
+  enlaceGoogleMaps: 'https://maps.app.goo.gl/VKAEtDsXSU6P1yQ16',
+  telJunta1: '8435-8518',
+  telJunta1Link: '+50684358518',
+  telJunta2: '8305-0012',
+  telJunta2Link: '+50683050012',
+  horarioLunVie: '8:00 am - 5:00 pm',
+  horarioSabado: '8:00 am - 1:00 pm',
+  horarioDomingo: 'Cerrado',
+}
+
+function formatearLinkTelefono(tel: string): string {
+  const soloNumeros = tel.replace(/\D/g, '')
+  return soloNumeros ? `+506${soloNumeros}` : tel
+}
+
 function Footer() {
+  const [config, setConfig] = useState<Configuracion | null>(null)
+
+  useEffect(() => {
+    obtenerConfiguracion()
+      .then(setConfig)
+      .catch(() => {
+        /* fallback a DEFAULTS */
+      })
+  }, [])
+
+  const direccion = config?.direccion || DEFAULTS.direccion
+  const telefono = config?.telefono || DEFAULTS.telefono
+  const telefonoLink = config?.telefono
+    ? formatearLinkTelefono(config.telefono)
+    : DEFAULTS.telefonoLink
+  const correo = config?.correo_electronico || DEFAULTS.correo
+  const mapsLink = config?.enlace_google_maps || DEFAULTS.enlaceGoogleMaps
+  const telJunta1 = config?.telefono_miembro_junta_1 || DEFAULTS.telJunta1
+  const telJunta1Link = config?.telefono_miembro_junta_1
+    ? formatearLinkTelefono(config.telefono_miembro_junta_1)
+    : DEFAULTS.telJunta1Link
+  const telJunta2 = config?.telefono_miembro_junta_2 || DEFAULTS.telJunta2
+  const telJunta2Link = config?.telefono_miembro_junta_2
+    ? formatearLinkTelefono(config.telefono_miembro_junta_2)
+    : DEFAULTS.telJunta2Link
+  const horarioLunVie = config?.horario_lunes_viernes || DEFAULTS.horarioLunVie
+  const horarioSabado = config?.horario_sabado || DEFAULTS.horarioSabado
+  const horarioDomingo = config?.horario_domingo || DEFAULTS.horarioDomingo
+
   return (
     <footer className="relative mt-16 bg-primary-900 pt-16 pb-10 text-white sm:mt-24 sm:pt-20">
       <svg
@@ -60,9 +112,9 @@ function Footer() {
             Horario de atención
           </p>
           <ul className="mt-4 space-y-2 text-primary-200">
-            <li>Lunes - Viernes: 8:00 am - 5:00 pm</li>
-            <li>Sábados: 8:00 am - 1:00 pm</li>
-            <li>Domingos: Cerrado</li>
+            <li>Lunes - Viernes: {horarioLunVie}</li>
+            <li>Sábados: {horarioSabado}</li>
+            <li>Domingos: {horarioDomingo}</li>
           </ul>
         </div>
 
@@ -86,12 +138,12 @@ function Footer() {
                 <circle cx="12" cy="9.7" r="2.6" />
               </svg>
               <a
-                href="https://maps.app.goo.gl/VKAEtDsXSU6P1yQ16"
+                href={mapsLink}
                 target="_blank"
                 rel="noreferrer"
                 className="hover:text-white"
               >
-                Pueblo Nuevo, Paquera, Puntarenas
+                {direccion}
               </a>
             </li>
             <li className="flex items-start gap-2">
@@ -109,8 +161,8 @@ function Footer() {
                   d="M3 5.5c0-1.1.9-2 2-2h2.3c.5 0 1 .4 1.1.9l1 3.6c.1.4 0 .9-.3 1.2L7.8 10.6a13 13 0 0 0 5.6 5.6l1.4-1.3c.3-.3.8-.4 1.2-.3l3.6 1c.5.1.9.6.9 1.1V19c0 1.1-.9 2-2 2h-1C9.5 21 3 14.5 3 6.5v-1Z"
                 />
               </svg>
-              <a href="tel:+50687418543" className="hover:text-white">
-                8741-8543
+              <a href={`tel:${telefonoLink}`} className="hover:text-white">
+                {telefono}
               </a>
             </li>
             <li className="flex items-start gap-2">
@@ -134,21 +186,21 @@ function Footer() {
                 />
               </svg>
               <a
-                href="mailto:asadapueblonuevo06@gmail.com"
+                href={`mailto:${correo}`}
                 className="hover:text-white"
               >
-                asadapueblonuevo06@gmail.com
+                {correo}
               </a>
             </li>
             <li className="mt-2 border-t border-primary-700 pt-3 text-sm">
               <p>Para más información, llamar a:</p>
               <p className="mt-1">
-                <a href="tel:+50684358518" className="hover:text-white">
-                  8435-8518
+                <a href={`tel:${telJunta1Link}`} className="hover:text-white">
+                  {telJunta1}
                 </a>{' '}
                 /{' '}
-                <a href="tel:+50683050012" className="hover:text-white">
-                  8305-0012
+                <a href={`tel:${telJunta2Link}`} className="hover:text-white">
+                  {telJunta2}
                 </a>
               </p>
               <p className="mt-1 text-primary-300 italic">

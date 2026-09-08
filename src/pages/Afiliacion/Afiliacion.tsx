@@ -1,6 +1,14 @@
 import { useState, useEffect, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useCedulaLookup } from '../../hooks/useCedulaLookup'
+import { useCedulaLookup, type LookupStatus } from '../../hooks/useCedulaLookup'
+import {
+  crearSolicitudPajaAgua,
+  formatearCedula,
+  normalizarIdentificacion,
+  IDENTIFICACION_REGEX,
+  TELEFONO_REGEX,
+  EMAIL_REGEX,
+} from '../../components/Services/solicitudes.service'
 
 interface SolicitudFisicaForm {
   nombre: string
@@ -66,6 +74,11 @@ function Afiliacion() {
   const [numeroDimex, setNumeroDimex] = useState('')
   const [nombreDimex, setNombreDimex] = useState('')
 
+  // Flujo persona jurídica: rastreo de la razón social por cédula
+  // jurídica en la API de Hacienda, igual que en la gestión de abonados.
+  const [buscandoJuridica, setBuscandoJuridica] = useState(false)
+  const [lookupJuridica, setLookupJuridica] = useState<LookupStatus>('idle')
+
   const [formFisica, setFormFisica] = useState<SolicitudFisicaForm>(INITIAL_FISICA)
   const [formJuridica, setFormJuridica] =
     useState<SolicitudJuridicaForm>(INITIAL_JURIDICA)
@@ -75,6 +88,10 @@ function Afiliacion() {
   )
   const [cartaSolicitud, setCartaSolicitud] = useState<File | null>(null)
   const [submitted, setSubmitted] = useState(false)
+
+  // Estados para controlar el envío al backend
+  const [submitting, setSubmitting] = useState(false)
+  const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
 
   useEffect(() => {
     if (nombreEncontrado) {
@@ -88,6 +105,8 @@ function Afiliacion() {
     setLookupStatus('idle')
     setNumeroDimex('')
     setNombreDimex('')
+    setBuscandoJuridica(false)
+    setLookupJuridica('idle')
     setFormFisica(INITIAL_FISICA)
     setFormJuridica(INITIAL_JURIDICA)
     setPermisosMunicipales(null)
@@ -107,6 +126,38 @@ function Afiliacion() {
       : tipoPersona === 'juridica'
         ? true
         : false
+
+  const nombreValido = (nombre: string) => nombre.trim().length >= 3
+  const telefonoValido = (t: string) => TELEFONO_REGEX.test(t.trim())
+  const correoValido = (c: string) => EMAIL_REGEX.test(c.trim())
+
+  const datosFisicaCompletos =
+    datosListos &&
+    nombreValido(tipoId === 'nacional' ? formFisica.nombre : nombreDimex) &&
+    (tipoId === 'nacional'
+      ? IDENTIFICACION_REGEX.test(cedula)
+      : /^\d{11,12}$/.test(numeroDimex)) &&
+    telefonoValido(formFisica.telefono) &&
+    correoValido(formFisica.correo) &&
+    formFisica.direccion.trim() !== '' &&
+    formFisica.numeroPlano.trim() !== '' &&
+    permisosMunicipales !== null &&
+    cartaSolicitud !== null
+
+  const datosJuridicaCompletos =
+    nombreValido(formJuridica.nombreEmpresa) &&
+    IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) &&
+    nombreValido(formJuridica.nombreRepresentante) &&
+    IDENTIFICACION_REGEX.test(formJuridica.cedulaRepresentante) &&
+    telefonoValido(formJuridica.telefono) &&
+    correoValido(formJuridica.correo) &&
+    formJuridica.direccion.trim() !== '' &&
+    formJuridica.numeroPlano.trim() !== '' &&
+    permisosMunicipales !== null &&
+    cartaSolicitud !== null
+
+  const formularioValido =
+    tipoPersona === 'fisica' ? datosFisicaCompletos : datosJuridicaCompletos
 
   const nombreFinal =
     tipoPersona === 'juridica'
@@ -129,27 +180,99 @@ function Afiliacion() {
     setFormJuridica((prev) => ({ ...prev, [name]: value }))
   }
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault()
-    // TODO: conectar a un backend real cuando exista (SIAP).
-    // Por ahora solo simulamos el envío de la solicitud.
-    if (tipoPersona === 'fisica') {
-      console.log('Solicitud de paja de agua - persona física (mock):', {
-        ...formFisica,
-        tipoId,
-        identificacion: tipoId === 'nacional' ? cedula : numeroDimex,
-        nombre: tipoId === 'nacional' ? formFisica.nombre : nombreDimex,
-        permisosMunicipales: permisosMunicipales?.name ?? null,
-        cartaSolicitud: cartaSolicitud?.name ?? null,
-      })
-    } else {
-      console.log('Solicitud de paja de agua - persona jurídica (mock):', {
-        ...formJuridica,
-        permisosMunicipales: permisosMunicipales?.name ?? null,
-        cartaSolicitud: cartaSolicitud?.name ?? null,
-      })
+  // Consulta la API de Hacienda con la cédula jurídica y autocompleta
+  // el nombre de la empresa si la encuentra.
+  const buscarCedulaJuridica = async () => {
+    const digitos = formJuridica.cedulaJuridica.replace(/\D/g, '')
+    if (!digitos) return
+
+    setBuscandoJuridica(true)
+    setLookupJuridica('idle')
+    try {
+      const res = await fetch(
+        `https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`,
+      )
+      const text = await res.text()
+      let data: { nombre?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = {}
+      }
+
+      if (data.nombre) {
+        setFormJuridica((prev) => ({ ...prev, nombreEmpresa: data.nombre! }))
+        setLookupJuridica('found')
+      } else {
+        setLookupJuridica('not-found')
+      }
+    } catch {
+      setLookupJuridica('error')
+    } finally {
+      setBuscandoJuridica(false)
     }
-    setSubmitted(true)
+  }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    setSubmitting(true)
+    setErrorSubmit(null)
+
+    if (!permisosMunicipales || !cartaSolicitud) {
+      setErrorSubmit(
+        'Debes adjuntar los permisos municipales y la carta de solicitud.',
+      )
+      setSubmitting(false)
+      return
+    }
+
+    try {
+      if (tipoPersona === 'fisica') {
+        await crearSolicitudPajaAgua({
+          tipoPersona: 'fisica',
+          nombreSolicitante:
+            tipoId === 'nacional' ? formFisica.nombre : nombreDimex,
+          identificacion:
+            tipoId === 'nacional'
+              ? normalizarIdentificacion(cedula)
+              : normalizarIdentificacion(numeroDimex),
+          telefono: formFisica.telefono,
+          correo: formFisica.correo,
+          direccion: formFisica.direccion,
+          numeroPlano: formFisica.numeroPlano,
+          observaciones: formFisica.observaciones,
+          permisosMunicipales,
+          cartaSolicitud,
+        })
+      } else {
+        await crearSolicitudPajaAgua({
+          tipoPersona: 'juridica',
+          nombreSolicitante: formJuridica.nombreEmpresa,
+          identificacion: normalizarIdentificacion(formJuridica.cedulaJuridica),
+          nombreRepresentante: formJuridica.nombreRepresentante,
+          cedulaRepresentante: normalizarIdentificacion(
+            formJuridica.cedulaRepresentante,
+          ),
+          telefono: formJuridica.telefono,
+          correo: formJuridica.correo,
+          direccion: formJuridica.direccion,
+          numeroPlano: formJuridica.numeroPlano,
+          observaciones: formJuridica.observaciones,
+          permisosMunicipales,
+          cartaSolicitud,
+        })
+      }
+      setSubmitted(true)
+    } catch (error) {
+      console.error('Error al enviar la solicitud:', error)
+      const mensaje =
+        error instanceof Error && error.message
+          ? error.message
+          : 'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.'
+      setErrorSubmit(mensaje)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -205,7 +328,7 @@ function Afiliacion() {
                 setTipoPersona(e.target.value as TipoPersona)
                 resetTodo()
               }}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="" disabled>
                 Selecciona una opción
@@ -238,7 +361,7 @@ function Afiliacion() {
                   setNombreDimex('')
                   setFormFisica(INITIAL_FISICA)
                 }}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
               >
                 <option value="" disabled>
                   Selecciona una opción
@@ -266,7 +389,9 @@ function Afiliacion() {
                     required
                     value={cedula}
                     disabled={datosListosNacional}
-                    onChange={(e) => setCedula(e.target.value)}
+                    onChange={(e) =>
+                      setCedula(formatearCedula(e.target.value, 'fisica'))
+                    }
                     placeholder="Ej. 1-2345-6789"
                     className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
                   />
@@ -340,10 +465,20 @@ function Afiliacion() {
                   type="text"
                   required
                   value={numeroDimex}
-                  onChange={(e) => setNumeroDimex(e.target.value)}
+                  onChange={(e) =>
+                    setNumeroDimex(
+                      e.target.value.replace(/\D/g, '').slice(0, 12),
+                    )
+                  }
                   placeholder="Número de DIMEX"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
+                {numeroDimex.trim() !== '' &&
+                  !/^\d{11,12}$/.test(numeroDimex) && (
+                    <p className="mt-1 text-xs text-red-500">
+                      El DIMEX debe tener 11 o 12 dígitos
+                    </p>
+                  )}
               </div>
               <div>
                 <label
@@ -387,6 +522,12 @@ function Afiliacion() {
                     onChange={handleChangeFisica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formFisica.telefono.trim() !== '' &&
+                    !telefonoValido(formFisica.telefono) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Formato inválido. Usa 8888-8888
+                      </p>
+                    )}
                 </div>
                 <div>
                   <label
@@ -404,6 +545,12 @@ function Afiliacion() {
                     onChange={handleChangeFisica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formFisica.correo.trim() !== '' &&
+                    !correoValido(formFisica.correo) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        El correo no es válido
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -500,11 +647,24 @@ function Afiliacion() {
                 />
               </div>
 
+              {errorSubmit && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  {errorSubmit}
+                </p>
+              )}
+
+              {!formularioValido && (
+                <p className="text-sm text-primary-600">
+                  Completa todos los campos correctamente y adjunta los
+                  documentos para poder enviar la solicitud.
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+                disabled={submitting || !formularioValido}
+                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
               >
-                Enviar solicitud
+                {submitting ? 'Enviando...' : 'Enviar solicitud'}
               </button>
             </form>
           )}
@@ -517,39 +677,79 @@ function Afiliacion() {
             >
               <div>
                 <label
-                  htmlFor="nombreEmpresa"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Nombre de la empresa
-                </label>
-                <input
-                  id="nombreEmpresa"
-                  name="nombreEmpresa"
-                  type="text"
-                  required
-                  value={formJuridica.nombreEmpresa}
-                  onChange={handleChangeJuridica}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label
                   htmlFor="cedulaJuridica"
                   className="block text-sm font-medium text-primary-900"
                 >
                   Cédula jurídica
                 </label>
-                <input
-                  id="cedulaJuridica"
-                  name="cedulaJuridica"
-                  type="text"
-                  required
-                  value={formJuridica.cedulaJuridica}
-                  onChange={handleChangeJuridica}
-                  placeholder="Ej. 3-101-123456"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
+                <div className="mt-1 flex flex-col gap-3 sm:flex-row">
+                  <input
+                    id="cedulaJuridica"
+                    name="cedulaJuridica"
+                    type="text"
+                    required
+                    value={formJuridica.cedulaJuridica}
+                    onChange={(e) => {
+                      setFormJuridica((prev) => ({
+                        ...prev,
+                        cedulaJuridica: formatearCedula(e.target.value, 'juridica'),
+                        // Al cambiar la cédula, la razón social anterior
+                        // ya no es válida: se limpia para evitar enviar un
+                        // nombre que no corresponde a esta cédula.
+                        nombreEmpresa: '',
+                      }))
+                      setLookupJuridica('idle')
+                    }}
+                    placeholder="Ej. 3-101-123456"
+                    className="w-full flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  />
+                  <button
+                    type="button"
+                    onClick={buscarCedulaJuridica}
+                    disabled={buscandoJuridica}
+                    className="flex-none rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {buscandoJuridica ? 'Buscando...' : 'Buscar'}
+                  </button>
+                </div>
+                {lookupJuridica === 'found' && (
+                  <p className="mt-2 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
+                    Razón social encontrada:{' '}
+                    <span className="font-semibold">
+                      {formJuridica.nombreEmpresa}
+                    </span>
+                  </p>
+                )}
+                {(lookupJuridica === 'not-found' || lookupJuridica === 'error') && (
+                  <div className="mt-4">
+                    <label
+                      htmlFor="nombreEmpresa"
+                      className="block text-sm font-medium text-primary-900"
+                    >
+                      Nombre de la empresa
+                    </label>
+                    <input
+                      id="nombreEmpresa"
+                      name="nombreEmpresa"
+                      type="text"
+                      required
+                      value={formJuridica.nombreEmpresa}
+                      onChange={handleChangeJuridica}
+                      placeholder="Ej. Sociedad Anónima ABC"
+                      className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                    />
+                    <p className="mt-1 text-xs text-primary-600">
+                      No pudimos obtener la razón social automáticamente.
+                      Escríbela para continuar con la solicitud.
+                    </p>
+                  </div>
+                )}
+                {formJuridica.cedulaJuridica.trim() !== '' &&
+                  !IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) && (
+                    <p className="mt-1 text-xs text-red-500">
+                      Formato inválido. Usa 3-101-123456
+                    </p>
+                  )}
               </div>
 
               <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
@@ -583,10 +783,26 @@ function Afiliacion() {
                     type="text"
                     required
                     value={formJuridica.cedulaRepresentante}
-                    onChange={handleChangeJuridica}
+                    onChange={(e) =>
+                      setFormJuridica((prev) => ({
+                        ...prev,
+                        cedulaRepresentante: formatearCedula(
+                          e.target.value,
+                          'fisica',
+                        ),
+                      }))
+                    }
                     placeholder="Ej. 1-2345-6789"
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formJuridica.cedulaRepresentante.trim() !== '' &&
+                    !IDENTIFICACION_REGEX.test(
+                      formJuridica.cedulaRepresentante,
+                    ) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Formato inválido. Usa 1-2345-6789
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -607,6 +823,12 @@ function Afiliacion() {
                     onChange={handleChangeJuridica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formJuridica.telefono.trim() !== '' &&
+                    !telefonoValido(formJuridica.telefono) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        Formato inválido. Usa 8888-8888
+                      </p>
+                    )}
                 </div>
                 <div>
                   <label
@@ -624,6 +846,12 @@ function Afiliacion() {
                     onChange={handleChangeJuridica}
                     className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                   />
+                  {formJuridica.correo.trim() !== '' &&
+                    !correoValido(formJuridica.correo) && (
+                      <p className="mt-1 text-xs text-red-500">
+                        El correo no es válido
+                      </p>
+                    )}
                 </div>
               </div>
 
@@ -720,11 +948,24 @@ function Afiliacion() {
                 />
               </div>
 
+              {errorSubmit && (
+                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  {errorSubmit}
+                </p>
+              )}
+
+              {!formularioValido && (
+                <p className="text-sm text-primary-600">
+                  Completa todos los campos correctamente y adjunta los
+                  documentos para poder enviar la solicitud.
+                </p>
+              )}
               <button
                 type="submit"
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 sm:w-auto"
+                disabled={submitting || !formularioValido}
+                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
               >
-                Enviar solicitud
+                {submitting ? 'Enviando...' : 'Enviar solicitud'}
               </button>
             </form>
           )}

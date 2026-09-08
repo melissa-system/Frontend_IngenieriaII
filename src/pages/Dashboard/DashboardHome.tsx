@@ -1,8 +1,11 @@
 import { useState, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, Navigate } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   BarChart,
   Bar,
+  AreaChart,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -25,6 +28,17 @@ import {
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
 const COLORS = ['#073763', '#13416b', '#395f82', '#6a87a1', '#9cafc1']
+
+// Mismos colores de estado que usa Solicitudes.tsx, para que la lista de
+// "Últimas solicitudes" del panel se vea igual que la tabla completa.
+const ESTADO_COLORS: Record<string, string> = {
+  Pendiente: 'bg-yellow-100 text-yellow-700',
+  Aprobada: 'bg-green-100 text-green-700',
+  Rechazada: 'bg-red-100 text-red-700',
+  Completada: 'bg-blue-100 text-blue-700',
+}
+
+const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
 function getRange(rango: Rango): { desde: string; hasta: string } {
   const now = new Date()
@@ -50,13 +64,94 @@ function fechaEnRango(fecha: string, desde: string, hasta: string): boolean {
   return fecha >= desde && fecha <= hasta
 }
 
-function StatCard({ title, value, subtitle }: { title: string; value: string; subtitle: string }) {
+// Tarjeta de KPI con dos variantes: "dark" para las métricas más
+// destacadas (fondo degradado del azul institucional, con el ícono
+// repetido en grande y semitransparente de fondo) y "light" para el
+// resto (fondo blanco con el ícono en una insignia circular). Ambas
+// variantes se quedan dentro de la paleta primary-* — sin colores nuevos.
+function StatCard({
+  title,
+  value,
+  subtitle,
+  to,
+  icon,
+  variant = 'light',
+}: {
+  title: string
+  value: string
+  subtitle: string
+  to: string
+  icon: React.ReactNode
+  variant?: 'dark' | 'light'
+}) {
+  if (variant === 'dark') {
+    return (
+      <Link
+        to={to}
+        className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 p-5 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+      >
+        <span
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-5 -top-5 flex h-28 w-28 items-center justify-center rounded-full bg-white/5 text-white/10 transition-transform duration-300 group-hover:scale-110 [&>svg]:h-16 [&>svg]:w-16"
+        >
+          {icon}
+        </span>
+        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+          {icon}
+        </span>
+        <p className="relative mt-4 text-sm font-medium text-primary-200">{title}</p>
+        <p className="relative mt-1 text-3xl font-semibold">{value}</p>
+        <p className="relative mt-1 text-xs text-primary-300">{subtitle}</p>
+      </Link>
+    )
+  }
+
   return (
-    <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-primary-500">{title}</p>
+    <Link
+      to={to}
+      className="block rounded-2xl border border-primary-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+        {icon}
+      </span>
+      <p className="mt-4 text-sm font-medium text-primary-500">{title}</p>
       <p className="mt-1 text-3xl font-semibold text-primary-900">{value}</p>
       <p className="mt-1 text-xs text-primary-400">{subtitle}</p>
-    </div>
+    </Link>
+  )
+}
+
+// Íconos outline, mismo estilo que el landing (ver diseños/iconos.md):
+// viewBox 24x24, stroke="currentColor", trazos redondeados.
+function IconAveria() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9.303 3.376c.866 1.5-.217 3.374-1.948 3.374H4.645c-1.732 0-2.813-1.874-1.948-3.374L10.7 4.7c.866-1.5 3.032-1.5 3.898 0l7.005 12.125ZM12 15.75h.007v.008H12v-.008Z" />
+    </svg>
+  )
+}
+
+function IconSolicitud() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
+  )
+}
+
+function IconStock() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m20.25 7.5-.625 10.632a2.25 2.25 0 0 1-2.247 2.118H6.622a2.25 2.25 0 0 1-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125Z" />
+    </svg>
+  )
+}
+
+function IconAbonado() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+    </svg>
   )
 }
 
@@ -67,7 +162,7 @@ function AlertCard({
   count,
   to,
 }: {
-  icon: string
+  icon: React.ReactNode
   color: string
   mensaje: string
   count: number
@@ -76,18 +171,18 @@ function AlertCard({
   return (
     <Link
       to={to}
-      className="flex items-center gap-3 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-colors hover:bg-primary-50"
+      className="flex h-24 items-center gap-3 rounded-xl border border-primary-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
     >
-      <span className={`flex h-10 w-10 items-center justify-center rounded-full text-lg ${color}`}>
+      <span className={`flex h-11 w-11 flex-none items-center justify-center rounded-full ${color}`}>
         {icon}
       </span>
-      <div className="flex-1">
-        <p className="text-sm font-medium text-primary-900">{mensaje}</p>
-        <p className="text-xs text-primary-500">
+      <div className="min-w-0 flex-1">
+        <p className="line-clamp-2 text-sm font-medium text-primary-900">{mensaje}</p>
+        <p className="line-clamp-1 text-xs text-primary-500">
           {count} {count === 1 ? 'elemento' : 'elementos'} requieren atenci&oacute;n
         </p>
       </div>
-      <span className={`flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold text-white ${color.replace('bg-', 'bg-').replace('text-', '')}`}>
+      <span className="flex h-8 w-8 flex-none items-center justify-center rounded-full bg-primary-700 text-sm font-bold text-white">
         {count}
       </span>
     </Link>
@@ -95,6 +190,21 @@ function AlertCard({
 }
 
 function DashboardHome() {
+  const { rolEfectivo } = useAuth()
+
+  // Este panel es de analítica administrativa (mock de abonados, averías,
+  // solicitudes, inventario) — no tiene sentido para un abonado. Un abonado
+  // (o alguien viendo el dashboard "como Abonado" — ver selector de perfil
+  // en DashboardHeader.tsx) que llega a /dashboard se manda directo a su
+  // propia sección en vez de ver esto.
+  if (rolEfectivo === 'Abonado') {
+    return <Navigate to="/dashboard/documentos-oficiales" replace />
+  }
+
+  return <DashboardHomeContenido />
+}
+
+function DashboardHomeContenido() {
   const [rango, setRango] = useState<Rango>('este-mes')
   const [desdeCustom, setDesdeCustom] = useState('')
   const [hastaCustom, setHastaCustom] = useState('')
@@ -139,126 +249,240 @@ function DashboardHome() {
 
   const stockCritico = MOCK_INVENTARIO.filter((i) => i.stock <= Math.floor(i.stockMinimo / 2)).length
 
+  const alertasActivas = useMemo(
+    () =>
+      [
+        {
+          key: 'averias',
+          icon: <IconAveria />,
+          color: 'bg-red-100 text-red-600',
+          mensaje: 'Averías sin asignar',
+          count: averiasSinAsignar,
+          to: '/dashboard/averias',
+        },
+        {
+          key: 'solicitudes',
+          icon: <IconSolicitud />,
+          color: 'bg-yellow-100 text-yellow-600',
+          mensaje: 'Solicitudes sin notificar',
+          count: solicitudesSinNotificar,
+          to: '/dashboard/solicitudes',
+        },
+        {
+          key: 'stock',
+          icon: <IconStock />,
+          color: 'bg-orange-100 text-orange-600',
+          mensaje: 'Stock crítico',
+          count: stockCritico,
+          to: '/dashboard/inventario',
+        },
+        {
+          key: 'abonados',
+          icon: <IconAbonado />,
+          color: 'bg-blue-100 text-blue-600',
+          mensaje: 'Abonados inactivos',
+          count: MOCK_ABONADOS.filter((a) => a.estado === 'Inactivo').length,
+          to: '/dashboard/abonados',
+        },
+      ].filter((a) => a.count > 0),
+    [averiasSinAsignar, solicitudesSinNotificar, stockCritico],
+  )
+
+  const totalAveriasPorTipo = useMemo(
+    () => MOCK_AVERIAS_POR_TIPO.reduce((sum, d) => sum + d.value, 0),
+    [],
+  )
+
+  // Las 5 solicitudes más recientes, para la lista de actividad del panel
+  // (independiente del rango seleccionado arriba, siempre "lo último").
+  const ultimasSolicitudes = useMemo(
+    () => [...MOCK_SOLICITUDES].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 5),
+    [],
+  )
+
+  // Total acumulado de abonados registrados por mes — para el gráfico de
+  // tendencia. Se usa fechaRegistro (no el filtro de rango de arriba) porque
+  // el objetivo es mostrar el crecimiento histórico, no un corte puntual.
+  const abonadosPorMes = useMemo(() => {
+    const porMes: Record<string, number> = {}
+    for (const a of MOCK_ABONADOS) {
+      const mes = MESES_CORTOS[Number(a.fechaRegistro.slice(5, 7)) - 1]
+      porMes[mes] = (porMes[mes] ?? 0) + 1
+    }
+    let acumulado = 0
+    return MESES_CORTOS.filter((mes) => porMes[mes] !== undefined).map((mes) => {
+      acumulado += porMes[mes]
+      return { mes, total: acumulado }
+    })
+  }, [])
+
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Panel de control
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Resumen general del sistema SIAPB
-          </p>
+      {/* Panel superior: título + selector de rango + KPIs, agrupados en un
+          fondo degradado suave para darle jerarquía propia frente al resto
+          del contenido (en vez de que todo flote sobre el mismo gris). */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl"
+        />
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl"
+        />
+        <div className="relative flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-primary-900">
+              Panel de control
+            </h1>
+            <p className="mt-1 text-sm text-primary-500">
+              Resumen general del sistema SIAPB
+            </p>
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <select
+              value={rango}
+              onChange={(e) => setRango(e.target.value as Rango)}
+              className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="este-mes">Este mes</option>
+              <option value="este-trimestre">Este trimestre</option>
+              <option value="este-ano">Este a&ntilde;o</option>
+              <option value="personalizado">Personalizado</option>
+            </select>
+
+            {rango === 'personalizado' && (
+              <>
+                <input
+                  type="date"
+                  value={desdeCustom}
+                  onChange={(e) => setDesdeCustom(e.target.value)}
+                  className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+                />
+                <span className="text-sm text-primary-400">a</span>
+                <input
+                  type="date"
+                  value={hastaCustom}
+                  onChange={(e) => setHastaCustom(e.target.value)}
+                  className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+                />
+              </>
+            )}
+          </div>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={rango}
-            onChange={(e) => setRango(e.target.value as Rango)}
-            className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-          >
-            <option value="este-mes">Este mes</option>
-            <option value="este-trimestre">Este trimestre</option>
-            <option value="este-ano">Este a&ntilde;o</option>
-            <option value="personalizado">Personalizado</option>
-          </select>
-
-          {rango === 'personalizado' && (
-            <>
-              <input
-                type="date"
-                value={desdeCustom}
-                onChange={(e) => setDesdeCustom(e.target.value)}
-                className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-              />
-              <span className="text-sm text-primary-400">a</span>
-              <input
-                type="date"
-                value={hastaCustom}
-                onChange={(e) => setHastaCustom(e.target.value)}
-                className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-              />
-            </>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard
-          title="Total Abonados"
-          value={String(totalAbonados)}
-          subtitle={`${activos} activos · ${totalAbonados - activos} inactivos`}
-        />
-        <StatCard
-          title="Solicitudes Pendientes"
-          value={String(solicitudesPendientes)}
-          subtitle="Esperan aprobaci&oacute;n"
-        />
-        <StatCard
-          title="Aver&iacute;as Activas"
-          value={String(averiasActivas)}
-          subtitle="Pendientes o en progreso"
-        />
-        <StatCard
-          title="Stock Bajo"
-          value={String(stockBajo)}
-          subtitle="Items por reabastecer"
-        />
-      </div>
-
-      <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-5">
-        <h2 className="text-base font-semibold text-yellow-800">
-          Alertas r&aacute;pidas
-        </h2>
-        <p className="mb-4 mt-1 text-sm text-yellow-600">
-          Elementos que requieren atenci&oacute;n inmediata
-        </p>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <AlertCard
-            icon="&#128680;"
-            color="bg-red-100 text-red-600"
-            mensaje="Aver&iacute;as sin asignar"
-            count={averiasSinAsignar}
-            to="/dashboard/averias"
-          />
-          <AlertCard
-            icon="&#128196;"
-            color="bg-yellow-100 text-yellow-600"
-            mensaje="Solicitudes sin notificar"
-            count={solicitudesSinNotificar}
-            to="/dashboard/solicitudes"
-          />
-          <AlertCard
-            icon="&#128230;"
-            color="bg-orange-100 text-orange-600"
-            mensaje="Stock cr&iacute;tico"
-            count={stockCritico}
-            to="/dashboard/inventario"
-          />
-          <AlertCard
-            icon="&#128737;"
-            color="bg-blue-100 text-blue-600"
-            mensaje="Abonados inactivos"
-            count={MOCK_ABONADOS.filter((a) => a.estado === 'Inactivo').length}
+        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            variant="dark"
+            icon={<IconAbonado />}
+            title="Total Abonados"
+            value={String(totalAbonados)}
+            subtitle={`${activos} activos · ${totalAbonados - activos} inactivos`}
             to="/dashboard/abonados"
           />
+          <StatCard
+            variant="light"
+            icon={<IconSolicitud />}
+            title="Solicitudes Pendientes"
+            value={String(solicitudesPendientes)}
+            subtitle="Esperan aprobaci&oacute;n"
+            to="/dashboard/solicitudes"
+          />
+          <StatCard
+            variant="dark"
+            icon={<IconAveria />}
+            title="Aver&iacute;as Activas"
+            value={String(averiasActivas)}
+            subtitle="Pendientes o en progreso"
+            to="/dashboard/averias"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconStock />}
+            title="Stock Bajo"
+            value={String(stockBajo)}
+            subtitle="Items por reabastecer"
+            to="/dashboard/inventario"
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+      {alertasActivas.length > 0 && (
+        <div className="rounded-2xl bg-yellow-50 p-5 shadow-sm">
+          <h2 className="text-base font-semibold text-yellow-800">
+            Alertas r&aacute;pidas
+          </h2>
+          <p className="mb-4 mt-1 text-sm text-yellow-600">
+            Elementos que requieren atenci&oacute;n inmediata
+          </p>
+          <div className="flex flex-wrap justify-center gap-3">
+            {alertasActivas.map((a) => (
+              <div key={a.key} className="w-full sm:w-[calc(50%-0.375rem)] lg:w-[calc(25%-0.5625rem)]">
+                <AlertCard icon={a.icon} color={a.color} mensaje={a.mensaje} count={a.count} to={a.to} />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Fila 1: actividad reciente (ancha) + solicitudes por tipo (angosta) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm lg:col-span-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-primary-900">
+              Últimas solicitudes
+            </h2>
+            <Link
+              to="/dashboard/solicitudes"
+              className="text-xs font-semibold text-primary-600 hover:text-primary-800"
+            >
+              Ver todas
+            </Link>
+          </div>
+          <p className="mt-1 text-sm text-primary-400">Actividad más reciente</p>
+
+          <div className="mt-3 divide-y divide-primary-50">
+            {ultimasSolicitudes.map((s) => (
+              <div key={s.id} className="flex items-center gap-3 py-3">
+                <div className="flex h-10 w-10 flex-none items-center justify-center rounded-full bg-primary-700 text-sm font-bold text-white">
+                  {s.solicitante.charAt(0).toUpperCase()}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-primary-900">{s.solicitante}</p>
+                  <p className="truncate text-xs text-primary-400">{s.correo}</p>
+                </div>
+                <span className="hidden shrink-0 truncate text-xs text-primary-500 sm:block sm:w-36">
+                  {s.tipo}
+                </span>
+                <span
+                  className={`hidden shrink-0 rounded-full px-3 py-1 text-xs font-semibold sm:inline-block ${ESTADO_COLORS[s.estado]}`}
+                >
+                  {s.estado}
+                </span>
+                <span className="w-20 flex-none text-right text-xs text-primary-400">{s.fecha}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Solicitudes por Tipo
           </h2>
           <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={MOCK_SOLICITUDES_POR_TIPO} layout="vertical">
+            <BarChart
+              data={MOCK_SOLICITUDES_POR_TIPO}
+              layout="vertical"
+              margin={{ top: 0, right: 16, bottom: 0, left: 0 }}
+            >
               <CartesianGrid strokeDasharray="3 3" stroke="#e6ebef" />
               <XAxis type="number" tick={{ fontSize: 12, fill: '#395f82' }} />
               <YAxis
                 type="category"
                 dataKey="tipo"
                 tick={{ fontSize: 11, fill: '#395f82' }}
-                width={130}
+                width={110}
               />
               <Tooltip
                 formatter={(value) => [`${value} solicitudes`, 'Cantidad']}
@@ -267,23 +491,47 @@ function DashboardHome() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
 
-        <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+      {/* Fila 2: averías por tipo (angosta) + tendencia de abonados (ancha) */}
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
           <h2 className="mb-4 text-lg font-semibold text-primary-900">
             Aver&iacute;as por Tipo
           </h2>
-          <ResponsiveContainer width="100%" height={280}>
-            <PieChart>
+          <ResponsiveContainer width="100%" height={320}>
+            <PieChart margin={{ top: 0, right: 8, bottom: 0, left: 8 }}>
               <Pie
                 data={MOCK_AVERIAS_POR_TIPO}
                 cx="50%"
-                cy="50%"
-                innerRadius={60}
-                outerRadius={100}
+                cy="46%"
+                innerRadius={65}
+                outerRadius={110}
+                paddingAngle={2}
                 dataKey="value"
-                label={({ name, percent }) =>
-                  `${name} ${((percent ?? 0) * 100).toFixed(0)}%`
-                }
+                labelLine={false}
+                label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
+                  const RADIAN = Math.PI / 180
+                  const angle = midAngle ?? 0
+                  const radius = innerRadius + (outerRadius - innerRadius) * 0.55
+                  const x = cx + radius * Math.cos(-angle * RADIAN)
+                  const y = cy + radius * Math.sin(-angle * RADIAN)
+                  const pct = (percent ?? 0) * 100
+                  if (pct < 6) return null
+                  return (
+                    <text
+                      x={x}
+                      y={y}
+                      fill="#fff"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      fontSize={11}
+                      fontWeight={600}
+                    >
+                      {pct.toFixed(0)}%
+                    </text>
+                  )
+                }}
               >
                 {MOCK_AVERIAS_POR_TIPO.map((_, index) => (
                   <Cell
@@ -292,9 +540,73 @@ function DashboardHome() {
                   />
                 ))}
               </Pie>
-              <Tooltip />
-              <Legend />
+              <Tooltip
+                formatter={(value, name) => {
+                  const numValue = Number(value) || 0
+                  const pct = totalAveriasPorTipo
+                    ? Math.round((numValue / totalAveriasPorTipo) * 100)
+                    : 0
+                  return [`${numValue} (${pct}%)`, name]
+                }}
+              />
+              <Legend
+                layout="horizontal"
+                verticalAlign="bottom"
+                wrapperStyle={{ fontSize: 11, lineHeight: '1.4rem' }}
+                formatter={(value: string) => (
+                  <span className="text-primary-700">{value}</span>
+                )}
+              />
             </PieChart>
+          </ResponsiveContainer>
+        </div>
+
+        <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm lg:col-span-2">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Abonados registrados
+          </h2>
+          <p className="mt-1 text-sm text-primary-400">Total acumulado por mes</p>
+          <ResponsiveContainer width="100%" height={280}>
+            <AreaChart data={abonadosPorMes} margin={{ top: 16, right: 8, bottom: 0, left: -16 }}>
+              <defs>
+                <linearGradient id="colorAbonados" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="5%" stopColor="#073763" stopOpacity={0.35} />
+                  <stop offset="95%" stopColor="#073763" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e6ebef" vertical={false} />
+              <XAxis
+                dataKey="mes"
+                tick={{ fontSize: 12, fill: '#395f82' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                allowDecimals={false}
+                tick={{ fontSize: 12, fill: '#395f82' }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <Tooltip
+                content={({ active, payload, label }) => {
+                  if (!active || !payload || payload.length === 0) return null
+                  return (
+                    <div className="rounded-lg bg-primary-900 px-3 py-2 text-center text-white shadow-lg">
+                      <p className="text-sm font-semibold">{payload[0].value} abonados</p>
+                      <p className="text-[11px] text-primary-300">{label}</p>
+                    </div>
+                  )
+                }}
+              />
+              <Area
+                type="monotone"
+                dataKey="total"
+                stroke="#073763"
+                strokeWidth={2.5}
+                fill="url(#colorAbonados)"
+                activeDot={{ r: 5 }}
+              />
+            </AreaChart>
           </ResponsiveContainer>
         </div>
       </div>
