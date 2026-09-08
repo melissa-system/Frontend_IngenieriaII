@@ -4,6 +4,7 @@ import apiClient from '../../lib/apiClient'
 export interface PerfilCompleto {
   id: number
   email: string
+  username: string | null
   role: string
   foto_url: string | null
   nombre: string | null
@@ -19,6 +20,7 @@ export interface PerfilCompleto {
 export interface ActualizarPerfilPayload {
   email?: string
   telefono?: string
+  username?: string
 }
 
 function obtenerMensajeErrorAxios(error: unknown, fallback: string): string {

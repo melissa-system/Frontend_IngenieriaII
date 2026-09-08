@@ -116,6 +116,9 @@ function aplicarSesion(data: AuthResponse, setUser: (u: User) => void): void {
 interface RespuestaPerfilExtendida {
   vinculos?: Vinculos
   foto_url?: string | null
+  /** Nombre de usuario elegido (ver PerfilEditar.tsx). Si es null, se sigue
+   * mostrando el derivado del correo que ya trae mapearUsuario(). */
+  username?: string | null
 }
 
 async function cargarDatosExtendidos(
@@ -126,7 +129,12 @@ async function cargarDatosExtendidos(
     const { data } = await apiClient.get<RespuestaPerfilExtendida>('/auth/perfil')
     const vinculos = data.vinculos ?? SIN_VINCULOS
     const fotoUrl = data.foto_url ?? null
-    setUser((prev) => (prev && prev.id === userId ? { ...prev, vinculos, fotoUrl } : prev))
+    setUser((prev) => {
+      if (!prev || prev.id !== userId) return prev
+      const nombre = data.username ?? prev.nombre
+      const username = data.username ?? prev.username
+      return { ...prev, vinculos, fotoUrl, nombre, username }
+    })
   } catch {
     // Silencioso a propósito: sin vinculos el selector de perfil no
     // aparece y sin foto se sigue mostrando la inicial, pero el resto de

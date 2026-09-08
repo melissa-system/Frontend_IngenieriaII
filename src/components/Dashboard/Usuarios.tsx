@@ -242,6 +242,7 @@ export const Usuarios: React.FC = () => {
     const coincideTexto =
       !termino ||
       u.email.toLowerCase().includes(termino) ||
+      (u.username || '').toLowerCase().includes(termino) ||
       u.role.toLowerCase().includes(termino) ||
       (ROL_LABELS[u.role] || '').toLowerCase().includes(termino) ||
       String(u.id).includes(termino) ||
@@ -435,7 +436,7 @@ export const Usuarios: React.FC = () => {
                 </tr>
               ) : (
                 usuariosPaginados.map((u) => {
-                  const nombreUsuario = u.email.split('@')[0];
+                  const nombreUsuario = u.username ?? u.email.split('@')[0];
                   const rolLabel = ROL_LABELS[u.role] || u.role;
                   return (
                     <tr

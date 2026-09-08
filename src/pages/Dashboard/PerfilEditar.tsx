@@ -50,8 +50,10 @@ function PerfilEditar() {
   // ── Estado de actualizar datos ──────────────────────────────────
   const [correo, setCorreo] = useState('')
   const [telefono, setTelefono] = useState('')
+  const [usuarioInput, setUsuarioInput] = useState('')
   const correoInicialRef = useRef('')
   const telefonoInicialRef = useRef('')
+  const usuarioInicialRef = useRef('')
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [errorDatos, setErrorDatos] = useState<string | null>(null)
   const [exitoDatos, setExitoDatos] = useState(false)
@@ -64,8 +66,11 @@ function PerfilEditar() {
         setPerfil(data)
         setCorreo(data.email)
         setTelefono(data.telefono ?? '')
+        const usuarioActual = data.username ?? data.email.split('@')[0]
+        setUsuarioInput(usuarioActual)
         correoInicialRef.current = data.email
         telefonoInicialRef.current = data.telefono ?? ''
+        usuarioInicialRef.current = usuarioActual
       })
       .catch(() => {
         if (!cancelado) setErrorCarga('No se pudo cargar el perfil.')
@@ -100,7 +105,7 @@ function PerfilEditar() {
   const nombreCompleto = [perfil.nombre, perfil.apellido1, perfil.apellido2]
     .filter(Boolean)
     .join(' ')
-  const usuario = perfil.email.split('@')[0]
+  const usuario = perfil.username ?? perfil.email.split('@')[0]
   const inicial = (perfil.nombre ?? perfil.email).charAt(0).toUpperCase()
 
   // ── Handlers ────────────────────────────────────────────────────
@@ -150,10 +155,17 @@ function PerfilEditar() {
       const actualizado = await actualizarPerfil({
         email: correo.trim(),
         telefono: telefono.trim(),
+        ...(usuarioInput.trim() !== usuarioInicialRef.current
+          ? { username: usuarioInput.trim() }
+          : {}),
       })
       setPerfil(actualizado)
       correoInicialRef.current = actualizado.email
       telefonoInicialRef.current = actualizado.telefono ?? ''
+      const usuarioActualizado =
+        actualizado.username ?? actualizado.email.split('@')[0]
+      setUsuarioInput(usuarioActualizado)
+      usuarioInicialRef.current = usuarioActualizado
       setExitoDatos(true)
     } catch (err) {
       setErrorDatos(obtenerMensajeError(err))
@@ -165,6 +177,7 @@ function PerfilEditar() {
   function cancelarDatos() {
     setCorreo(correoInicialRef.current)
     setTelefono(telefonoInicialRef.current)
+    setUsuarioInput(usuarioInicialRef.current)
     setErrorDatos(null)
     setExitoDatos(false)
   }
@@ -300,9 +313,19 @@ function PerfilEditar() {
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-primary-700">
-                  Usuario
+                  Nombre de usuario
                 </label>
-                <input type="text" value={usuario} readOnly className={inputReadonlyClass} />
+                <input
+                  type="text"
+                  value={usuarioInput}
+                  onChange={(e) => setUsuarioInput(e.target.value)}
+                  placeholder={usuario}
+                  minLength={3}
+                  maxLength={30}
+                  pattern="[a-zA-Z0-9._-]{3,30}"
+                  title='Entre 3 y 30 caracteres: letras, números, ".", "_" o "-", sin espacios'
+                  className={inputClass}
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">

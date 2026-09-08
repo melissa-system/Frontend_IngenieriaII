@@ -10,6 +10,7 @@ export interface VinculoUsuario {
 export interface Usuario {
   id: number;
   email: string;
+  username: string | null;
   role: string;
   role_id: number;
   isActive: boolean;
