@@ -88,20 +88,20 @@ function StatCard({
     return (
       <Link
         to={to}
-        className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 p-5 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg"
+        className="group relative block overflow-hidden rounded-2xl bg-gradient-to-br from-primary-700 to-primary-900 p-4 text-white shadow-md transition-all hover:-translate-y-0.5 hover:shadow-lg sm:p-5"
       >
         <span
           aria-hidden="true"
-          className="pointer-events-none absolute -right-5 -top-5 flex h-28 w-28 items-center justify-center rounded-full bg-white/5 text-white/10 transition-transform duration-300 group-hover:scale-110 [&>svg]:h-16 [&>svg]:w-16"
+          className="pointer-events-none absolute -right-5 -top-5 flex h-20 w-20 items-center justify-center rounded-full bg-white/5 text-white/10 transition-transform duration-300 group-hover:scale-110 [&>svg]:h-12 [&>svg]:w-12 sm:h-28 sm:w-28 sm:[&>svg]:h-16 sm:[&>svg]:w-16"
         >
           {icon}
         </span>
-        <span className="relative flex h-9 w-9 items-center justify-center rounded-full bg-white/15 text-white">
+        <span className="relative flex h-8 w-8 items-center justify-center rounded-full bg-white/15 text-white sm:h-9 sm:w-9">
           {icon}
         </span>
-        <p className="relative mt-4 text-sm font-medium text-primary-200">{title}</p>
-        <p className="relative mt-1 text-3xl font-semibold">{value}</p>
-        <p className="relative mt-1 text-xs text-primary-300">{subtitle}</p>
+        <p className="relative mt-3 truncate text-xs font-medium text-primary-200 sm:mt-4 sm:text-sm">{title}</p>
+        <p className="relative mt-1 text-2xl font-semibold sm:text-3xl">{value}</p>
+        <p className="relative mt-1 truncate text-[11px] text-primary-300 sm:text-xs">{subtitle}</p>
       </Link>
     )
   }
@@ -109,14 +109,14 @@ function StatCard({
   return (
     <Link
       to={to}
-      className="block rounded-2xl border border-primary-100 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+      className="block rounded-2xl border border-primary-100 bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md sm:p-5"
     >
-      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+      <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-50 text-primary-700 sm:h-9 sm:w-9">
         {icon}
       </span>
-      <p className="mt-4 text-sm font-medium text-primary-500">{title}</p>
-      <p className="mt-1 text-3xl font-semibold text-primary-900">{value}</p>
-      <p className="mt-1 text-xs text-primary-400">{subtitle}</p>
+      <p className="mt-3 truncate text-xs font-medium text-primary-500 sm:mt-4 sm:text-sm">{title}</p>
+      <p className="mt-1 text-2xl font-semibold text-primary-900 sm:text-3xl">{value}</p>
+      <p className="mt-1 truncate text-[11px] text-primary-400 sm:text-xs">{subtitle}</p>
     </Link>
   )
 }
@@ -408,7 +408,7 @@ function DashboardHomeContenido() {
           </div>
         </div>
 
-        <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
           <StatCard
             variant="dark"
             icon={<IconAbonado />}

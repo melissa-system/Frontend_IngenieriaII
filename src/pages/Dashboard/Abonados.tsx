@@ -577,7 +577,7 @@ function Abonados() {
   const esJuridica = form.tipo_abonado === 'Jurídica'
 
   const modalFormEl = !modalOpen ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -885,7 +885,7 @@ function Abonados() {
   // abonado antes de tocar la base de datos.
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
           <h2 className="text-lg font-semibold text-primary-900">
             Cambiar estado del abonado
@@ -945,7 +945,7 @@ function Abonados() {
   // que "Cancelar" regrese al formulario tal cual quedó.
   const confirmacionCedulaModalEl =
     confirmacionCedula === null ? null : (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
           <h2 className="text-lg font-semibold text-primary-900">
             Cédula ya registrada
@@ -978,7 +978,7 @@ function Abonados() {
   const a = viewDetail
   const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
   const detailModalEl = !a ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>

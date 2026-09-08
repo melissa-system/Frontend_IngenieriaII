@@ -90,7 +90,7 @@ function AveriasAdmin() {
     setAsignarObs('')
   }
 
-  const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40'
+  const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
   const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
 
   function DetailModal() {
