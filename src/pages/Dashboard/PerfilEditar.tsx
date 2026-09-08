@@ -7,11 +7,13 @@ import {
 } from '../../components/Services/perfil.service'
 import { resolverUrlArchivo } from '../../lib/urlArchivos'
 
+// obtenerPerfil/actualizarPerfil/subirFoto (perfil.service.ts) ya extraen el
+// mensaje del backend y lo relanzan como Error normal (err.message) — acá
+// solo se usa eso. No leer err.response.*: en este punto ya no es el error
+// crudo de axios, así que esa ruta nunca tiene datos y tapaba el mensaje
+// real con el genérico de abajo.
 function obtenerMensajeError(err: unknown): string {
-  const data = (err as { response?: { data?: { message?: unknown } } })?.response
-    ?.data?.message
-  if (Array.isArray(data)) return data.join(' · ')
-  if (typeof data === 'string') return data
+  if (err instanceof Error && err.message) return err.message
   return 'No se pudo realizar la operación. Intenta nuevamente.'
 }
 
