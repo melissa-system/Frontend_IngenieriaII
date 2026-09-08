@@ -24,10 +24,13 @@ function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
         </svg>
       </button>
 
-      <div className="flex flex-1 items-center justify-end gap-3 sm:gap-4">
-        <div className="hidden text-right sm:block">
-          <p className="text-sm font-medium text-primary-900">{user?.nombre}</p>
-          <p className="text-xs text-primary-500">{rolEfectivo}</p>
+      <div className="flex flex-1 items-center justify-end gap-2 sm:gap-4">
+        {/* En mobile no hay espacio para dos líneas: se muestra solo el
+            nombre (truncado) en una línea; el rol completo se ve en la
+            burbuja de Perfil del sidebar. Desde sm+ se muestran ambas. */}
+        <div className="max-w-[40vw] text-right sm:max-w-none">
+          <p className="truncate text-sm font-medium text-primary-900">{user?.nombre}</p>
+          <p className="hidden text-xs text-primary-500 sm:block">{rolEfectivo}</p>
         </div>
         {/* Misma foto que se administra en Editar perfil (PerfilEditar.tsx)
             — si no hay foto_url todavía cargado o nunca se subió una, se

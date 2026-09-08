@@ -321,9 +321,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
+      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:static lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
+        lg:static lg:h-screen lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
     >
       <div className="flex items-center justify-between border-b border-primary-700 px-5 py-5">
         <span
