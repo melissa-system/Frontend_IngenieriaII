@@ -9,7 +9,7 @@ const STATS = [
 const VALUES = [
   {
     title: 'Responsabilidad',
-    desc: 'Administramos los recursos hídricos con transparencia y honestidad.',
+    desc: 'Administramos los recursos hídricos con transparencia y compromiso con la comunidad.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -33,8 +33,8 @@ const VALUES = [
     ),
   },
   {
-    title: 'Calidad',
-    desc: 'Garantizamos agua potable segura y en óptimas condiciones.',
+    title: 'Honestidad',
+    desc: 'Actuamos con transparencia en el manejo de los recursos y la información de la ASADA.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -44,11 +44,8 @@ const VALUES = [
         strokeWidth={1.8}
         className="h-8 w-8"
       >
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14l-6-4.8h7.6L12 2Z"
-        />
+        <circle cx="12" cy="12" r="9" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v5l3 2" />
       </svg>
     ),
   },
@@ -78,8 +75,50 @@ const VALUES = [
     ),
   },
   {
-    title: 'Sostenibilidad',
-    desc: 'Cuidamos el ambiente para garantizar el agua del futuro.',
+    title: 'Comunicación',
+    desc: 'Mantenemos informados a los abonados de forma clara y oportuna.',
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        className="h-8 w-8"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M21 12a8.5 8.5 0 0 1-12.4 7.5L4 21l1.6-4.4A8.5 8.5 0 1 1 21 12Z"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: 'Compañerismo',
+    desc: 'Trabajamos en equipo, apoyándonos entre la Junta Directiva y el personal.',
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        className="h-8 w-8"
+      >
+        <circle cx="8" cy="9" r="3" />
+        <circle cx="16" cy="9" r="3" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0"
+        />
+      </svg>
+    ),
+  },
+  {
+    title: 'Tolerancia',
+    desc: 'Escuchamos y respetamos las distintas necesidades de la comunidad.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -197,7 +236,7 @@ function AboutUs() {
               <h3 className="text-center text-2xl font-semibold text-primary-900">
                 Nuestros valores
               </h3>
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {VALUES.map((v) => (
                   <div
                     key={v.title}
