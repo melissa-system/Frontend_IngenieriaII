@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerPerfil } from '../../components/Services/perfil.service'
@@ -102,6 +102,8 @@ function VistaAbonado() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
 
   const tieneAbierta = useMemo(
     () =>
@@ -133,14 +135,34 @@ function VistaAbonado() {
     cargar()
   }, [cargar])
 
+  const limpiarFormulario = () => {
+    setDireccionNueva('')
+    setJustificacion('')
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setMensaje('')
+
+    if (enviandoRef.current) return
+    const direccionLimpia = direccionNueva.trim()
+    const justificacionLimpia = justificacion.trim()
+    if (direccionLimpia.length < 8) {
+      setError('La nueva dirección debe tener al menos 8 caracteres.')
+      return
+    }
+    if (justificacionLimpia.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+
+    enviandoRef.current = true
+    setEnviando(true)
     try {
       await crearSolicitudCambioDomicilio({
-        direccionNueva,
-        justificacion,
+        direccionNueva: direccionLimpia,
+        justificacion: justificacionLimpia,
       })
       setMensaje('Solicitud registrada correctamente. Te notificaremos por correo el resultado.')
       setDireccionNueva('')
@@ -148,6 +170,9 @@ function VistaAbonado() {
       await cargar()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+    } finally {
+      enviandoRef.current = false
+      setEnviando(false)
     }
   }
 
@@ -221,16 +246,27 @@ function VistaAbonado() {
           </p>
         )}
 
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button
             type="submit"
-            disabled={tieneAbierta}
+            disabled={tieneAbierta || enviando}
             className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Enviar solicitud
+            {enviando ? 'Enviando solicitud…' : 'Enviar solicitud'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
           </button>
           {tieneAbierta && (
-            <p className="text-xs font-medium text-yellow-700">
+            <p className="w-full text-center text-xs font-medium text-yellow-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
             </p>
           )}
@@ -301,6 +337,8 @@ function VistaAdministrador() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
+  const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
 
   const [detalle, setDetalle] = useState<SolicitudCambioDomicilio | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
@@ -340,19 +378,40 @@ function VistaAdministrador() {
 
   const abonadoElegido = abonados.find((a) => String(a.id) === abonadoSel)
 
+  const limpiarFormulario = () => {
+    setAbonadoSel('')
+    setBusqueda('')
+    setDireccionNueva('')
+    setJustificacion('')
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setMensaje('')
+    if (enviandoRef.current) return
     if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
       setError('Seleccioná un abonado activo para la solicitud.')
       return
     }
+    const direccionLimpia = direccionNueva.trim()
+    const justificacionLimpia = justificacion.trim()
+    if (direccionLimpia.length < 8) {
+      setError('La nueva dirección debe tener al menos 8 caracteres.')
+      return
+    }
+    if (justificacionLimpia.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+
+    enviandoRef.current = true
+    setEnviando(true)
     try {
       await crearSolicitudCambioDomicilio({
         idAbonado: Number(abonadoElegido.id),
-        direccionNueva,
-        justificacion,
+        direccionNueva: direccionLimpia,
+        justificacion: justificacionLimpia,
       })
       setMensaje('Solicitud registrada correctamente.')
       setDireccionNueva('')
@@ -360,6 +419,9 @@ function VistaAdministrador() {
       await cargar()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+    } finally {
+      enviandoRef.current = false
+      setEnviando(false)
     }
   }
 
@@ -411,21 +473,19 @@ function VistaAdministrador() {
             </label>
 
             {abonadoElegido ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-sm shadow-sm">
-                  <p className="font-medium text-primary-900">
-                    {nombreVisible(abonadoElegido)}
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAbonadoSel('')
-                      setBusqueda('')
-                    }}
-                    className="rounded-md border border-primary-200 bg-white px-2 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
-                  >
-                    Quitar
-                  </button>
-                </div>
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
+                <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAbonadoSel('')
+                    setBusqueda('')
+                  }}
+                  className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                >
+                  Quitar
+                </button>
+              </div>
             ) : (
               <div className="relative mt-1">
                 <input
@@ -522,12 +582,24 @@ function VistaAdministrador() {
           </p>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 flex justify-center gap-3">
           <button
             type="submit"
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
+            disabled={enviando}
+            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
-            Registrar solicitud
+            {enviando ? 'Registrando…' : 'Registrar solicitud'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
           </button>
         </div>
       </form>

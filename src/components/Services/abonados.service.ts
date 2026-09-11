@@ -196,3 +196,40 @@ export const obtenerHistorialAbonado = async (
     );
   }
 };
+
+// Resumen personal del abonado logueado: datos personales, conteo de
+// solicitudes y averías, y las 5 más recientes de cada una.
+export interface SolicitudResumen {
+  id: number;
+  codigo_solicitud: string;
+  tipo_solicitud: string;
+  estado: string;
+  fecha_creacion: string;
+}
+
+export interface AveriaResumen {
+  id: number;
+  codigo_averia: string;
+  tipo_averia: string;
+  descripcion: string;
+  estado: string;
+  fecha_reporte: string;
+}
+
+export interface MiResumen {
+  abonado: Abonado;
+  estadisticas: { totalSolicitudes: number; totalAverias: number };
+  solicitudesRecientes: SolicitudResumen[];
+  averiasRecientes: AveriaResumen[];
+}
+
+export const obtenerMiResumen = async (): Promise<MiResumen> => {
+  try {
+    const { data } = await apiClient.get<MiResumen>(`${RESOURCE}/mi-resumen`);
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo cargar tu resumen.'),
+    );
+  }
+};

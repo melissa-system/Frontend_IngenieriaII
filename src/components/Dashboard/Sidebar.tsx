@@ -196,7 +196,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   // Renderiza una opción de submenú: enlace directo (hoja) o, si trae su
   // propio "submenu", un grupo desplegable más (recursivo, cualquier
-  // profundidad — hoy solo se usa un nivel extra, en "Edición de página").
+  // profundidad).
   function renderSubItem(sub: SubMenuItem, keyPrefix: string) {
     if (!sub.submenu) {
       const active = isActive(sub.to!)
