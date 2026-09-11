@@ -95,7 +95,13 @@ function VistaAbonado() {
   const [asunto, setAsunto] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [adjunto, setAdjunto] = useState<File | null>(null)
+  const [adjuntoPreview, setAdjuntoPreview] = useState<string | null>(null)
   const adjuntoRef = useRef<HTMLInputElement | null>(null)
+
+  // Libera la URL del preview cuando el componente se desmonta o el archivo cambia
+  useEffect(() => {
+    return () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview) }
+  }, [adjuntoPreview])
 
   const [solicitudes, setSolicitudes] = useState<SolicitudOtro[]>([])
   const [cargando, setCargando] = useState(true)
@@ -129,6 +135,8 @@ function VistaAbonado() {
     setAsunto('')
     setJustificacion('')
     setAdjunto(null)
+    if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+    setAdjuntoPreview(null)
     if (adjuntoRef.current) adjuntoRef.current.value = ''
   }
 
@@ -228,19 +236,40 @@ function VistaAbonado() {
 
           <div className="sm:col-span-2">
             <label htmlFor="adjunto" className="block text-sm font-medium text-primary-700">
-              Documento de soporte
+              Documento de soporte (Máx. 5 MB)
             </label>
             <input
               id="adjunto"
               ref={adjuntoRef}
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
-              onChange={(e) => setAdjunto(e.target.files?.[0] ?? null)}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-primary-800"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0] ?? null
+                setAdjunto(archivo)
+                if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+                setAdjuntoPreview(archivo ? URL.createObjectURL(archivo) : null)
+              }}
+              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
             />
             <p className="mt-1 text-xs text-primary-400">
-              Opcional. Imagen (.jpg, .jpeg, .png) o PDF, máximo 5 MB.
+              Opcional. Imagen (.jpg, .jpeg, .png) o PDF.
             </p>
+
+            {adjuntoPreview && (
+              <div className="mt-3 flex items-center gap-3">
+                <img
+                  src={adjuntoPreview}
+                  alt="Vista previa del documento"
+                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
+                />
+                <span className="text-xs font-medium text-primary-600">{adjunto?.name}</span>
+              </div>
+            )}
+            {!adjuntoPreview && adjunto && (
+              <div className="mt-2 text-xs font-medium text-primary-700">
+                Archivo seleccionado: {adjunto.name}
+              </div>
+            )}
           </div>
         </div>
 
@@ -344,6 +373,7 @@ function VistaAdministrador() {
   const [asunto, setAsunto] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [adjunto, setAdjunto] = useState<File | null>(null)
+  const [adjuntoPreview, setAdjuntoPreview] = useState<string | null>(null)
   const adjuntoRef = useRef<HTMLInputElement | null>(null)
   const [cargandoAbonados, setCargandoAbonados] = useState(true)
 
@@ -357,6 +387,11 @@ function VistaAdministrador() {
   const [detalle, setDetalle] = useState<SolicitudOtro | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [gestionando, setGestionando] = useState(false)
+
+  // Libera la URL del preview cuando el componente se desmonta o el archivo cambia
+  useEffect(() => {
+    return () => { if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview) }
+  }, [adjuntoPreview])
 
   const cargar = useCallback(async () => {
     try {
@@ -398,6 +433,8 @@ function VistaAdministrador() {
     setAsunto('')
     setJustificacion('')
     setAdjunto(null)
+    if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+    setAdjuntoPreview(null)
     if (adjuntoRef.current) adjuntoRef.current.value = ''
   }
 
@@ -602,19 +639,40 @@ function VistaAdministrador() {
 
           <div className="sm:col-span-2">
             <label htmlFor="adjunto" className="block text-sm font-medium text-primary-700">
-              Documento de soporte
+              Documento de soporte (Máx. 5 MB)
             </label>
             <input
               id="adjunto"
               ref={adjuntoRef}
               type="file"
               accept=".jpg,.jpeg,.png,.pdf"
-              onChange={(e) => setAdjunto(e.target.files?.[0] ?? null)}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm file:mr-3 file:rounded-lg file:border-0 file:bg-primary-700 file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-white hover:file:bg-primary-800"
+              onChange={(e) => {
+                const archivo = e.target.files?.[0] ?? null
+                setAdjunto(archivo)
+                if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+                setAdjuntoPreview(archivo ? URL.createObjectURL(archivo) : null)
+              }}
+              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
             />
             <p className="mt-1 text-xs text-primary-400">
-              Opcional. Imagen (.jpg, .jpeg, .png) o PDF, máximo 5 MB.
+              Opcional. Imagen (.jpg, .jpeg, .png) o PDF.
             </p>
+
+            {adjuntoPreview && (
+              <div className="mt-3 flex items-center gap-3">
+                <img
+                  src={adjuntoPreview}
+                  alt="Vista previa del documento"
+                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
+                />
+                <span className="text-xs font-medium text-primary-600">{adjunto?.name}</span>
+              </div>
+            )}
+            {!adjuntoPreview && adjunto && (
+              <div className="mt-2 text-xs font-medium text-primary-700">
+                Archivo seleccionado: {adjunto.name}
+              </div>
+            )}
           </div>
         </div>
 
