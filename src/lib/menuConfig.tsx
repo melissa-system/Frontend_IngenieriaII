@@ -99,7 +99,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Dashboard',
     icon: <DashboardIcon />,
     to: '/dashboard',
-    roles: ['Administrador', 'Fontanero', 'Junta Directiva'],
+    roles: ['Administrador', 'Fontanero', 'Junta Directiva', 'Abonado'],
   },
   {
     label: 'Solicitudes',

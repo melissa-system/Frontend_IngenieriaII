@@ -1,7 +1,8 @@
 import { useState, useMemo, useEffect } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
+import { obtenerMiResumen, type MiResumen } from '../../components/Services/abonados.service'
 import {
   BarChart,
   Bar,
@@ -192,13 +193,8 @@ function AlertCard({
 function DashboardHome() {
   const { rolEfectivo } = useAuth()
 
-  // Este panel es de analítica administrativa (mock de abonados, averías,
-  // solicitudes, inventario) — no tiene sentido para un abonado. Un abonado
-  // (o alguien viendo el dashboard "como Abonado" — ver selector de perfil
-  // en DashboardHeader.tsx) que llega a /dashboard se manda directo a su
-  // propia sección en vez de ver esto.
   if (rolEfectivo === 'Abonado') {
-    return <Navigate to="/dashboard/documentos-oficiales" replace />
+    return <DashboardAbonado />
   }
 
   return <DashboardHomeContenido />
@@ -644,6 +640,231 @@ function DashboardHomeContenido() {
               />
             </AreaChart>
           </ResponsiveContainer>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Dashboard personalizado para abonados: muestra datos personales,
+// resumen de solicitudes y averías, y las 5 más recientes de cada una.
+function DashboardAbonado() {
+  const [resumen, setResumen] = useState<MiResumen | null>(null)
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelado = false
+    obtenerMiResumen()
+      .then((data) => {
+        if (!cancelado) setResumen(data)
+      })
+      .catch((err) => {
+        if (!cancelado) setError(err.message || 'No se pudo cargar tu resumen.')
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false)
+      })
+    return () => { cancelado = true }
+  }, [])
+
+  if (cargando) {
+    return (
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+          <div className="h-8 w-48 animate-pulse rounded bg-primary-200/50" />
+          <div className="mt-2 h-4 w-64 animate-pulse rounded bg-primary-200/30" />
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-primary-100/50" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-red-700">
+          {error}
+        </div>
+      </div>
+    )
+  }
+
+  if (!resumen) return null
+
+  const { abonado, estadisticas, solicitudesRecientes, averiasRecientes } = resumen
+  const nombreCompleto = [abonado.nombre, abonado.apellido1, abonado.apellido2]
+    .filter(Boolean)
+    .join(' ')
+
+  const ESTADO_COLORS: Record<string, string> = {
+    pendiente: 'bg-yellow-100 text-yellow-700',
+    en_proceso: 'bg-blue-100 text-blue-700',
+    aprobado: 'bg-green-100 text-green-700',
+    rechazado: 'bg-red-100 text-red-700',
+    Pendiente: 'bg-yellow-100 text-yellow-700',
+    'En proceso': 'bg-blue-100 text-blue-700',
+    Finalizado: 'bg-green-100 text-green-700',
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Panel de bienvenida + KPIs */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-2xl font-semibold text-primary-900">
+            Bienvenido, {nombreCompleto}
+          </h1>
+          <p className="mt-1 text-sm text-primary-500">
+            Resumen de tu cuenta como abonado
+          </p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+          <StatCard
+            variant="dark"
+            icon={<IconSolicitud />}
+            title="Mis Solicitudes"
+            value={String(estadisticas.totalSolicitudes)}
+            subtitle="Total realizadas"
+            to="/dashboard/solicitudes"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconAveria />}
+            title="Mis Reportes de Averías"
+            value={String(estadisticas.totalAverias)}
+            subtitle="Total reportados"
+            to="/dashboard/solicitudes/otro"
+          />
+        </div>
+      </div>
+
+      {/* Datos personales */}
+      <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+        <h2 className="text-lg font-semibold text-primary-900">Mis datos personales</h2>
+        <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          {/* Columna 1 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Nombre completo</p>
+            <p className="mt-1 text-sm text-primary-900">{nombreCompleto}</p>
+          </div>
+          {/* Columna 2 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Cédula</p>
+            <p className="mt-1 text-sm text-primary-900">{abonado.cedula}</p>
+          </div>
+          {/* Columna 3 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Teléfono</p>
+            <p className="mt-1 text-sm text-primary-900">{abonado.telefono}</p>
+          </div>
+          {/* Columna 1 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Dirección</p>
+            <p className="mt-1 text-sm text-primary-900">{abonado.direccion}</p>
+          </div>
+          {/* Columna 2 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Correo electrónico</p>
+            <p className="mt-1 text-sm text-primary-900">{abonado.correo}</p>
+          </div>
+          {/* Columna 3 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Tipo de abonado</p>
+            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.tipo_abonado === 'Jurídica' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+              {abonado.tipo_abonado}
+            </span>
+          </div>
+          {/* Columna 1 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Fecha de registro</p>
+            <p className="mt-1 text-sm text-primary-900">
+              {new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(abonado.fecha_registro))}
+            </p>
+          </div>
+          {/* Columna 2 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Número de abonado</p>
+            <p className="mt-1 text-sm text-primary-900">{abonado.numero_abonado}</p>
+          </div>
+          {/* Columna 3 */}
+          <div>
+            <p className="text-xs font-medium text-primary-500">Estado</p>
+            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+              {abonado.estado}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* Listas de solicitudes y averías */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {/* Últimas solicitudes */}
+        <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-primary-900">Últimas solicitudes</h2>
+            <Link to="/dashboard/solicitudes" className="text-sm font-medium text-primary-600 hover:text-primary-800">
+              Ver todas
+            </Link>
+          </div>
+          {solicitudesRecientes.length === 0 ? (
+            <p className="mt-4 text-sm text-primary-400">Aún no has realizado solicitudes.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {solicitudesRecientes.map((s) => (
+                <li key={s.id} className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-primary-900">{s.codigo_solicitud}</p>
+                    <p className="text-xs text-primary-500">{s.tipo_solicitud}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[s.estado] || 'bg-gray-100 text-gray-600'}`}>
+                      {s.estado}
+                    </span>
+                    <span className="text-[11px] text-primary-400">
+                      {new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short' }).format(new Date(s.fecha_creacion))}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        {/* Últimas averías */}
+        <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-primary-900">Últimos reportes de averías</h2>
+          </div>
+          {averiasRecientes.length === 0 ? (
+            <p className="mt-4 text-sm text-primary-400">Aún no has reportado averías.</p>
+          ) : (
+            <ul className="mt-3 space-y-2">
+              {averiasRecientes.map((a) => (
+                <li key={a.id} className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-primary-900">{a.codigo_averia}</p>
+                    <p className="text-xs text-primary-500">{a.tipo_averia}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[a.estado] || 'bg-gray-100 text-gray-600'}`}>
+                      {a.estado}
+                    </span>
+                    <span className="text-[11px] text-primary-400">
+                      {new Intl.DateTimeFormat('es-CR', { day: 'numeric', month: 'short' }).format(new Date(a.fecha_reporte))}
+                    </span>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
         </div>
       </div>
     </div>
