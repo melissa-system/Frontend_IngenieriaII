@@ -29,6 +29,36 @@ const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
 const ACCEPT_CEDULA = 'image/jpeg,image/png,image/webp,application/pdf'
 const MAX_BYTES = 5 * 1024 * 1024
 
+// Mismas reglas que valida el backend (clase-validator, DTO de representante).
+const IDENTIFICACION_REGEX = /^(\d{1}-\d{4}-\d{4}|\d{1}-\d{3}-\d{6}|\d{11,12})$/
+const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+const TELEFONO_REGEX = /^[+]?[\d\s-]{7,}$/
+
+// Formatea la cédula mientras se escribe según el primer dígito:
+//   física (1-2345-6789), jurídica (3-101-123456) o DIMEX (11-12 dígitos).
+function formatearCedula(valor: string): string {
+  const digitos = valor.replace(/\D/g, '').slice(0, 12)
+  if (digitos.length === 0) return ''
+  const primer = digitos[0]
+  if (primer === '1' || primer === '2') {
+    if (digitos.length <= 1) return digitos
+    if (digitos.length <= 5) return `${digitos.slice(0, 1)}-${digitos.slice(1)}`
+    return `${digitos.slice(0, 1)}-${digitos.slice(1, 5)}-${digitos.slice(5, 9)}`
+  }
+  if (primer === '3') {
+    if (digitos.length <= 1) return digitos
+    if (digitos.length <= 4) return `${digitos.slice(0, 1)}-${digitos.slice(1)}`
+    return `${digitos.slice(0, 1)}-${digitos.slice(1, 4)}-${digitos.slice(4, 10)}`
+  }
+  return digitos
+}
+
+// Teléfono en grupos de 4 dígitos (ej: 8888-7777).
+function formatearTelefono(valor: string): string {
+  const digitos = valor.replace(/\D/g, '').slice(0, 12)
+  return digitos.replace(/(\d{4})(?=\d)/g, '$1-')
+}
+
 // Colores para el distintivo de estado: amarillo (pendiente), azul (en
 // proceso), verde (aprobado), rojo (rechazado).
 function estadoColor(estado: EstadoSolicitud): string {
@@ -181,6 +211,7 @@ function VistaAbonado() {
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevaDireccion, setNuevaDireccion] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
@@ -189,6 +220,7 @@ function VistaAbonado() {
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioRepresentante[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
@@ -250,6 +282,7 @@ function VistaAbonado() {
     setNuevaCedula('')
     setNuevaDireccion('')
     setNuevoCorreo('')
+    setTelefono('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
@@ -260,18 +293,55 @@ function VistaAbonado() {
     e.preventDefault()
     setError('')
     setMensaje('')
+
+    if (enviandoRef.current) return
+    const nombre = nuevoNombre.trim()
+    const cedula = nuevaCedula.trim()
+    const direccion = nuevaDireccion.trim()
+    const correo = nuevoCorreo.trim()
+    const tel = telefono.trim()
+    const just = justificacion.trim()
+    if (!nombre) {
+      setError('El nombre del nuevo representante es obligatorio.')
+      return
+    }
+    if (!IDENTIFICACION_REGEX.test(cedula)) {
+      setError(
+        'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).',
+      )
+      return
+    }
+    if (!direccion) {
+      setError('La dirección del nuevo representante es obligatoria.')
+      return
+    }
+    if (correo && !CORREO_REGEX.test(correo)) {
+      setError('El correo del nuevo representante no es válido.')
+      return
+    }
+    if (tel && !TELEFONO_REGEX.test(tel)) {
+      setError('El teléfono del nuevo representante no es válido.')
+      return
+    }
+    if (just.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
     if (!archivo) {
       setError('Debes adjuntar la foto o PDF de la cédula del nuevo representante.')
       return
     }
+
+    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudCambioRepresentante({
-        representanteNuevoNombre: nuevoNombre,
-        representanteNuevoCedula: nuevaCedula,
-        representanteNuevoDireccion: nuevaDireccion,
-        representanteNuevoCorreo: nuevoCorreo,
-        justificacion,
+        representanteNuevoNombre: nombre,
+        representanteNuevoCedula: cedula,
+        representanteNuevoDireccion: direccion,
+        representanteNuevoCorreo: correo,
+        representanteNuevoTelefono: tel,
+        justificacion: just,
         copiaCedula: archivo,
       })
       setMensaje('Solicitud registrada correctamente. Te notificaremos por correo el resultado.')
@@ -280,6 +350,7 @@ function VistaAbonado() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
@@ -315,23 +386,11 @@ function VistaAbonado() {
                 disabled={cargandoPerfil}
                 className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-500 focus:outline-none"
               />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Cédula del representante actual
-              </label>
-              <input
-                type="text"
-                value={cargandoPerfil ? 'Cargando…' : juridico?.cedula_representante ?? '-'}
-                readOnly
-                disabled={cargandoPerfil}
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-500 focus:outline-none"
-              />
               <p className="mt-1 text-xs text-primary-400">
-                Se registra automáticamente como el representante anterior.
+                Cédula: {cargandoPerfil ? 'Cargando…' : (juridico?.cedula_representante ?? '-')} — se
+                registra automáticamente como el representante anterior.
               </p>
             </div>
-
             <div>
               <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
                 Nombre del nuevo representante
@@ -354,7 +413,7 @@ function VistaAbonado() {
                 id="nuevaCedula"
                 type="text"
                 value={nuevaCedula}
-                onChange={(e) => setNuevaCedula(e.target.value)}
+                onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
                 required
                 placeholder="Ej: 1-2345-6789"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
@@ -389,6 +448,20 @@ function VistaAbonado() {
               <p className="mt-1 text-xs text-primary-400">
                 Se usa para notificarlo del resultado de la solicitud.
               </p>
+            </div>
+
+            <div>
+              <label htmlFor="nuevoTelefono" className="block text-sm font-medium text-primary-700">
+                Teléfono del nuevo representante
+              </label>
+              <input
+                id="nuevoTelefono"
+                type="tel"
+                value={telefono}
+                onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
+                placeholder="Teléfono del nuevo representante (opcional)"
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              />
             </div>
 
             <div className="sm:col-span-2">
@@ -428,7 +501,7 @@ function VistaAbonado() {
             </p>
           )}
 
-          <div className="mt-5 flex items-center gap-3">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
             <button
               type="submit"
               disabled={tieneAbierta || enviando}
@@ -436,8 +509,19 @@ function VistaAbonado() {
             >
               {enviando ? 'Subiendo solicitud…' : 'Enviar solicitud'}
             </button>
+            <button
+              type="button"
+              onClick={() => {
+                limpiarFormulario()
+                setError('')
+                setMensaje('')
+              }}
+              className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+            >
+              Cancelar
+            </button>
             {tieneAbierta && (
-              <p className="text-xs font-medium text-yellow-700">
+              <p className="w-full text-center text-xs font-medium text-yellow-700">
                 Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
               </p>
             )}
@@ -507,6 +591,7 @@ function VistaAdministrador() {
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevaDireccion, setNuevaDireccion] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
+  const [telefono, setTelefono] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
@@ -516,6 +601,7 @@ function VistaAdministrador() {
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioRepresentante[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
@@ -589,6 +675,7 @@ function VistaAdministrador() {
     setNuevaCedula('')
     setNuevaDireccion('')
     setNuevoCorreo('')
+    setTelefono('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
@@ -599,23 +686,60 @@ function VistaAdministrador() {
     e.preventDefault()
     setError('')
     setMensaje('')
+
+    if (enviandoRef.current) return
     if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
       setError('Seleccioná un abonado activo para la solicitud.')
+      return
+    }
+    const nombre = nuevoNombre.trim()
+    const cedula = nuevaCedula.trim()
+    const direccion = nuevaDireccion.trim()
+    const correo = nuevoCorreo.trim()
+    const tel = telefono.trim()
+    const just = justificacion.trim()
+    if (!nombre) {
+      setError('El nombre del nuevo representante es obligatorio.')
+      return
+    }
+    if (!IDENTIFICACION_REGEX.test(cedula)) {
+      setError(
+        'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).',
+      )
+      return
+    }
+    if (!direccion) {
+      setError('La dirección del nuevo representante es obligatoria.')
+      return
+    }
+    if (correo && !CORREO_REGEX.test(correo)) {
+      setError('El correo del nuevo representante no es válido.')
+      return
+    }
+    if (tel && !TELEFONO_REGEX.test(tel)) {
+      setError('El teléfono del nuevo representante no es válido.')
+      return
+    }
+    if (just.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
       return
     }
     if (!archivo) {
       setError('Debes adjuntar la foto o PDF de la cédula del nuevo representante.')
       return
     }
+
+    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudCambioRepresentante({
         idAbonado: Number(abonadoElegido.id),
-        representanteNuevoNombre: nuevoNombre,
-        representanteNuevoCedula: nuevaCedula,
-        representanteNuevoDireccion: nuevaDireccion,
-        representanteNuevoCorreo: nuevoCorreo,
-        justificacion,
+        representanteNuevoNombre: nombre,
+        representanteNuevoCedula: cedula,
+        representanteNuevoDireccion: direccion,
+        representanteNuevoCorreo: correo,
+        representanteNuevoTelefono: tel,
+        justificacion: just,
         copiaCedula: archivo,
       })
       setMensaje('Solicitud registrada correctamente.')
@@ -624,6 +748,7 @@ function VistaAdministrador() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
@@ -677,23 +802,15 @@ function VistaAdministrador() {
 
             {abonadoElegido ? (
               <div>
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-sm shadow-sm">
-                  <div>
-                    <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
-                    <p className="text-xs text-primary-500">
-                      Representante actual:{' '}
-                      {abonadoElegido.nombre_representante_legal || '—'}
-                      {abonadoElegido.cedula_representante &&
-                        ` · ${abonadoElegido.cedula_representante}`}
-                    </p>
-                  </div>
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
+                  <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                   <button
                     type="button"
                     onClick={() => {
                       setAbonadoSel('')
                       setBusqueda('')
                     }}
-                    className="rounded-md border border-primary-200 bg-white px-2 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                    className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                   >
                     Quitar
                   </button>
@@ -776,7 +893,7 @@ function VistaAdministrador() {
               id="nuevaCedula"
               type="text"
               value={nuevaCedula}
-              onChange={(e) => setNuevaCedula(e.target.value)}
+              onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
               required
               placeholder="Ej: 1-2345-6789"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
@@ -808,6 +925,20 @@ function VistaAdministrador() {
               value={nuevoCorreo}
               onChange={(e) => setNuevoCorreo(e.target.value)}
               placeholder="correo@ejemplo.com (opcional)"
+              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label htmlFor="nuevoTelefono" className="block text-sm font-medium text-primary-700">
+              Teléfono del nuevo representante
+            </label>
+            <input
+              id="nuevoTelefono"
+              type="tel"
+              value={telefono}
+              onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
+              placeholder="Teléfono del nuevo representante (opcional)"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
           </div>
@@ -849,13 +980,24 @@ function VistaAdministrador() {
           </p>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 flex justify-center gap-3">
           <button
             type="submit"
             disabled={enviando}
             className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {enviando ? 'Subiendo solicitud…' : 'Registrar solicitud'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
           </button>
         </div>
       </form>
@@ -1002,6 +1144,8 @@ function ModalDetalle({
             <dd className="text-primary-800">{solicitud.representante_nuevo_direccion}</dd>
             <dd className="mt-2 text-xs text-primary-400">Correo</dd>
             <dd className="text-primary-800">{solicitud.representante_nuevo_correo || '—'}</dd>
+            <dd className="mt-2 text-xs text-primary-400">Teléfono</dd>
+            <dd className="text-primary-800">{solicitud.representante_nuevo_telefono || '—'}</dd>
           </div>
 
           <div className="sm:col-span-2">

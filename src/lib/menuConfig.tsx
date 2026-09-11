@@ -86,6 +86,14 @@ function DocumentosOficialesIcon() {
   )
 }
 
+function EdicionPaginaIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+    </svg>
+  )
+}
+
 export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Dashboard',
@@ -125,23 +133,18 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     submenu: [
       { label: 'Abonados', to: '/dashboard/abonados', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Empleados', to: '/dashboard/personal', roles: ['Administrador', 'Junta Directiva'] },
-      {
-        label: 'Seguridad',
-        roles: ['Administrador', 'Junta Directiva'],
-        submenu: [
-          { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
-        ],
-      },
-      { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
+    ],
+  },
+  {
+    label: 'Edición de página',
+    icon: <EdicionPaginaIcon />,
+    roles: ['Administrador', 'Junta Directiva'],
+    submenu: [
+      { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Documentos', to: '/dashboard/documentos', roles: ['Administrador', 'Junta Directiva'] },
-      {
-        label: 'Edición de página',
-        roles: ['Administrador', 'Junta Directiva'],
-        submenu: [
-          { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
-          { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
-        ],
-      },
+      { label: 'Noticias', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
     ],
   },
   {

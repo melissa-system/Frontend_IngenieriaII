@@ -97,6 +97,7 @@ function VistaAbonado() {
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
@@ -160,6 +161,8 @@ function VistaAbonado() {
     setError('')
     setMensaje('')
 
+    if (enviandoRef.current) return
+
     if (!motivoFalla) {
       setError('Debes seleccionar un motivo de falla.')
       return
@@ -170,12 +173,24 @@ function VistaAbonado() {
       return
     }
 
+    const direccionLimpia = direccionExacta.trim()
+    const justificacionLimpia = justificacion.trim()
+    if (direccionLimpia.length < 15) {
+      setError('Las señas escritas deben tener al menos 15 caracteres.')
+      return
+    }
+    if (justificacionLimpia.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+
+    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudCambioMedidor({
         motivoFalla,
-        direccionExacta,
-        justificacion,
+        direccionExacta: direccionLimpia,
+        justificacion: justificacionLimpia,
         evidencia: archivo,
       })
       setMensaje('Solicitud de cambio de medidor registrada correctamente. Te notificaremos por correo el resultado.')
@@ -184,6 +199,7 @@ function VistaAbonado() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
@@ -307,7 +323,7 @@ function VistaAbonado() {
           </p>
         )}
 
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button
             type="submit"
             disabled={tieneAbierta || enviando}
@@ -315,8 +331,19 @@ function VistaAbonado() {
           >
             {enviando ? 'Subiendo solicitud…' : 'Enviar solicitud'}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
+          </button>
           {tieneAbierta && (
-            <p className="text-xs font-medium text-yellow-700">
+            <p className="w-full text-center text-xs font-medium text-yellow-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
             </p>
           )}
@@ -405,6 +432,7 @@ function VistaAdministrador() {
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
@@ -484,6 +512,8 @@ function VistaAdministrador() {
     setError('')
     setMensaje('')
 
+    if (enviandoRef.current) return
+
     if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
       setError('Seleccioná un abonado activo para la solicitud.')
       return
@@ -499,13 +529,25 @@ function VistaAdministrador() {
       return
     }
 
+    const direccionLimpia = direccionExacta.trim()
+    const justificacionLimpia = justificacion.trim()
+    if (direccionLimpia.length < 15) {
+      setError('Las señas escritas deben tener al menos 15 caracteres.')
+      return
+    }
+    if (justificacionLimpia.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+
+    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudCambioMedidor({
         idAbonado: Number(abonadoElegido.id),
         motivoFalla,
-        direccionExacta,
-        justificacion,
+        direccionExacta: direccionLimpia,
+        justificacion: justificacionLimpia,
         evidencia: archivo,
       })
       setMensaje('Solicitud de cambio de medidor registrada correctamente.')
@@ -514,6 +556,7 @@ function VistaAdministrador() {
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
@@ -567,21 +610,14 @@ function VistaAdministrador() {
 
             {abonadoElegido ? (
               <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
-                <div>
-                  <p className="font-medium text-primary-900">
-                    {nombreVisible(abonadoElegido)}
-                  </p>
-                  <p className="text-xs text-primary-600">
-                    {abonadoElegido.numero_abonado} — Cédula: {abonadoElegido.cedula}
-                  </p>
-                </div>
+                <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                 <button
                   type="button"
                   onClick={() => {
                     setAbonadoSel('')
                     setBusqueda('')
                   }}
-                  className="rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                  className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                 >
                   Quitar
                 </button>
@@ -740,13 +776,24 @@ function VistaAdministrador() {
           </p>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 flex justify-center gap-3">
           <button
             type="submit"
             disabled={enviando}
             className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {enviando ? 'Subiendo solicitud…' : 'Registrar solicitud'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
           </button>
         </div>
       </form>
