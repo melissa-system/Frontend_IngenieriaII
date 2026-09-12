@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { crearAveria, subirImagenAveria } from '../../components/Services/averias.service'
+import { crearAveria } from '../../components/Services/averias.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 import { partirNombreCompleto } from '../../lib/nombres'
@@ -45,7 +45,6 @@ function ReportarAveria() {
   const [otroDescripcion, setOtroDescripcion] = useState('')
   const [detalle, setDetalle] = useState('')
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
-  const [imagenFile, setImagenFile] = useState<File | null>(null)
   const [sinFoto, setSinFoto] = useState(false)
   const [submitted, setSubmitted] = useState(false)
 
@@ -62,7 +61,6 @@ function ReportarAveria() {
 
   const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null
-    setImagenFile(file)
     setImagenPreview(file ? URL.createObjectURL(file) : null)
   }
 
@@ -94,7 +92,7 @@ function ReportarAveria() {
     const { nombre, apellido1, apellido2 } = partirNombreCompleto(nombreFinal)
 
     try {
-      const averiaCreada = await crearAveria({
+      await crearAveria({
         tipo_averia: tipoFinal,
         descripcion: descripcionFinal,
         cedula_reportante: identificacionReportante,
@@ -102,13 +100,6 @@ function ReportarAveria() {
         apellido1_reportante: apellido1 || undefined,
         apellido2_reportante: apellido2 || undefined,
       })
-      if (imagenFile && averiaCreada.id) {
-        try {
-          await subirImagenAveria(averiaCreada.id, imagenFile)
-        } catch {
-          // La imagen no se pudo subir, pero la avería ya quedó registrada
-        }
-      }
       setSubmitted(true)
     } catch (error) {
       console.error('Error al enviar la avería:', error)
