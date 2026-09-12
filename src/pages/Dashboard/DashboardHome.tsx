@@ -19,12 +19,11 @@ import {
   Legend,
 } from 'recharts'
 import {
-  MOCK_AVERIAS_ADMIN,
   MOCK_SOLICITUDES,
   MOCK_INVENTARIO,
   MOCK_SOLICITUDES_POR_TIPO,
-  MOCK_AVERIAS_POR_TIPO,
 } from '../../lib/mockData'
+import { obtenerAverias, type AveriaBackend } from '../../components/Services/averias.service'
 
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
@@ -226,6 +225,19 @@ function DashboardHomeContenido() {
     }
   }, [])
 
+  const [averiasReales, setAveriasReales] = useState<AveriaBackend[]>([])
+  useEffect(() => {
+    let cancelado = false
+    obtenerAverias()
+      .then((data) => {
+        if (!cancelado) setAveriasReales(data)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
   const { desde, hasta } = useMemo(() => {
     if (rango === 'personalizado' && desdeCustom && hastaCustom) {
       return { desde: desdeCustom, hasta: hastaCustom }
@@ -244,20 +256,20 @@ function DashboardHomeContenido() {
   )
 
   const averiasFiltradas = useMemo(
-    () => MOCK_AVERIAS_ADMIN.filter((a) => fechaEnRango(a.fecha, desde, hasta)),
-    [desde, hasta],
+    () => averiasReales.filter((a) => fechaEnRango(a.fecha_reporte?.slice(0, 10) ?? '', desde, hasta)),
+    [averiasReales, desde, hasta],
   )
 
   const totalAbonados = abonadosFiltrados.length
   const activos = abonadosFiltrados.filter((a) => a.estado === 'Activo').length
   const solicitudesPendientes = solicitudesFiltradas.filter((s) => s.estado === 'Pendiente').length
   const averiasActivas = averiasFiltradas.filter(
-    (a) => a.estado === 'Pendiente' || a.estado === 'En progreso',
+    (a) => a.estado === 'Pendiente' || a.estado === 'En proceso',
   ).length
   const stockBajo = MOCK_INVENTARIO.filter((i) => i.stock <= i.stockMinimo).length
 
-  const averiasSinAsignar = MOCK_AVERIAS_ADMIN.filter(
-    (a) => a.estado === 'Pendiente' && !a.fontaneroAsignado,
+  const averiasSinAsignar = averiasReales.filter(
+    (a) => a.estado === 'Pendiente' && !a.empleado,
   ).length
 
   const solicitudesSinNotificar = MOCK_SOLICITUDES.filter(
@@ -320,9 +332,19 @@ function DashboardHomeContenido() {
     [averiasSinAsignar, solicitudesSinNotificar, stockCritico, abonadosInactivos, abonadosSinCuenta],
   )
 
+  const averiasPorTipo = useMemo(() => {
+    const conteo: Record<string, number> = {}
+    for (const a of averiasReales) {
+      conteo[a.tipo_averia] = (conteo[a.tipo_averia] ?? 0) + 1
+    }
+    return Object.entries(conteo)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value)
+  }, [averiasReales])
+
   const totalAveriasPorTipo = useMemo(
-    () => MOCK_AVERIAS_POR_TIPO.reduce((sum, d) => sum + d.value, 0),
-    [],
+    () => averiasPorTipo.reduce((sum, d) => sum + d.value, 0),
+    [averiasPorTipo],
   )
 
   // Las 5 solicitudes más recientes, para la lista de actividad del panel
@@ -534,7 +556,7 @@ function DashboardHomeContenido() {
           <ResponsiveContainer width="100%" height={320}>
             <PieChart margin={{ top: 0, right: 8, bottom: 0, left: 8 }}>
               <Pie
-                data={MOCK_AVERIAS_POR_TIPO}
+                data={averiasPorTipo}
                 cx="50%"
                 cy="46%"
                 innerRadius={65}
@@ -565,7 +587,7 @@ function DashboardHomeContenido() {
                   )
                 }}
               >
-                {MOCK_AVERIAS_POR_TIPO.map((_, index) => (
+                {averiasPorTipo.map((_, index) => (
                   <Cell
                     key={`cell-${index}`}
                     fill={COLORS[index % COLORS.length]}

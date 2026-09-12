@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import {
   BarChart,
   Bar,
@@ -15,9 +15,9 @@ import {
 import {
   MOCK_ABONADOS,
   MOCK_SOLICITUDES,
-  MOCK_AVERIAS_ADMIN,
   MOCK_INVENTARIO,
 } from '../../lib/mockData'
+import { obtenerAverias, type AveriaBackend } from '../../components/Services/averias.service'
 
 const MODULES = ['Abonados', 'Solicitudes', 'Averías', 'Inventario'] as const
 type ModuleName = (typeof MODULES)[number]
@@ -97,7 +97,7 @@ interface ReportData {
   fechaAplica: boolean
 }
 
-function buildReport(mod: ModuleName, rango: { desde: string; hasta: string } | null): ReportData {
+function buildReport(mod: ModuleName, rango: { desde: string; hasta: string } | null, averias: AveriaBackend[] = []): ReportData {
   if (mod === 'Abonados') {
     const filtrados = MOCK_ABONADOS.filter((a) => enRango(a.fechaRegistro, rango))
     return {
@@ -153,10 +153,10 @@ function buildReport(mod: ModuleName, rango: { desde: string; hasta: string } | 
   }
 
   if (mod === 'Averías') {
-    const filtradas = MOCK_AVERIAS_ADMIN.filter((a) => enRango(a.fecha, rango))
+    const filtradas = averias.filter((a) => enRango(a.fecha_reporte?.slice(0, 10) ?? '', rango))
     return {
       total: filtradas.length,
-      barData: contarPor(filtradas, (a) => a.tipo),
+      barData: contarPor(filtradas, (a) => a.tipo_averia),
       barLabel: 'Averías por tipo',
       pieData: contarPor(filtradas, (a) => a.estado),
       pieLabel: 'Averías por estado',
@@ -167,10 +167,10 @@ function buildReport(mod: ModuleName, rango: { desde: string; hasta: string } | 
         { key: 'fecha', label: 'Fecha' },
       ],
       rows: filtradas.map((a) => ({
-        tipo: a.tipo,
-        reportadoPor: a.reportadoPor,
+        tipo: a.tipo_averia,
+        reportadoPor: `${a.nombre_reportante} ${a.apellido1_reportante || ''}`.trim(),
         estado: a.estado,
-        fecha: a.fecha,
+        fecha: a.fecha_reporte?.slice(0, 10) ?? '',
       })),
       csvHeaders: ['Tipo', 'Reportado por', 'Estado', 'Fecha'],
       fechaAplica: true,
@@ -220,6 +220,13 @@ function Reportes() {
   const [rango, setRango] = useState<RangeValue>('historico')
   const [desdeCustom, setDesdeCustom] = useState('')
   const [hastaCustom, setHastaCustom] = useState('')
+  const [averiasReales, setAveriasReales] = useState<AveriaBackend[]>([])
+
+  useEffect(() => {
+    obtenerAverias()
+      .then(setAveriasReales)
+      .catch(() => {})
+  }, [])
 
   const rangoResuelto = useMemo(
     () => getRange(rango, desdeCustom, hastaCustom),
@@ -227,8 +234,8 @@ function Reportes() {
   )
 
   const reporte = useMemo(
-    () => buildReport(modulo, reporteAplicaRango(modulo) ? rangoResuelto : null),
-    [modulo, rangoResuelto],
+    () => buildReport(modulo, reporteAplicaRango(modulo) ? rangoResuelto : null, averiasReales),
+    [modulo, rangoResuelto, averiasReales],
   )
 
   function reporteAplicaRango(mod: ModuleName) {
