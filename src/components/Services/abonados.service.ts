@@ -171,6 +171,29 @@ export const vincularCuentaAbonado = async (
   }
 };
 
+// Reenvía el correo de "definir tu contraseña" a un abonado que YA tiene
+// cuenta vinculada (por si el enlace original venció): POST
+// /abonados/:id/reenviar-acceso. El backend limita esto a 1 solicitud cada
+// 15s por IP (ver abonados-throttle.config.ts) — el 429 de esa respuesta se
+// traduce acá a un mensaje legible en vez del genérico.
+export const reenviarCorreoAccesoAbonado = async (
+  id: number | string,
+): Promise<{ mensaje: string }> => {
+  try {
+    const { data } = await apiClient.post<{ mensaje: string }>(
+      `${RESOURCE}/${id}/reenviar-acceso`,
+    );
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      throw new Error('Esperá unos segundos antes de volver a reenviar el correo.');
+    }
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo reenviar el correo de acceso.'),
+    );
+  }
+};
+
 // Un registro por cada campo modificado en una edición del abonado.
 export interface HistorialAbonado {
   id: number;
