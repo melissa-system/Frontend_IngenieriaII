@@ -84,7 +84,7 @@ function ReportarAveria() {
     const tipoFinal = tipoAveria === 'Otro' ? otroDescripcion : tipoAveria
     const identificacionReportante =
       tipoId === 'nacional' ? cedula : `DIMEX ${numeroDimex}`
-    const descripcionFinal = `Reportado por: ${nombreFinal} (${identificacionReportante}). Detalle: ${detalle}`
+    const descripcionFinal = detalle
 
     // El formulario sigue pidiendo un solo "nombre completo" (autocompletado
     // por cédula o escrito a mano); la división en nombre/apellido1/apellido2
