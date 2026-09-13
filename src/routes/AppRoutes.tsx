@@ -6,6 +6,7 @@ import Home from '../pages/Home/Home'
 import RedirectSolicitudes from './RedirectSolicitudes'
 import Afiliacion from '../pages/Afiliacion/Afiliacion'
 import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
+import DocumentosPublicos from '../pages/Documentos/DocumentosPublicos'
 import Login from '../pages/Login/Login'
 import RecuperarPassword from '../pages/RecuperarPassword/RecuperarPassword'
 import RestablecerPassword from '../pages/RestablecerPassword/RestablecerPassword'
@@ -38,6 +39,7 @@ function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/afiliacion" element={<Afiliacion />} />
         <Route path="/reportar-averia" element={<ReportarAveria />} />
+        <Route path="/documentos" element={<DocumentosPublicos />} />
       </Route>
 
       <Route path="/login" element={<Login />} />

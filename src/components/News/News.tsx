@@ -1,13 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import {
   obtenerPublicaciones,
   type Publicacion,
 } from '../../components/Services/publicaciones.service'
-import {
-  obtenerDocumentosPublicos,
-  obtenerUrlArchivo,
-  type Documento,
-} from '../../components/Services/documentos.service'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -21,20 +17,16 @@ function formatearFecha(fechaIso: string): string {
   }
 }
 
-// Noticias mezcla dos fuentes distintas en un solo feed: publicaciones
-// reales (avisos redactados a mano) y documentos marcados como 'Público'
-// (actas, informes, etc. que el administrativo quiere promocionar en el
-// landing sin tener que redactar un aviso aparte). No se crea ninguna fila
-// nueva en 'publicaciones' para esto: el card se arma en el frontend a
-// partir de los datos del documento.
+// Noticias muestra solo publicaciones (avisos redactados a mano). Los
+// documentos marcados como 'Público' (actas, informes, etc.) ya no se
+// mezclan aquí: tienen su propia página pública en /documentos, enlazada
+// abajo — separación pedida para no confundir avisos con archivos.
 interface ItemFeed {
   id: string;
   fecha: string;
   categoria: string;
   titulo: string;
   contenido: string;
-  esDocumento: boolean;
-  urlDescarga?: string;
 }
 
 function desdePublicacion(p: Publicacion): ItemFeed {
@@ -44,19 +36,6 @@ function desdePublicacion(p: Publicacion): ItemFeed {
     categoria: p.categoria,
     titulo: p.titulo,
     contenido: p.contenido,
-    esDocumento: false,
-  };
-}
-
-function desdeDocumento(d: Documento): ItemFeed {
-  return {
-    id: `doc-${d.id}`,
-    fecha: d.fecha_carga,
-    categoria: d.tipo,
-    titulo: d.nombre,
-    contenido: 'Documento oficial disponible para descarga.',
-    esDocumento: true,
-    urlDescarga: obtenerUrlArchivo(d.ubicacion),
   };
 }
 
@@ -82,33 +61,16 @@ function News() {
   useEffect(() => {
     let cancelado = false
 
-    // Se piden por separado (si una falla no debe tumbar la otra) y se
-    // combinan en un solo feed ordenado por fecha, más reciente primero.
-    Promise.allSettled([obtenerPublicaciones(), obtenerDocumentosPublicos()])
-      .then(([resPublicaciones, resDocumentos]) => {
+    obtenerPublicaciones()
+      .then((data) => {
         if (cancelado) return
-
-        const publicaciones =
-          resPublicaciones.status === 'fulfilled'
-            ? resPublicaciones.value.map(desdePublicacion)
-            : []
-        const documentos =
-          resDocumentos.status === 'fulfilled'
-            ? resDocumentos.value.map(desdeDocumento)
-            : []
-
-        if (
-          resPublicaciones.status === 'rejected' &&
-          resDocumentos.status === 'rejected'
-        ) {
-          setError('No se pudieron cargar las noticias.')
-          return
-        }
-
-        const combinado = [...publicaciones, ...documentos].sort(
-          (a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime(),
-        )
-        setNoticias(combinado)
+        const ordenado = data
+          .map(desdePublicacion)
+          .sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime())
+        setNoticias(ordenado)
+      })
+      .catch(() => {
+        if (!cancelado) setError('No se pudieron cargar las noticias.')
       })
       .finally(() => {
         if (!cancelado) setLoading(false)
@@ -147,6 +109,12 @@ function News() {
           Mantente informado sobre suspensiones, mantenimientos y comunicados
           de ASADA Pueblo Nuevo.
         </p>
+        <Link
+          to="/documentos"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-primary-700 hover:underline"
+        >
+          Ver documentos públicos (actas, informes y más) →
+        </Link>
       </div>
 
       {loading ? (
@@ -177,11 +145,6 @@ function News() {
                       <span className="inline-block w-fit rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700 uppercase">
                         {item.categoria}
                       </span>
-                      {item.esDocumento && (
-                        <span className="inline-block w-fit rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-700 uppercase">
-                          Documento
-                        </span>
-                      )}
                     </div>
                     <h3 className="mt-4 text-lg font-semibold text-primary-900">
                       {item.titulo}
@@ -192,16 +155,6 @@ function News() {
                     <p className="mt-4 text-xs text-primary-400">
                       {formatearFecha(item.fecha)}
                     </p>
-                    {item.esDocumento && item.urlDescarga && (
-                      <a
-                        href={item.urlDescarga}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-800"
-                      >
-                        Descargar
-                      </a>
-                    )}
                   </article>
                 </div>
               ))}

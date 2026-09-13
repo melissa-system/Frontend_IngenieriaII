@@ -8,6 +8,7 @@ const NAV_LINKS = [
   { label: 'Sobre nosotros', to: '/#sobre-nosotros' },
   { label: 'Servicios', to: '/#servicios' },
   { label: 'Noticias', to: '/#noticias' },
+  { label: 'Documentos', to: '/documentos' },
   { label: 'Averías', to: '/reportar-averia' },
   { label: 'Ubicación', to: '/#ubicacion' },
 ]
