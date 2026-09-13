@@ -10,6 +10,7 @@ import {
   type EstadoSolicitud,
   type MotivoFallaMedidor,
 } from '../../components/Services/cambioMedidor.service'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -381,14 +382,18 @@ function VistaAbonado() {
                     <td className="max-w-xs px-4 py-3 text-primary-600 truncate">{s.direccion_exacta}</td>
                     <td className="px-4 py-3">
                       {s.evidencia_url ? (
-                        <a
-                          href={s.evidencia_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            descargarArchivo(
+                              s.evidencia_url as string,
+                              `evidencia-${s.codigo_solicitud}${extensionDesdeUrl(s.evidencia_url as string)}`,
+                            )
+                          }
                           className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
-                          Ver archivo
-                        </a>
+                          Descargar
+                        </button>
                       ) : (
                         <span className="text-xs text-primary-400">Sin archivo</span>
                       )}
@@ -833,14 +838,18 @@ function VistaAdministrador() {
                     <td className="px-4 py-3 font-medium text-primary-800">{s.motivo_falla}</td>
                     <td className="px-4 py-3">
                       {s.evidencia_url ? (
-                        <a
-                          href={s.evidencia_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            descargarArchivo(
+                              s.evidencia_url as string,
+                              `evidencia-${s.codigo_solicitud}${extensionDesdeUrl(s.evidencia_url as string)}`,
+                            )
+                          }
                           className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
-                          Ver archivo
-                        </a>
+                          Descargar
+                        </button>
                       ) : (
                         <span className="text-xs text-primary-400">Sin archivo</span>
                       )}
@@ -950,11 +959,15 @@ function ModalDetalle({
             <dd className="mt-1">
               {solicitud.evidencia_url ? (
                 <div className="space-y-2">
-                  <a
-                    href={solicitud.evidencia_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative inline-block overflow-hidden rounded-lg border border-primary-200"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      descargarArchivo(
+                        solicitud.evidencia_url as string,
+                        `evidencia-${solicitud.codigo_solicitud}${extensionDesdeUrl(solicitud.evidencia_url as string)}`,
+                      )
+                    }
+                    className="group relative block overflow-hidden rounded-lg border border-primary-200 text-left"
                   >
                     <img
                       src={solicitud.evidencia_url}
@@ -967,10 +980,10 @@ function ModalDetalle({
                     />
                     <div className="mt-1">
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                        Abrir archivo en tamaño completo ↗
+                        Descargar archivo ↓
                       </span>
                     </div>
-                  </a>
+                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-primary-400">No se adjuntó evidencia.</p>

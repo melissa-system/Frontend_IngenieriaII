@@ -31,9 +31,8 @@ import {
 } from '../../lib/extensionesPermitidas'
 import { obtenerConfiguracion } from '../../components/Services/configuracion.service'
 import {
-  generarHtmlSolicitud,
+  generarDocumentoSolicitud,
   descargarDocumentoSolicitud,
-  verDocumentoSolicitud,
   type DatosDocumentoSolicitud,
 } from '../../lib/generarDocumentoSolicitud'
 
@@ -126,7 +125,7 @@ function Afiliacion() {
   const [enviando, setEnviando] = useState(false)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
-  const [documentoHtml, setDocumentoHtml] = useState<string | null>(null)
+  const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
 
   // --- Cargar borrador guardado (si existe) al montar ---
@@ -416,7 +415,7 @@ function Afiliacion() {
           tipoConexion: draft.tipoConexion,
           observaciones: draft.observaciones || null,
         }
-        setDocumentoHtml(generarHtmlSolicitud(datosDocumento, configuracion))
+        setDocumentoBlob(await generarDocumentoSolicitud(datosDocumento, configuracion))
       } catch {
         // No es crítico: la solicitud YA se guardó. Solo no se podrá
         // ver/descargar el documento formal desde esta pantalla.
@@ -461,26 +460,19 @@ function Afiliacion() {
             </p>
           )}
 
-          {documentoHtml && (
+          {documentoBlob && (
             <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <button
-                type="button"
-                onClick={() => verDocumentoSolicitud(documentoHtml)}
-                className="rounded-full border border-primary-300 bg-white px-5 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50"
-              >
-                Ver documento
-              </button>
               <button
                 type="button"
                 onClick={() =>
                   descargarDocumentoSolicitud(
-                    documentoHtml,
+                    documentoBlob,
                     solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
                   )
                 }
                 className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
               >
-                Descargar documento
+                Descargar documento (Word)
               </button>
             </div>
           )}

@@ -18,6 +18,7 @@ import {
   type SolicitudCambioRepresentante,
   type EstadoSolicitud,
 } from '../../components/Services/cambioRepresentante.service'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -164,14 +165,13 @@ function EnlaceCedula({ url }: { url: string | null }) {
     return <span className="text-xs text-primary-400">Sin archivo</span>
   }
   return (
-    <a
-      href={url}
-      target="_blank"
-      rel="noopener noreferrer"
+    <button
+      type="button"
+      onClick={() => descargarArchivo(url, `copia-cedula${extensionDesdeUrl(url)}`)}
       className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
     >
-      Ver cédula
-    </a>
+      Descargar cédula
+    </button>
   )
 }
 

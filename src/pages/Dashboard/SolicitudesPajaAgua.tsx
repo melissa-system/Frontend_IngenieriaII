@@ -9,11 +9,11 @@ import {
   type Configuracion,
 } from '../../components/Services/configuracion.service'
 import {
-  generarHtmlSolicitud,
+  generarDocumentoSolicitud,
   descargarDocumentoSolicitud,
-  verDocumentoSolicitud,
   type DatosDocumentoSolicitud,
 } from '../../lib/generarDocumentoSolicitud'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 
 // Traduce una fila de la tabla (forma de SolicitudPajaAgua) a la forma
 // común que espera el generador de documentos — la misma función que usa
@@ -223,14 +223,20 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
       <dt className="text-xs font-medium uppercase text-primary-400">{etiqueta}</dt>
       <dd className="mt-0.5">
         {url ? (
-          <a
-            href={url}
-            target="_blank"
-            rel="noopener noreferrer"
+          <button
+            type="button"
+            onClick={() => {
+              const nombreArchivo = etiqueta
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .replace(/[^a-zA-Z0-9]+/g, '-')
+                .toLowerCase()
+              descargarArchivo(url, `${nombreArchivo}${extensionDesdeUrl(url)}`)
+            }}
             className="font-medium text-primary-700 hover:underline"
           >
-            Ver documento →
-          </a>
+            Descargar →
+          </button>
         ) : (
           <span className="text-primary-300">No adjuntado</span>
         )}
@@ -251,8 +257,18 @@ function ModalDetalle({
   configuracion: Configuracion | null
   onCerrar: () => void
 }) {
-  const generarHtml = () =>
-    configuracion ? generarHtmlSolicitud(aDatosDocumento(solicitud), configuracion) : null
+  const [generandoDocumento, setGenerandoDocumento] = useState(false)
+
+  async function manejarDescargarDocumento() {
+    if (!configuracion) return
+    setGenerandoDocumento(true)
+    try {
+      const blob = await generarDocumentoSolicitud(aDatosDocumento(solicitud), configuracion)
+      descargarDocumentoSolicitud(blob, solicitud.codigo_solicitud)
+    } finally {
+      setGenerandoDocumento(false)
+    }
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -341,23 +357,11 @@ function ModalDetalle({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  const html = generarHtml()
-                  if (html) verDocumentoSolicitud(html)
-                }}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                onClick={manejarDescargarDocumento}
+                disabled={generandoDocumento}
+                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
               >
-                Ver documento
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const html = generarHtml()
-                  if (html) descargarDocumentoSolicitud(html, solicitud.codigo_solicitud)
-                }}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-              >
-                Descargar documento
+                {generandoDocumento ? 'Generando…' : 'Descargar documento (Word)'}
               </button>
             </div>
           ) : (

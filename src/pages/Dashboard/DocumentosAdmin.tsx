@@ -14,6 +14,7 @@ import {
   type TipoDocumento,
   type VisibilidadDocumento,
 } from '../../components/Services/documentos.service'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -396,14 +397,18 @@ function DocumentosAdmin() {
                     </td>
                     <td className="px-4 py-3 text-primary-500">{formatearFecha(doc.fecha_carga)}</td>
                     <td className="px-4 py-3">
-                      <a
-                        href={obtenerUrlArchivo(doc.ubicacion)}
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          descargarArchivo(
+                            obtenerUrlArchivo(doc.ubicacion),
+                            `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
+                          )
+                        }
                         className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
                       >
-                        Ver archivo
-                      </a>
+                        Descargar
+                      </button>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col items-start gap-1">

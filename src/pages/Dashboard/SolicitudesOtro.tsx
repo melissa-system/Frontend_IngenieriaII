@@ -8,6 +8,7 @@ import {
   type SolicitudOtro,
   type EstadoSolicitud,
 } from '../../components/Services/otro.service'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -841,14 +842,18 @@ function ModalDetalle({
             <dt className="text-xs font-medium uppercase text-primary-400">Documento de soporte</dt>
             <dd className="mt-0.5 text-primary-800">
               {solicitud.adjunto_url ? (
-                <a
-                  href={solicitud.adjunto_url}
-                  target="_blank"
-                  rel="noreferrer"
+                <button
+                  type="button"
+                  onClick={() =>
+                    descargarArchivo(
+                      solicitud.adjunto_url as string,
+                      `adjunto-${solicitud.codigo_solicitud}${extensionDesdeUrl(solicitud.adjunto_url as string)}`,
+                    )
+                  }
                   className="font-medium text-primary-700 underline hover:text-primary-800"
                 >
-                  Ver documento adjunto
-                </a>
+                  Descargar documento adjunto
+                </button>
               ) : (
                 <span className="text-primary-400">Sin documento adjunto</span>
               )}

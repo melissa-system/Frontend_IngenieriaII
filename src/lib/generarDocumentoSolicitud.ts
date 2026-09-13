@@ -1,3 +1,17 @@
+import {
+  AlignmentType,
+  Document,
+  HeadingLevel,
+  Packer,
+  Paragraph,
+  ShadingType,
+  Table,
+  TableCell,
+  TableRow,
+  TextRun,
+  WidthType,
+  BorderStyle,
+} from 'docx'
 import type { Configuracion } from '../components/Services/configuracion.service'
 
 // Identidad legal de la ASADA: no vive en la tabla `configuracion` (esa
@@ -38,289 +52,333 @@ function formatearFecha(fecha: string | Date): string {
   return d.toLocaleString('es-CR', { dateStyle: 'long', timeStyle: 'short' })
 }
 
-// Escapa texto libre antes de insertarlo en el HTML (observaciones,
-// dirección, etc. los escribe el propio solicitante).
-function esc(valor: string | null | undefined): string {
-  if (valor === null || valor === undefined || valor === '') return '—'
-  return String(valor)
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
+function valorOGuion(valor: string | null | undefined): string {
+  return valor && valor.trim() !== '' ? valor : '—'
 }
 
-function fila(etiqueta: string, valor: string | null | undefined): string {
-  return `
-    <div class="campo">
-      <span class="etiqueta">${esc(etiqueta)}</span>
-      <span class="valor">${esc(valor)}</span>
-    </div>`
+// --- Estilos compartidos (colores/medidas) ---
+const AZUL_OSCURO = '0F3D5C'
+const GRIS_ETIQUETA = '667788'
+const GRIS_BORDE = 'D7E2EA'
+const NEGRO_TEXTO = '1C2B3A'
+
+const BORDE_CELDA = {
+  top: { style: BorderStyle.SINGLE, size: 2, color: GRIS_BORDE },
+  bottom: { style: BorderStyle.SINGLE, size: 2, color: GRIS_BORDE },
+  left: { style: BorderStyle.SINGLE, size: 2, color: GRIS_BORDE },
+  right: { style: BorderStyle.SINGLE, size: 2, color: GRIS_BORDE },
 }
 
-// Arma el HTML completo del "machote" ya lleno: el formulario de conexión
-// de servicio adaptado del GNU-42-01-F1 de AyA para ASADA Pueblo Nuevo, con
-// los datos de la solicitud Y los datos reales de la ASADA (dirección,
-// teléfono, correo — desde Configuracion; nombre y cédula jurídica fijos).
-export function generarHtmlSolicitud(
+// Ancho útil de una página carta con 1" de margen a cada lado (en DXA).
+const ANCHO_PAGINA = 12240
+const MARGEN = 1440
+const ANCHO_UTIL = ANCHO_PAGINA - MARGEN * 2 // 9360
+
+// Barra de título de sección (I., II., III. ...), igual criterio visual que
+// el machote original de AyA (encabezado marcado con número romano).
+function encabezadoSeccion(texto: string): Table {
+  return new Table({
+    width: { size: ANCHO_UTIL, type: WidthType.DXA },
+    columnWidths: [ANCHO_UTIL],
+    rows: [
+      new TableRow({
+        children: [
+          new TableCell({
+            width: { size: ANCHO_UTIL, type: WidthType.DXA },
+            shading: { fill: AZUL_OSCURO, type: ShadingType.CLEAR, color: 'auto' },
+            margins: { top: 80, bottom: 80, left: 150, right: 150 },
+            borders: BORDE_CELDA,
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: texto, bold: true, color: 'FFFFFF', size: 20 }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    ],
+  })
+}
+
+// Una "casilla" del formulario: etiqueta pequeña arriba, valor en negrita
+// abajo — mismo criterio que las cajas del PDF original (etiqueta + recuadro).
+function celdaCampo(etiqueta: string, valor: string, ancho: number): TableCell {
+  return new TableCell({
+    width: { size: ancho, type: WidthType.DXA },
+    margins: { top: 80, bottom: 80, left: 150, right: 150 },
+    borders: BORDE_CELDA,
+    children: [
+      new Paragraph({
+        children: [
+          new TextRun({
+            text: etiqueta.toUpperCase(),
+            bold: true,
+            size: 14,
+            color: GRIS_ETIQUETA,
+          }),
+        ],
+      }),
+      new Paragraph({
+        spacing: { before: 40 },
+        children: [new TextRun({ text: valorOGuion(valor), bold: true, size: 21, color: NEGRO_TEXTO })],
+      }),
+    ],
+  })
+}
+
+// Arma una fila de N campos repartiendo el ancho útil en partes iguales.
+function filaCampos(campos: Array<[string, string]>): Table {
+  const ancho = Math.floor(ANCHO_UTIL / campos.length)
+  const anchos = campos.map((_, i) =>
+    i === campos.length - 1 ? ANCHO_UTIL - ancho * (campos.length - 1) : ancho,
+  )
+  return new Table({
+    width: { size: ANCHO_UTIL, type: WidthType.DXA },
+    columnWidths: anchos,
+    rows: [
+      new TableRow({
+        children: campos.map(([etiqueta, valor], i) => celdaCampo(etiqueta, valor, anchos[i])),
+      }),
+    ],
+  })
+}
+
+function espacio(alto = 100): Paragraph {
+  return new Paragraph({ spacing: { after: alto }, children: [] })
+}
+
+// Arma el documento Word (.docx) del "machote" ya lleno: la solicitud de
+// conexión de servicio adaptada del formulario GNU-42-01-F1 de AyA para
+// ASADA Pueblo Nuevo, replicando las secciones I-V (numeración romana,
+// etiquetas y orden de campos) del formulario original, con los datos de
+// la solicitud y los datos reales de la ASADA (dirección, teléfono, correo
+// desde Configuracion; nombre y cédula jurídica fijos).
+export async function generarDocumentoSolicitud(
   datos: DatosDocumentoSolicitud,
   configuracion: Configuracion,
-): string {
-  const ubicacion =
-    datos.provincia && datos.canton && datos.distrito
-      ? `${datos.distrito}, ${datos.canton}, ${datos.provincia}`
-      : '—'
+): Promise<Blob> {
+  const esJuridica = datos.tipoPersona === 'juridica'
 
-  return `<!DOCTYPE html>
-<html lang="es">
-<head>
-<meta charset="UTF-8" />
-<title>Solicitud ${esc(datos.codigoSolicitud)} — ${ASADA_NOMBRE_LEGAL}</title>
-<style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: Georgia, 'Times New Roman', serif;
-    color: #1c2b3a;
-    max-width: 820px;
-    margin: 0 auto;
-    padding: 40px 32px 60px;
-    line-height: 1.4;
-  }
-  header {
-    text-align: center;
-    border-bottom: 3px solid #0f3d5c;
-    padding-bottom: 16px;
-    margin-bottom: 20px;
-  }
-  header h1 {
-    margin: 0;
-    font-size: 20px;
-    letter-spacing: 0.03em;
-    text-transform: uppercase;
-    color: #0f3d5c;
-  }
-  header p {
-    margin: 3px 0 0;
-    font-size: 12px;
-    color: #45596b;
-  }
-  h2.titulo-formulario {
-    text-align: center;
-    font-size: 16px;
-    margin: 20px 0 4px;
-    text-transform: uppercase;
-    color: #0f3d5c;
-  }
-  p.subtitulo {
-    text-align: center;
-    font-size: 11px;
-    color: #667788;
-    margin: 0 0 20px;
-  }
-  .meta {
-    display: flex;
-    justify-content: space-between;
-    font-size: 12px;
-    background: #f2f6f9;
-    border: 1px solid #d7e2ea;
-    border-radius: 6px;
-    padding: 8px 14px;
-    margin-bottom: 18px;
-  }
-  section.bloque {
-    border: 1px solid #d7e2ea;
-    border-radius: 6px;
-    margin-bottom: 14px;
-    overflow: hidden;
-  }
-  section.bloque h3 {
-    background: #0f3d5c;
-    color: #fff;
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    margin: 0;
-    padding: 6px 12px;
-  }
-  .campos {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0;
-  }
-  .campo {
-    display: flex;
-    flex-direction: column;
-    padding: 8px 12px;
-    border-bottom: 1px solid #eef2f5;
-    border-right: 1px solid #eef2f5;
-    font-size: 12.5px;
-  }
-  .campo.full { grid-column: 1 / -1; }
-  .etiqueta {
-    font-size: 10px;
-    text-transform: uppercase;
-    letter-spacing: 0.03em;
-    color: #667788;
-    margin-bottom: 2px;
-  }
-  .valor { color: #1c2b3a; font-weight: 600; }
-  .firma {
-    margin-top: 40px;
-    display: flex;
-    justify-content: space-between;
-    gap: 40px;
-  }
-  .firma .linea {
-    flex: 1;
-    text-align: center;
-  }
-  .firma .linea .raya {
-    border-top: 1px solid #1c2b3a;
-    margin-bottom: 6px;
-    margin-top: 50px;
-  }
-  footer {
-    margin-top: 30px;
-    font-size: 10px;
-    color: #889;
-    border-top: 1px solid #d7e2ea;
-    padding-top: 10px;
-    text-align: center;
-  }
-  @media print {
-    body { padding: 0; }
-    section.bloque { break-inside: avoid; }
-  }
-</style>
-</head>
-<body>
-  <header>
-    <h1>${esc(ASADA_NOMBRE_LEGAL)}</h1>
-    <p>Cédula jurídica ${esc(ASADA_CEDULA_JURIDICA)}</p>
-    <p>${esc(configuracion.direccion)}</p>
-    <p>Tel. ${esc(configuracion.telefono)} · ${esc(configuracion.correo_electronico)}</p>
-  </header>
+  const hijos: (Paragraph | Table)[] = []
 
-  <h2 class="titulo-formulario">Solicitud de conexión de servicio</h2>
-  <p class="subtitulo">
-    Adaptado del formulario GNU-42-01-F1 del Instituto Costarricense de Acueductos y
-    Alcantarillados (AyA) para uso interno de ${esc(ASADA_NOMBRE_LEGAL)}
-  </p>
+  // --- Encabezado institucional ---
+  hijos.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: ASADA_NOMBRE_LEGAL.toUpperCase(), bold: true, size: 30, color: AZUL_OSCURO }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 40 },
+      children: [
+        new TextRun({ text: `Cédula jurídica ${ASADA_CEDULA_JURIDICA}`, size: 18, color: GRIS_ETIQUETA }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      children: [new TextRun({ text: configuracion.direccion, size: 18, color: GRIS_ETIQUETA })],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 200 },
+      children: [
+        new TextRun({
+          text: `Tel. ${configuracion.telefono} · ${configuracion.correo_electronico}`,
+          size: 18,
+          color: GRIS_ETIQUETA,
+        }),
+      ],
+    }),
+    new Paragraph({
+      heading: HeadingLevel.HEADING_1,
+      alignment: AlignmentType.CENTER,
+      children: [
+        new TextRun({ text: 'SOLICITUD DE CONEXIÓN DE SERVICIO', bold: true, size: 26, color: AZUL_OSCURO }),
+      ],
+    }),
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { after: 160 },
+      children: [
+        new TextRun({
+          text: `Adaptado del formulario GNU-42-01-F1 del Instituto Costarricense de Acueductos y Alcantarillados (AyA) para uso interno de ${ASADA_NOMBRE_LEGAL}`,
+          italics: true,
+          size: 16,
+          color: GRIS_ETIQUETA,
+        }),
+      ],
+    }),
+    filaCampos([
+      ['Código de solicitud', datos.codigoSolicitud],
+      ['Fecha', formatearFecha(datos.fecha)],
+    ]),
+    espacio(160),
+  )
 
-  <div class="meta">
-    <span><strong>Código de solicitud:</strong> ${esc(datos.codigoSolicitud)}</span>
-    <span><strong>Fecha:</strong> ${esc(formatearFecha(datos.fecha))}</span>
-  </div>
+  // --- I. Información del titular del inmueble ---
+  hijos.push(encabezadoSeccion('I.  INFORMACIÓN DEL TITULAR DEL INMUEBLE'), espacio(60))
+  hijos.push(
+    filaCampos([
+      ['Tipo de persona', esJuridica ? 'Persona jurídica' : 'Persona física'],
+      [
+        esJuridica ? 'No. de cédula jurídica' : 'No. de identificación',
+        datos.identificacion,
+      ],
+    ]),
+  )
+  hijos.push(
+    filaCampos([[esJuridica ? 'Razón social' : 'Nombre completo', datos.nombreSolicitante]]),
+  )
+  if (esJuridica) {
+    hijos.push(
+      filaCampos([
+        ['Representante legal', datos.nombreRepresentante ?? ''],
+        ['Cédula del representante', datos.cedulaRepresentante ?? ''],
+      ]),
+    )
+  }
+  hijos.push(
+    filaCampos([
+      ['Teléfono 1', datos.telefono],
+      ['Teléfono 2', datos.telefonoSecundario ?? ''],
+    ]),
+  )
+  hijos.push(espacio(160))
 
-  <section class="bloque">
-    <h3>I. Información del titular del inmueble</h3>
-    <div class="campos">
-      ${fila('Tipo de persona', datos.tipoPersona === 'juridica' ? 'Jurídica' : 'Física')}
-      ${fila(
-        datos.tipoPersona === 'juridica' ? 'Razón social' : 'Nombre completo',
-        datos.nombreSolicitante,
-      )}
-      ${fila('Identificación', datos.identificacion)}
-      ${datos.tipoPersona === 'juridica' ? fila('Representante legal', datos.nombreRepresentante) : ''}
-      ${datos.tipoPersona === 'juridica' ? fila('Cédula del representante', datos.cedulaRepresentante) : ''}
-    </div>
-  </section>
+  // --- II. Medio para notificación ---
+  hijos.push(encabezadoSeccion('II.  MEDIO PARA NOTIFICACIÓN'), espacio(60))
+  hijos.push(filaCampos([['Correo electrónico', datos.correo]]))
+  hijos.push(espacio(160))
 
-  <section class="bloque">
-    <h3>II. Medio para notificación</h3>
-    <div class="campos">
-      ${fila('Teléfono principal', datos.telefono)}
-      ${fila('Teléfono secundario', datos.telefonoSecundario)}
-      <div class="campo full">
-        <span class="etiqueta">Correo electrónico</span>
-        <span class="valor">${esc(datos.correo)}</span>
-      </div>
-    </div>
-  </section>
+  // --- III. Información del inmueble ---
+  hijos.push(encabezadoSeccion('III.  INFORMACIÓN DEL INMUEBLE'), espacio(60))
+  hijos.push(
+    filaCampos([
+      ['Provincia', datos.provincia ?? ''],
+      ['Cantón', datos.canton ?? ''],
+      ['Distrito', datos.distrito ?? ''],
+    ]),
+  )
+  hijos.push(filaCampos([['Dirección exacta del inmueble', datos.direccion]]))
+  hijos.push(
+    filaCampos([
+      ['Número de plano catastrado', datos.numeroPlano],
+    ]),
+  )
+  hijos.push(
+    filaCampos([
+      ['1. Naturaleza del inmueble', datos.naturalezaInmueble ?? ''],
+      ['2. Calidad del titular del inmueble', datos.calidadTitular ?? ''],
+    ]),
+  )
+  hijos.push(espacio(160))
 
-  <section class="bloque">
-    <h3>III. Información del inmueble</h3>
-    <div class="campos">
-      <div class="campo full">
-        <span class="etiqueta">Ubicación (distrito, cantón, provincia)</span>
-        <span class="valor">${esc(ubicacion)}</span>
-      </div>
-      <div class="campo full">
-        <span class="etiqueta">Dirección exacta</span>
-        <span class="valor">${esc(datos.direccion)}</span>
-      </div>
-      ${fila('Número de plano catastrado', datos.numeroPlano)}
-      ${fila('Naturaleza del inmueble', datos.naturalezaInmueble)}
-      ${fila('Calidad del titular', datos.calidadTitular)}
-    </div>
-  </section>
+  // --- IV. Propósito de la solicitud ---
+  hijos.push(encabezadoSeccion('IV.  PROPÓSITO DE LA SOLICITUD'), espacio(60))
+  hijos.push(
+    filaCampos([
+      ['Servicio que solicita', datos.tipoServicio ?? ''],
+      ['Tipo de conexión', datos.tipoConexion ?? ''],
+    ]),
+  )
+  hijos.push(espacio(160))
 
-  <section class="bloque">
-    <h3>IV. Propósito de la solicitud</h3>
-    <div class="campos">
-      ${fila('Servicio que solicita', datos.tipoServicio)}
-      ${fila('Tipo de conexión', datos.tipoConexion)}
-    </div>
-  </section>
-
-  ${
-    datos.observaciones
-      ? `<section class="bloque">
-    <h3>Observaciones</h3>
-    <div class="campos">
-      <div class="campo full">
-        <span class="valor">${esc(datos.observaciones)}</span>
-      </div>
-    </div>
-  </section>`
-      : ''
+  // --- Observaciones (si las hay) ---
+  if (datos.observaciones && datos.observaciones.trim() !== '') {
+    hijos.push(encabezadoSeccion('OBSERVACIONES'), espacio(60))
+    hijos.push(
+      new Table({
+        width: { size: ANCHO_UTIL, type: WidthType.DXA },
+        columnWidths: [ANCHO_UTIL],
+        rows: [
+          new TableRow({
+            children: [
+              new TableCell({
+                width: { size: ANCHO_UTIL, type: WidthType.DXA },
+                margins: { top: 80, bottom: 80, left: 150, right: 150 },
+                borders: BORDE_CELDA,
+                children: [
+                  new Paragraph({
+                    children: [new TextRun({ text: datos.observaciones, size: 21, color: NEGRO_TEXTO })],
+                  }),
+                ],
+              }),
+            ],
+          }),
+        ],
+      }),
+    )
+    hijos.push(espacio(160))
   }
 
-  <section class="bloque">
-    <h3>V. Firma del solicitante</h3>
-    <div class="firma">
-      <div class="linea">
-        <div class="raya"></div>
-        ${esc(datos.nombreSolicitante)}<br />
-        <span style="font-size:10px;color:#667788;">Cédula ${esc(datos.identificacion)}</span>
-      </div>
-      <div class="linea">
-        <div class="raya"></div>
-        Firma
-      </div>
-    </div>
-  </section>
+  // --- V. Firma del solicitante ---
+  hijos.push(encabezadoSeccion('V.  FIRMA DEL SOLICITANTE'), espacio(60))
+  hijos.push(
+    filaCampos([
+      ['Nombre completo del solicitante', datos.nombreSolicitante],
+      ['Identificación', datos.identificacion],
+    ]),
+  )
+  hijos.push(espacio(400))
+  hijos.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      border: {
+        top: { style: BorderStyle.SINGLE, size: 4, color: NEGRO_TEXTO },
+      },
+      spacing: { before: 200 },
+      children: [new TextRun({ text: 'Firma del solicitante', size: 18, color: GRIS_ETIQUETA })],
+    }),
+  )
 
-  <footer>
-    Documento generado automáticamente por el Sistema de Información de ${esc(
-      ASADA_NOMBRE_LEGAL,
-    )} (SIAPB) a partir de la solicitud con código ${esc(datos.codigoSolicitud)}.
-    No requiere firma digital para su trámite interno.
-  </footer>
-</body>
-</html>`
+  // --- Pie ---
+  hijos.push(
+    new Paragraph({
+      alignment: AlignmentType.CENTER,
+      spacing: { before: 400 },
+      border: { top: { style: BorderStyle.SINGLE, size: 2, color: GRIS_BORDE } },
+      children: [
+        new TextRun({
+          text: `Documento generado automáticamente por el Sistema de Información de ${ASADA_NOMBRE_LEGAL} (SIAPB) a partir de la solicitud con código ${datos.codigoSolicitud}. No requiere firma digital para su trámite interno.`,
+          size: 14,
+          italics: true,
+          color: GRIS_ETIQUETA,
+        }),
+      ],
+    }),
+  )
+
+  const documento = new Document({
+    sections: [
+      {
+        properties: {
+          page: {
+            size: { width: ANCHO_PAGINA, height: 15840 },
+            margin: { top: MARGEN, bottom: MARGEN, left: MARGEN, right: MARGEN },
+          },
+        },
+        children: hijos,
+      },
+    ],
+  })
+
+  return Packer.toBlob(documento)
 }
 
-// Dispara la descarga del HTML generado como archivo (nombre sugerido:
-// solicitud-<codigo>.html). Funciona sin backend: arma un Blob en memoria.
-export function descargarDocumentoSolicitud(html: string, codigoSolicitud: string): void {
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+// Dispara la descarga DIRECTA del .docx generado (nunca vista en línea): se
+// crea un Blob local y se hace clic sintético en un enlace con atributo
+// `download`, así el navegador siempre guarda el archivo en vez de abrirlo.
+export function descargarDocumentoSolicitud(blob: Blob, codigoSolicitud: string): void {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `solicitud-${codigoSolicitud}.html`
+  a.download = `solicitud-${codigoSolicitud}.docx`
   document.body.appendChild(a)
   a.click()
   a.remove()
   URL.revokeObjectURL(url)
-}
-
-// Abre el HTML generado en una pestaña nueva para verlo (y desde ahí
-// imprimir/guardar como PDF si se prefiere).
-export function verDocumentoSolicitud(html: string): void {
-  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
-  const url = URL.createObjectURL(blob)
-  window.open(url, '_blank', 'noopener,noreferrer')
-  // Se libera un rato después: si se revoca de inmediato, algunos
-  // navegadores alcanzan a cerrar la pestaña antes de terminar de pintarla.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000)
 }
