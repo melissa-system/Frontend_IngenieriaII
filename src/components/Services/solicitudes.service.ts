@@ -158,7 +158,7 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
 // publicada en Netlify).
 export const crearSolicitudPajaAgua = async (
   payload: SolicitudPajaAguaPayload,
-) => {
+): Promise<SolicitudPajaAgua> => {
   const formData = new FormData()
 
   formData.append('tipoPersona', payload.tipoPersona)
@@ -193,7 +193,7 @@ export const crearSolicitudPajaAgua = async (
   formData.append('cedulaDorso', payload.cedulaDorso)
 
   try {
-    const { data } = await apiClient.post('/solicitudes', formData)
+    const { data } = await apiClient.post<SolicitudPajaAgua>('/solicitudes', formData)
     return data
   } catch (error) {
     throw new Error(

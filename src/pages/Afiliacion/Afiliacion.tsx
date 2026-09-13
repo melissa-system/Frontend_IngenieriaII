@@ -14,6 +14,7 @@ import {
   TIPO_SERVICIO_OPCIONES,
   TIPO_CONEXION_OPCIONES,
   type TipoIdentificacionDetectado,
+  type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
 import {
   PROVINCIAS,
@@ -28,6 +29,13 @@ import {
   extensionFotoIdentificacionPermitida,
   MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
 } from '../../lib/extensionesPermitidas'
+import { obtenerConfiguracion } from '../../components/Services/configuracion.service'
+import {
+  generarHtmlSolicitud,
+  descargarDocumentoSolicitud,
+  verDocumentoSolicitud,
+  type DatosDocumentoSolicitud,
+} from '../../lib/generarDocumentoSolicitud'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
@@ -117,6 +125,9 @@ function Afiliacion() {
   const [enviado, setEnviado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
+  const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
+  const [documentoHtml, setDocumentoHtml] = useState<string | null>(null)
+  const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
 
   // --- Cargar borrador guardado (si existe) al montar ---
   useEffect(() => {
@@ -345,7 +356,7 @@ function Afiliacion() {
     setEnviando(true)
     setErrorSubmit(null)
     try {
-      await crearSolicitudPajaAgua({
+      const creada = await crearSolicitudPajaAgua({
         tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
         nombreSolicitante: draft.nombreSolicitante,
         identificacion: normalizarIdentificacion(draft.identificacion),
@@ -372,7 +383,47 @@ function Afiliacion() {
         cedulaDorso,
       })
       limpiarBorrador()
+      setSolicitudCreada(creada)
       setEnviado(true)
+
+      // Generar el documento lleno para poder verlo/descargarlo de una vez.
+      // Se arma con los datos que la persona ACABA de escribir (no hace
+      // falta volver a pedirle nada al backend) + los datos reales de la
+      // ASADA (dirección/teléfono/correo), que sí vienen de Configuracion.
+      try {
+        const configuracion = await obtenerConfiguracion()
+        const datosDocumento: DatosDocumentoSolicitud = {
+          codigoSolicitud: creada.codigo_solicitud,
+          fecha: creada.fecha_solicitud,
+          tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
+          nombreSolicitante: draft.nombreSolicitante,
+          identificacion: normalizarIdentificacion(draft.identificacion),
+          nombreRepresentante: esJuridica ? draft.nombreRepresentante : null,
+          cedulaRepresentante: esJuridica
+            ? normalizarIdentificacion(draft.cedulaRepresentante)
+            : null,
+          telefono: draft.telefono,
+          telefonoSecundario: draft.telefonoSecundario || null,
+          correo: draft.correo,
+          provincia: draft.provincia,
+          canton: draft.canton,
+          distrito: draft.distrito,
+          direccion: draft.direccion,
+          numeroPlano: draft.numeroPlano,
+          naturalezaInmueble: draft.naturalezaInmueble,
+          calidadTitular: draft.calidadTitular,
+          tipoServicio: draft.tipoServicio,
+          tipoConexion: draft.tipoConexion,
+          observaciones: draft.observaciones || null,
+        }
+        setDocumentoHtml(generarHtmlSolicitud(datosDocumento, configuracion))
+      } catch {
+        // No es crítico: la solicitud YA se guardó. Solo no se podrá
+        // ver/descargar el documento formal desde esta pantalla.
+        setErrorDocumento(
+          'La solicitud se envió correctamente, pero no pudimos generar el documento para descargar. Guardá tu código de seguimiento.',
+        )
+      }
     } catch (error) {
       const mensaje =
         error instanceof Error && error.message
@@ -401,9 +452,45 @@ function Afiliacion() {
             Gracias, {nombreFinal}. Recibimos tu solicitud de disponibilidad de servicio.
             La junta directiva la revisará y te contactaremos con el resultado.
           </p>
+          {solicitudCreada && (
+            <p className="mt-3 text-sm text-primary-600">
+              Tu código de seguimiento es{' '}
+              <span className="font-semibold text-primary-900">
+                {solicitudCreada.codigo_solicitud}
+              </span>
+            </p>
+          )}
+
+          {documentoHtml && (
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={() => verDocumentoSolicitud(documentoHtml)}
+                className="rounded-full border border-primary-300 bg-white px-5 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50"
+              >
+                Ver documento
+              </button>
+              <button
+                type="button"
+                onClick={() =>
+                  descargarDocumentoSolicitud(
+                    documentoHtml,
+                    solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
+                  )
+                }
+                className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
+              >
+                Descargar documento
+              </button>
+            </div>
+          )}
+          {errorDocumento && (
+            <p className="mt-3 text-xs text-primary-500">{errorDocumento}</p>
+          )}
+
           <Link
             to="/"
-            className="mt-6 inline-block rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-800"
+            className="mt-6 inline-block text-sm font-medium text-primary-700 hover:underline"
           >
             Volver al inicio
           </Link>

@@ -4,6 +4,44 @@ import {
   obtenerSolicitudesPajaAgua,
   type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
+import {
+  obtenerConfiguracion,
+  type Configuracion,
+} from '../../components/Services/configuracion.service'
+import {
+  generarHtmlSolicitud,
+  descargarDocumentoSolicitud,
+  verDocumentoSolicitud,
+  type DatosDocumentoSolicitud,
+} from '../../lib/generarDocumentoSolicitud'
+
+// Traduce una fila de la tabla (forma de SolicitudPajaAgua) a la forma
+// común que espera el generador de documentos — la misma función que usa
+// el wizard público justo después de enviar la solicitud.
+function aDatosDocumento(s: SolicitudPajaAgua): DatosDocumentoSolicitud {
+  return {
+    codigoSolicitud: s.codigo_solicitud,
+    fecha: s.fecha_solicitud,
+    tipoPersona: s.tipo_persona,
+    nombreSolicitante: s.nombre_solicitante,
+    identificacion: s.identificacion,
+    nombreRepresentante: s.nombre_representante,
+    cedulaRepresentante: s.cedula_representante,
+    telefono: s.telefono,
+    telefonoSecundario: s.telefono_secundario,
+    correo: s.correo,
+    provincia: s.provincia,
+    canton: s.canton,
+    distrito: s.distrito,
+    direccion: s.direccion,
+    numeroPlano: s.numero_plano,
+    naturalezaInmueble: s.naturaleza_inmueble,
+    calidadTitular: s.calidad_titular,
+    tipoServicio: s.tipo_servicio,
+    tipoConexion: s.tipo_conexion,
+    observaciones: s.observaciones,
+  }
+}
 
 type Estado = SolicitudPajaAgua['estado']
 
@@ -44,6 +82,7 @@ function SolicitudesPajaAgua() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<SolicitudPajaAgua | null>(null)
+  const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -60,6 +99,12 @@ function SolicitudesPajaAgua() {
 
   useEffect(() => {
     cargar()
+    // Datos reales de la ASADA (dirección/teléfono/correo) para el
+    // documento generado — ruta pública, no hace falta re-manejar errores
+    // de sesión acá: si falla, simplemente no se ofrece el documento.
+    obtenerConfiguracion()
+      .then(setConfiguracion)
+      .catch(() => setConfiguracion(null))
   }, [cargar])
 
   return (
@@ -143,7 +188,13 @@ function SolicitudesPajaAgua() {
         </div>
       )}
 
-      {detalle && <ModalDetalle solicitud={detalle} onCerrar={() => setDetalle(null)} />}
+      {detalle && (
+        <ModalDetalle
+          solicitud={detalle}
+          configuracion={configuracion}
+          onCerrar={() => setDetalle(null)}
+        />
+      )}
     </div>
   )
 }
@@ -193,11 +244,16 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
 // flujo, todavía no construido — ver conversación con Meli).
 function ModalDetalle({
   solicitud,
+  configuracion,
   onCerrar,
 }: {
   solicitud: SolicitudPajaAgua
+  configuracion: Configuracion | null
   onCerrar: () => void
 }) {
+  const generarHtml = () =>
+    configuracion ? generarHtmlSolicitud(aDatosDocumento(solicitud), configuracion) : null
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
@@ -275,6 +331,40 @@ function ModalDetalle({
             />
             <EnlaceDocumento etiqueta="Carta de solicitud" url={solicitud.carta_solicitud_path} />
           </dl>
+        </div>
+
+        <div className="mt-5 border-t border-primary-100 pt-4">
+          <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
+            Documento de solicitud (machote)
+          </p>
+          {configuracion ? (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  const html = generarHtml()
+                  if (html) verDocumentoSolicitud(html)
+                }}
+                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+              >
+                Ver documento
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const html = generarHtml()
+                  if (html) descargarDocumentoSolicitud(html, solicitud.codigo_solicitud)
+                }}
+                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+              >
+                Descargar documento
+              </button>
+            </div>
+          ) : (
+            <p className="text-xs text-primary-400">
+              No se pudo cargar la información de la ASADA para generar el documento.
+            </p>
+          )}
         </div>
 
         <div className="mt-6 flex justify-end">
