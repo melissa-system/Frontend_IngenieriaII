@@ -103,6 +103,39 @@ export interface SolicitudPajaAguaPayload {
   observaciones?: string
   permisosMunicipales: File
   cartaSolicitud: File
+  cedulaFrente: File
+  cedulaDorso: File
+}
+
+// Forma en la que el backend devuelve cada solicitud (GET /solicitudes,
+// solo Admin) — usada por la vista administrativa para listar y revisar.
+export interface SolicitudPajaAgua {
+  id: number
+  codigo_solicitud: string
+  tipo_persona: 'fisica' | 'juridica'
+  nombre_solicitante: string
+  identificacion: string
+  nombre_representante: string | null
+  cedula_representante: string | null
+  telefono: string
+  telefono_secundario: string | null
+  correo: string
+  provincia: string | null
+  canton: string | null
+  distrito: string | null
+  direccion: string
+  numero_plano: string
+  naturaleza_inmueble: string | null
+  calidad_titular: string | null
+  tipo_servicio: string | null
+  tipo_conexion: string | null
+  observaciones: string | null
+  permisos_municipales_path: string | null
+  carta_solicitud_path: string | null
+  cedula_frente_path: string | null
+  cedula_dorso_path: string | null
+  estado: 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Completada'
+  fecha_solicitud: string
 }
 
 // Traduce errores de axios/backend a un mensaje legible, igual que en el
@@ -156,6 +189,8 @@ export const crearSolicitudPajaAgua = async (
   }
   formData.append('permisosMunicipales', payload.permisosMunicipales)
   formData.append('cartaSolicitud', payload.cartaSolicitud)
+  formData.append('cedulaFrente', payload.cedulaFrente)
+  formData.append('cedulaDorso', payload.cedulaDorso)
 
   try {
     const { data } = await apiClient.post('/solicitudes', formData)
@@ -166,6 +201,19 @@ export const crearSolicitudPajaAgua = async (
         error,
         'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.',
       ),
+    )
+  }
+}
+
+// Ruta protegida (solo Admin) — usada por el dashboard administrativo para
+// listar las solicitudes y poder revisarlas.
+export const obtenerSolicitudesPajaAgua = async (): Promise<SolicitudPajaAgua[]> => {
+  try {
+    const { data } = await apiClient.get<SolicitudPajaAgua[]>('/solicitudes')
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de paja de agua.'),
     )
   }
 }

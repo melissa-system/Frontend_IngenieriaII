@@ -32,3 +32,18 @@ export function extensionPermitida(nombreArchivo: string): boolean {
   const nombre = nombreArchivo.toLowerCase()
   return EXTENSIONES_PERMITIDAS.some((ext) => nombre.endsWith(ext))
 }
+
+// Subconjunto más estricto para la foto de un documento de identidad (ej.
+// cédula frente/dorso): no tiene sentido aceptar un Word/Excel/PowerPoint
+// ahí. Debe reflejar MIME_TYPES_FOTO_IDENTIFICACION del backend.
+export const EXTENSIONES_FOTO_IDENTIFICACION = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.pdf']
+
+export const ACCEPT_FOTO_IDENTIFICACION = EXTENSIONES_FOTO_IDENTIFICACION.join(',')
+
+export const MENSAJE_FORMATO_FOTO_NO_PERMITIDO =
+  'Solo se permiten imágenes o PDF para la foto de la cédula.'
+
+export function extensionFotoIdentificacionPermitida(nombreArchivo: string): boolean {
+  const nombre = nombreArchivo.toLowerCase()
+  return EXTENSIONES_FOTO_IDENTIFICACION.some((ext) => nombre.endsWith(ext))
+}

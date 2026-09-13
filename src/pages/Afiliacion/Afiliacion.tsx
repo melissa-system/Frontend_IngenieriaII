@@ -24,6 +24,9 @@ import {
   ACCEPT_ARCHIVOS_PERMITIDOS,
   extensionPermitida,
   MENSAJE_FORMATO_NO_PERMITIDO,
+  ACCEPT_FOTO_IDENTIFICACION,
+  extensionFotoIdentificacionPermitida,
+  MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
 } from '../../lib/extensionesPermitidas'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
@@ -104,8 +107,12 @@ function Afiliacion() {
 
   const [permisosMunicipales, setPermisosMunicipales] = useState<File | null>(null)
   const [cartaSolicitud, setCartaSolicitud] = useState<File | null>(null)
+  const [cedulaFrente, setCedulaFrente] = useState<File | null>(null)
+  const [cedulaDorso, setCedulaDorso] = useState<File | null>(null)
   const [errorArchivoPermisos, setErrorArchivoPermisos] = useState<string | null>(null)
   const [errorArchivoCarta, setErrorArchivoCarta] = useState<string | null>(null)
+  const [errorArchivoCedulaFrente, setErrorArchivoCedulaFrente] = useState<string | null>(null)
+  const [errorArchivoCedulaDorso, setErrorArchivoCedulaDorso] = useState<string | null>(null)
 
   const [enviado, setEnviado] = useState(false)
   const [enviando, setEnviando] = useState(false)
@@ -160,8 +167,12 @@ function Afiliacion() {
     setLookupRepStatus('idle')
     setPermisosMunicipales(null)
     setCartaSolicitud(null)
+    setCedulaFrente(null)
+    setCedulaDorso(null)
     setErrorArchivoPermisos(null)
     setErrorArchivoCarta(null)
+    setErrorArchivoCedulaFrente(null)
+    setErrorArchivoCedulaDorso(null)
     setErrorSubmit(null)
     setHuboDraftGuardado(false)
   }
@@ -294,11 +305,13 @@ function Afiliacion() {
     (
       setter: (f: File | null) => void,
       setError: (m: string | null) => void,
+      validarExtension: (nombre: string) => boolean = extensionPermitida,
+      mensajeError: string = MENSAJE_FORMATO_NO_PERMITIDO,
     ) =>
     (e: ChangeEvent<HTMLInputElement>) => {
       const file = e.target.files?.[0] ?? null
-      if (file && !extensionPermitida(file.name)) {
-        setError(MENSAJE_FORMATO_NO_PERMITIDO)
+      if (file && !validarExtension(file.name)) {
+        setError(mensajeError)
         setter(null)
         e.target.value = ''
         return
@@ -307,7 +320,11 @@ function Afiliacion() {
       setter(file)
     }
 
-  const paso4Valido = permisosMunicipales !== null && cartaSolicitud !== null
+  const paso4Valido =
+    permisosMunicipales !== null &&
+    cartaSolicitud !== null &&
+    cedulaFrente !== null &&
+    cedulaDorso !== null
 
   const validezPorPaso = [paso0Valido, paso1Valido, paso2Valido, paso3Valido, paso4Valido]
   const pasoActualValido = validezPorPaso[paso]
@@ -323,7 +340,8 @@ function Afiliacion() {
   const nombreFinal = draft.nombreSolicitante || 'vecino/a'
 
   const handleSubmit = async () => {
-    if (!paso4Valido || !permisosMunicipales || !cartaSolicitud) return
+    if (!paso4Valido || !permisosMunicipales || !cartaSolicitud || !cedulaFrente || !cedulaDorso)
+      return
     setEnviando(true)
     setErrorSubmit(null)
     try {
@@ -350,6 +368,8 @@ function Afiliacion() {
         observaciones: draft.observaciones || undefined,
         permisosMunicipales,
         cartaSolicitud,
+        cedulaFrente,
+        cedulaDorso,
       })
       limpiarBorrador()
       setEnviado(true)
@@ -365,7 +385,7 @@ function Afiliacion() {
   }
 
   return (
-    <section className="mx-auto flex min-h-[calc(100dvh-4rem)] max-w-2xl flex-col px-4 py-6 sm:px-6 lg:px-8">
+    <section className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
       <Link to="/" className="text-sm font-medium text-primary-700 hover:underline">
         ← Volver al inicio
       </Link>
@@ -389,7 +409,7 @@ function Afiliacion() {
           </Link>
         </div>
       ) : (
-        <div className="mt-4 flex flex-1 flex-col">
+        <div className="mt-4">
           {/* Indicador de pasos numerado */}
           <div className="flex items-center justify-center gap-1.5 sm:gap-2">
             {TITULOS_PASO.map((_, i) => (
@@ -430,8 +450,11 @@ function Afiliacion() {
             </p>
           )}
 
-          {/* Contenido del paso actual */}
-          <div className="mt-4 flex-1 rounded-2xl border border-primary-100 p-4 sm:p-5">
+          {/* Contenido del paso actual: min-h fija (no flex-1) para que un
+              paso con pocos campos (ej. Paso 1) no estire la tarjeta a toda
+              la altura de la pantalla dejando un vacío enorme abajo. El
+              valor cubre el paso más cargado (Ubicación) sin scroll. */}
+          <div className="mt-4 min-h-[280px] rounded-2xl border border-primary-100 p-4 sm:min-h-[300px] sm:p-5">
             {paso === 0 && (
               <div className="space-y-3">
                 <p className="text-xs text-primary-600">
@@ -807,38 +830,83 @@ function Afiliacion() {
                     la página: adjuntalos de nuevo aquí.
                   </p>
                 )}
-                <div>
-                  <label htmlFor="permisosMunicipales" className={labelCls}>
-                    Permisos municipales
-                  </label>
-                  <input
-                    id="permisosMunicipales"
-                    type="file"
-                    accept={ACCEPT_ARCHIVOS_PERMITIDOS}
-                    onChange={handleFileChange(setPermisosMunicipales, setErrorArchivoPermisos)}
-                    className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-                  />
-                  {errorArchivoPermisos && (
-                    <p className="mt-1 text-xs text-red-500">{errorArchivoPermisos}</p>
-                  )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="cedulaFrente" className={labelCls}>
+                      Foto de cédula (frente)
+                    </label>
+                    <input
+                      id="cedulaFrente"
+                      type="file"
+                      accept={ACCEPT_FOTO_IDENTIFICACION}
+                      onChange={handleFileChange(
+                        setCedulaFrente,
+                        setErrorArchivoCedulaFrente,
+                        extensionFotoIdentificacionPermitida,
+                        MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
+                      )}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoCedulaFrente && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaFrente}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="cedulaDorso" className={labelCls}>
+                      Foto de cédula (dorso)
+                    </label>
+                    <input
+                      id="cedulaDorso"
+                      type="file"
+                      accept={ACCEPT_FOTO_IDENTIFICACION}
+                      onChange={handleFileChange(
+                        setCedulaDorso,
+                        setErrorArchivoCedulaDorso,
+                        extensionFotoIdentificacionPermitida,
+                        MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
+                      )}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoCedulaDorso && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaDorso}</p>
+                    )}
+                  </div>
                 </div>
-                <div>
-                  <label htmlFor="cartaSolicitud" className={labelCls}>
-                    Carta de solicitud
-                  </label>
-                  <input
-                    id="cartaSolicitud"
-                    type="file"
-                    accept={ACCEPT_ARCHIVOS_PERMITIDOS}
-                    onChange={handleFileChange(setCartaSolicitud, setErrorArchivoCarta)}
-                    className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-                  />
-                  {errorArchivoCarta && (
-                    <p className="mt-1 text-xs text-red-500">{errorArchivoCarta}</p>
-                  )}
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="permisosMunicipales" className={labelCls}>
+                      Permisos municipales
+                    </label>
+                    <input
+                      id="permisosMunicipales"
+                      type="file"
+                      accept={ACCEPT_ARCHIVOS_PERMITIDOS}
+                      onChange={handleFileChange(setPermisosMunicipales, setErrorArchivoPermisos)}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoPermisos && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoPermisos}</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="cartaSolicitud" className={labelCls}>
+                      Carta de solicitud
+                    </label>
+                    <input
+                      id="cartaSolicitud"
+                      type="file"
+                      accept={ACCEPT_ARCHIVOS_PERMITIDOS}
+                      onChange={handleFileChange(setCartaSolicitud, setErrorArchivoCarta)}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoCarta && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoCarta}</p>
+                    )}
+                  </div>
                 </div>
                 <p className="text-[11px] text-primary-500">
-                  Formatos permitidos: imágenes, Word, Excel, PowerPoint o PDF.
+                  Cédula: imágenes o PDF. Permisos y carta: imágenes, Word, Excel, PowerPoint o
+                  PDF.
                 </p>
                 <div>
                   <label htmlFor="observaciones" className={labelCls}>
