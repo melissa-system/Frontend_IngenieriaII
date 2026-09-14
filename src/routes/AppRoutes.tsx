@@ -14,10 +14,9 @@ import VerificarCuenta from '../pages/VerificarCuenta/VerificarCuenta'
 import DashboardHome from '../pages/Dashboard/DashboardHome'
 import Abonados from '../pages/Dashboard/Abonados'
 import SolicitudesPajaAgua from '../pages/Dashboard/SolicitudesPajaAgua'
-import SolicitudesCambioDomicilio from '../pages/Dashboard/SolicitudesCambioDomicilio'
+import SolicitudesCambioPropietario from '../pages/Dashboard/SolicitudesCambioPropietario'
 import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambioRepresentante'
 import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
-import SolicitudesTrasladoMedidor from '../pages/Dashboard/SolicitudesTrasladoMedidor'
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
 import Inventario from '../pages/Dashboard/Inventario'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
@@ -62,10 +61,9 @@ function AppRoutes() {
           element={<RedirectSolicitudes />}
         />
         <Route path="solicitudes/paja-de-agua" element={<SolicitudesPajaAgua />} />
-        <Route path="solicitudes/cambio-domicilio" element={<SolicitudesCambioDomicilio />} />
+        <Route path="solicitudes/cambio-propietario" element={<SolicitudesCambioPropietario />} />
         <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
         <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />
-        <Route path="solicitudes/traslado-medidor" element={<SolicitudesTrasladoMedidor />} />
         <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="averias" element={<AveriasAdmin />} />
