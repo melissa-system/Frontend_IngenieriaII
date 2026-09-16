@@ -30,6 +30,7 @@ import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
 import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
 import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
 import DocumentosOficialesPage from '../pages/Dashboard/DocumentosOficialesPage'
+import Bitacora from '../pages/Dashboard/Bitacora'
 
 function AppRoutes() {
   return (
@@ -71,6 +72,7 @@ function AppRoutes() {
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />
+        <Route path="bitacora" element={<Bitacora />} />
         <Route path="perfil" element={<PerfilEditar />} />
         <Route path="perfil/contrasena" element={<PerfilContrasena />} />
         <Route path="contacto-asada" element={<ContactoAsadaPage />} />
