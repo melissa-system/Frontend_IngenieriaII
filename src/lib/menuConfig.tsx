@@ -133,6 +133,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       { label: 'Abonados', to: '/dashboard/abonados', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Empleados', to: '/dashboard/personal', roles: ['Administrador', 'Junta Directiva'] },
       { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Bitácora', to: '/dashboard/bitacora', roles: ['Administrador', 'Junta Directiva'] },
     ],
   },
   {
