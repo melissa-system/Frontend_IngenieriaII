@@ -806,6 +806,12 @@ function ModalDetalle({
   onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
+ 
+  // Mínimo de caracteres del comentario de resolución. En este tipo de
+  // trámite es obligatorio tanto al aprobar como al rechazar: es la única
+  // constancia de qué se resolvió.
+  const MIN_MOTIVO = 10
+  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -914,7 +920,14 @@ function ModalDetalle({
               placeholder="Ej: se gestionó la constancia solicitada y se entregó al abonado"
               className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
-
+ 
+            {motivoRechazo.trim().length > 0 && !motivoValido && (
+              <p className="text-xs text-amber-600">
+                Escribe al menos {MIN_MOTIVO} caracteres para resolver la
+                solicitud (llevas {motivoRechazo.trim().length}).
+              </p>
+            )}
+ 
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
@@ -930,23 +943,23 @@ function ModalDetalle({
                 disabled={gestionando || solicitud.estado === 'en_proceso'}
                 className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
               >
-                Marcar en proceso
+                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
               </button>
               <button
                 type="button"
                 onClick={() => onGestionar('aprobado')}
-                disabled={gestionando || motivoRechazo.trim() === ''}
+                disabled={gestionando || !motivoValido}
                 className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
               >
-                Aprobar
+                {gestionando ? 'Guardando...' : 'Aprobar'}
               </button>
               <button
                 type="button"
                 onClick={() => onGestionar('rechazado')}
-                disabled={gestionando || motivoRechazo.trim() === ''}
+                disabled={gestionando || !motivoValido}
                 className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
               >
-                Rechazar
+                {gestionando ? 'Guardando...' : 'Rechazar'}
               </button>
             </div>
           </div>

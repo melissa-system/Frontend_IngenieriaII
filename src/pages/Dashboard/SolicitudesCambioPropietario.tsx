@@ -836,7 +836,12 @@ function VistaAdministrador() {
 
   // Gestión de estado modal
   const [detalle, setDetalle] = useState<SolicitudCambioPropietario | null>(null)
+  // Mínimo de caracteres del motivo al rechazar. Un "no" o un "." no le
+  // sirven al abonado, que recibe este texto por correo como única
+  // explicación del rechazo.
   const [motivoRechazo, setMotivoRechazo] = useState('')
+  const MIN_MOTIVO = 10
+  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
   const [gestionando, setGestionando] = useState(false)
 
   // Notificaciones
@@ -1416,8 +1421,15 @@ function VistaAdministrador() {
                     placeholder="Detallá la justificación de aprobación o rechazo..."
                     className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                   />
+ 
+                  {motivoRechazo.trim().length > 0 && !motivoValido && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Escribe al menos {MIN_MOTIVO} caracteres para poder
+                      rechazar (llevas {motivoRechazo.trim().length}).
+                    </p>
+                  )}
                 </div>
-
+ 
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
@@ -1434,16 +1446,16 @@ function VistaAdministrador() {
                       onClick={() => gestionar('en_proceso')}
                       className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
                     >
-                      Poner En Proceso
+                      {gestionando ? 'Guardando...' : 'Poner En Proceso'}
                     </button>
                   )}
                   <button
                     type="button"
-                    disabled={gestionando || !motivoRechazo.trim()}
+                    disabled={gestionando || !motivoValido}
                     onClick={() => gestionar('rechazado')}
                     className="rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
                   >
-                    Rechazar
+                    {gestionando ? 'Guardando...' : 'Rechazar'}
                   </button>
                   <button
                     type="button"
@@ -1451,7 +1463,7 @@ function VistaAdministrador() {
                     onClick={() => gestionar('aprobado')}
                     className="rounded-full bg-green-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
                   >
-                    Aprobar Traspaso
+                    {gestionando ? 'Guardando...' : 'Aprobar Traspaso'}
                   </button>
                 </div>
               </div>
