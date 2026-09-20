@@ -20,6 +20,7 @@ import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedido
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
 import Inventario from '../pages/Dashboard/Inventario'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
+import MisAverias from '../pages/Dashboard/MisAverias'
 import Publicaciones from '../pages/Dashboard/Publicaciones'
 import DocumentosAdmin from '../pages/Dashboard/DocumentosAdmin'
 import Seguridad from '../pages/Dashboard/Seguridad'
@@ -68,6 +69,7 @@ function AppRoutes() {
         <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
         <Route path="inventario" element={<Inventario />} />
         <Route path="averias" element={<AveriasAdmin />} />
+        <Route path="mis-averias" element={<MisAverias />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />

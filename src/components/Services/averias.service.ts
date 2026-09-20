@@ -86,6 +86,17 @@ export const obtenerAverias = async (): Promise<AveriaBackend[]> => {
   }
 }
 
+export const obtenerMisAverias = async (): Promise<AveriaBackend[]> => {
+  try {
+    const { data } = await apiClient.get<AveriaBackend[]>(`${RESOURCE}/mis-averias`)
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar tus averías.'),
+    )
+  }
+}
+
 export const obtenerAveria = async (id: number): Promise<AveriaBackend> => {
   try {
     const { data } = await apiClient.get<AveriaBackend>(`${RESOURCE}/${id}`)

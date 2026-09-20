@@ -126,6 +126,12 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Administrador', 'Fontanero'],
   },
   {
+    label: 'Mis Averías',
+    icon: <AveriasIcon />,
+    to: '/dashboard/mis-averias',
+    roles: ['Abonado'],
+  },
+  {
     label: 'Administración',
     icon: <AdminIcon />,
     roles: ['Administrador', 'Junta Directiva'],
