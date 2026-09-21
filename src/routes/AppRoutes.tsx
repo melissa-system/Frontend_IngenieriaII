@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout/MainLayout'
 import DashboardLayout from '../components/Dashboard/DashboardLayout'
 import ProtectedRoute from '../components/Dashboard/ProtectedRoute'
+import RoleRoute from '../components/Dashboard/RoleRoute'
 import Home from '../pages/Home/Home'
 import RedirectSolicitudes from './RedirectSolicitudes'
 import Afiliacion from '../pages/Afiliacion/Afiliacion'
@@ -80,12 +81,26 @@ function AppRoutes() {
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />
-        <Route path="auditoria" element={<Bitacora />} />
+        <Route
+          path="auditoria"
+          element={
+            <RoleRoute role="Junta Directiva">
+              <Bitacora />
+            </RoleRoute>
+          }
+        />
         <Route path="perfil" element={<PerfilEditar />} />
         <Route path="perfil/contrasena" element={<PerfilContrasena />} />
         <Route path="contacto-asada" element={<ContactoAsadaPage />} />
         <Route path="horario-asada" element={<HorarioAsadaPage />} />
-        <Route path="personal" element={<EmpleadosPage />} />
+        <Route
+          path="personal"
+          element={
+            <RoleRoute role="Junta Directiva">
+              <EmpleadosPage />
+            </RoleRoute>
+          }
+        />
         <Route path="documentos-oficiales" element={<DocumentosOficialesPage />} />
       </Route>
 
