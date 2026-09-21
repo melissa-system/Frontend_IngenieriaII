@@ -187,30 +187,17 @@ function AboutUs() {
             <h3 className="text-lg font-semibold text-primary-900 sm:text-xl">
               Nuestra historia
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-primary-800">
+            <p className="mt-2 text-sm leading-normal text-primary-800">
               Todo comenzó en el año 2005, cuando la comunidad de Pueblo Nuevo
-              se unió para construir su propio acueducto y garantizar así el
-              acceso al agua potable para cada familia. Ese mismo año nació
-              formalmente la ASADA, bajo la cédula jurídica 3-002-458332,
-              como la organización encargada de administrar y cuidar este
-              recurso.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-primary-800">
-              Casi una década después, en marzo del 2014, formalizamos
-              nuestro compromiso institucional al firmar el convenio de
-              delegación con el AyA (Instituto Costarricense de Acueductos y
-              Alcantarillados), conforme al Reglamento de las Asociaciones
-              Administradoras de Sistemas de Acueductos y Alcantarillados
-              Comunales. A esto se suma el Permiso Sanitario de Funcionamiento
-              otorgado por el Ministerio de Salud, que respalda la calidad de
-              nuestro servicio.
-            </p>
-            <p className="mt-3 text-sm leading-relaxed text-primary-800">
-              Hoy, más de veinte años después de aquel primer esfuerzo
-              comunitario, seguimos trabajando día a día para llevar un
-              servicio de agua continuo y de calidad a las familias de
-              Pueblo Nuevo, en el distrito de Paquera, cantón y provincia de
-              Puntarenas.
+              se unió para construir su propio acueducto; ese mismo año nació
+              formalmente la ASADA, bajo la cédula jurídica 3-002-458332. En
+              marzo del 2014 formalizamos nuestro compromiso institucional al
+              firmar el convenio de delegación con el AyA, respaldado además
+              por el Permiso Sanitario de Funcionamiento del Ministerio de
+              Salud. Hoy, más de veinte años después, seguimos trabajando día
+              a día por un servicio de agua continuo y de calidad para las
+              familias de Pueblo Nuevo, en el distrito de Paquera, cantón y
+              provincia de Puntarenas.
             </p>
           </div>
         </div>
