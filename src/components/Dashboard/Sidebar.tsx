@@ -444,9 +444,12 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                     onClick={() => {
                       setPerfilMenuOpen(false)
                       logout()
-                      // Al cerrar sesión va directo al landing público, no a
-                      // la pantalla de login.
-                      navigate('/')
+                      // Recarga completa a '/' (en vez de navigate() de
+                      // react-router): evita la carrera con ProtectedRoute,
+                      // que al ver isAuthenticated=false en el mismo render
+                      // redirige a /login antes de que el navigate() al
+                      // landing termine de aplicarse.
+                      window.location.href = '/'
                     }}
                     className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-300 transition-colors hover:bg-primary-700 hover:text-red-200"
                   >
