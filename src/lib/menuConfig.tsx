@@ -14,6 +14,12 @@ export interface SubMenuItem {
    * efectivo 'Abonado', ni siquiera para Junta Directiva (que por la "Regla
    * de Oro" ve el resto del menú completo). Ej: "Mis Averías". */
   soloAbonado?: boolean
+  /** Ignora la "Regla de Oro" de Junta Directiva (que por defecto ve todo el
+   * menú): el ítem solo se muestra a los roles listados en `roles`, tal
+   * cual. Útil para ítems que ya están cubiertos por otra sección del panel
+   * administrativo y solo tienen sentido para roles operativos (Abonado,
+   * Fontanero). Ej: "Documentos Oficiales". */
+  estrictoPorRol?: boolean
   submenu?: SubMenuItem[]
 }
 
@@ -24,6 +30,7 @@ export interface MenuItemConfig {
   submenu?: SubMenuItem[]
   roles: string[]
   soloAbonado?: boolean
+  estrictoPorRol?: boolean
 }
 
 function DashboardIcon() {
@@ -178,7 +185,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Documentos Oficiales',
     icon: <DocumentosOficialesIcon />,
     to: '/dashboard/documentos-oficiales',
-    roles: ['Abonado'],
+    // Solo para Abonado y Fontanero: Administrador/Junta Directiva ya
+    // tienen su propia sección "Documentos" en Edición de página, así que
+    // estrictoPorRol evita que la "Regla de Oro" se lo muestre también ahí.
+    roles: ['Abonado', 'Fontanero'],
+    estrictoPorRol: true,
   },
   {
     // Sin "to": el Sidebar arma su propio submenú anidado para este ítem
@@ -225,11 +236,11 @@ export function filterMenuByRole(
   tipoAbonado?: string | null,
 ): MenuItemConfig[] {
   return items
-    .filter((item) =>
-      item.soloAbonado
-        ? role === 'Abonado'
-        : role === 'Junta Directiva' || item.roles.includes(role),
-    )
+    .filter((item) => {
+      if (item.soloAbonado) return role === 'Abonado'
+      if (item.estrictoPorRol) return item.roles.includes(role)
+      return role === 'Junta Directiva' || item.roles.includes(role)
+    })
     .map((item) => ({
       ...item,
       submenu: item.submenu
