@@ -80,7 +80,7 @@ function AppRoutes() {
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />
-        <Route path="bitacora" element={<Bitacora />} />
+        <Route path="auditoria" element={<Bitacora />} />
         <Route path="perfil" element={<PerfilEditar />} />
         <Route path="perfil/contrasena" element={<PerfilContrasena />} />
         <Route path="contacto-asada" element={<ContactoAsadaPage />} />

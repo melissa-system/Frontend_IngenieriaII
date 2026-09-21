@@ -30,6 +30,7 @@ import {
   validarDocumento,
 } from '../../components/common/FileDropZone'
 import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import Toast from '../../components/Dashboard/Toast'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -794,27 +795,34 @@ function VistaAdministrador() {
     }
   }
 
+  // Resultado de gestionar una solicitud desde el modal. Va separado de
+  // mensaje/error, que son del formulario de ventanilla: ese formulario se ve
+  // donde la persona está escribiendo, pero el modal se cierra y la deja
+  // viendo la lista, así que su resultado se muestra como toast flotante.
+  const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
+
   const gestionar = async (nuevoEstado: 'en_proceso' | 'aprobado' | 'rechazado') => {
     if (!detalle) return
     setGestionando(true)
-    setError('')
-    setMensaje('')
+    setToast(null)
 
     try {
       await cambiarEstadoSolicitudCambioPropietario(detalle.id, {
         estado: nuevoEstado,
         motivoRechazo: nuevoEstado === 'rechazado' ? motivoRechazo : undefined,
       })
-      setMensaje(
-        nuevoEstado === 'aprobado'
-          ? `Solicitud ${detalle.codigo_solicitud} aprobada exitosamente. Se traspasaron los datos y se notificó al nuevo propietario.`
-          : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[nuevoEstado]}".`,
-      )
+      setToast({
+        tipo: 'exito',
+        mensaje:
+          nuevoEstado === 'aprobado'
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada exitosamente. Se traspasaron los datos y se notificó al nuevo propietario.`
+            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[nuevoEstado]}".`,
+      })
       setDetalle(null)
       setMotivoRechazo('')
       await cargar()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar el estado.')
+      setToast({ tipo: 'error', mensaje: err instanceof Error ? err.message : 'No se pudo actualizar el estado.' })
     } finally {
       setGestionando(false)
     }
@@ -1344,6 +1352,9 @@ function VistaAdministrador() {
             )}
           </div>
         </div>
+      )}
+      {toast && (
+        <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
       )}
     </div>
   )

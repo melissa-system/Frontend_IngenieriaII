@@ -22,6 +22,7 @@ import {
   validarDocumento,
 } from '../../components/common/FileDropZone'
 import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import Toast from '../../components/Dashboard/Toast'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -717,26 +718,33 @@ function VistaAdministrador() {
     }
   }
 
+  // Resultado de gestionar una solicitud desde el modal. Va separado de
+  // mensaje/error, que son del formulario de ventanilla: ese formulario se ve
+  // donde la persona está escribiendo, pero el modal se cierra y la deja
+  // viendo la lista, así que su resultado se muestra como toast flotante.
+  const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
+
   const gestionar = async (estado: 'en_proceso' | 'aprobado' | 'rechazado') => {
     if (!detalle) return
     setGestionando(true)
-    setError('')
-    setMensaje('')
+    setToast(null)
     try {
       await cambiarEstadoSolicitudCambioRepresentante(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
       })
-      setMensaje(
-        estado === 'aprobado'
-          ? `Solicitud ${detalle.codigo_solicitud} aprobada. El representante del abonado se actualizó y se notificó por correo.`
-          : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
-      )
+      setToast({
+        tipo: 'exito',
+        mensaje:
+          estado === 'aprobado'
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada. El representante del abonado se actualizó y se notificó por correo.`
+            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
+      })
       setDetalle(null)
       setMotivoRechazo('')
       await cargar()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar la solicitud.')
+      setToast({ tipo: 'error', mensaje: err instanceof Error ? err.message : 'No se pudo actualizar la solicitud.' })
     } finally {
       setGestionando(false)
     }
@@ -1028,6 +1036,9 @@ function VistaAdministrador() {
           onCerrar={() => setDetalle(null)}
           onGestionar={gestionar}
         />
+      )}
+      {toast && (
+        <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
       )}
     </div>
   )
