@@ -145,6 +145,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     submenu: [
       { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
       { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
+      { label: 'Movimientos de Stock', to: '/dashboard/inventario/movimientos', roles: ['Administrador'] },
     ],
   },
   {
@@ -167,7 +168,8 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Administrador', 'Junta Directiva'],
     submenu: [
       { label: 'Abonados', to: '/dashboard/abonados', roles: ['Administrador', 'Junta Directiva'] },
-      { label: 'Empleados', to: '/dashboard/personal', roles: ['Administrador', 'Junta Directiva'] },
+      // Empleados es exclusivo de Junta Directiva: el Administrador no lo ve.
+      { label: 'Empleados', to: '/dashboard/personal', roles: ['Junta Directiva'] },
       { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
     ],
   },
@@ -189,7 +191,8 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Auditoría',
     icon: <AuditoriaIcon />,
     to: '/dashboard/auditoria',
-    roles: ['Administrador', 'Junta Directiva'],
+    // Solo Junta Directiva: el Administrador no tiene acceso a la auditoría.
+    roles: ['Junta Directiva'],
   },
   {
     label: 'Reportes',
