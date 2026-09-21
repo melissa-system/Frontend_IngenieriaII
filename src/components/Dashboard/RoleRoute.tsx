@@ -22,4 +22,3 @@ function RoleRoute({
 }
 
 export default RoleRoute
-
