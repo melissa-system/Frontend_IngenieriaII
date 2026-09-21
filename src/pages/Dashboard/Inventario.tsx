@@ -7,9 +7,6 @@ import {
   obtenerHistorialArticulo,
   cambiarEstadoArticulo,
   obtenerProveedores,
-  crearProveedor,
-  actualizarProveedor,
-  eliminarProveedor,
   type Articulo,
   type MovimientoInventario,
   type Proveedor,
@@ -47,8 +44,6 @@ function formatearFechaHora(fechaIso: string): string {
 }
 
 function Inventario() {
-  const [tab, setTab] = useState<'articulos' | 'proveedores'>('articulos')
-
   // Datos
   const [articulos, setArticulos] = useState<Articulo[]>([])
   const [proveedores, setProveedores] = useState<Proveedor[]>([])
@@ -69,11 +64,6 @@ function Inventario() {
   const [historialMovimientos, setHistorialMovimientos] = useState<MovimientoInventario[]>([])
   const [cargandoHistorial, setCargandoHistorial] = useState(false)
   const [articuloACambiarEstado, setArticuloACambiarEstado] = useState<Articulo | null>(null)
-
-  // Modales Proveedores
-  const [modalNuevoProveedor, setModalNuevoProveedor] = useState(false)
-  const [proveedorAEditar, setProveedorAEditar] = useState<Proveedor | null>(null)
-  const [proveedorAEliminar, setProveedorAEliminar] = useState<Proveedor | null>(null)
 
   // ------------------------------------------------------------------
   // Formularios
@@ -97,17 +87,6 @@ function Inventario() {
     responsableDestino: '',
   })
   const [errorFormMovimiento, setErrorFormMovimiento] = useState('')
-
-  const [formProveedor, setFormProveedor] = useState({
-    nombre: '',
-    tipo: 'Jurídico' as 'Físico' | 'Jurídico',
-    contacto: '',
-    telefono: '',
-    correo: '',
-    direccion: '',
-    estado: 'Activo' as 'Activo' | 'Inactivo',
-  })
-  const [errorFormProveedor, setErrorFormProveedor] = useState('')
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -345,73 +324,6 @@ function Inventario() {
     }
   }
 
-  // ------------------------------------------------------------------
-  // Handlers Proveedores
-  // ------------------------------------------------------------------
-  function resetFormProveedor() {
-    setFormProveedor({
-      nombre: '',
-      tipo: 'Jurídico',
-      contacto: '',
-      telefono: '',
-      correo: '',
-      direccion: '',
-      estado: 'Activo',
-    })
-    setErrorFormProveedor('')
-  }
-
-  async function handleCrearProveedor(e: React.FormEvent) {
-    e.preventDefault()
-    setErrorFormProveedor('')
-    if (!formProveedor.nombre.trim()) {
-      setErrorFormProveedor('El nombre del proveedor es obligatorio')
-      return
-    }
-
-    try {
-      await crearProveedor(formProveedor)
-      setModalNuevoProveedor(false)
-      resetFormProveedor()
-      notificarExito('Proveedor registrado exitosamente.')
-      void cargarDatos()
-    } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al registrar el proveedor')
-    }
-  }
-
-  async function handleEditarProveedor(e: React.FormEvent) {
-    e.preventDefault()
-    if (!proveedorAEditar) return
-    setErrorFormProveedor('')
-    if (!formProveedor.nombre.trim()) {
-      setErrorFormProveedor('El nombre del proveedor es obligatorio')
-      return
-    }
-
-    try {
-      await actualizarProveedor(proveedorAEditar.id, formProveedor)
-      setProveedorAEditar(null)
-      notificarExito('Proveedor actualizado exitosamente.')
-      void cargarDatos()
-    } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al actualizar el proveedor')
-    }
-  }
-
-  async function confirmarEliminarProveedor() {
-    if (!proveedorAEliminar) return
-    try {
-      await eliminarProveedor(proveedorAEliminar.id)
-      setProveedorAEliminar(null)
-      notificarExito('Proveedor eliminado exitosamente.')
-      void cargarDatos()
-    } catch (err) {
-      setErrorGeneral(err instanceof Error ? err.message : 'Error al eliminar el proveedor')
-      setProveedorAEliminar(null)
-    }
-  }
-
   // Clases compartidas
   const inputCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
@@ -434,29 +346,16 @@ function Inventario() {
           </p>
         </div>
 
-        {tab === 'articulos' ? (
-          <button
-            type="button"
-            onClick={() => {
-              resetFormArticulo()
-              setModalNuevoArticulo(true)
-            }}
-            className="self-start rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow transition-colors hover:bg-primary-800"
-          >
-            + Registrar Artículo
-          </button>
-        ) : (
-          <button
-            type="button"
-            onClick={() => {
-              resetFormProveedor()
-              setModalNuevoProveedor(true)
-            }}
-            className="self-start rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow transition-colors hover:bg-primary-800"
-          >
-            + Nuevo Proveedor
-          </button>
-        )}
+        <button
+          type="button"
+          onClick={() => {
+            resetFormArticulo()
+            setModalNuevoArticulo(true)
+          }}
+          className="self-start rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow transition-colors hover:bg-primary-800"
+        >
+          + Registrar Artículo
+        </button>
       </div>
 
       {/* Alertas */}
@@ -471,309 +370,190 @@ function Inventario() {
         </div>
       )}
 
-      {/* Pestañas */}
-      <div className="flex gap-1 rounded-xl bg-primary-100 p-1">
-        <button
-          type="button"
-          onClick={() => setTab('articulos')}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-            tab === 'articulos'
-              ? 'bg-white text-primary-900 shadow-sm'
-              : 'text-primary-600 hover:text-primary-800'
-          }`}
-        >
-          Artículos y Materiales ({articulos.length})
-        </button>
-        <button
-          type="button"
-          onClick={() => setTab('proveedores')}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-            tab === 'proveedores'
-              ? 'bg-white text-primary-900 shadow-sm'
-              : 'text-primary-600 hover:text-primary-800'
-          }`}
-        >
-          Proveedores ({proveedores.length})
-        </button>
-      </div>
-
       {/* ------------------------------------------------------------------ */}
       {/* VISTA ARTÍCULOS */}
       {/* ------------------------------------------------------------------ */}
-      {tab === 'articulos' && (
-        <div className="space-y-4">
-          {/* Barra de Filtros */}
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative flex-1">
-              <svg
-                className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-                />
-              </svg>
-              <input
-                type="text"
-                placeholder="Buscar por nombre, descripción o proveedor..."
-                value={busqueda}
-                onChange={(e) => setBusqueda(e.target.value)}
-                className="w-full rounded-lg border border-primary-200 py-2 pl-9 pr-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+      <div className="space-y-4">
+        {/* Barra de Filtros */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+          <div className="relative flex-1">
+            <svg
+              className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
               />
-            </div>
-            <select
-              value={filtroClasificacion}
-              onChange={(e) => setFiltroClasificacion(e.target.value)}
-              className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-            >
-              <option value="Todas">Todas las clasificaciones</option>
-              <option value="articulo">Artículo</option>
-              <option value="inmueble">Inmueble</option>
-            </select>
-            <select
-              value={filtroEstado}
-              onChange={(e) => setFiltroEstado(e.target.value)}
-              className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-            >
-              <option value="Todos">Todos los estados</option>
-              <option value="activo">Activos</option>
-              <option value="inactivo">Inactivos</option>
-            </select>
+            </svg>
+            <input
+              type="text"
+              placeholder="Buscar por nombre, descripción o proveedor..."
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+              className="w-full rounded-lg border border-primary-200 py-2 pl-9 pr-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+            />
           </div>
-
-          {/* Tabla de Artículos */}
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Clasificación</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Stock Disp.</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación Actual</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Proveedor</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-right font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
-                {cargando ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                      Cargando inventario...
-                    </td>
-                  </tr>
-                ) : articulos.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                      No se encontraron artículos registrados.
-                    </td>
-                  </tr>
-                ) : (
-                  articulos.map((item) => {
-                    const inactivo = item.estado === 'inactivo'
-                    return (
-                      <tr
-                        key={item.id}
-                        className={`hover:bg-primary-50/50 transition-colors ${
-                          inactivo ? 'bg-gray-50/70 opacity-75' : ''
-                        }`}
-                      >
-                        <td className="px-4 py-3">
-                          <div className="font-medium text-primary-900">{item.nombre}</div>
-                          <div className="text-xs text-primary-400 line-clamp-1">{item.descripcion}</div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
-                              item.clasificacion === 'inmueble'
-                                ? 'bg-purple-100 text-purple-700'
-                                : 'bg-blue-100 text-blue-700'
-                            }`}
-                          >
-                            {item.clasificacion}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 font-mono font-semibold">
-                          <span
-                            className={`rounded px-2 py-0.5 ${
-                              item.cantidad_disponible === 0
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-emerald-100 text-emerald-800'
-                            }`}
-                          >
-                            {item.cantidad_disponible} uds
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-primary-600">{item.ubicacion}</td>
-                        <td className="px-4 py-3 text-primary-600">
-                          {item.proveedor?.nombre ?? '—'}
-                        </td>
-                        <td className="px-4 py-3">
-                          <span
-                            className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                              item.estado === 'activo'
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-gray-200 text-gray-700'
-                            }`}
-                          >
-                            <span
-                              className={`h-1.5 w-1.5 rounded-full ${
-                                item.estado === 'activo' ? 'bg-green-500' : 'bg-gray-500'
-                              }`}
-                            />
-                            {item.estado === 'activo' ? 'Activo' : 'Inactivo'}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            {/* Botón Movimiento Rápido (Task 212) */}
-                            <button
-                              type="button"
-                              onClick={() => abrirModalMovimiento(item)}
-                              disabled={inactivo}
-                              title={
-                                inactivo
-                                  ? 'No disponible para artículos inactivos'
-                                  : 'Registrar Entrada / Salida'
-                              }
-                              className="rounded bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-40 disabled:cursor-not-allowed"
-                            >
-                              ± Movimiento
-                            </button>
-
-                            {/* Botón Historial Cronológico (Task 214) */}
-                            <button
-                              type="button"
-                              onClick={() => abrirHistorial(item)}
-                              className="rounded border border-primary-200 px-2.5 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
-                            >
-                              Historial
-                            </button>
-
-                            {/* Botón Editar */}
-                            <button
-                              type="button"
-                              onClick={() => abrirEdicionArticulo(item)}
-                              className="rounded border border-primary-200 px-2.5 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
-                            >
-                              Editar
-                            </button>
-
-                            {/* Botón Inhabilitar / Reactivar (Task 451) */}
-                            <button
-                              type="button"
-                              onClick={() => setArticuloACambiarEstado(item)}
-                              className={`rounded px-2.5 py-1 text-xs font-semibold ${
-                                item.estado === 'activo'
-                                  ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
-                                  : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
-                              }`}
-                            >
-                              {item.estado === 'activo' ? 'Inhabilitar' : 'Reactivar'}
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
+          <select
+            value={filtroClasificacion}
+            onChange={(e) => setFiltroClasificacion(e.target.value)}
+            className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+          >
+            <option value="Todas">Todas las clasificaciones</option>
+            <option value="articulo">Artículo</option>
+            <option value="inmueble">Inmueble</option>
+          </select>
+          <select
+            value={filtroEstado}
+            onChange={(e) => setFiltroEstado(e.target.value)}
+            className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+          >
+            <option value="Todos">Todos los estados</option>
+            <option value="activo">Activos</option>
+            <option value="inactivo">Inactivos</option>
+          </select>
         </div>
-      )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* VISTA PROVEEDORES */}
-      {/* ------------------------------------------------------------------ */}
-      {tab === 'proveedores' && (
-        <div className="space-y-4">
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
+        {/* Tabla de Artículos */}
+        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+          <table className="min-w-full divide-y divide-primary-100 text-sm">
+            <thead className="bg-primary-50">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Clasificación</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Stock Disp.</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación Actual</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
+                <th className="px-4 py-3 text-right font-medium text-primary-700">Acciones</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-primary-50">
+              {cargando ? (
                 <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Proveedor</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Contacto</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Teléfono</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Correo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-right font-medium text-primary-700">Acciones</th>
+                  <td colSpan={6} className="px-4 py-8 text-center text-primary-400">
+                    Cargando inventario...
+                  </td>
                 </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
-                {proveedores.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                      No hay proveedores registrados.
-                    </td>
-                  </tr>
-                ) : (
-                  proveedores.map((p) => (
-                    <tr key={p.id} className="hover:bg-primary-50/50">
-                      <td className="px-4 py-3 font-medium text-primary-900">{p.nombre}</td>
+              ) : articulos.length === 0 ? (
+                <tr>
+                  <td colSpan={6} className="px-4 py-8 text-center text-primary-400">
+                    No se encontraron artículos registrados.
+                  </td>
+                </tr>
+              ) : (
+                articulos.map((item) => {
+                  const inactivo = item.estado === 'inactivo'
+                  return (
+                    <tr
+                      key={item.id}
+                      className={`hover:bg-primary-50/50 transition-colors ${
+                        inactivo ? 'bg-gray-50/70 opacity-75' : ''
+                      }`}
+                    >
                       <td className="px-4 py-3">
-                        <span className="inline-block rounded-full bg-primary-100 px-2.5 py-0.5 text-xs font-semibold text-primary-700">
-                          {p.tipo}
-                        </span>
+                        <div className="font-medium text-primary-900">{item.nombre}</div>
+                        <div className="text-xs text-primary-400 line-clamp-1">{item.descripcion}</div>
                       </td>
-                      <td className="px-4 py-3 text-primary-600">{p.contacto || '—'}</td>
-                      <td className="px-4 py-3 font-mono text-primary-600">{p.telefono || '—'}</td>
-                      <td className="px-4 py-3 text-primary-600">{p.correo || '—'}</td>
                       <td className="px-4 py-3">
                         <span
-                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
-                            p.estado === 'Activo'
-                              ? 'bg-green-100 text-green-700'
-                              : 'bg-red-100 text-red-700'
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold capitalize ${
+                            item.clasificacion === 'inmueble'
+                              ? 'bg-purple-100 text-purple-700'
+                              : 'bg-blue-100 text-blue-700'
                           }`}
                         >
-                          {p.estado}
+                          {item.clasificacion}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 font-mono font-semibold">
+                        <span
+                          className={`rounded px-2 py-0.5 ${
+                            item.cantidad_disponible === 0
+                              ? 'bg-red-100 text-red-700'
+                              : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {item.cantidad_disponible} uds
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-primary-600">{item.ubicacion}</td>
+                      <td className="px-4 py-3">
+                        <span
+                          className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-semibold ${
+                            item.estado === 'activo'
+                              ? 'bg-green-100 text-green-700'
+                              : 'bg-gray-200 text-gray-700'
+                          }`}
+                        >
+                          <span
+                            className={`h-1.5 w-1.5 rounded-full ${
+                              item.estado === 'activo' ? 'bg-green-500' : 'bg-gray-500'
+                            }`}
+                          />
+                          {item.estado === 'activo' ? 'Activo' : 'Inactivo'}
                         </span>
                       </td>
                       <td className="px-4 py-3 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {/* Botón Movimiento Rápido (Task 212) */}
                           <button
                             type="button"
-                            onClick={() => {
-                              setProveedorAEditar(p)
-                              setFormProveedor({
-                                nombre: p.nombre,
-                                tipo: p.tipo,
-                                contacto: p.contacto || '',
-                                telefono: p.telefono || '',
-                                correo: p.correo || '',
-                                direccion: p.direccion || '',
-                                estado: p.estado,
-                              })
-                              setErrorFormProveedor('')
-                            }}
-                            className="text-xs font-medium text-primary-600 hover:text-primary-800 hover:underline"
+                            onClick={() => abrirModalMovimiento(item)}
+                            disabled={inactivo}
+                            title={
+                              inactivo
+                                ? 'No disponible para artículos inactivos'
+                                : 'Registrar Entrada / Salida'
+                            }
+                            className="rounded bg-primary-50 px-2.5 py-1 text-xs font-semibold text-primary-700 hover:bg-primary-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                          >
+                            ± Movimiento
+                          </button>
+
+                          {/* Botón Historial Cronológico (Task 214) */}
+                          <button
+                            type="button"
+                            onClick={() => abrirHistorial(item)}
+                            className="rounded border border-primary-200 px-2.5 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
+                          >
+                            Historial
+                          </button>
+
+                          {/* Botón Editar */}
+                          <button
+                            type="button"
+                            onClick={() => abrirEdicionArticulo(item)}
+                            className="rounded border border-primary-200 px-2.5 py-1 text-xs font-medium text-primary-600 hover:bg-primary-50"
                           >
                             Editar
                           </button>
+
+                          {/* Botón Inhabilitar / Reactivar (Task 451) */}
                           <button
                             type="button"
-                            onClick={() => setProveedorAEliminar(p)}
-                            className="text-xs font-medium text-red-600 hover:text-red-800 hover:underline"
+                            onClick={() => setArticuloACambiarEstado(item)}
+                            className={`rounded px-2.5 py-1 text-xs font-semibold ${
+                              item.estado === 'activo'
+                                ? 'bg-amber-50 text-amber-700 hover:bg-amber-100'
+                                : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'
+                            }`}
                           >
-                            Eliminar
+                            {item.estado === 'activo' ? 'Inhabilitar' : 'Reactivar'}
                           </button>
                         </div>
                       </td>
                     </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* MODAL: REGISTRAR O EDITAR ARTÍCULO (Task 205) */}
@@ -1251,176 +1031,6 @@ function Inventario() {
                 }`}
               >
                 Confirmar {articuloACambiarEstado.estado === 'activo' ? 'Inhabilitación' : 'Reactivación'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ------------------------------------------------------------------ */}
-      {/* MODAL REGISTRAR O EDITAR PROVEEDOR */}
-      {/* ------------------------------------------------------------------ */}
-      {(modalNuevoProveedor || proveedorAEditar) && (
-        <div className={modalBgCls}>
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
-                {proveedorAEditar ? `Editar Proveedor: ${proveedorAEditar.nombre}` : 'Nuevo Proveedor'}
-              </h2>
-              <button
-                type="button"
-                onClick={() => {
-                  setModalNuevoProveedor(false)
-                  setProveedorAEditar(null)
-                  resetFormProveedor()
-                }}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
-              >
-                ✕
-              </button>
-            </div>
-
-            {errorFormProveedor && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
-                {errorFormProveedor}
-              </div>
-            )}
-
-            <form onSubmit={proveedorAEditar ? handleEditarProveedor : handleCrearProveedor} className="space-y-4">
-              <div>
-                <label className={labelCls}>Nombre del proveedor *</label>
-                <input
-                  type="text"
-                  required
-                  value={formProveedor.nombre}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, nombre: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Tipo de Proveedor</label>
-                  <select
-                    value={formProveedor.tipo}
-                    onChange={(e) =>
-                      setFormProveedor((p) => ({
-                        ...p,
-                        tipo: e.target.value as 'Físico' | 'Jurídico',
-                      }))
-                    }
-                    className={selectCls}
-                  >
-                    <option value="Jurídico">Jurídico</option>
-                    <option value="Físico">Físico</option>
-                  </select>
-                </div>
-                <div>
-                  <label className={labelCls}>Estado</label>
-                  <select
-                    value={formProveedor.estado}
-                    onChange={(e) =>
-                      setFormProveedor((p) => ({
-                        ...p,
-                        estado: e.target.value as 'Activo' | 'Inactivo',
-                      }))
-                    }
-                    className={selectCls}
-                  >
-                    <option value="Activo">Activo</option>
-                    <option value="Inactivo">Inactivo</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className={labelCls}>Persona de contacto</label>
-                <input
-                  type="text"
-                  value={formProveedor.contacto}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, contacto: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className={labelCls}>Teléfono</label>
-                  <input
-                    type="text"
-                    value={formProveedor.telefono}
-                    onChange={(e) => setFormProveedor((p) => ({ ...p, telefono: e.target.value }))}
-                    className={inputCls}
-                  />
-                </div>
-                <div>
-                  <label className={labelCls}>Correo electrónico</label>
-                  <input
-                    type="email"
-                    value={formProveedor.correo}
-                    onChange={(e) => setFormProveedor((p) => ({ ...p, correo: e.target.value }))}
-                    className={inputCls}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className={labelCls}>Dirección</label>
-                <input
-                  type="text"
-                  value={formProveedor.direccion}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, direccion: e.target.value }))}
-                  className={inputCls}
-                />
-              </div>
-
-              <div className="mt-6 flex justify-end gap-3 border-t border-primary-100 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setModalNuevoProveedor(false)
-                    setProveedorAEditar(null)
-                    resetFormProveedor()
-                  }}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary-800"
-                >
-                  {proveedorAEditar ? 'Guardar Cambios' : 'Registrar Proveedor'}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL ELIMINAR PROVEEDOR */}
-      {proveedorAEliminar && (
-        <div className={modalBgCls}>
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h3 className="text-lg font-bold text-red-900">¿Eliminar proveedor?</h3>
-            <p className="mt-2 text-sm text-primary-600">
-              ¿Está seguro de eliminar al proveedor{' '}
-              <strong>{proveedorAEliminar.nombre}</strong>? Esta acción no se puede deshacer.
-            </p>
-            <div className="mt-6 flex justify-end gap-3">
-              <button
-                type="button"
-                onClick={() => setProveedorAEliminar(null)}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={confirmarEliminarProveedor}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-              >
-                Eliminar
               </button>
             </div>
           </div>

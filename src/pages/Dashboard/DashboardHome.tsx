@@ -310,7 +310,7 @@ function DashboardHomeContenido() {
           color: 'bg-orange-100 text-orange-600',
           mensaje: 'Stock crítico',
           count: stockCritico,
-          to: '/dashboard/inventario',
+          to: '/dashboard/inventario/articulos',
         },
         {
           key: 'abonados-inactivos',
@@ -457,7 +457,7 @@ function DashboardHomeContenido() {
             title="Stock Bajo"
             value={String(stockBajo)}
             subtitle="Items por reabastecer"
-            to="/dashboard/inventario"
+            to="/dashboard/inventario/articulos"
           />
         </div>
       </div>

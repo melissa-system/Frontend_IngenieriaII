@@ -10,6 +10,10 @@ export interface SubMenuItem {
    * tipos ('Física' | 'Jurídica'). Administrador y Junta Directiva ven el
    * ítem sin importar este campo. */
   tipoAbonado?: string[]
+  /** Marca ítems exclusivos de la vista de Abonado: solo aparecen con rol
+   * efectivo 'Abonado', ni siquiera para Junta Directiva (que por la "Regla
+   * de Oro" ve el resto del menú completo). Ej: "Mis Averías". */
+  soloAbonado?: boolean
   submenu?: SubMenuItem[]
 }
 
@@ -19,6 +23,7 @@ export interface MenuItemConfig {
   to?: string
   submenu?: SubMenuItem[]
   roles: string[]
+  soloAbonado?: boolean
 }
 
 function DashboardIcon() {
@@ -121,8 +126,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Inventario',
     icon: <InventarioIcon />,
-    to: '/dashboard/inventario',
     roles: ['Administrador'],
+    submenu: [
+      { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
+      { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
+    ],
   },
   {
     label: 'Averías',
@@ -134,6 +142,8 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Mis Averías',
     icon: <AveriasIcon />,
     to: '/dashboard/mis-averias',
+    // Exclusivo de la vista de Abonado: ni la Junta Directiva lo ve.
+    soloAbonado: true,
     roles: ['Abonado'],
   },
   {
@@ -195,6 +205,7 @@ function filterSubMenuByRole(
     // del RolesGuard del backend — así no hay que acordarse de agregarlo a
     // mano en cada ítem nuevo (eso fue justo lo que faltó en varios).
     .filter((sub) => {
+      if (sub.soloAbonado) return role === 'Abonado'
       if (role !== 'Junta Directiva' && !sub.roles.includes(role)) return false
       if (sub.tipoAbonado && role === 'Abonado') {
         return tipoAbonado ? sub.tipoAbonado.includes(tipoAbonado) : false
@@ -214,7 +225,11 @@ export function filterMenuByRole(
   tipoAbonado?: string | null,
 ): MenuItemConfig[] {
   return items
-    .filter((item) => role === 'Junta Directiva' || item.roles.includes(role))
+    .filter((item) =>
+      item.soloAbonado
+        ? role === 'Abonado'
+        : role === 'Junta Directiva' || item.roles.includes(role),
+    )
     .map((item) => ({
       ...item,
       submenu: item.submenu

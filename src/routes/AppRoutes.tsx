@@ -1,4 +1,4 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout/MainLayout'
 import DashboardLayout from '../components/Dashboard/DashboardLayout'
 import ProtectedRoute from '../components/Dashboard/ProtectedRoute'
@@ -19,6 +19,7 @@ import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambio
 import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
 import Inventario from '../pages/Dashboard/Inventario'
+import Proveedores from '../pages/Dashboard/Proveedores'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
 import MisAverias from '../pages/Dashboard/MisAverias'
 import Publicaciones from '../pages/Dashboard/Publicaciones'
@@ -67,7 +68,12 @@ function AppRoutes() {
         <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
         <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />
         <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
-        <Route path="inventario" element={<Inventario />} />
+        <Route
+          path="inventario"
+          element={<Navigate to="/dashboard/inventario/articulos" replace />}
+        />
+        <Route path="inventario/articulos" element={<Inventario />} />
+        <Route path="inventario/proveedores" element={<Proveedores />} />
         <Route path="averias" element={<AveriasAdmin />} />
         <Route path="mis-averias" element={<MisAverias />} />
         <Route path="reportes" element={<Reportes />} />

@@ -233,45 +233,53 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
-  // Validación reactiva para habilitar el botón
-  const formularioValido = useMemo(() => {
-    return (
-      nombreNuevo.trim().length >= 5 &&
-      cedulaNueva.trim().length >= 9 &&
-      telefonoNuevo.trim().length >= 8 &&
-      CORREO_REGEX.test(correoNuevo.trim()) &&
-      motivoTraspaso !== '' &&
-      justificacion.trim().length >= 10 &&
-      justificacion.trim().length <= 255 &&
-      archivo !== null &&
-      !tieneAbierta
-    )
-  }, [
-    nombreNuevo,
-    cedulaNueva,
-    telefonoNuevo,
-    correoNuevo,
-    motivoTraspaso,
-    justificacion,
-    archivo,
-    tieneAbierta,
-  ])
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
 
-    if (!formularioValido || !archivo || !motivoTraspaso) return
+    const nombre = nombreNuevo.trim()
+    const cedula = cedulaNueva.trim()
+    const telefono = telefonoNuevo.trim()
+    const correo = correoNuevo.trim()
+    const just = justificacion.trim()
+    if (nombre.length < 5) {
+      setError('El nombre del nuevo propietario es obligatorio.')
+      return
+    }
+    if (cedula.length < 9) {
+      setError('La cédula del nuevo propietario es obligatoria.')
+      return
+    }
+    if (telefono.length < 8) {
+      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
+      return
+    }
+    if (!CORREO_REGEX.test(correo)) {
+      setError('El correo electrónico del nuevo propietario no es válido.')
+      return
+    }
+    if (motivoTraspaso === '') {
+      setError('Seleccioná el motivo del traspaso.')
+      return
+    }
+    if (just.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+    if (!archivo) {
+      setError('Debes adjuntar el documento legal de respaldo del traspaso.')
+      return
+    }
 
     setEnviando(true)
     try {
       const resp = await crearSolicitudCambioPropietario({
-        nombreNuevoPropietario: nombreNuevo.trim(),
-        cedulaNuevoPropietario: cedulaNueva.trim(),
-        telefonoNuevoPropietario: telefonoNuevo.trim(),
-        correoNuevoPropietario: correoNuevo.trim(),
+        nombreNuevoPropietario: nombre,
+        cedulaNuevoPropietario: cedula,
+        telefonoNuevoPropietario: telefono,
+        correoNuevoPropietario: correo,
         motivoTraspaso: motivoTraspaso as MotivoTraspaso,
-        justificacion: justificacion.trim(),
+        justificacion: just,
         documentoSoporte: archivo,
       })
       setCodigoGenerado(resp.codigo_solicitud)
@@ -507,14 +515,24 @@ function VistaAbonado() {
           />
         </div>
 
-        {/* Botón de envío */}
-        <div className="flex justify-end pt-4 border-t border-primary-100">
+        {/* Botones */}
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
           <button
             type="submit"
-            disabled={!formularioValido || enviando}
-            className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={tieneAbierta || enviando}
+            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {enviando ? 'Enviando solicitud…' : 'Enviar Solicitud de Traspaso'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
           </button>
         </div>
       </form>
@@ -537,14 +555,14 @@ function VistaAbonado() {
         ) : (
           <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
             <table className="w-full text-left text-sm text-primary-800">
-              <thead className="bg-primary-50 text-xs font-semibold uppercase text-primary-600">
+              <thead className="bg-primary-50">
                 <tr>
-                  <th className="px-4 py-3">Código</th>
-                  <th className="px-4 py-3">Nuevo Propietario</th>
-                  <th className="px-4 py-3">Motivo</th>
-                  <th className="px-4 py-3">Documento</th>
-                  <th className="px-4 py-3">Fecha</th>
-                  <th className="px-4 py-3">Estado</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-100">
@@ -710,47 +728,59 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
-  const formularioValido = useMemo(() => {
-    return (
-      abonadoElegido !== null &&
-      abonadoElegido.estado === 'Activo' &&
-      nombreNuevo.trim().length >= 5 &&
-      cedulaNueva.trim().length >= 9 &&
-      telefonoNuevo.trim().length >= 8 &&
-      CORREO_REGEX.test(correoNuevo.trim()) &&
-      motivoTraspaso !== '' &&
-      justificacion.trim().length >= 10 &&
-      justificacion.trim().length <= 255 &&
-      archivo !== null
-    )
-  }, [
-    abonadoElegido,
-    nombreNuevo,
-    cedulaNueva,
-    telefonoNuevo,
-    correoNuevo,
-    motivoTraspaso,
-    justificacion,
-    archivo,
-  ])
-
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setMensaje('')
 
-    if (!formularioValido || !abonadoElegido || !archivo || !motivoTraspaso) return
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
+      setError('Seleccioná un abonado activo para la solicitud.')
+      return
+    }
+    const nombre = nombreNuevo.trim()
+    const cedula = cedulaNueva.trim()
+    const telefono = telefonoNuevo.trim()
+    const correo = correoNuevo.trim()
+    const just = justificacion.trim()
+    if (nombre.length < 5) {
+      setError('El nombre del nuevo propietario es obligatorio.')
+      return
+    }
+    if (cedula.length < 9) {
+      setError('La cédula del nuevo propietario es obligatoria.')
+      return
+    }
+    if (telefono.length < 8) {
+      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
+      return
+    }
+    if (!CORREO_REGEX.test(correo)) {
+      setError('El correo electrónico del nuevo propietario no es válido.')
+      return
+    }
+    if (motivoTraspaso === '') {
+      setError('Seleccioná el motivo del traspaso.')
+      return
+    }
+    if (just.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
+      return
+    }
+    if (!archivo) {
+      setError('Debes adjuntar el documento legal de respaldo del traspaso.')
+      return
+    }
 
     setEnviando(true)
     try {
       const resp = await crearSolicitudCambioPropietario({
         idAbonado: Number(abonadoElegido.id),
-        nombreNuevoPropietario: nombreNuevo.trim(),
-        cedulaNuevoPropietario: cedulaNueva.trim(),
-        telefonoNuevoPropietario: telefonoNuevo.trim(),
-        correoNuevoPropietario: correoNuevo.trim(),
+        nombreNuevoPropietario: nombre,
+        cedulaNuevoPropietario: cedula,
+        telefonoNuevoPropietario: telefono,
+        correoNuevoPropietario: correo,
         motivoTraspaso: motivoTraspaso as MotivoTraspaso,
-        justificacion: justificacion.trim(),
+        justificacion: just,
         documentoSoporte: archivo,
       })
       setCodigoGenerado(resp.codigo_solicitud)
@@ -1018,13 +1048,24 @@ function VistaAdministrador() {
           obligatorio
         />
 
-        <div className="flex justify-end pt-4 border-t border-primary-100">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
           <button
             type="submit"
-            disabled={!formularioValido || enviando}
-            className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={enviando}
+            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {enviando ? 'Registrando en ventanilla…' : 'Registrar Solicitud'}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
           </button>
         </div>
       </form>
@@ -1047,15 +1088,15 @@ function VistaAdministrador() {
         ) : (
           <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
             <table className="w-full text-left text-sm text-primary-800">
-              <thead className="bg-primary-50 text-xs font-semibold uppercase text-primary-600">
+              <thead className="bg-primary-50">
                 <tr>
-                  <th className="px-4 py-3">Código</th>
-                  <th className="px-4 py-3">Titular Anterior</th>
-                  <th className="px-4 py-3">Nuevo Propietario</th>
-                  <th className="px-4 py-3">Motivo</th>
-                  <th className="px-4 py-3">Documento</th>
-                  <th className="px-4 py-3">Estado</th>
-                  <th className="px-4 py-3 text-right">Acción</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Titular Anterior</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
+                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-100">
@@ -1104,16 +1145,16 @@ function VistaAdministrador() {
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-4 py-3">
                       <button
                         type="button"
                         onClick={() => {
                           setDetalle(s)
                           setMotivoRechazo(s.motivo_rechazo ?? '')
                         }}
-                        className="rounded-lg border border-primary-200 bg-white px-3 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50 shadow-sm"
+                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
                       >
-                        Gestionar
+                        Ver / gestionar
                       </button>
                     </td>
                   </tr>
@@ -1126,152 +1167,179 @@ function VistaAdministrador() {
 
       {/* Modal de Detalle y Gestión */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in">
-          <div className="w-full max-w-2xl rounded-2xl bg-white p-6 shadow-2xl space-y-6">
-            <div className="flex items-center justify-between border-b border-primary-100 pb-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+            <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-bold text-primary-900">
-                  Gestión de Solicitud {detalle.codigo_solicitud}
+                <h3 className="text-lg font-semibold text-primary-900">
+                  {detalle.codigo_solicitud}
                 </h3>
-                <span className="text-xs text-primary-500">
-                  Registrada el {formatearFecha(detalle.fecha_creacion)}
-                </span>
+                <p className="mt-0.5 text-sm text-primary-500">
+                  Solicitud de cambio de propietario
+                </p>
               </div>
               <BadgeEstado estado={detalle.estado} />
             </div>
 
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 text-sm">
-              <div className="rounded-xl bg-gray-50 p-3">
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Titular Actual
-                </p>
-                <p className="font-bold text-primary-900">{detalle.nombre_abonado}</p>
-                <p className="text-xs text-primary-600">Cédula: {detalle.cedula}</p>
-                <p className="text-xs text-primary-600">
-                  N° Abonado: {detalle.numero_abonado}
-                </p>
-              </div>
-
-              <div className="rounded-xl bg-primary-50/50 p-3">
-                <p className="text-xs font-semibold uppercase text-primary-700">
-                  Nuevo Propietario (Cesionario)
-                </p>
-                <p className="font-bold text-primary-900">
-                  {detalle.nombre_nuevo_propietario}
-                </p>
-                <p className="text-xs text-primary-600">
-                  Cédula: {detalle.cedula_nuevo_propietario}
-                </p>
-                <p className="text-xs text-primary-600">
-                  Tel: {detalle.telefono_nuevo_propietario} | Correo:{' '}
-                  {detalle.correo_nuevo_propietario}
-                </p>
+            <dl className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium uppercase text-primary-400">Abonado</dt>
+                <dd className="mt-0.5 text-primary-800">
+                  {detalle.nombre_abonado}{' '}
+                  <span className="text-primary-400">({detalle.numero_abonado})</span>
+                </dd>
+                <dd className="mt-1 text-xs text-primary-400">Cédula</dd>
+                <dd className="font-mono text-primary-800">{detalle.cedula}</dd>
               </div>
 
               <div className="sm:col-span-2">
-                <p className="text-xs font-semibold uppercase text-gray-500">
-                  Motivo y Justificación
-                </p>
-                <p className="text-sm font-medium text-primary-900 mt-0.5">
-                  <strong>Motivo:</strong> {detalle.motivo_traspaso}
-                </p>
-                <p className="text-sm text-primary-700 mt-1 italic bg-gray-50 p-2.5 rounded-lg border border-gray-100">
-                  "{detalle.justificacion}"
-                </p>
+                <dt className="text-xs font-medium uppercase text-primary-400">
+                  Nuevo propietario (cesionario)
+                </dt>
+                <dd className="mt-0.5 text-xs text-primary-400">Nombre</dd>
+                <dd className="font-medium text-primary-900">
+                  {detalle.nombre_nuevo_propietario}
+                </dd>
+                <dd className="mt-2 text-xs text-primary-400">Cédula</dd>
+                <dd className="font-mono text-primary-800">
+                  {detalle.cedula_nuevo_propietario}
+                </dd>
+                <dd className="mt-2 text-xs text-primary-400">Contacto</dd>
+                <dd className="text-primary-800">
+                  {detalle.telefono_nuevo_propietario} • {detalle.correo_nuevo_propietario}
+                </dd>
               </div>
 
-              {detalle.documento_soporte_url && (
-                <div className="sm:col-span-2 flex items-center justify-between rounded-lg border border-primary-200 bg-primary-50 p-3">
-                  <span className="text-xs font-semibold text-primary-800">
-                    Documento Legal Adjunto
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() =>
-                      descargarArchivo(
-                        detalle.documento_soporte_url!,
-                        `documento-soporte${extensionDesdeUrl(
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium uppercase text-primary-400">Motivo</dt>
+                <dd className="mt-0.5 text-primary-800">{detalle.motivo_traspaso}</dd>
+              </div>
+
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium uppercase text-primary-400">
+                  Justificación
+                </dt>
+                <dd className="mt-0.5 text-primary-800">{detalle.justificacion}</dd>
+              </div>
+
+              <div className="sm:col-span-2">
+                <dt className="text-xs font-medium uppercase text-primary-400">
+                  Documento de soporte
+                </dt>
+                <dd className="mt-0.5 text-primary-800">
+                  {detalle.documento_soporte_url ? (
+                    <button
+                      type="button"
+                      onClick={() =>
+                        descargarArchivo(
                           detalle.documento_soporte_url!,
-                        )}`,
-                      )
-                    }
-                    className="rounded-md bg-primary-700 px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:bg-primary-800"
-                  >
-                    Ver / Descargar documento
-                  </button>
+                          `documento-soporte${extensionDesdeUrl(
+                            detalle.documento_soporte_url!,
+                          )}`,
+                        )
+                      }
+                      className="font-medium text-primary-700 underline hover:text-primary-800"
+                    >
+                      Descargar documento adjunto
+                    </button>
+                  ) : (
+                    <span className="text-primary-400">Sin documento adjunto</span>
+                  )}
+                </dd>
+              </div>
+
+              {detalle.motivo_rechazo && (
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium uppercase text-red-500">
+                    Motivo de rechazo
+                  </dt>
+                  <dd className="mt-0.5 text-red-700">{detalle.motivo_rechazo}</dd>
                 </div>
               )}
-            </div>
 
-            {/* Acciones si la solicitud está abierta */}
-            {detalle.estado !== 'aprobado' && detalle.estado !== 'rechazado' ? (
-              <div className="space-y-4 border-t border-primary-100 pt-4">
-                <div>
-                  <label className="block text-xs font-medium text-primary-700">
-                    Motivo de resolución / rechazo (obligatorio si rechaza)
-                  </label>
-                  <textarea
-                    rows={2}
-                    value={motivoRechazo}
-                    onChange={(e) => setMotivoRechazo(e.target.value)}
-                    placeholder="Detallá la justificación de aprobación o rechazo..."
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                  />
- 
-                  {motivoRechazo.trim().length > 0 && !motivoValido && (
-                    <p className="mt-1 text-xs text-amber-600">
-                      Escribe al menos {MIN_MOTIVO} caracteres para poder
-                      rechazar (llevas {motivoRechazo.trim().length}).
-                    </p>
-                  )}
-                </div>
- 
-                <div className="flex flex-wrap items-center justify-end gap-2">
+              <div>
+                <dt className="text-xs font-medium uppercase text-primary-400">
+                  Fecha de creación
+                </dt>
+                <dd className="mt-0.5 text-primary-800">
+                  {formatearFecha(detalle.fecha_creacion)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-medium uppercase text-primary-400">
+                  Última actualización
+                </dt>
+                <dd className="mt-0.5 text-primary-800">
+                  {formatearFecha(detalle.fecha_actualizacion)}
+                </dd>
+              </div>
+            </dl>
+
+            {detalle.estado === 'aprobado' || detalle.estado === 'rechazado' ? (
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setDetalle(null)}
+                  className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+                >
+                  Cerrar
+                </button>
+              </div>
+            ) : (
+              <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
+                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
+                  Motivo (obligatorio al rechazar)
+                </label>
+                <textarea
+                  id="motivo"
+                  value={motivoRechazo}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
+                  rows={3}
+                  placeholder="Ej: la documentación de respaldo no acredita la cesión de derechos de la paja de agua"
+                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                />
+
+                {motivoRechazo.trim().length > 0 && !motivoValido && (
+                  <p className="text-xs text-amber-600">
+                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
+                    (llevas {motivoRechazo.trim().length}).
+                  </p>
+                )}
+
+                <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
                     onClick={() => setDetalle(null)}
                     disabled={gestionando}
-                    className="rounded-full border border-gray-300 px-4 py-2 text-xs font-semibold text-gray-700 hover:bg-gray-100"
+                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
                   >
                     Cancelar
                   </button>
-                  {detalle.estado === 'pendiente' && (
-                    <button
-                      type="button"
-                      disabled={gestionando}
-                      onClick={() => gestionar('en_proceso')}
-                      className="rounded-full bg-blue-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
-                    >
-                      {gestionando ? 'Guardando...' : 'Poner En Proceso'}
-                    </button>
-                  )}
                   <button
                     type="button"
-                    disabled={gestionando || !motivoValido}
+                    onClick={() => gestionar('en_proceso')}
+                    disabled={gestionando || detalle.estado === 'en_proceso'}
+                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                  >
+                    {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => gestionar('aprobado')}
+                    disabled={gestionando}
+                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                  >
+                    {gestionando ? 'Guardando...' : 'Aprobar'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => gestionar('rechazado')}
-                    className="rounded-full bg-red-600 px-4 py-2 text-xs font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-50"
+                    disabled={gestionando || !motivoValido}
+                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Rechazar'}
                   </button>
-                  <button
-                    type="button"
-                    disabled={gestionando}
-                    onClick={() => gestionar('aprobado')}
-                    className="rounded-full bg-green-600 px-5 py-2 text-xs font-semibold text-white shadow-sm hover:bg-green-700 disabled:opacity-50"
-                  >
-                    {gestionando ? 'Guardando...' : 'Aprobar Traspaso'}
-                  </button>
                 </div>
-              </div>
-            ) : (
-              <div className="border-t border-primary-100 pt-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setDetalle(null)}
-                  className="rounded-full bg-primary-700 px-5 py-2 text-xs font-semibold text-white hover:bg-primary-800"
-                >
-                  Cerrar
-                </button>
               </div>
             )}
           </div>

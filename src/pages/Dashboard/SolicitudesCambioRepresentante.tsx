@@ -33,7 +33,6 @@ const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
 // Mismas reglas que valida el backend (clase-validator, DTO de representante).
 const IDENTIFICACION_REGEX = /^(\d{1}-\d{4}-\d{4}|\d{1}-\d{3}-\d{6}|\d{11,12})$/
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const TELEFONO_REGEX = /^[+]?[\d\s-]{7,}$/
 
 // Formatea la cédula mientras se escribe según el primer dígito:
 //   física (1-2345-6789), jurídica (3-101-123456) o DIMEX (11-12 dígitos).
@@ -52,12 +51,6 @@ function formatearCedula(valor: string): string {
     return `${digitos.slice(0, 1)}-${digitos.slice(1, 4)}-${digitos.slice(4, 10)}`
   }
   return digitos
-}
-
-// Teléfono en grupos de 4 dígitos (ej: 8888-7777).
-function formatearTelefono(valor: string): string {
-  const digitos = valor.replace(/\D/g, '').slice(0, 12)
-  return digitos.replace(/(\d{4})(?=\d)/g, '$1-')
 }
 
 // Colores para el distintivo de estado: amarillo (pendiente), azul (en
@@ -159,7 +152,6 @@ function VistaAbonado() {
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
-  const [telefono, setTelefono] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
@@ -233,7 +225,6 @@ function VistaAbonado() {
     setNuevoNombre('')
     setNuevaCedula('')
     setNuevoCorreo('')
-    setTelefono('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
@@ -248,7 +239,6 @@ function VistaAbonado() {
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
-    const tel = telefono.trim()
     const just = justificacion.trim()
     if (!nombre) {
       setError('El nombre del nuevo representante es obligatorio.')
@@ -262,10 +252,6 @@ function VistaAbonado() {
     }
     if (correo && !CORREO_REGEX.test(correo)) {
       setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (tel && !TELEFONO_REGEX.test(tel)) {
-      setError('El teléfono del nuevo representante no es válido.')
       return
     }
     if (just.length < 10) {
@@ -284,7 +270,6 @@ function VistaAbonado() {
         representanteNuevoNombre: nombre,
         representanteNuevoCedula: cedula,
         representanteNuevoCorreo: correo,
-        representanteNuevoTelefono: tel,
         justificacion: just,
         copiaCedula: archivo,
       })
@@ -449,20 +434,6 @@ function VistaAbonado() {
                   Se usa para notificarlo del resultado de la solicitud.
                 </p>
               </div>
-              <div>
-                <label htmlFor="nuevoTelefono" className="block text-sm font-medium text-primary-700">
-                  Teléfono
-                </label>
-                <input
-                  id="nuevoTelefono"
-                  type="tel"
-                  value={telefono}
-                  onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
-                  disabled={tieneAbierta}
-                  placeholder="Teléfono del nuevo representante (opcional)"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
-                />
-              </div>
               <div className="sm:col-span-2">
                 <div className="flex items-center justify-between">
                   <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
@@ -599,7 +570,6 @@ function VistaAdministrador() {
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
-  const [telefono, setTelefono] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
@@ -683,7 +653,6 @@ function VistaAdministrador() {
     setNuevoNombre('')
     setNuevaCedula('')
     setNuevoCorreo('')
-    setTelefono('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
@@ -702,7 +671,6 @@ function VistaAdministrador() {
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
-    const tel = telefono.trim()
     const just = justificacion.trim()
     if (!nombre) {
       setError('El nombre del nuevo representante es obligatorio.')
@@ -716,10 +684,6 @@ function VistaAdministrador() {
     }
     if (correo && !CORREO_REGEX.test(correo)) {
       setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (tel && !TELEFONO_REGEX.test(tel)) {
-      setError('El teléfono del nuevo representante no es válido.')
       return
     }
     if (just.length < 10) {
@@ -739,7 +703,6 @@ function VistaAdministrador() {
         representanteNuevoNombre: nombre,
         representanteNuevoCedula: cedula,
         representanteNuevoCorreo: correo,
-        representanteNuevoTelefono: tel,
         justificacion: just,
         copiaCedula: archivo,
       })
@@ -931,20 +894,6 @@ function VistaAdministrador() {
               value={nuevoCorreo}
               onChange={(e) => setNuevoCorreo(e.target.value)}
               placeholder="correo@ejemplo.com (opcional)"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="nuevoTelefono" className="block text-sm font-medium text-primary-700">
-              Teléfono del nuevo representante
-            </label>
-            <input
-              id="nuevoTelefono"
-              type="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
-              placeholder="Teléfono del nuevo representante (opcional)"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
           </div>
@@ -1157,8 +1106,6 @@ function ModalDetalle({
             <dd className="font-mono text-primary-800">{solicitud.representante_nuevo_cedula}</dd>
             <dd className="mt-2 text-xs text-primary-400">Correo</dd>
             <dd className="text-primary-800">{solicitud.representante_nuevo_correo || '—'}</dd>
-            <dd className="mt-2 text-xs text-primary-400">Teléfono</dd>
-            <dd className="text-primary-800">{solicitud.representante_nuevo_telefono || '—'}</dd>
           </div>
 
           <div className="sm:col-span-2">
