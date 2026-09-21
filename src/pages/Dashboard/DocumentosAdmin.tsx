@@ -363,102 +363,93 @@ function DocumentosAdmin() {
               : 'Todavía no hay documentos cargados.'}
           </p>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Versión</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Visibilidad</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha de carga</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Archivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
-                {documentos.map((doc) => (
-                  <tr key={doc.id} className="hover:bg-primary-50/50">
-                    <td className="px-4 py-3 font-medium text-primary-900">{doc.nombre}</td>
-                    <td className="px-4 py-3 text-primary-600">{doc.tipo}</td>
-                    <td className="px-4 py-3 text-primary-500">v{doc.version}</td>
-                    <td className="px-4 py-3 text-primary-600">{doc.visibilidad}</td>
-                    <td className="px-4 py-3">
-                      <span
-                        className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                          doc.estado === 'Vigente'
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {doc.estado}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-primary-500">{formatearFecha(doc.fecha_carga)}</td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() =>
-                          descargarArchivo(
-                            obtenerUrlArchivo(doc.ubicacion),
-                            `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
-                          )
-                        }
-                        className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
-                      >
-                        Descargar
-                      </button>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex flex-col items-start gap-1">
-                        {doc.estado === 'Vigente' && (
-                          <button
-                            type="button"
-                            onClick={() => openVersionModal(doc)}
-                            className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
-                          >
-                            Actualizar versión
-                          </button>
-                        )}
-                        <button
-                          type="button"
-                          onClick={() => handleToggleVisibilidadDoc(doc)}
-                          disabled={togglingDocId === doc.id}
-                          className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline disabled:opacity-50"
-                        >
-                          {togglingDocId === doc.id
-                            ? 'Guardando...'
-                            : doc.visibilidad === 'Público'
-                              ? 'Hacer interno'
-                              : 'Publicar'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleEstadoDoc(doc)}
-                          disabled={togglingDocId === doc.id}
-                          className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline disabled:opacity-50"
-                        >
-                          {togglingDocId === doc.id
-                            ? 'Guardando...'
-                            : doc.estado === 'Vigente'
-                              ? 'Deshabilitar'
-                              : 'Habilitar'}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleDeleteDoc(doc)}
-                          disabled={togglingDocId === doc.id}
-                          className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
-                        >
-                          Eliminar
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            {documentos.map((doc) => (
+              <div
+                key={doc.id}
+                className="flex flex-col rounded-xl border border-primary-100 bg-white p-5 shadow-sm"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="rounded-full bg-primary-100 px-3 py-1 text-xs font-semibold text-primary-700">
+                    {doc.tipo}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                      doc.estado === 'Vigente'
+                        ? 'bg-green-100 text-green-700'
+                        : 'bg-red-100 text-red-700'
+                    }`}
+                  >
+                    {doc.estado}
+                  </span>
+                </div>
+                <h3 className="mt-3 text-base font-semibold text-primary-900">
+                  {doc.nombre}
+                </h3>
+                <p className="mt-2 flex-1 text-sm text-primary-600">
+                  {doc.visibilidad} · versión {doc.version}
+                </p>
+                <p className="mt-3 text-xs text-primary-400">
+                  {formatearFecha(doc.fecha_carga)}
+                </p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-1 border-t border-primary-50 pt-3">
+                  <button
+                    type="button"
+                    onClick={() =>
+                      descargarArchivo(
+                        obtenerUrlArchivo(doc.ubicacion),
+                        `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
+                      )
+                    }
+                    className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
+                  >
+                    Descargar
+                  </button>
+                  {doc.estado === 'Vigente' && (
+                    <button
+                      type="button"
+                      onClick={() => openVersionModal(doc)}
+                      className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline"
+                    >
+                      Actualizar versión
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleToggleVisibilidadDoc(doc)}
+                    disabled={togglingDocId === doc.id}
+                    className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline disabled:opacity-50"
+                  >
+                    {togglingDocId === doc.id
+                      ? 'Guardando...'
+                      : doc.visibilidad === 'Público'
+                        ? 'Hacer interno'
+                        : 'Publicar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleToggleEstadoDoc(doc)}
+                    disabled={togglingDocId === doc.id}
+                    className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline disabled:opacity-50"
+                  >
+                    {togglingDocId === doc.id
+                      ? 'Guardando...'
+                      : doc.estado === 'Vigente'
+                        ? 'Deshabilitar'
+                        : 'Habilitar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteDoc(doc)}
+                    disabled={togglingDocId === doc.id}
+                    className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>

@@ -44,15 +44,12 @@ const VALUES = [
         strokeWidth={1.8}
         className="h-8 w-8"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="m19 8 3 8a5 5 0 0 1-6 0zV7" />
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"
+          d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
         />
-        <path strokeLinecap="round" strokeLinejoin="round" d="m5 8 3 8a5 5 0 0 1-6 0zV7" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
       </svg>
     ),
   },
@@ -71,12 +68,7 @@ const VALUES = [
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 21.5C8.5 18.5 4 14.5 4 10a8 8 0 0 1 16 0c0 4.5-4.5 8.5-8 11.5Z"
-        />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 10m-3 0a3 3 0 1 0 6 0 3 3 0 1 0-6 0"
+          d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
         />
       </svg>
     ),
@@ -135,15 +127,8 @@ const VALUES = [
         strokeWidth={1.8}
         className="h-8 w-8"
       >
-        <path strokeLinecap="round" strokeLinejoin="round" d="m11 17 2 2a1 1 0 1 0 3-3" />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"
-        />
-        <path strokeLinecap="round" strokeLinejoin="round" d="m21 3 1 11h-2" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h8" />
+        <circle cx="9" cy="12" r="6" />
+        <circle cx="15" cy="12" r="6" />
       </svg>
     ),
   },
@@ -203,17 +188,29 @@ function AboutUs() {
               Nuestra historia
             </h3>
             <p className="mt-2 text-sm leading-relaxed text-primary-800">
-              El acueducto de Pueblo Nuevo se construyó en el año 2005, mismo
-              año en que la ASADA inició formalmente su funcionamiento con
-              cédula jurídica 3-002-458332. En marzo del 2014 se firmó el
-              convenio de delegación con el AyA (Instituto Costarricense de
-              Acueductos y Alcantarillados), conforme al Reglamento de las
-              Asociaciones Administradoras de Sistemas de Acueductos y
-              Alcantarillados Comunales. La ASADA cuenta además con el Permiso
-              Sanitario de Funcionamiento otorgado por el Ministerio de Salud,
-              y trabaja día a día para llevar un servicio de agua continuo y
-              de calidad a las familias de Pueblo Nuevo, en el distrito de
-              Paquera, cantón y provincia de Puntarenas.
+              Todo comenzó en el año 2005, cuando la comunidad de Pueblo Nuevo
+              se unió para construir su propio acueducto y garantizar así el
+              acceso al agua potable para cada familia. Ese mismo año nació
+              formalmente la ASADA, bajo la cédula jurídica 3-002-458332,
+              como la organización encargada de administrar y cuidar este
+              recurso.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-primary-800">
+              Casi una década después, en marzo del 2014, formalizamos
+              nuestro compromiso institucional al firmar el convenio de
+              delegación con el AyA (Instituto Costarricense de Acueductos y
+              Alcantarillados), conforme al Reglamento de las Asociaciones
+              Administradoras de Sistemas de Acueductos y Alcantarillados
+              Comunales. A esto se suma el Permiso Sanitario de Funcionamiento
+              otorgado por el Ministerio de Salud, que respalda la calidad de
+              nuestro servicio.
+            </p>
+            <p className="mt-3 text-sm leading-relaxed text-primary-800">
+              Hoy, más de veinte años después de aquel primer esfuerzo
+              comunitario, seguimos trabajando día a día para llevar un
+              servicio de agua continuo y de calidad a las familias de
+              Pueblo Nuevo, en el distrito de Paquera, cantón y provincia de
+              Puntarenas.
             </p>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import logo from '../../assets/logo.png'
@@ -7,16 +7,38 @@ const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
   { label: 'Sobre nosotros', to: '/#sobre-nosotros' },
   { label: 'Servicios', to: '/#servicios' },
-  { label: 'Noticias', to: '/#noticias' },
-  { label: 'Documentos', to: '/documentos' },
   { label: 'Averías', to: '/reportar-averia' },
   { label: 'Ubicación', to: '/#ubicacion' },
 ]
 
+// Noticias y Documentos comparten un solo botón "Publicaciones" con
+// desplegable, para no agregar de más al navbar y perder las dimensiones
+// que ya tenía.
+const PUBLICACIONES_LINKS = [
+  { label: 'Noticias', to: '/#noticias' },
+  { label: 'Documentos', to: '/documentos' },
+]
+
 function Navbar() {
   const [open, setOpen] = useState(false)
+  const [publicacionesOpen, setPublicacionesOpen] = useState(false)
+  const publicacionesRef = useRef<HTMLDivElement>(null)
   const { isAuthenticated } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!publicacionesOpen) return
+    function alClicFuera(e: MouseEvent) {
+      if (
+        publicacionesRef.current &&
+        !publicacionesRef.current.contains(e.target as Node)
+      ) {
+        setPublicacionesOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', alClicFuera)
+    return () => document.removeEventListener('mousedown', alClicFuera)
+  }, [publicacionesOpen])
 
   return (
     <header className="sticky top-0 z-50 bg-white text-gray-900 shadow-md">
@@ -40,6 +62,43 @@ function Navbar() {
               {link.label}
             </Link>
           ))}
+
+          <div className="relative" ref={publicacionesRef}>
+            <button
+              type="button"
+              onClick={() => setPublicacionesOpen((prev) => !prev)}
+              aria-expanded={publicacionesOpen}
+              className="flex items-center gap-1 rounded-full border border-transparent px-4 py-2 text-base font-medium text-gray-600 transition-colors hover:border-primary-700 hover:text-primary-700"
+            >
+              Publicaciones
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth={2.5}
+                className={`h-4 w-4 transition-transform ${publicacionesOpen ? 'rotate-180' : ''}`}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="m6 9 6 6 6-6" />
+              </svg>
+            </button>
+
+            {publicacionesOpen && (
+              <div className="absolute top-full left-1/2 mt-2 w-44 -translate-x-1/2 rounded-xl border border-gray-100 bg-white py-1.5 shadow-lg">
+                {PUBLICACIONES_LINKS.map((link) => (
+                  <Link
+                    key={link.to}
+                    to={link.to}
+                    onClick={() => setPublicacionesOpen(false)}
+                    className="block px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+
           <button
             type="button"
             onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')}
@@ -76,6 +135,21 @@ function Navbar() {
               {link.label}
             </Link>
           ))}
+
+          <p className="px-3 pt-2 text-xs font-semibold tracking-widest text-primary-400 uppercase">
+            Publicaciones
+          </p>
+          {PUBLICACIONES_LINKS.map((link) => (
+            <Link
+              key={link.to}
+              to={link.to}
+              onClick={() => setOpen(false)}
+              className="rounded-lg px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-primary-50 hover:text-primary-700"
+            >
+              {link.label}
+            </Link>
+          ))}
+
           <button
             type="button"
             onClick={() => {

@@ -444,6 +444,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                     onClick={() => {
                       setPerfilMenuOpen(false)
                       logout()
+                      // Al cerrar sesión va directo al landing público, no a
+                      // la pantalla de login.
+                      navigate('/')
                     }}
                     className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-300 transition-colors hover:bg-primary-700 hover:text-red-200"
                   >
