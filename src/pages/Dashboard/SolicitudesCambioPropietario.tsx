@@ -2,10 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
-  type ChangeEvent,
-  type DragEvent,
   type FormEvent,
 } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
@@ -28,6 +25,11 @@ import {
   type MotivoTraspaso,
 } from '../../components/Services/cambioPropietario.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import {
+  FileDropZone,
+  validarDocumento,
+} from '../../components/common/FileDropZone'
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -35,9 +37,6 @@ const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   aprobado: 'Aprobada',
   rechazado: 'Rechazada',
 }
-
-const ACCEPT_DOCUMENTO = '.pdf,.jpg,.jpeg,.png'
-const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -106,215 +105,6 @@ function EmptyState({
     <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
       <p className="text-lg font-medium text-primary-700">{titulo}</p>
       <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Componente Drag-and-Drop / Selector de Archivos con vista previa inmediata
-// ---------------------------------------------------------------------------
-function FileDropZone({
-  archivo,
-  archivoPreview,
-  onFileSelect,
-  onRemoveFile,
-  errorArchivo,
-}: {
-  archivo: File | null
-  archivoPreview: string | null
-  onFileSelect: (file: File) => void
-  onRemoveFile: () => void
-  errorArchivo?: string
-}) {
-  const [arrastrando, setArrastrando] = useState(false)
-  const inputRef = useRef<HTMLInputElement>(null)
-
-  const handleDragOver = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setArrastrando(true)
-  }
-
-  const handleDragLeave = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setArrastrando(false)
-  }
-
-  const handleDrop = (e: DragEvent<HTMLDivElement>) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setArrastrando(false)
-    const file = e.dataTransfer.files?.[0]
-    if (file) {
-      onFileSelect(file)
-    }
-  }
-
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (file) {
-      onFileSelect(file)
-    }
-  }
-
-  const pesoEnMB = archivo ? (archivo.size / (1024 * 1024)).toFixed(2) : '0'
-
-  return (
-    <div>
-      <label className="block text-sm font-medium text-primary-700">
-        Documento legal de respaldo (Escritura pública o certificación) *
-      </label>
-      <p className="mt-0.5 text-xs text-primary-500">
-        Subí la escritura de traspaso o certificación de propiedad en formato PDF o imagen (.jpg, .jpeg, .png). Máximo 5 MB.
-      </p>
-
-      {!archivo ? (
-        <div
-          onDragOver={handleDragOver}
-          onDragLeave={handleDragLeave}
-          onDrop={handleDrop}
-          onClick={() => inputRef.current?.click()}
-          className={`mt-2 flex cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed p-6 text-center transition-colors ${
-            arrastrando
-              ? 'border-primary-500 bg-primary-50'
-              : errorArchivo
-              ? 'border-red-300 bg-red-50/50 hover:bg-red-50'
-              : 'border-primary-200 bg-gray-50/50 hover:bg-primary-50/40'
-          }`}
-        >
-          <svg
-            className="h-10 w-10 text-primary-400"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={1.5}
-              d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"
-            />
-          </svg>
-          <p className="mt-2 text-sm font-medium text-primary-700">
-            Arrastrá y soltá el archivo aquí o{' '}
-            <span className="text-primary-600 underline">examiná tus archivos</span>
-          </p>
-          <p className="mt-1 text-xs text-gray-400">PDF, JPG o PNG hasta 5 MB</p>
-          <input
-            ref={inputRef}
-            type="file"
-            accept={ACCEPT_DOCUMENTO}
-            onChange={handleInputChange}
-            className="hidden"
-          />
-        </div>
-      ) : (
-        <div className="mt-2 flex items-center justify-between rounded-xl border border-primary-200 bg-primary-50/40 p-4 shadow-sm">
-          <div className="flex items-center gap-3">
-            {archivoPreview ? (
-              <img
-                src={archivoPreview}
-                alt="Vista previa"
-                className="h-16 w-16 rounded-lg border border-primary-200 object-cover"
-              />
-            ) : (
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 shadow-sm">
-                <svg
-                  className="h-8 w-8 text-red-500"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-9.5 8.5h-2v1h2v1.5h-2v1.5h3v1.5h-4.5V8h4.5v3.5zm4 5h-1.5V8h2.5c1.1 0 2 .9 2 2v3c0 1.1-.9 2-2 2h-1zm4-3.5h-2v2h-1.5V8H18c1.1 0 2 .9 2 2v1.5c0 1.1-.9 2-2 2z" />
-                </svg>
-              </div>
-            )}
-            <div>
-              <p className="text-sm font-semibold text-primary-900 line-clamp-1">
-                {archivo.name}
-              </p>
-              <p className="text-xs text-primary-500">{pesoEnMB} MB</p>
-              <span className="mt-1 inline-flex items-center rounded bg-primary-100 px-2 py-0.5 text-[10px] font-medium text-primary-700">
-                Listo para enviar
-              </span>
-            </div>
-          </div>
-          <button
-            type="button"
-            onClick={onRemoveFile}
-            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50"
-          >
-            Descartar archivo
-          </button>
-        </div>
-      )}
-
-      {errorArchivo && (
-        <p className="mt-1.5 text-xs font-medium text-red-600">{errorArchivo}</p>
-      )}
-    </div>
-  )
-}
-
-// ---------------------------------------------------------------------------
-// Modal de Confirmación con código de seguimiento SOL-PRO-YYYY-XXXX
-// ---------------------------------------------------------------------------
-function ModalConfirmacion({
-  codigo,
-  onCerrar,
-}: {
-  codigo: string
-  onCerrar: () => void
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
-        </div>
-
-        <h3 className="mt-4 text-xl font-bold text-primary-900">
-          ¡Solicitud Registrada con Éxito!
-        </h3>
-        <p className="mt-2 text-sm text-primary-600">
-          Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
-        </p>
-
-        <div className="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-3">
-          <span className="text-xs text-primary-500 uppercase tracking-wider font-semibold">
-            Número de seguimiento
-          </span>
-          <p className="mt-1 font-mono text-lg font-bold text-primary-800">
-            {codigo}
-          </p>
-        </div>
-
-        <p className="mt-3 text-xs text-primary-400">
-          Guardá este código para consultar el estado de tu trámite en ventanilla o desde tu panel.
-        </p>
-
-        <div className="mt-6">
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="w-full rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800"
-          >
-            Entendido y continuar
-          </button>
-        </div>
-      </div>
     </div>
   )
 }
@@ -409,15 +199,9 @@ function VistaAbonado() {
   )
 
   const handleFileSelect = (file: File) => {
-    if (file.size > MAX_BYTES) {
-      setErrorArchivo('El archivo no puede superar los 5 MB.')
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-    const ext = file.name.split('.').pop()?.toLowerCase() || ''
-    if (!['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
-      setErrorArchivo('Formato inválido. Solo se admiten archivos .pdf, .jpg, .jpeg o .png.')
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
@@ -506,6 +290,12 @@ function VistaAbonado() {
         <ModalConfirmacion
           codigo={codigoGenerado}
           onCerrar={() => setCodigoGenerado(null)}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
+            </>
+          }
         />
       )}
 
@@ -711,6 +501,9 @@ function VistaAbonado() {
             onFileSelect={handleFileSelect}
             onRemoveFile={handleRemoveFile}
             errorArchivo={errorArchivo}
+            label="Documento legal de respaldo (Escritura pública o certificación)"
+            ayuda="Subí la escritura de traspaso o certificación de propiedad en formato PDF o imagen (.jpg, .jpeg, .png). Máximo 5 MB."
+            obligatorio
           />
         </div>
 
@@ -881,15 +674,9 @@ function VistaAdministrador() {
   }, [busqueda, abonados])
 
   const handleFileSelect = (file: File) => {
-    if (file.size > MAX_BYTES) {
-      setErrorArchivo('El archivo no puede superar los 5 MB.')
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-    const ext = file.name.split('.').pop()?.toLowerCase() || ''
-    if (!['pdf', 'jpg', 'jpeg', 'png'].includes(ext)) {
-      setErrorArchivo('Formato inválido. Solo se admiten archivos .pdf, .jpg, .jpeg o .png.')
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
@@ -1009,6 +796,12 @@ function VistaAdministrador() {
         <ModalConfirmacion
           codigo={codigoGenerado}
           onCerrar={() => setCodigoGenerado(null)}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
+            </>
+          }
         />
       )}
 
@@ -1220,6 +1013,9 @@ function VistaAdministrador() {
           onFileSelect={handleFileSelect}
           onRemoveFile={handleRemoveFile}
           errorArchivo={errorArchivo}
+          label="Documento legal de respaldo (Escritura pública o certificación)"
+          ayuda="Subí la escritura de traspaso o certificación de propiedad en formato PDF o imagen (.jpg, .jpeg, .png). Máximo 5 MB."
+          obligatorio
         />
 
         <div className="flex justify-end pt-4 border-t border-primary-100">

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -11,6 +11,10 @@ import {
   type MotivoFallaMedidor,
 } from '../../components/Services/cambioMedidor.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import {
+  FileDropZone,
+  validarDocumento,
+} from '../../components/common/FileDropZone'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -85,7 +89,7 @@ function SolicitudesCambioMedidor() {
 
 // ---------------------------------------------------------------------------
 // Vista del ABONADO: formulario con motivo, dirección, justificación y
-// evidencia fotográfica obligatoria.
+// evidencia fotográfica opcional.
 // ---------------------------------------------------------------------------
 function VistaAbonado() {
   const [motivoFalla, setMotivoFalla] = useState<MotivoFallaMedidor | ''>('')
@@ -93,7 +97,7 @@ function VistaAbonado() {
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
@@ -123,23 +127,15 @@ function VistaAbonado() {
     cargar()
   }, [cargar])
 
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) {
+  const handleFileSelect = (file: File) => {
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La fotografía o documento no puede superar los 5 MB.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-
-    setError('')
+    setErrorArchivo('')
     setArchivo(file)
     if (file.type.startsWith('image/')) {
       setArchivoPreview(URL.createObjectURL(file))
@@ -148,13 +144,19 @@ function VistaAbonado() {
     }
   }
 
+  const handleRemoveFile = () => {
+    setArchivo(null)
+    setArchivoPreview(null)
+    setErrorArchivo('')
+  }
+
   const limpiarFormulario = () => {
     setMotivoFalla('')
     setDireccionExacta('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -166,11 +168,6 @@ function VistaAbonado() {
 
     if (!motivoFalla) {
       setError('Debes seleccionar un motivo de falla.')
-      return
-    }
-
-    if (!archivo) {
-      setError('Debes adjuntar una fotografía o evidencia del medidor.')
       return
     }
 
@@ -277,39 +274,16 @@ function VistaAbonado() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="evidenciaAbonado" className="block text-sm font-medium text-primary-700">
-              Fotografía o evidencia del medidor (Máx 5MB)
-            </label>
-            <input
-              ref={fileInputRef}
-              id="evidenciaAbonado"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={onFileChange}
-              required
-              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+            <FileDropZone
+              archivo={archivo}
+              archivoPreview={archivoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Fotografía o evidencia del medidor"
+              ayuda="Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio={false}
             />
-            <p className="mt-1 text-xs text-primary-400">
-              Se admiten imágenes (.jpg, .png, .webp) o documentos .pdf.
-            </p>
-
-            {archivoPreview && (
-              <div className="mt-3 flex items-center gap-3">
-                <img
-                  src={archivoPreview}
-                  alt="Vista previa de evidencia"
-                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-                />
-                <span className="text-xs text-primary-600 font-medium">
-                  {archivo?.name}
-                </span>
-              </div>
-            )}
-            {!archivoPreview && archivo && (
-              <div className="mt-2 text-xs font-medium text-primary-700">
-                Archivo seleccionado: {archivo.name}
-              </div>
-            )}
           </div>
         </div>
 
@@ -431,7 +405,7 @@ function VistaAdministrador() {
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
   const [cargandoAbonados, setCargandoAbonados] = useState(true)
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
@@ -476,29 +450,27 @@ function VistaAdministrador() {
 
   const abonadoElegido = abonados.find((a) => String(a.id) === abonadoSel)
 
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) {
+  const handleFileSelect = (file: File) => {
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La fotografía o documento no puede superar los 5 MB.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-
-    setError('')
+    setErrorArchivo('')
     setArchivo(file)
     if (file.type.startsWith('image/')) {
       setArchivoPreview(URL.createObjectURL(file))
     } else {
       setArchivoPreview(null)
     }
+  }
+
+  const handleRemoveFile = () => {
+    setArchivo(null)
+    setArchivoPreview(null)
+    setErrorArchivo('')
   }
 
   const limpiarFormulario = () => {
@@ -509,7 +481,7 @@ function VistaAdministrador() {
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -526,11 +498,6 @@ function VistaAdministrador() {
 
     if (!motivoFalla) {
       setError('Debes seleccionar un motivo de falla.')
-      return
-    }
-
-    if (!archivo) {
-      setError('Debes adjuntar la fotografía o evidencia del medidor.')
       return
     }
 
@@ -738,35 +705,16 @@ function VistaAdministrador() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="evidenciaAdmin" className="block text-sm font-medium text-primary-700">
-              Fotografía o evidencia del medidor (Máx 5MB)
-            </label>
-            <input
-              ref={fileInputRef}
-              id="evidenciaAdmin"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={onFileChange}
-              required
-              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+            <FileDropZone
+              archivo={archivo}
+              archivoPreview={archivoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Fotografía o evidencia del medidor"
+              ayuda="Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio={false}
             />
-            {archivoPreview && (
-              <div className="mt-3 flex items-center gap-3">
-                <img
-                  src={archivoPreview}
-                  alt="Vista previa de evidencia"
-                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-                />
-                <span className="text-xs text-primary-600 font-medium">
-                  {archivo?.name}
-                </span>
-              </div>
-            )}
-            {!archivoPreview && archivo && (
-              <div className="mt-2 text-xs font-medium text-primary-700">
-                Archivo seleccionado: {archivo.name}
-              </div>
-            )}
           </div>
         </div>
 

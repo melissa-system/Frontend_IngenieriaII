@@ -89,8 +89,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   const location = useLocation()
   const navigate = useNavigate()
   const role = rolEfectivo ?? ''
+  const tipoAbonado = user?.vinculos.abonado?.tipo_abonado ?? null
 
-  const visibleItems = filterMenuByRole(MENU_CONFIG, role)
+  const visibleItems = filterMenuByRole(MENU_CONFIG, role, tipoAbonado)
 
   const mainItems = visibleItems.filter((item) => item.label !== 'Perfil')
   const perfilItem = visibleItems.find((item) => item.label === 'Perfil')
