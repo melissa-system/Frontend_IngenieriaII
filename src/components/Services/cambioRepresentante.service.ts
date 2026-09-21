@@ -19,9 +19,8 @@ export interface SolicitudCambioRepresentante {
   representante_anterior_cedula: string
   representante_nuevo_nombre: string
   representante_nuevo_cedula: string
-  representante_nuevo_direccion: string
+  representante_nuevo_direccion: string | null
   representante_nuevo_correo: string | null
-  representante_nuevo_telefono: string | null
   copia_cedula_url: string | null
   justificacion: string
   motivo_rechazo: string | null
@@ -34,9 +33,7 @@ export interface CrearSolicitudCambioRepresentantePayload {
   idAbonado?: number
   representanteNuevoNombre: string
   representanteNuevoCedula: string
-  representanteNuevoDireccion: string
   representanteNuevoCorreo?: string
-  representanteNuevoTelefono?: string
   justificacion: string
   copiaCedula: File
 }
@@ -68,12 +65,8 @@ export const crearSolicitudCambioRepresentante = async (
     }
     formData.append('representanteNuevoNombre', payload.representanteNuevoNombre)
     formData.append('representanteNuevoCedula', payload.representanteNuevoCedula)
-    formData.append('representanteNuevoDireccion', payload.representanteNuevoDireccion)
     if (payload.representanteNuevoCorreo?.trim()) {
       formData.append('representanteNuevoCorreo', payload.representanteNuevoCorreo.trim())
-    }
-    if (payload.representanteNuevoTelefono?.trim()) {
-      formData.append('representanteNuevoTelefono', payload.representanteNuevoTelefono.trim())
     }
     formData.append('justificacion', payload.justificacion)
     formData.append('copiaCedula', payload.copiaCedula)

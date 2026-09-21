@@ -44,8 +44,15 @@ const VALUES = [
         strokeWidth={1.8}
         className="h-8 w-8"
       >
-        <circle cx="12" cy="12" r="9" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v5l3 2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v18" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m19 8 3 8a5 5 0 0 1-6 0zV7" />
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M3 7h1a17 17 0 0 0 8-2 17 17 0 0 0 8 2h1"
+        />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m5 8 3 8a5 5 0 0 1-6 0zV7" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M7 21h10" />
       </svg>
     ),
   },
@@ -128,21 +135,15 @@ const VALUES = [
         strokeWidth={1.8}
         className="h-8 w-8"
       >
+        <path strokeLinecap="round" strokeLinejoin="round" d="m11 17 2 2a1 1 0 1 0 3-3" />
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 22c3.3 0 6-5.4 6-12S15.3 2 12 2 6 3.4 6 10s2.7 12 6 12Z"
+          d="m14 14 2.5 2.5a1 1 0 1 0 3-3l-3.88-3.88a3 3 0 0 0-4.24 0l-.88.88a1 1 0 1 1-3-3l2.81-2.81a5.79 5.79 0 0 1 7.06-.87l.47.28a2 2 0 0 0 1.42.25L21 4"
         />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M8 12c0 5.5 2.7 10 4 10"
-        />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M16 12c0 5.5-2.7 10-4 10"
-        />
+        <path strokeLinecap="round" strokeLinejoin="round" d="m21 3 1 11h-2" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3 2 14l6.5 6.5a1 1 0 1 0 3-3" />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M3 4h8" />
       </svg>
     ),
   },

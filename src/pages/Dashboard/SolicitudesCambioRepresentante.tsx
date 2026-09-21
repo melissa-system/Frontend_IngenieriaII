@@ -4,9 +4,7 @@ import {
   useMemo,
   useRef,
   useState,
-  type ChangeEvent,
   type FormEvent,
-  type RefObject,
 } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
@@ -19,6 +17,11 @@ import {
   type EstadoSolicitud,
 } from '../../components/Services/cambioRepresentante.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import {
+  FileDropZone,
+  validarDocumento,
+} from '../../components/common/FileDropZone'
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -27,13 +30,9 @@ const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   rechazado: 'Rechazada',
 }
 
-const ACCEPT_CEDULA = 'image/jpeg,image/png,image/webp,application/pdf'
-const MAX_BYTES = 5 * 1024 * 1024
-
 // Mismas reglas que valida el backend (clase-validator, DTO de representante).
 const IDENTIFICACION_REGEX = /^(\d{1}-\d{4}-\d{4}|\d{1}-\d{3}-\d{6}|\d{11,12})$/
 const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-const TELEFONO_REGEX = /^[+]?[\d\s-]{7,}$/
 
 // Formatea la cédula mientras se escribe según el primer dígito:
 //   física (1-2345-6789), jurídica (3-101-123456) o DIMEX (11-12 dígitos).
@@ -52,12 +51,6 @@ function formatearCedula(valor: string): string {
     return `${digitos.slice(0, 1)}-${digitos.slice(1, 4)}-${digitos.slice(4, 10)}`
   }
   return digitos
-}
-
-// Teléfono en grupos de 4 dígitos (ej: 8888-7777).
-function formatearTelefono(valor: string): string {
-  const digitos = valor.replace(/\D/g, '').slice(0, 12)
-  return digitos.replace(/(\d{4})(?=\d)/g, '$1-')
 }
 
 // Colores para el distintivo de estado: amarillo (pendiente), azul (en
@@ -107,58 +100,6 @@ function EmptyState({
   )
 }
 
-// Selector compartido de la foto/PDF de la cédula del nuevo representante
-// (misma validación y estilo que en cambio de medidor).
-function InputCopiaCedula({
-  id,
-  archivo,
-  archivoPreview,
-  onArchivoChange,
-  inputRef,
-}: {
-  id: string
-  archivo: File | null
-  archivoPreview: string | null
-  onArchivoChange: (evento: ChangeEvent<HTMLInputElement>) => void
-  inputRef: RefObject<HTMLInputElement | null>
-}) {
-  return (
-    <div>
-      <label htmlFor={id} className="block text-sm font-medium text-primary-700">
-        Foto o PDF de la cédula del nuevo representante (Máx 5MB)
-      </label>
-      <input
-        id={id}
-        ref={inputRef}
-        type="file"
-        accept={ACCEPT_CEDULA}
-        onChange={onArchivoChange}
-        required
-        className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-      />
-      <p className="mt-1 text-xs text-primary-400">
-        Se admiten fotos (.jpg, .png, .webp) o el documento en .pdf.
-      </p>
-
-      {archivoPreview && (
-        <div className="mt-3 flex items-center gap-3">
-          <img
-            src={archivoPreview}
-            alt="Vista previa de la cédula"
-            className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-          />
-          <span className="text-xs font-medium text-primary-600">{archivo?.name}</span>
-        </div>
-      )}
-      {!archivoPreview && archivo && (
-        <div className="mt-2 text-xs font-medium text-primary-700">
-          Archivo seleccionado: {archivo.name}
-        </div>
-      )}
-    </div>
-  )
-}
-
 // Enlace a la cédula adjunta de una solicitud (en listas).
 function EnlaceCedula({ url }: { url: string | null }) {
   if (!url) {
@@ -204,28 +145,31 @@ function SolicitudesCambioRepresentante() {
 // propias solicitudes. Solo los abonados jurídicos tienen representante legal.
 // ---------------------------------------------------------------------------
 function VistaAbonado() {
+  const { user } = useAuth()
   const [perfil, setPerfil] = useState<PerfilCompleto | null>(null)
   const [cargandoPerfil, setCargandoPerfil] = useState(true)
 
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevaCedula, setNuevaCedula] = useState('')
-  const [nuevaDireccion, setNuevaDireccion] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
-  const [telefono, setTelefono] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioRepresentante[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
-  const [mensaje, setMensaje] = useState('')
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   const juridico = perfil?.tipo_asociacion === 'abonado' ? perfil.juridico ?? null : null
   const esJuridica = !!juridico
+
+  const numeroAbonado = user?.vinculos?.abonado?.id
+    ? `ABN-${String(user.vinculos.abonado.id).padStart(4, '0')}`
+    : 'Activo'
 
   const tieneAbierta = useMemo(
     () =>
@@ -254,21 +198,15 @@ function VistaAbonado() {
     cargar()
   }, [cargar])
 
-  const onArchivoChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) {
+  const handleFileSelect = (file: File) => {
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
     }
-    if (file.size > MAX_BYTES) {
-      setError('La foto o PDF de la cédula no puede superar los 5 MB.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-    setError('')
+    setErrorArchivo('')
     setArchivo(file)
     if (file.type.startsWith('image/')) {
       setArchivoPreview(URL.createObjectURL(file))
@@ -277,29 +215,30 @@ function VistaAbonado() {
     }
   }
 
+  const handleRemoveFile = () => {
+    setArchivo(null)
+    setArchivoPreview(null)
+    setErrorArchivo('')
+  }
+
   const limpiarFormulario = () => {
     setNuevoNombre('')
     setNuevaCedula('')
-    setNuevaDireccion('')
     setNuevoCorreo('')
-    setTelefono('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    setMensaje('')
 
     if (enviandoRef.current) return
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
-    const direccion = nuevaDireccion.trim()
     const correo = nuevoCorreo.trim()
-    const tel = telefono.trim()
     const just = justificacion.trim()
     if (!nombre) {
       setError('El nombre del nuevo representante es obligatorio.')
@@ -311,16 +250,8 @@ function VistaAbonado() {
       )
       return
     }
-    if (!direccion) {
-      setError('La dirección del nuevo representante es obligatoria.')
-      return
-    }
     if (correo && !CORREO_REGEX.test(correo)) {
       setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (tel && !TELEFONO_REGEX.test(tel)) {
-      setError('El teléfono del nuevo representante no es válido.')
       return
     }
     if (just.length < 10) {
@@ -335,16 +266,14 @@ function VistaAbonado() {
     enviandoRef.current = true
     setEnviando(true)
     try {
-      await crearSolicitudCambioRepresentante({
+      const resp = await crearSolicitudCambioRepresentante({
         representanteNuevoNombre: nombre,
         representanteNuevoCedula: cedula,
-        representanteNuevoDireccion: direccion,
         representanteNuevoCorreo: correo,
-        representanteNuevoTelefono: tel,
         justificacion: just,
         copiaCedula: archivo,
       })
-      setMensaje('Solicitud registrada correctamente. Te notificaremos por correo el resultado.')
+      setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
     } catch (err) {
@@ -357,6 +286,26 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => setCodigoGenerado(null)}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Representante Legal</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+        />
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       {!esJuridica ? (
         !cargandoPerfil && (
           <EmptyState
@@ -367,164 +316,195 @@ function VistaAbonado() {
       ) : (
         <form
           onSubmit={onSubmit}
-          className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm"
+          className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm space-y-6"
         >
-          <h2 className="text-lg font-semibold text-primary-900">Nueva solicitud</h2>
-          <p className="mt-1 text-sm text-primary-500">
-            Indicá los datos del nuevo representante legal y adjuntá una copia de su cédula.
-          </p>
+          <div className="border-b border-primary-100 pb-4">
+            <h2 className="text-lg font-semibold text-primary-900">
+              Formulario de Cambio de Representante Legal
+            </h2>
+            <p className="text-xs text-primary-500 mt-1">
+              Los datos del representante actual se toman de tu cuenta. Completá la
+              información del nuevo representante y adjuntá una copia de su cédula.
+            </p>
+          </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Representante actual
-              </label>
-              <input
-                type="text"
-                value={cargandoPerfil ? 'Cargando…' : juridico?.nombre_representante_legal ?? '-'}
-                readOnly
-                disabled={cargandoPerfil}
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-500 focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-primary-400">
-                Cédula: {cargandoPerfil ? 'Cargando…' : (juridico?.cedula_representante ?? '-')} — se
-                registra automáticamente como el representante anterior.
-              </p>
+          {/* Sección 1: Datos del Representante Actual (Solo lectura) */}
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-primary-700">
+              1. Representante Actual Registrado
+            </h3>
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500">
+                  Nombre del Representante
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={cargandoPerfil ? 'Cargando…' : (juridico?.nombre_representante_legal ?? '-')}
+                  className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500">
+                  Cédula del Representante
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={cargandoPerfil ? 'Cargando…' : (juridico?.cedula_representante ?? '-')}
+                  className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500">
+                  Número de Abonado
+                </label>
+                <input
+                  type="text"
+                  disabled
+                  value={cargandoPerfil ? 'Cargando…' : numeroAbonado}
+                  className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                />
+              </div>
             </div>
-            <div>
-              <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
-                Nombre del nuevo representante
-              </label>
-              <input
-                id="nuevoNombre"
-                type="text"
-                value={nuevoNombre}
-                onChange={(e) => setNuevoNombre(e.target.value)}
-                required
-                placeholder="Nombre completo del nuevo representante"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label htmlFor="nuevaCedula" className="block text-sm font-medium text-primary-700">
-                Cédula del nuevo representante
-              </label>
-              <input
-                id="nuevaCedula"
-                type="text"
-                value={nuevaCedula}
-                onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
-                required
-                placeholder="Ej: 1-2345-6789"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label htmlFor="nuevaDireccion" className="block text-sm font-medium text-primary-700">
-                Dirección del nuevo representante
-              </label>
-              <input
-                id="nuevaDireccion"
-                type="text"
-                value={nuevaDireccion}
-                onChange={(e) => setNuevaDireccion(e.target.value)}
-                required
-                placeholder="Dirección física del nuevo representante"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-            <div>
-              <label htmlFor="nuevoCorreo" className="block text-sm font-medium text-primary-700">
-                Correo del nuevo representante
-              </label>
-              <input
-                id="nuevoCorreo"
-                type="email"
-                value={nuevoCorreo}
-                onChange={(e) => setNuevoCorreo(e.target.value)}
-                placeholder="correo@ejemplo.com (opcional)"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-primary-400">
-                Se usa para notificarlo del resultado de la solicitud.
-              </p>
-            </div>
+            <p className="mt-2 text-xs text-primary-400">
+              Al aprobarse la solicitud, estos datos quedan registrados automáticamente como el representante anterior.
+            </p>
+          </div>
 
-            <div>
-              <label htmlFor="nuevoTelefono" className="block text-sm font-medium text-primary-700">
-                Teléfono del nuevo representante
-              </label>
-              <input
-                id="nuevoTelefono"
-                type="tel"
-                value={telefono}
-                onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
-                placeholder="Teléfono del nuevo representante (opcional)"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
-                Justificación
-              </label>
-              <textarea
-                id="justificacion"
-                value={justificacion}
-                onChange={(e) => setJustificacion(e.target.value)}
-                required
-                rows={3}
-                placeholder="Explicá brevemente el motivo del cambio de representante"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-
-            <div className="sm:col-span-2">
-              <InputCopiaCedula
-                id="copiaCedulaAbonado"
-                archivo={archivo}
-                archivoPreview={archivoPreview}
-                onArchivoChange={onArchivoChange}
-                inputRef={fileInputRef}
-              />
+          {/* Sección 2: Datos del Nuevo Representante */}
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-primary-700">
+              2. Datos del Nuevo Representante
+            </h3>
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div>
+                <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
+                  Nombre Completo *
+                </label>
+                <input
+                  id="nuevoNombre"
+                  type="text"
+                  value={nuevoNombre}
+                  onChange={(e) => setNuevoNombre(e.target.value)}
+                  required
+                  disabled={tieneAbierta}
+                  placeholder="Nombre completo del nuevo representante"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                />
+                {nuevoNombre.length > 0 && nuevoNombre.trim().length < 5 && (
+                  <p className="mt-1 text-xs text-red-500">Mínimo 5 caracteres</p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="nuevaCedula" className="block text-sm font-medium text-primary-700">
+                  Cédula de Identidad *
+                </label>
+                <input
+                  id="nuevaCedula"
+                  type="text"
+                  value={nuevaCedula}
+                  onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
+                  required
+                  disabled={tieneAbierta}
+                  placeholder="Ej: 1-2345-6789 o 3-101-123456"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                />
+                {nuevaCedula.length > 0 && !IDENTIFICACION_REGEX.test(nuevaCedula.trim()) && (
+                  <p className="mt-1 text-xs text-red-500">
+                    Ingresá una identificación válida (física, jurídica o DIMEX)
+                  </p>
+                )}
+              </div>
+              <div>
+                <label htmlFor="nuevoCorreo" className="block text-sm font-medium text-primary-700">
+                  Correo Electrónico
+                </label>
+                <input
+                  id="nuevoCorreo"
+                  type="email"
+                  value={nuevoCorreo}
+                  onChange={(e) => setNuevoCorreo(e.target.value)}
+                  disabled={tieneAbierta}
+                  placeholder="correo@ejemplo.com (opcional)"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                />
+                <p className="mt-1 text-xs text-primary-400">
+                  Se usa para notificarlo del resultado de la solicitud.
+                </p>
+              </div>
+              <div className="sm:col-span-2">
+                <div className="flex items-center justify-between">
+                  <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
+                    Justificación del Cambio *
+                  </label>
+                  <span className="text-xs text-gray-400">
+                    {justificacion.trim().length} / 255 (mínimo 10)
+                  </span>
+                </div>
+                <textarea
+                  id="justificacion"
+                  value={justificacion}
+                  onChange={(e) => setJustificacion(e.target.value)}
+                  required
+                  disabled={tieneAbierta}
+                  rows={3}
+                  maxLength={255}
+                  placeholder="Explicá brevemente el motivo del cambio de representante"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                />
+                {justificacion.length > 0 && justificacion.trim().length < 10 && (
+                  <p className="mt-1 text-xs text-red-500">
+                    La justificación debe tener al menos 10 caracteres.
+                  </p>
+                )}
+              </div>
             </div>
           </div>
 
-          {error && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-              {error}
-            </p>
-          )}
-          {mensaje && (
-            <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-              {mensaje}
-            </p>
+          {/* Sección 3: Subida de Documento con Drag-and-Drop */}
+          <div>
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-primary-700 mb-2">
+              3. Documentación de Respaldo
+            </h3>
+            <FileDropZone
+              archivo={archivo}
+              archivoPreview={archivoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Copia de la cédula del nuevo representante"
+              ayuda="Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio
+            />
+          </div>
+
+          {tieneAbierta && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+              Actualmente tenés una solicitud de cambio de representante en proceso. No podés crear otra hasta que sea resuelta.
+            </div>
           )}
 
-          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="submit"
-              disabled={tieneAbierta || enviando}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {enviando ? 'Subiendo solicitud…' : 'Enviar solicitud'}
-            </button>
+          {/* Botones */}
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-primary-100">
             <button
               type="button"
               onClick={() => {
                 limpiarFormulario()
                 setError('')
-                setMensaje('')
               }}
-              className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+              className="rounded-full border border-gray-300 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-100"
             >
               Cancelar
             </button>
-            {tieneAbierta && (
-              <p className="w-full text-center text-xs font-medium text-yellow-700">
-                Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
-              </p>
-            )}
+            <button
+              type="submit"
+              disabled={tieneAbierta || enviando}
+              className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {enviando ? 'Enviando solicitud…' : 'Enviar Solicitud'}
+            </button>
           </div>
         </form>
       )}
@@ -589,13 +569,11 @@ function VistaAdministrador() {
   const [abonadoSel, setAbonadoSel] = useState('')
   const [nuevoNombre, setNuevoNombre] = useState('')
   const [nuevaCedula, setNuevaCedula] = useState('')
-  const [nuevaDireccion, setNuevaDireccion] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
-  const [telefono, setTelefono] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
   const [cargandoAbonados, setCargandoAbonados] = useState(true)
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioRepresentante[]>([])
@@ -603,11 +581,12 @@ function VistaAdministrador() {
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
-  const [mensaje, setMensaje] = useState('')
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   const [detalle, setDetalle] = useState<SolicitudCambioRepresentante | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [gestionando, setGestionando] = useState(false)
+  const [mensaje, setMensaje] = useState('')
 
   const cargar = useCallback(async () => {
     try {
@@ -645,21 +624,15 @@ function VistaAdministrador() {
 
   const abonadoElegido = abonados.find((a) => String(a.id) === abonadoSel)
 
-  const onArchivoChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) {
+  const handleFileSelect = (file: File) => {
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
     }
-    if (file.size > MAX_BYTES) {
-      setError('La foto o PDF de la cédula no puede superar los 5 MB.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-    setError('')
+    setErrorArchivo('')
     setArchivo(file)
     if (file.type.startsWith('image/')) {
       setArchivoPreview(URL.createObjectURL(file))
@@ -668,24 +641,27 @@ function VistaAdministrador() {
     }
   }
 
+  const handleRemoveFile = () => {
+    setArchivo(null)
+    setArchivoPreview(null)
+    setErrorArchivo('')
+  }
+
   const limpiarFormulario = () => {
     setAbonadoSel('')
     setBusqueda('')
     setNuevoNombre('')
     setNuevaCedula('')
-    setNuevaDireccion('')
     setNuevoCorreo('')
-    setTelefono('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
-    setMensaje('')
 
     if (enviandoRef.current) return
     if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
@@ -694,9 +670,7 @@ function VistaAdministrador() {
     }
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
-    const direccion = nuevaDireccion.trim()
     const correo = nuevoCorreo.trim()
-    const tel = telefono.trim()
     const just = justificacion.trim()
     if (!nombre) {
       setError('El nombre del nuevo representante es obligatorio.')
@@ -708,16 +682,8 @@ function VistaAdministrador() {
       )
       return
     }
-    if (!direccion) {
-      setError('La dirección del nuevo representante es obligatoria.')
-      return
-    }
     if (correo && !CORREO_REGEX.test(correo)) {
       setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (tel && !TELEFONO_REGEX.test(tel)) {
-      setError('El teléfono del nuevo representante no es válido.')
       return
     }
     if (just.length < 10) {
@@ -732,17 +698,15 @@ function VistaAdministrador() {
     enviandoRef.current = true
     setEnviando(true)
     try {
-      await crearSolicitudCambioRepresentante({
+      const resp = await crearSolicitudCambioRepresentante({
         idAbonado: Number(abonadoElegido.id),
         representanteNuevoNombre: nombre,
         representanteNuevoCedula: cedula,
-        representanteNuevoDireccion: direccion,
         representanteNuevoCorreo: correo,
-        representanteNuevoTelefono: tel,
         justificacion: just,
         copiaCedula: archivo,
       })
-      setMensaje('Solicitud registrada correctamente.')
+      setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
     } catch (err) {
@@ -785,6 +749,26 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => setCodigoGenerado(null)}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Representante Legal</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+        />
+      )}
+
+      {error && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          {error}
+        </div>
+      )}
+
       <form
         onSubmit={onSubmit}
         className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm"
@@ -901,21 +885,6 @@ function VistaAdministrador() {
           </div>
 
           <div>
-            <label htmlFor="nuevaDireccion" className="block text-sm font-medium text-primary-700">
-              Dirección del nuevo representante
-            </label>
-            <input
-              id="nuevaDireccion"
-              type="text"
-              value={nuevaDireccion}
-              onChange={(e) => setNuevaDireccion(e.target.value)}
-              required
-              placeholder="Dirección física del nuevo representante"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
             <label htmlFor="nuevoCorreo" className="block text-sm font-medium text-primary-700">
               Correo del nuevo representante
             </label>
@@ -925,20 +894,6 @@ function VistaAdministrador() {
               value={nuevoCorreo}
               onChange={(e) => setNuevoCorreo(e.target.value)}
               placeholder="correo@ejemplo.com (opcional)"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
-          </div>
-
-          <div>
-            <label htmlFor="nuevoTelefono" className="block text-sm font-medium text-primary-700">
-              Teléfono del nuevo representante
-            </label>
-            <input
-              id="nuevoTelefono"
-              type="tel"
-              value={telefono}
-              onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
-              placeholder="Teléfono del nuevo representante (opcional)"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
           </div>
@@ -959,12 +914,15 @@ function VistaAdministrador() {
           </div>
 
           <div className="sm:col-span-2">
-            <InputCopiaCedula
-              id="copiaCedulaAdmin"
+            <FileDropZone
               archivo={archivo}
               archivoPreview={archivoPreview}
-              onArchivoChange={onArchivoChange}
-              inputRef={fileInputRef}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Copia de la cédula del nuevo representante"
+              ayuda="Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio
             />
           </div>
         </div>
@@ -1146,12 +1104,8 @@ function ModalDetalle({
             <dd className="font-medium text-primary-900">{solicitud.representante_nuevo_nombre}</dd>
             <dd className="mt-2 text-xs text-primary-400">Cédula</dd>
             <dd className="font-mono text-primary-800">{solicitud.representante_nuevo_cedula}</dd>
-            <dd className="mt-2 text-xs text-primary-400">Dirección</dd>
-            <dd className="text-primary-800">{solicitud.representante_nuevo_direccion}</dd>
             <dd className="mt-2 text-xs text-primary-400">Correo</dd>
             <dd className="text-primary-800">{solicitud.representante_nuevo_correo || '—'}</dd>
-            <dd className="mt-2 text-xs text-primary-400">Teléfono</dd>
-            <dd className="text-primary-800">{solicitud.representante_nuevo_telefono || '—'}</dd>
           </div>
 
           <div className="sm:col-span-2">

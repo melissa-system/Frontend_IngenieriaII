@@ -6,6 +6,14 @@ export interface SubMenuItem {
   // "submenu", se despliega en más opciones) — nunca ambos.
   to?: string
   roles: string[]
+  /** Solo si se define: el ítem se muestra únicamente a abonados de estos
+   * tipos ('Física' | 'Jurídica'). Administrador y Junta Directiva ven el
+   * ítem sin importar este campo. */
+  tipoAbonado?: string[]
+  /** Marca ítems exclusivos de la vista de Abonado: solo aparecen con rol
+   * efectivo 'Abonado', ni siquiera para Junta Directiva (que por la "Regla
+   * de Oro" ve el resto del menú completo). Ej: "Mis Averías". */
+  soloAbonado?: boolean
   submenu?: SubMenuItem[]
 }
 
@@ -15,6 +23,7 @@ export interface MenuItemConfig {
   to?: string
   submenu?: SubMenuItem[]
   roles: string[]
+  soloAbonado?: boolean
 }
 
 function DashboardIcon() {
@@ -106,9 +115,10 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     icon: <SolicitudesIcon />,
     roles: ['Administrador', 'Junta Directiva', 'Abonado'],
     submenu: [
-      { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Cambio de Propietario', to: '/dashboard/solicitudes/cambio-propietario', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      // Paja de Agua es solo para administración; los abonados no la ven.
+      { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Cambio de Propietario', to: '/dashboard/solicitudes/cambio-propietario', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Física'] },
+      { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Jurídica'] },
       { label: 'Cambio de Medidor', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
       { label: 'Otro', to: '/dashboard/solicitudes/otro', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
     ],
@@ -116,14 +126,25 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Inventario',
     icon: <InventarioIcon />,
-    to: '/dashboard/inventario',
     roles: ['Administrador'],
+    submenu: [
+      { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
+      { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
+    ],
   },
   {
     label: 'Averías',
     icon: <AveriasIcon />,
     to: '/dashboard/averias',
     roles: ['Administrador', 'Fontanero'],
+  },
+  {
+    label: 'Mis Averías',
+    icon: <AveriasIcon />,
+    to: '/dashboard/mis-averias',
+    // Exclusivo de la vista de Abonado: ni la Junta Directiva lo ve.
+    soloAbonado: true,
+    roles: ['Abonado'],
   },
   {
     label: 'Administración',
@@ -170,25 +191,49 @@ export const MENU_CONFIG: MenuItemConfig[] = [
 ]
 
 // Filtra un submenú por rol de forma recursiva: un grupo (sub.submenu) solo
-// sobrevive si le queda al menos una opción visible para el rol.
-function filterSubMenuByRole(subs: SubMenuItem[], role: string): SubMenuItem[] {
+// sobrevive si le queda al menos una opción visible para el rol. El tipo de
+// abonado ('Física' | 'Jurídica') solo acota los ítems con 'tipoAbonado'
+// definido y únicamente cuando el rol efectivo es 'Abonado'; Administrador y
+// Junta Directiva (que ven el menú completo) ignoran esa restricción.
+function filterSubMenuByRole(
+  subs: SubMenuItem[],
+  role: string,
+  tipoAbonado?: string | null,
+): SubMenuItem[] {
   return subs
     // 'Junta Directiva' (SUPER_ADMIN) ve todo, igual que la "Regla de Oro"
     // del RolesGuard del backend — así no hay que acordarse de agregarlo a
     // mano en cada ítem nuevo (eso fue justo lo que faltó en varios).
-    .filter((sub) => role === 'Junta Directiva' || sub.roles.includes(role))
+    .filter((sub) => {
+      if (sub.soloAbonado) return role === 'Abonado'
+      if (role !== 'Junta Directiva' && !sub.roles.includes(role)) return false
+      if (sub.tipoAbonado && role === 'Abonado') {
+        return tipoAbonado ? sub.tipoAbonado.includes(tipoAbonado) : false
+      }
+      return true
+    })
     .map((sub) => ({
       ...sub,
-      submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role) : undefined,
+      submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role, tipoAbonado) : undefined,
     }))
     .filter((sub) => !sub.submenu || sub.submenu.length > 0)
 }
 
-export function filterMenuByRole(items: MenuItemConfig[], role: string): MenuItemConfig[] {
+export function filterMenuByRole(
+  items: MenuItemConfig[],
+  role: string,
+  tipoAbonado?: string | null,
+): MenuItemConfig[] {
   return items
-    .filter((item) => role === 'Junta Directiva' || item.roles.includes(role))
+    .filter((item) =>
+      item.soloAbonado
+        ? role === 'Abonado'
+        : role === 'Junta Directiva' || item.roles.includes(role),
+    )
     .map((item) => ({
       ...item,
-      submenu: item.submenu ? filterSubMenuByRole(item.submenu, role) : undefined,
+      submenu: item.submenu
+        ? filterSubMenuByRole(item.submenu, role, tipoAbonado)
+        : undefined,
     }))
 }

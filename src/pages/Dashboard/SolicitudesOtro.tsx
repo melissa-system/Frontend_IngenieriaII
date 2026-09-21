@@ -9,6 +9,10 @@ import {
   type EstadoSolicitud,
 } from '../../components/Services/otro.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import {
+  FileDropZone,
+  validarDocumento,
+} from '../../components/common/FileDropZone'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -97,7 +101,7 @@ function VistaAbonado() {
   const [justificacion, setJustificacion] = useState('')
   const [adjunto, setAdjunto] = useState<File | null>(null)
   const [adjuntoPreview, setAdjuntoPreview] = useState<string | null>(null)
-  const adjuntoRef = useRef<HTMLInputElement | null>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
 
   // Libera la URL del preview cuando el componente se desmonta o el archivo cambia
   useEffect(() => {
@@ -132,13 +136,35 @@ function VistaAbonado() {
     cargar()
   }, [cargar])
 
+  const handleFileSelect = (archivo: File) => {
+    const errorMsg = validarDocumento(archivo)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
+      setAdjunto(null)
+      if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+      setAdjuntoPreview(null)
+      return
+    }
+    setErrorArchivo('')
+    setAdjunto(archivo)
+    if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+    setAdjuntoPreview(archivo.type.startsWith('image/') ? URL.createObjectURL(archivo) : null)
+  }
+
+  const handleRemoveFile = () => {
+    setAdjunto(null)
+    if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+    setAdjuntoPreview(null)
+    setErrorArchivo('')
+  }
+
   const limpiarFormulario = () => {
     setAsunto('')
     setJustificacion('')
     setAdjunto(null)
     if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
     setAdjuntoPreview(null)
-    if (adjuntoRef.current) adjuntoRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -161,10 +187,6 @@ function VistaAbonado() {
       setError('La justificación debe tener al menos 20 caracteres.')
       return
     }
-    if (adjunto && adjunto.size > 5 * 1024 * 1024) {
-      setError('El documento de soporte no puede superar los 5 MB.')
-      return
-    }
 
     enviandoRef.current = true
     setEnviando(true)
@@ -178,7 +200,8 @@ function VistaAbonado() {
       setAsunto('')
       setJustificacion('')
       setAdjunto(null)
-      if (adjuntoRef.current) adjuntoRef.current.value = ''
+      if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+      setAdjuntoPreview(null)
       await cargar()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
@@ -236,41 +259,16 @@ function VistaAbonado() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="adjunto" className="block text-sm font-medium text-primary-700">
-              Documento de soporte (Máx. 5 MB)
-            </label>
-            <input
-              id="adjunto"
-              ref={adjuntoRef}
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={(e) => {
-                const archivo = e.target.files?.[0] ?? null
-                setAdjunto(archivo)
-                if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
-                setAdjuntoPreview(archivo ? URL.createObjectURL(archivo) : null)
-              }}
-              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+            <FileDropZone
+              archivo={adjunto}
+              archivoPreview={adjuntoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Documento de soporte"
+              ayuda="Opcional. Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio={false}
             />
-            <p className="mt-1 text-xs text-primary-400">
-              Opcional. Imagen (.jpg, .jpeg, .png) o PDF.
-            </p>
-
-            {adjuntoPreview && (
-              <div className="mt-3 flex items-center gap-3">
-                <img
-                  src={adjuntoPreview}
-                  alt="Vista previa del documento"
-                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-                />
-                <span className="text-xs font-medium text-primary-600">{adjunto?.name}</span>
-              </div>
-            )}
-            {!adjuntoPreview && adjunto && (
-              <div className="mt-2 text-xs font-medium text-primary-700">
-                Archivo seleccionado: {adjunto.name}
-              </div>
-            )}
           </div>
         </div>
 
@@ -375,7 +373,7 @@ function VistaAdministrador() {
   const [justificacion, setJustificacion] = useState('')
   const [adjunto, setAdjunto] = useState<File | null>(null)
   const [adjuntoPreview, setAdjuntoPreview] = useState<string | null>(null)
-  const adjuntoRef = useRef<HTMLInputElement | null>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
   const [cargandoAbonados, setCargandoAbonados] = useState(true)
 
   const [solicitudes, setSolicitudes] = useState<SolicitudOtro[]>([])
@@ -428,6 +426,28 @@ function VistaAdministrador() {
 
   const abonadoElegido = abonados.find((a) => String(a.id) === abonadoSel)
 
+  const handleFileSelect = (archivo: File) => {
+    const errorMsg = validarDocumento(archivo)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
+      setAdjunto(null)
+      if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+      setAdjuntoPreview(null)
+      return
+    }
+    setErrorArchivo('')
+    setAdjunto(archivo)
+    if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+    setAdjuntoPreview(archivo.type.startsWith('image/') ? URL.createObjectURL(archivo) : null)
+  }
+
+  const handleRemoveFile = () => {
+    setAdjunto(null)
+    if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+    setAdjuntoPreview(null)
+    setErrorArchivo('')
+  }
+
   const limpiarFormulario = () => {
     setAbonadoSel('')
     setBusqueda('')
@@ -436,7 +456,7 @@ function VistaAdministrador() {
     setAdjunto(null)
     if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
     setAdjuntoPreview(null)
-    if (adjuntoRef.current) adjuntoRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -462,10 +482,6 @@ function VistaAdministrador() {
       setError('La justificación debe tener al menos 20 caracteres.')
       return
     }
-    if (adjunto && adjunto.size > 5 * 1024 * 1024) {
-      setError('El documento de soporte no puede superar los 5 MB.')
-      return
-    }
 
     enviandoRef.current = true
     setEnviando(true)
@@ -480,7 +496,8 @@ function VistaAdministrador() {
       setAsunto('')
       setJustificacion('')
       setAdjunto(null)
-      if (adjuntoRef.current) adjuntoRef.current.value = ''
+      if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
+      setAdjuntoPreview(null)
       await cargar()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
@@ -639,41 +656,16 @@ function VistaAdministrador() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="adjunto" className="block text-sm font-medium text-primary-700">
-              Documento de soporte (Máx. 5 MB)
-            </label>
-            <input
-              id="adjunto"
-              ref={adjuntoRef}
-              type="file"
-              accept=".jpg,.jpeg,.png,.pdf"
-              onChange={(e) => {
-                const archivo = e.target.files?.[0] ?? null
-                setAdjunto(archivo)
-                if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
-                setAdjuntoPreview(archivo ? URL.createObjectURL(archivo) : null)
-              }}
-              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+            <FileDropZone
+              archivo={adjunto}
+              archivoPreview={adjuntoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Documento de soporte"
+              ayuda="Opcional. Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio={false}
             />
-            <p className="mt-1 text-xs text-primary-400">
-              Opcional. Imagen (.jpg, .jpeg, .png) o PDF.
-            </p>
-
-            {adjuntoPreview && (
-              <div className="mt-3 flex items-center gap-3">
-                <img
-                  src={adjuntoPreview}
-                  alt="Vista previa del documento"
-                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-                />
-                <span className="text-xs font-medium text-primary-600">{adjunto?.name}</span>
-              </div>
-            )}
-            {!adjuntoPreview && adjunto && (
-              <div className="mt-2 text-xs font-medium text-primary-700">
-                Archivo seleccionado: {adjunto.name}
-              </div>
-            )}
           </div>
         </div>
 
