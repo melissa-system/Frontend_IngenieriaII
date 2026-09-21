@@ -18,6 +18,25 @@ export const MODULOS_BITACORA = [
 ] as const
 export type ModuloBitacora = (typeof MODULOS_BITACORA)[number]
 
+// Subconjunto que HOY registra movimientos en la auditoría. MODULOS_BITACORA
+// tiene todos los que el backend acepta; este es el que se ofrece en el
+// filtro de la pantalla, para no mostrar opciones que siempre devuelven
+// vacío y parecen un error del sistema.
+//
+// Cuando un módulo nuevo empiece a llamar a BitacoraService en el backend,
+// basta con agregarlo acá para que aparezca en el filtro.
+export const MODULOS_CON_MOVIMIENTOS = [
+  'abonados',
+  'solicitudes',
+  'averias',
+  'inventario',
+  'documentos',
+  'empleados',
+  'publicaciones',
+  'configuracion',
+  'usuarios',
+] as const satisfies readonly ModuloBitacora[]
+
 export const ACCIONES_BITACORA = [
   'creacion',
   'edicion',

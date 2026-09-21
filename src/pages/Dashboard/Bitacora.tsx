@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
   obtenerBitacora,
-  MODULOS_BITACORA,
+  MODULOS_CON_MOVIMIENTOS,
   ACCIONES_BITACORA,
   ETIQUETA_MODULO,
   ETIQUETA_ACCION,
@@ -79,7 +79,7 @@ function Bitacora() {
       setRegistros(respuesta.datos)
       setTotal(respuesta.total)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar la bitácora.')
+      setError(err instanceof Error ? err.message : 'No se pudo cargar la auditoría.')
       setRegistros([])
       setTotal(0)
     } finally {
@@ -114,7 +114,7 @@ function Bitacora() {
     <div className="space-y-6">
       <div>
         <h1 className="text-2xl font-semibold text-primary-900">
-          Bitácora de auditoría
+          Auditoría del sistema
         </h1>
         <p className="mt-1 text-sm text-primary-600">
           Registro de todos los movimientos del sistema: creaciones, ediciones,
@@ -141,7 +141,7 @@ function Bitacora() {
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="">Todos</option>
-              {MODULOS_BITACORA.map((m) => (
+              {MODULOS_CON_MOVIMIENTOS.map((m) => (
                 <option key={m} value={m}>
                   {ETIQUETA_MODULO[m]}
                 </option>
