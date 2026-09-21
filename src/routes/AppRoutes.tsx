@@ -20,6 +20,7 @@ import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambio
 import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
 import Inventario from '../pages/Dashboard/Inventario'
+import MovimientosStock from '../pages/Dashboard/MovimientosStock'
 import Proveedores from '../pages/Dashboard/Proveedores'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
 import MisAverias from '../pages/Dashboard/MisAverias'
@@ -74,6 +75,7 @@ function AppRoutes() {
           element={<Navigate to="/dashboard/inventario/articulos" replace />}
         />
         <Route path="inventario/articulos" element={<Inventario />} />
+        <Route path="inventario/movimientos" element={<MovimientosStock />} />
         <Route path="inventario/proveedores" element={<Proveedores />} />
         <Route path="averias" element={<AveriasAdmin />} />
         <Route path="mis-averias" element={<MisAverias />} />

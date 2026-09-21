@@ -17,6 +17,7 @@ export interface Proveedor {
 export interface MovimientoInventario {
   id: number;
   articulo_id?: number;
+  articulo?: Articulo;
   tipo_movimiento: 'entrada' | 'salida';
   cantidad: number;
   responsable_destino?: string | null;
@@ -175,6 +176,30 @@ export const obtenerHistorialArticulo = async (
   } catch (error) {
     throw new Error(
       obtenerMensajeError(error, 'Error al cargar el historial del artículo'),
+    );
+  }
+};
+
+export const obtenerTodosLosMovimientos = async (filtros?: {
+  tipo?: string;
+  busqueda?: string;
+}): Promise<MovimientoInventario[]> => {
+  try {
+    const params: Record<string, string> = {};
+    if (filtros?.tipo && filtros.tipo !== 'Todos' && filtros.tipo !== 'todos') {
+      params.tipo = filtros.tipo;
+    }
+    if (filtros?.busqueda && filtros.busqueda.trim()) {
+      params.busqueda = filtros.busqueda.trim();
+    }
+    const { data } = await apiClient.get<MovimientoInventario[]>(
+      '/api/articulos/movimientos',
+      { params },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'Error al cargar los movimientos de inventario'),
     );
   }
 };

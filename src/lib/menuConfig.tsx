@@ -145,6 +145,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     submenu: [
       { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
       { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
+      { label: 'Movimientos de Stock', to: '/dashboard/inventario/movimientos', roles: ['Administrador'] },
     ],
   },
   {
