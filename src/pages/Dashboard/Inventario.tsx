@@ -3,7 +3,6 @@ import {
   obtenerArticulos,
   crearArticulo,
   actualizarArticulo,
-  registrarMovimientoArticulo,
   obtenerHistorialArticulo,
   cambiarEstadoArticulo,
   obtenerProveedores,
@@ -11,7 +10,6 @@ import {
   type MovimientoInventario,
   type Proveedor,
   type CrearArticuloPayload,
-  type RegistrarMovimientoPayload,
 } from '../../components/Services/inventario.service'
 
 const CLASIFICACIONES = [
@@ -122,17 +120,6 @@ function Inventario() {
   } | null>(null)
   const [cambiandoEstadoId, setCambiandoEstadoId] = useState<number | null>(null)
   const [errorCambioEstado, setErrorCambioEstado] = useState<string | null>(null)
-
-  // Modal Movimiento Rápido
-  const [articuloMovimiento, setArticuloMovimiento] = useState<Articulo | null>(null)
-  const [formMovimiento, setFormMovimiento] = useState<RegistrarMovimientoPayload>({
-    tipoMovimiento: 'entrada',
-    cantidad: 1,
-    motivo: '',
-    responsableDestino: '',
-  })
-  const [errorFormMovimiento, setErrorFormMovimiento] = useState<string | null>(null)
-  const [submittingMovimiento, setSubmittingMovimiento] = useState(false)
 
   // Estado del Formulario Artículo
   const [form, setForm] = useState<CrearArticuloPayload>({
@@ -272,16 +259,6 @@ function Inventario() {
     }
   }
 
-  function openMovimiento(articulo: Articulo) {
-    setArticuloMovimiento(articulo)
-    setFormMovimiento({
-      tipoMovimiento: 'entrada',
-      cantidad: 1,
-      motivo: '',
-      responsableDestino: '',
-    })
-    setErrorFormMovimiento(null)
-  }
 
   // ------------------------------------------------------------------
   // Formulario: Crear / Editar
@@ -374,73 +351,6 @@ function Inventario() {
       )
     } finally {
       setCambiandoEstadoId(null)
-    }
-  }
-
-  // ------------------------------------------------------------------
-  // Movimiento Rápido
-  // ------------------------------------------------------------------
-  const stockActual = articuloMovimiento?.cantidad_disponible ?? 0
-  const stockProyectado =
-    formMovimiento.tipoMovimiento === 'entrada'
-      ? stockActual + (Number(formMovimiento.cantidad) || 0)
-      : stockActual - (Number(formMovimiento.cantidad) || 0)
-
-  const esSalidaInvalida =
-    formMovimiento.tipoMovimiento === 'salida' &&
-    Number(formMovimiento.cantidad) > stockActual
-
-  async function handleConfirmarMovimiento(e: FormEvent) {
-    e.preventDefault()
-    if (!articuloMovimiento) return
-    setErrorFormMovimiento(null)
-
-    if (Number(formMovimiento.cantidad) <= 0) {
-      setErrorFormMovimiento('La cantidad debe ser mayor a cero.')
-      return
-    }
-    if (formMovimiento.tipoMovimiento === 'salida' && !formMovimiento.responsableDestino?.trim()) {
-      setErrorFormMovimiento('El destino o responsable es obligatorio en salidas.')
-      return
-    }
-    if (esSalidaInvalida) {
-      setErrorFormMovimiento(
-        `Stock insuficiente. No se puede egresar más de lo disponible (${stockActual} uds).`,
-      )
-      return
-    }
-    if (!formMovimiento.motivo.trim()) {
-      setErrorFormMovimiento('El motivo del movimiento es obligatorio.')
-      return
-    }
-
-    setSubmittingMovimiento(true)
-    try {
-      const res = await registrarMovimientoArticulo(articuloMovimiento.id, {
-        tipoMovimiento: formMovimiento.tipoMovimiento,
-        cantidad: Number(formMovimiento.cantidad),
-        motivo: formMovimiento.motivo.trim(),
-        responsableDestino: formMovimiento.responsableDestino?.trim() || undefined,
-      })
-
-      // Actualizar artículo de forma reactiva sin recargar
-      setArticulos((prev) =>
-        prev.map((a) => (a.id === res.articulo.id ? res.articulo : a)),
-      )
-      if (viewDetail && viewDetail.id === res.articulo.id) {
-        setViewDetail(res.articulo)
-        setHistorialDetalle((prev) => [res.movimiento, ...prev])
-      }
-      setArticuloMovimiento(null)
-      notificarExito(
-        `Movimiento registrado: ${res.articulo.nombre} tiene ahora ${res.articulo.cantidad_disponible} unidades disponibles.`,
-      )
-    } catch (err) {
-      setErrorFormMovimiento(
-        err instanceof Error ? err.message : 'Error al registrar el movimiento.',
-      )
-    } finally {
-      setSubmittingMovimiento(false)
     }
   }
 
@@ -616,20 +526,24 @@ function Inventario() {
             </p>
           )}
 
-          <div className="flex justify-end gap-3 pt-4 border-t border-primary-100">
-            <button
-              type="button"
-              onClick={cerrarModal}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-            >
-              Cancelar
-            </button>
+          <div className="flex justify-end gap-3 pt-2">
             <button
               type="submit"
               disabled={submitting}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
             >
-              {submitting ? 'Guardando...' : editando ? 'Guardar cambios' : 'Crear artículo'}
+              {submitting
+                ? 'Guardando...'
+                : editando
+                  ? 'Guardar cambios'
+                  : 'Crear artículo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => cerrarModal()}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+            >
+              Cancelar
             </button>
           </div>
         </form>
@@ -820,160 +734,6 @@ function Inventario() {
       </div>
     )
 
-  // 4. Modal Movimiento Rápido desde la Fila
-  const movimientoModalEl = !articuloMovimiento ? null : (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-xl font-semibold text-primary-900">Registrar Movimiento</h2>
-            <p className="text-sm text-primary-500">{articuloMovimiento.nombre}</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setArticuloMovimiento(null)}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
-          >
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <form onSubmit={handleConfirmarMovimiento} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Tipo de Movimiento</label>
-            <div className="mt-1 grid grid-cols-2 gap-2 rounded-lg bg-primary-50 p-1 border border-primary-200">
-              <button
-                type="button"
-                onClick={() => setFormMovimiento((p) => ({ ...p, tipoMovimiento: 'entrada' }))}
-                className={`rounded-md py-2 text-sm font-semibold transition-colors ${
-                  formMovimiento.tipoMovimiento === 'entrada'
-                    ? 'bg-emerald-600 text-white shadow'
-                    : 'text-primary-700 hover:text-primary-900'
-                }`}
-              >
-                + Entrada (Ingreso)
-              </button>
-              <button
-                type="button"
-                onClick={() => setFormMovimiento((p) => ({ ...p, tipoMovimiento: 'salida' }))}
-                className={`rounded-md py-2 text-sm font-semibold transition-colors ${
-                  formMovimiento.tipoMovimiento === 'salida'
-                    ? 'bg-red-600 text-white shadow'
-                    : 'text-primary-700 hover:text-primary-900'
-                }`}
-              >
-                - Salida (Egreso)
-              </button>
-            </div>
-          </div>
-
-          <div className="rounded-xl border border-primary-100 bg-primary-50/60 p-4 text-sm">
-            <div className="flex items-center justify-between">
-              <span className="text-primary-600">Stock Actual:</span>
-              <span className="font-mono font-bold text-primary-900">{stockActual} unidades</span>
-            </div>
-            <div className="mt-1 flex items-center justify-between">
-              <span className="text-primary-600">
-                {formMovimiento.tipoMovimiento === 'entrada' ? 'Ingreso (+):' : 'Salida (-):'}
-              </span>
-              <span
-                className={`font-mono font-bold ${
-                  formMovimiento.tipoMovimiento === 'entrada' ? 'text-emerald-700' : 'text-red-700'
-                }`}
-              >
-                {formMovimiento.tipoMovimiento === 'entrada' ? '+' : '-'}
-                {formMovimiento.cantidad || 0} unidades
-              </span>
-            </div>
-            <div className="mt-2 border-t border-primary-200 pt-2 flex items-center justify-between">
-              <span className="font-semibold text-primary-800">Stock Resultante:</span>
-              <span
-                className={`font-mono font-bold text-base ${
-                  esSalidaInvalida ? 'text-red-600' : 'text-primary-900'
-                }`}
-              >
-                {stockProyectado} unidades
-              </span>
-            </div>
-            {esSalidaInvalida && (
-              <p className="mt-2 text-xs font-semibold text-red-600">
-                ⚠️ Stock insuficiente. No se puede egresar más de lo disponible en bodega.
-              </p>
-            )}
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Cantidad *</label>
-            <input
-              type="number"
-              min={1}
-              required
-              value={formMovimiento.cantidad}
-              onChange={(e) =>
-                setFormMovimiento((p) => ({ ...p, cantidad: Number(e.target.value) }))
-              }
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
-            />
-          </div>
-
-          {formMovimiento.tipoMovimiento === 'salida' && (
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Responsable / Destino *
-              </label>
-              <input
-                type="text"
-                required
-                value={formMovimiento.responsableDestino}
-                onChange={(e) =>
-                  setFormMovimiento((p) => ({ ...p, responsableDestino: e.target.value }))
-                }
-                placeholder="Ej. Fontanero Mario Solano / Reparación Pozo 2"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
-              />
-            </div>
-          )}
-
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Motivo *</label>
-            <textarea
-              rows={2}
-              required
-              value={formMovimiento.motivo}
-              onChange={(e) => setFormMovimiento((p) => ({ ...p, motivo: e.target.value }))}
-              placeholder="Ej. Compra de insumos / Atención de fuga"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
-            />
-          </div>
-
-          {errorFormMovimiento && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-              {errorFormMovimiento}
-            </p>
-          )}
-
-          <div className="flex justify-end gap-3 pt-4 border-t border-primary-100">
-            <button
-              type="button"
-              onClick={() => setArticuloMovimiento(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submittingMovimiento || esSalidaInvalida}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-            >
-              {submittingMovimiento ? 'Registrando...' : 'Confirmar Movimiento'}
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
-  )
 
   // ------------------------------------------------------------------
   // RENDER PRINCIPAL (Homologado con Abonados.tsx)
@@ -1200,7 +960,7 @@ function Inventario() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <button
                           type="button"
                           onClick={() => openEditar(item)}
@@ -1214,19 +974,6 @@ function Inventario() {
                           className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
                         >
                           Ver
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openMovimiento(item)}
-                          disabled={item.estado === 'inactivo'}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline disabled:text-gray-300 disabled:no-underline disabled:cursor-not-allowed"
-                          title={
-                            item.estado === 'inactivo'
-                              ? 'No disponible para artículos inactivos'
-                              : 'Registrar Entrada / Salida'
-                          }
-                        >
-                          Movimiento
                         </button>
                       </div>
                     </td>
@@ -1293,7 +1040,6 @@ function Inventario() {
       {modalFormEl}
       {detailModalEl}
       {cambioEstadoModalEl}
-      {movimientoModalEl}
     </div>
   )
 }
