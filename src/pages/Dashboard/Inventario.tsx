@@ -99,6 +99,7 @@ function Inventario() {
   const [search, setSearch] = useState('')
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas')
   const [filtroEstado, setFiltroEstado] = useState('Todos')
+  const [soloStockBajo, setSoloStockBajo] = useState(false)
   const [pagina, setPagina] = useState(1)
 
   // Modales
@@ -127,6 +128,7 @@ function Inventario() {
     descripcion: '',
     clasificacion: 'articulo',
     cantidad: 0,
+    umbralMinimo: 5,
     fechaIngreso: hoyIso(),
     ubicacion: '',
     proveedorId: 0,
@@ -144,6 +146,7 @@ function Inventario() {
         obtenerArticulos({
           clasificacion: filtroClasificacion,
           estado: filtroEstado,
+          soloStockBajo,
         }),
         obtenerProveedores(),
       ])
@@ -159,7 +162,7 @@ function Inventario() {
     } finally {
       setLoading(false)
     }
-  }, [filtroClasificacion, filtroEstado, form.proveedorId])
+  }, [filtroClasificacion, filtroEstado, soloStockBajo, form.proveedorId])
 
   useEffect(() => {
     void cargarDatos()
@@ -182,6 +185,9 @@ function Inventario() {
       if (filtroEstado !== 'Todos' && a.estado !== filtroEstado) {
         return false
       }
+      if (soloStockBajo && !a.stockBajo) {
+        return false
+      }
       if (q === '') return true
       return (
         normalizarBusqueda(a.nombre).includes(q) ||
@@ -190,7 +196,7 @@ function Inventario() {
         normalizarBusqueda(a.proveedor?.nombre || '').includes(q)
       )
     })
-  }, [articulos, filtroClasificacion, filtroEstado, q])
+  }, [articulos, filtroClasificacion, filtroEstado, soloStockBajo, q])
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / ARTICULOS_POR_PAGINA))
   const paginaActual = Math.min(pagina, totalPaginas)
@@ -219,6 +225,7 @@ function Inventario() {
       descripcion: '',
       clasificacion: 'articulo',
       cantidad: 0,
+      umbralMinimo: 5,
       fechaIngreso: hoyIso(),
       ubicacion: '',
       proveedorId: proveedores[0]?.id ?? 0,
@@ -235,6 +242,7 @@ function Inventario() {
       descripcion: articulo.descripcion,
       clasificacion: articulo.clasificacion,
       cantidad: articulo.cantidad_disponible,
+      umbralMinimo: articulo.umbral_minimo ?? 5,
       fechaIngreso: articulo.fecha_ingreso ? articulo.fecha_ingreso.slice(0, 10) : hoyIso(),
       ubicacion: articulo.ubicacion,
       proveedorId: articulo.proveedor?.id ?? proveedores[0]?.id ?? 0,
@@ -295,6 +303,7 @@ function Inventario() {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim(),
           clasificacion: form.clasificacion,
+          umbralMinimo: Number(form.umbralMinimo) || 5,
           ubicacion: form.ubicacion.trim(),
           proveedorId: Number(form.proveedorId),
           personaRecibe: form.personaRecibe.trim(),
@@ -312,6 +321,7 @@ function Inventario() {
           ubicacion: form.ubicacion.trim(),
           personaRecibe: form.personaRecibe.trim(),
           cantidad: Number(form.cantidad),
+          umbralMinimo: Number(form.umbralMinimo) || 5,
           proveedorId: Number(form.proveedorId),
         })
         setArticulos((prev) => [creado, ...prev])
@@ -518,6 +528,29 @@ function Inventario() {
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
               />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Umbral mínimo de alerta *
+              </label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={form.umbralMinimo}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    umbralMinimo: Math.max(1, parseInt(e.target.value, 10) || 1),
+                  }))
+                }
+                placeholder="5"
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-primary-400">
+                Alerta cuando el stock disponible sea menor o igual a este valor.
+              </p>
+            </div>
           </div>
 
           {formError && (
@@ -586,8 +619,20 @@ function Inventario() {
             </span>
 
             <span className="font-medium text-primary-700">Stock disponible:</span>
-            <span className="font-mono font-bold text-primary-900">
-              {viewDetail.cantidad_disponible} unidades
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono font-bold text-primary-900">
+                {viewDetail.cantidad_disponible} unidades
+              </span>
+              {viewDetail.stockBajo && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                  ⚠️ Stock bajo
+                </span>
+              )}
+            </div>
+
+            <span className="font-medium text-primary-700">Umbral de alerta:</span>
+            <span className="text-primary-900">
+              {viewDetail.umbral_minimo ?? 5} unidades
             </span>
 
             <span className="font-medium text-primary-700">Ubicación actual:</span>
@@ -826,6 +871,22 @@ function Inventario() {
           <option value="activo">Activos</option>
           <option value="inactivo">Inactivos</option>
         </select>
+
+        <label className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-primary-200 bg-white px-3 py-2.5 text-sm font-medium text-primary-700 hover:bg-primary-50">
+          <input
+            type="checkbox"
+            checked={soloStockBajo}
+            onChange={(e) => {
+              setSoloStockBajo(e.target.checked)
+              setPagina(1)
+            }}
+            className="h-4 w-4 rounded border-primary-300 text-primary-700 focus:ring-primary-500"
+          />
+          <span className="flex items-center gap-1">
+            <span>⚠️</span>
+            Solo stock bajo
+          </span>
+        </label>
       </div>
 
       {/* Error de carga */}
@@ -926,15 +987,27 @@ function Inventario() {
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono">
-                      <span
-                        className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                          item.cantidad_disponible === 0
-                            ? 'bg-red-100 text-red-700'
-                            : 'bg-emerald-100 text-emerald-800'
-                        }`}
-                      >
-                        {item.cantidad_disponible} uds
-                      </span>
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                            item.cantidad_disponible === 0
+                              ? 'bg-red-100 text-red-700'
+                              : item.stockBajo
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {item.cantidad_disponible} uds
+                        </span>
+                        {item.stockBajo && (
+                          <span
+                            title={`Stock menor o igual al umbral mínimo (${item.umbral_minimo ?? 5})`}
+                            className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+                          >
+                            ⚠️ Stock bajo
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-primary-600">{item.ubicacion || '—'}</td>
                     <td className="px-4 py-3">
