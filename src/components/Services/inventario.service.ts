@@ -33,6 +33,8 @@ export interface Articulo {
   descripcion: string;
   clasificacion: 'inmueble' | 'articulo';
   cantidad_disponible: number;
+  umbral_minimo?: number;
+  stockBajo?: boolean;
   fecha_ingreso: string;
   ubicacion: string;
   persona_recibe: string;
@@ -48,6 +50,7 @@ export interface CrearArticuloPayload {
   descripcion: string;
   clasificacion: 'inmueble' | 'articulo';
   cantidad: number;
+  umbralMinimo?: number;
   fechaIngreso?: string;
   ubicacion: string;
   proveedorId: number;
@@ -65,16 +68,13 @@ export interface FiltrosArticulos {
   busqueda?: string;
   clasificacion?: string;
   estado?: string;
+  soloStockBajo?: boolean;
 }
 
 function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
-    }
-    const msg = error.response?.data?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg)) return msg.join('. ');
+  if (axios.isAxiosError(error) && error.response?.data?.message) {
+    const msg = error.response.data.message;
+    return Array.isArray(msg) ? msg.join(', ') : msg;
   }
   return fallback;
 }
@@ -94,6 +94,9 @@ export const obtenerArticulos = async (
     }
     if (filtros.estado && filtros.estado !== 'Todos') {
       params.estado = filtros.estado;
+    }
+    if (filtros.soloStockBajo) {
+      params.soloStockBajo = 'true';
     }
 
     const { data } = await apiClient.get<Articulo[]>('/api/articulos', {
