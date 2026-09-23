@@ -420,6 +420,10 @@ function VistaAdministrador() {
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [gestionando, setGestionando] = useState(false)
 
+  // Alterna entre ver el listado y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
   const cargar = useCallback(async () => {
     try {
       const lista = await obtenerSolicitudesCambioMedidor()
@@ -526,6 +530,7 @@ function VistaAdministrador() {
       setMensaje('Solicitud de cambio de medidor registrada correctamente.')
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
@@ -573,6 +578,32 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
+      <div className="inline-flex w-full max-w-sm rounded-lg border border-primary-200 bg-primary-50 p-1">
+        <button
+          type="button"
+          onClick={() => setVista('lista')}
+          className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+            vista === 'lista'
+              ? 'bg-primary-700 text-white shadow'
+              : 'text-primary-700 hover:text-primary-900'
+          }`}
+        >
+          Solicitudes registradas
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista('crear')}
+          className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+            vista === 'crear'
+              ? 'bg-primary-700 text-white shadow'
+              : 'text-primary-700 hover:text-primary-900'
+          }`}
+        >
+          Generar solicitud
+        </button>
+      </div>
+
+      {vista === 'crear' && (
       <form
         onSubmit={onSubmit}
         className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm"
@@ -758,7 +789,9 @@ function VistaAdministrador() {
           </button>
         </div>
       </form>
+      )}
 
+      {vista === 'lista' && (
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
@@ -832,6 +865,7 @@ function VistaAdministrador() {
           </div>
         )}
       </div>
+      )}
 
       {detalle && (
         <ModalDetalle

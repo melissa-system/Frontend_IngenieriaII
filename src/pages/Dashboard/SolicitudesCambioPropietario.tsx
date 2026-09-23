@@ -662,6 +662,10 @@ function VistaAdministrador() {
   const [error, setError] = useState('')
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
+  // Alterna entre ver el listado y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
   const cargar = useCallback(async () => {
     try {
       const lista = await obtenerSolicitudesCambioPropietario()
@@ -788,6 +792,7 @@ function VistaAdministrador() {
       setMensaje(`Solicitud ${resp.codigo_solicitud} registrada correctamente en ventanilla.`)
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al registrar la solicitud.')
     } finally {
@@ -855,6 +860,33 @@ function VistaAdministrador() {
         </div>
       )}
 
+      <div className="inline-flex w-full max-w-sm rounded-lg border border-primary-200 bg-primary-50 p-1">
+        <button
+          type="button"
+          onClick={() => setVista('lista')}
+          className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+            vista === 'lista'
+              ? 'bg-primary-700 text-white shadow'
+              : 'text-primary-700 hover:text-primary-900'
+          }`}
+        >
+          Solicitudes registradas
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista('crear')}
+          className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+            vista === 'crear'
+              ? 'bg-primary-700 text-white shadow'
+              : 'text-primary-700 hover:text-primary-900'
+          }`}
+        >
+          Generar solicitud
+        </button>
+      </div>
+
+      {vista === 'crear' && (
+      <>
       {/* Formulario Ventanilla Asistida */}
       <form
         onSubmit={handleSubmit}
@@ -1077,7 +1109,11 @@ function VistaAdministrador() {
           </button>
         </div>
       </form>
+      </>
+      )}
 
+      {vista === 'lista' && (
+      <>
       {/* Listado y Gestión de Solicitudes */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-primary-900">
@@ -1172,6 +1208,8 @@ function VistaAdministrador() {
           </div>
         )}
       </div>
+      </>
+      )}
 
       {/* Modal de Detalle y Gestión */}
       {detalle && (
