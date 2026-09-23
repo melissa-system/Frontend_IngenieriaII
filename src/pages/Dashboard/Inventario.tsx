@@ -809,50 +809,51 @@ function Inventario() {
         </div>
       )}
 
-      {/* Barra de Búsqueda y Filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative w-full sm:w-96">
-          <svg
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="Buscar por nombre, descripción o ubicación..."
-            value={search}
-            onChange={(e) => manejarBusqueda(e.target.value)}
-            className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+      {/* Búsqueda */}
+      <div className="relative w-full sm:w-96">
+        <svg
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
           />
-          {search && (
-            <button
-              type="button"
-              onClick={() => manejarBusqueda('')}
-              title="Limpiar búsqueda"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
+        </svg>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, descripción o ubicación..."
+          value={search}
+          onChange={(e) => manejarBusqueda(e.target.value)}
+          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => manejarBusqueda('')}
+            title="Limpiar búsqueda"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
+      </div>
 
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
         <select
           value={filtroClasificacion}
           onChange={(e) => {
             setFiltroClasificacion(e.target.value)
             setPagina(1)
           }}
-          className="rounded-full border border-primary-200 bg-white px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todas">Todas las clasificaciones</option>
           <option value="articulo">Artículo</option>
@@ -865,7 +866,7 @@ function Inventario() {
             setFiltroEstado(e.target.value)
             setPagina(1)
           }}
-          className="rounded-full border border-primary-200 bg-white px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todos">Todos los estados</option>
           <option value="activo">Activos</option>
@@ -878,7 +879,7 @@ function Inventario() {
             setSoloStockBajo(!soloStockBajo)
             setPagina(1)
           }}
-          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors ${
+          className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors ${
             soloStockBajo
               ? 'border-amber-300 bg-amber-100 text-amber-800'
               : 'border-primary-200 bg-white text-primary-700 hover:bg-primary-50'
