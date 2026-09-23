@@ -17,11 +17,6 @@ import {
   type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
 import {
-  PROVINCIAS,
-  obtenerCantonesDeProvincia,
-  obtenerDistritosDeCanton,
-} from '../../lib/ubicacionesCostaRica'
-import {
   ACCEPT_ARCHIVOS_PERMITIDOS,
   extensionPermitida,
   MENSAJE_FORMATO_NO_PERMITIDO,
@@ -286,16 +281,6 @@ function Afiliacion() {
   const paso1Valido = telefonoValido && correoValido && telefonoSecundarioValido
 
   // ---------- Paso 2: ubicación ----------
-  const cantonesDisponibles = obtenerCantonesDeProvincia(draft.provincia)
-  const distritosDisponibles = obtenerDistritosDeCanton(draft.canton)
-
-  const handleProvinciaChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    setDraft((prev) => ({ ...prev, provincia: e.target.value, canton: '', distrito: '' }))
-  }
-  const handleCantonChange = (e: ChangeEvent<HTMLSelectElement>) => {
-    setDraft((prev) => ({ ...prev, canton: e.target.value, distrito: '' }))
-  }
-
   const paso2Valido =
     draft.provincia !== '' &&
     draft.canton !== '' &&
@@ -726,63 +711,40 @@ function Afiliacion() {
                     <label htmlFor="provincia" className={labelCls}>
                       Provincia
                     </label>
-                    <select
+                    <input
                       id="provincia"
+                      type="text"
                       value={draft.provincia}
-                      onChange={handleProvinciaChange}
-                      className={selectCls}
-                    >
-                      <option value="" disabled>
-                        Selecciona
-                      </option>
-                      {PROVINCIAS.map((p) => (
-                        <option key={p} value={p}>
-                          {p}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(e) => actualizar('provincia', e.target.value)}
+                      placeholder="Ej. Puntarenas"
+                      className={inputCls}
+                    />
                   </div>
                   <div>
                     <label htmlFor="canton" className={labelCls}>
                       Cantón
                     </label>
-                    <select
+                    <input
                       id="canton"
+                      type="text"
                       value={draft.canton}
-                      onChange={handleCantonChange}
-                      disabled={!draft.provincia}
-                      className={`${selectCls} disabled:bg-primary-50 disabled:text-primary-400`}
-                    >
-                      <option value="" disabled>
-                        Selecciona
-                      </option>
-                      {cantonesDisponibles.map((c) => (
-                        <option key={c} value={c}>
-                          {c}
-                        </option>
-                      ))}
-                    </select>
+                      onChange={(e) => actualizar('canton', e.target.value)}
+                      placeholder="Ej. Puntarenas"
+                      className={inputCls}
+                    />
                   </div>
                   <div>
                     <label htmlFor="distrito" className={labelCls}>
                       Distrito
                     </label>
-                    <select
+                    <input
                       id="distrito"
+                      type="text"
                       value={draft.distrito}
                       onChange={(e) => actualizar('distrito', e.target.value)}
-                      disabled={!draft.canton}
-                      className={`${selectCls} disabled:bg-primary-50 disabled:text-primary-400`}
-                    >
-                      <option value="" disabled>
-                        Selecciona
-                      </option>
-                      {distritosDisponibles.map((d) => (
-                        <option key={d} value={d}>
-                          {d}
-                        </option>
-                      ))}
-                    </select>
+                      placeholder="Ej. Paquera"
+                      className={inputCls}
+                    />
                   </div>
                 </div>
                 <div>
