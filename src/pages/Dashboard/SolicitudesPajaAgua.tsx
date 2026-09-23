@@ -442,6 +442,7 @@ function ModalDetalle({
 }) {
   const [generandoDocumento, setGenerandoDocumento] = useState(false)
   const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [expandido, setExpandido] = useState(false)
 
   const esFinal =
     solicitud.estado === 'Aprobada' ||
@@ -485,6 +486,7 @@ function ModalDetalle({
           <BadgeEstado estado={solicitud.estado} />
         </div>
 
+        {/* Vista previa: siempre visible, sin necesidad de expandir */}
         <dl className="mt-5 grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
           <Campo
             etiqueta={solicitud.tipo_persona === 'juridica' ? 'Razón social' : 'Nombre'}
@@ -496,20 +498,6 @@ function ModalDetalle({
             etiqueta="Tipo de persona"
             valor={solicitud.tipo_persona === 'juridica' ? 'Jurídica' : 'Física'}
           />
-          {solicitud.nombre_representante && (
-            <>
-              <Campo etiqueta="Representante legal" valor={solicitud.nombre_representante} />
-              <Campo
-                etiqueta="Cédula del representante"
-                valor={solicitud.cedula_representante ?? '—'}
-              />
-            </>
-          )}
-
-          <Campo etiqueta="Teléfono" valor={solicitud.telefono} />
-          <Campo etiqueta="Teléfono secundario" valor={solicitud.telefono_secundario ?? '—'} />
-          <Campo etiqueta="Correo" valor={solicitud.correo} colSpan2 />
-
           <Campo
             etiqueta="Ubicación"
             valor={
@@ -519,18 +507,6 @@ function ModalDetalle({
             }
             colSpan2
           />
-          <Campo etiqueta="Dirección exacta" valor={solicitud.direccion} colSpan2 />
-          <Campo etiqueta="Número de plano" valor={solicitud.numero_plano} />
-
-          <Campo etiqueta="Naturaleza del inmueble" valor={solicitud.naturaleza_inmueble ?? '—'} />
-          <Campo etiqueta="Calidad del titular" valor={solicitud.calidad_titular ?? '—'} />
-          <Campo etiqueta="Servicio solicitado" valor={solicitud.tipo_servicio ?? '—'} />
-          <Campo etiqueta="Tipo de conexión" valor={solicitud.tipo_conexion ?? '—'} />
-
-          {solicitud.observaciones && (
-            <Campo etiqueta="Observaciones" valor={solicitud.observaciones} colSpan2 />
-          )}
-
           <Campo etiqueta="Fecha de solicitud" valor={formatearFecha(solicitud.fecha_solicitud)} />
 
           {solicitud.motivo_rechazo && (
@@ -548,42 +524,88 @@ function ModalDetalle({
           )}
         </dl>
 
-        <div className="mt-5 border-t border-primary-100 pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
-            Documentos adjuntos
-          </p>
-          <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
-            <EnlaceDocumento etiqueta="Cédula (frente)" url={solicitud.cedula_frente_path} />
-            <EnlaceDocumento etiqueta="Cédula (dorso)" url={solicitud.cedula_dorso_path} />
-            <EnlaceDocumento
-              etiqueta="Permisos municipales"
-              url={solicitud.permisos_municipales_path}
-            />
-            <EnlaceDocumento etiqueta="Carta de solicitud" url={solicitud.carta_solicitud_path} />
-          </dl>
-        </div>
+        <button
+          type="button"
+          onClick={() => setExpandido(!expandido)}
+          className="mt-3 text-sm font-semibold text-primary-700 hover:text-primary-900"
+        >
+          {expandido ? '▲ Leer menos' : '▼ Leer más'}
+        </button>
 
-        <div className="mt-5 border-t border-primary-100 pt-4">
-          <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
-            Documento de solicitud (machote)
-          </p>
-          {configuracion ? (
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={manejarDescargarDocumento}
-                disabled={generandoDocumento}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-              >
-                {generandoDocumento ? 'Generando…' : 'Descargar documento (Word)'}
-              </button>
+        {expandido && (
+          <>
+            <dl className="mt-4 grid grid-cols-1 gap-4 border-t border-primary-100 pt-4 text-sm sm:grid-cols-2">
+              {solicitud.nombre_representante && (
+                <>
+                  <Campo etiqueta="Representante legal" valor={solicitud.nombre_representante} />
+                  <Campo
+                    etiqueta="Cédula del representante"
+                    valor={solicitud.cedula_representante ?? '—'}
+                  />
+                </>
+              )}
+
+              <Campo etiqueta="Teléfono" valor={solicitud.telefono} />
+              <Campo etiqueta="Teléfono secundario" valor={solicitud.telefono_secundario ?? '—'} />
+              <Campo etiqueta="Correo" valor={solicitud.correo} colSpan2 />
+
+              <Campo etiqueta="Dirección exacta" valor={solicitud.direccion} colSpan2 />
+              <Campo etiqueta="Número de plano" valor={solicitud.numero_plano} />
+
+              <Campo
+                etiqueta="Naturaleza del inmueble"
+                valor={solicitud.naturaleza_inmueble ?? '—'}
+              />
+              <Campo etiqueta="Calidad del titular" valor={solicitud.calidad_titular ?? '—'} />
+              <Campo etiqueta="Servicio solicitado" valor={solicitud.tipo_servicio ?? '—'} />
+              <Campo etiqueta="Tipo de conexión" valor={solicitud.tipo_conexion ?? '—'} />
+
+              {solicitud.observaciones && (
+                <Campo etiqueta="Observaciones" valor={solicitud.observaciones} colSpan2 />
+              )}
+            </dl>
+
+            <div className="mt-5 border-t border-primary-100 pt-4">
+              <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
+                Documentos adjuntos
+              </p>
+              <dl className="grid grid-cols-1 gap-4 text-sm sm:grid-cols-2">
+                <EnlaceDocumento etiqueta="Cédula (frente)" url={solicitud.cedula_frente_path} />
+                <EnlaceDocumento etiqueta="Cédula (dorso)" url={solicitud.cedula_dorso_path} />
+                <EnlaceDocumento
+                  etiqueta="Permisos municipales"
+                  url={solicitud.permisos_municipales_path}
+                />
+                <EnlaceDocumento
+                  etiqueta="Carta de solicitud"
+                  url={solicitud.carta_solicitud_path}
+                />
+              </dl>
             </div>
-          ) : (
-            <p className="text-xs text-primary-400">
-              No se pudo cargar la información de la ASADA para generar el documento.
-            </p>
-          )}
-        </div>
+
+            <div className="mt-5 border-t border-primary-100 pt-4">
+              <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
+                Documento de solicitud (machote)
+              </p>
+              {configuracion ? (
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={manejarDescargarDocumento}
+                    disabled={generandoDocumento}
+                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+                  >
+                    {generandoDocumento ? 'Generando…' : 'Descargar documento (Word)'}
+                  </button>
+                </div>
+              ) : (
+                <p className="text-xs text-primary-400">
+                  No se pudo cargar la información de la ASADA para generar el documento.
+                </p>
+              )}
+            </div>
+          </>
+        )}
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
