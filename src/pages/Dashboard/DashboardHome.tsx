@@ -3,26 +3,11 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerMiResumen, type MiResumen } from '../../components/Services/abonados.service'
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts'
 import { obtenerAverias, type AveriaBackend } from '../../components/Services/averias.service'
 
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
-const COLORS = ['#073763', '#13416b', '#395f82', '#6a87a1', '#9cafc1']
-
-const MESES_CORTOS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
+const DIAS_SEMANA_CORTOS = ['D', 'L', 'M', 'M', 'J', 'V', 'S']
 
 function getRange(rango: Rango): { desde: string; hasta: string } {
   const now = new Date()
@@ -145,6 +130,24 @@ function IconUsuarios() {
       <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm3.75 8.25a6.75 6.75 0 0 0-13.5 0M21 15.75a5.25 5.25 0 0 0-3.702-5.02M3 15.75a5.25 5.25 0 0 1 3.702-5.02M18 7.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0ZM10.5 7.5a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z" />
     </svg>
   )
+}
+
+function IconCalendario() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+    </svg>
+  )
+}
+
+// Escala de "urgencia" para una avería abierta según sus días sin resolver:
+// pocas horas/1 día es normal (celeste), 2-4 días ya amerita atención
+// (ámbar), 5+ días es urgente (rojo). Se usa tanto en el calendario como en
+// la lista de seguimientos para que el color signifique lo mismo en los dos.
+function colorSeveridad(diasAbierta: number): { bg: string; text: string; dot: string } {
+  if (diasAbierta >= 5) return { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' }
+  if (diasAbierta >= 2) return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' }
+  return { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' }
 }
 
 function IconPublicaciones() {
@@ -333,36 +336,59 @@ function DashboardHomeContenido() {
     [averiasSinAsignar, abonadosInactivosTotal, abonadosSinCuenta],
   )
 
-  const averiasPorTipo = useMemo(() => {
-    const conteo: Record<string, number> = {}
-    for (const a of averiasReales) {
-      conteo[a.tipo_averia] = (conteo[a.tipo_averia] ?? 0) + 1
-    }
-    return Object.entries(conteo)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value)
+  // Averías todavía sin resolver (Pendiente o En proceso), con sus días de
+  // antigüedad desde que se reportaron — es el dato real que alimenta tanto
+  // el calendario como la lista de "Requieren seguimiento" de abajo.
+  const averiasAbiertas = useMemo(() => {
+    const hoyMs = Date.now()
+    return averiasReales
+      .filter((a) => a.estado !== 'Finalizado')
+      .map((a) => {
+        const fechaKey = a.fecha_reporte.slice(0, 10)
+        const fechaMs = new Date(`${fechaKey}T00:00:00`).getTime()
+        const diasAbierta = Number.isNaN(fechaMs)
+          ? 0
+          : Math.max(0, Math.floor((hoyMs - fechaMs) / (1000 * 60 * 60 * 24)))
+        return { ...a, fechaKey, diasAbierta }
+      })
+      .sort((a, b) => b.diasAbierta - a.diasAbierta)
   }, [averiasReales])
 
-  const totalAveriasPorTipo = useMemo(
-    () => averiasPorTipo.reduce((sum, d) => sum + d.value, 0),
-    [averiasPorTipo],
-  )
+  // Calendario del mes actual: cada celda marca el día con más antigüedad
+  // entre las averías abiertas reportadas ese día (si hay más de una).
+  const celdasCalendario = useMemo(() => {
+    const hoy = new Date()
+    const anio = hoy.getFullYear()
+    const mes = hoy.getMonth()
+    const primerDiaSemana = new Date(anio, mes, 1).getDay()
+    const totalDias = new Date(anio, mes + 1, 0).getDate()
+    const hoyKey = hoy.toISOString().slice(0, 10)
 
-  // Total acumulado de abonados registrados por mes — para el gráfico de
-  // tendencia. Se usa fecha_registro (no el filtro de rango de arriba) porque
-  // el objetivo es mostrar el crecimiento histórico, no un corte puntual.
-  const abonadosPorMes = useMemo(() => {
-    const porMes: Record<string, number> = {}
-    for (const a of abonadosReales) {
-      const mes = MESES_CORTOS[Number(a.fecha_registro.slice(5, 7)) - 1]
-      porMes[mes] = (porMes[mes] ?? 0) + 1
+    const severidadPorDia = new Map<string, number>()
+    for (const a of averiasAbiertas) {
+      const actual = severidadPorDia.get(a.fechaKey)
+      if (actual === undefined || a.diasAbierta > actual) {
+        severidadPorDia.set(a.fechaKey, a.diasAbierta)
+      }
     }
-    let acumulado = 0
-    return MESES_CORTOS.filter((mes) => porMes[mes] !== undefined).map((mes) => {
-      acumulado += porMes[mes]
-      return { mes, total: acumulado }
-    })
-  }, [abonadosReales])
+
+    const celdas: Array<{ dia: number; fechaKey: string; diasAbierta: number | null; esHoy: boolean }> = []
+    for (let i = 0; i < primerDiaSemana; i++) {
+      celdas.push({ dia: 0, fechaKey: '', diasAbierta: null, esHoy: false })
+    }
+    for (let d = 1; d <= totalDias; d++) {
+      const fechaKey = `${anio}-${String(mes + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`
+      celdas.push({
+        dia: d,
+        fechaKey,
+        diasAbierta: severidadPorDia.get(fechaKey) ?? null,
+        esHoy: fechaKey === hoyKey,
+      })
+    }
+    return celdas
+  }, [averiasAbiertas])
+
+  const nombreMesActual = new Intl.DateTimeFormat('es-CR', { month: 'long', year: 'numeric' }).format(new Date())
 
   return (
     <div className="space-y-6">
@@ -513,128 +539,103 @@ function DashboardHomeContenido() {
         </div>
       </div>
 
-      {/* Averías por tipo (angosta) + tendencia de abonados (ancha) —
-          ambos gráficos con datos reales del backend. */}
+      {/* Seguimientos: calendario del mes marcando días con averías
+          abiertas (por antigüedad) + lista de las que más atención
+          necesitan. Reemplaza los gráficos de antes, que duplicaban lo que
+          ya muestra Reportes — esto es accionable, no otra estadística. */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
         <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm">
-          <h2 className="mb-4 text-lg font-semibold text-primary-900">
-            Aver&iacute;as por Tipo
-          </h2>
-          {averiasPorTipo.length === 0 ? (
-            <p className="py-16 text-center text-sm text-primary-400">
-              Todavía no hay averías reportadas.
-            </p>
-          ) : (
-            <ResponsiveContainer width="100%" height={320}>
-              <PieChart margin={{ top: 0, right: 8, bottom: 0, left: 8 }}>
-                <Pie
-                  data={averiasPorTipo}
-                  cx="50%"
-                  cy="46%"
-                  innerRadius={65}
-                  outerRadius={110}
-                  paddingAngle={2}
-                  dataKey="value"
-                  labelLine={false}
-                  label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                    const RADIAN = Math.PI / 180
-                    const angle = midAngle ?? 0
-                    const radius = innerRadius + (outerRadius - innerRadius) * 0.55
-                    const x = cx + radius * Math.cos(-angle * RADIAN)
-                    const y = cy + radius * Math.sin(-angle * RADIAN)
-                    const pct = (percent ?? 0) * 100
-                    if (pct < 6) return null
-                    return (
-                      <text
-                        x={x}
-                        y={y}
-                        fill="#fff"
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        fontSize={11}
-                        fontWeight={600}
-                      >
-                        {pct.toFixed(0)}%
-                      </text>
-                    )
-                  }}
+          <div className="flex items-center gap-2">
+            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-primary-50 text-primary-700">
+              <IconCalendario />
+            </span>
+            <div>
+              <h2 className="text-lg font-semibold text-primary-900">Seguimientos</h2>
+              <p className="text-xs text-primary-400 capitalize">{nombreMesActual}</p>
+            </div>
+          </div>
+
+          <div className="mt-4 grid grid-cols-7 gap-1 text-center">
+            {DIAS_SEMANA_CORTOS.map((d, i) => (
+              <p key={i} className="text-[11px] font-semibold text-primary-300">
+                {d}
+              </p>
+            ))}
+            {celdasCalendario.map((c, i) => {
+              if (c.dia === 0) return <div key={i} />
+              const severidad = c.diasAbierta !== null ? colorSeveridad(c.diasAbierta) : null
+              return (
+                <div
+                  key={i}
+                  title={
+                    c.diasAbierta !== null
+                      ? `${c.diasAbierta === 0 ? 'Reportada hoy' : `${c.diasAbierta} día(s) sin resolver`}`
+                      : undefined
+                  }
+                  className={`flex aspect-square items-center justify-center rounded-lg text-[11px] font-medium ${
+                    severidad ? `${severidad.bg} ${severidad.text}` : 'text-primary-600'
+                  } ${c.esHoy ? 'ring-2 ring-primary-700' : ''}`}
                 >
-                  {averiasPorTipo.map((_, index) => (
-                    <Cell
-                      key={`cell-${index}`}
-                      fill={COLORS[index % COLORS.length]}
-                    />
-                  ))}
-                </Pie>
-                <Tooltip
-                  formatter={(value, name) => {
-                    const numValue = Number(value) || 0
-                    const pct = totalAveriasPorTipo
-                      ? Math.round((numValue / totalAveriasPorTipo) * 100)
-                      : 0
-                    return [`${numValue} (${pct}%)`, name]
-                  }}
-                />
-                <Legend
-                  layout="horizontal"
-                  verticalAlign="bottom"
-                  wrapperStyle={{ fontSize: 11, lineHeight: '1.4rem' }}
-                  formatter={(value: string) => (
-                    <span className="text-primary-700">{value}</span>
-                  )}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          )}
+                  {c.dia}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-primary-500">
+            <span className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> reciente
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> 2-4 días
+            </span>
+            <span className="flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> 5+ días
+            </span>
+          </div>
         </div>
 
         <div className="overflow-hidden rounded-2xl bg-white p-5 shadow-sm lg:col-span-2">
-          <h2 className="text-lg font-semibold text-primary-900">
-            Abonados registrados
-          </h2>
-          <p className="mt-1 text-sm text-primary-400">Total acumulado por mes</p>
-          <ResponsiveContainer width="100%" height={280}>
-            <AreaChart data={abonadosPorMes} margin={{ top: 16, right: 8, bottom: 0, left: -16 }}>
-              <defs>
-                <linearGradient id="colorAbonados" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="#073763" stopOpacity={0.35} />
-                  <stop offset="95%" stopColor="#073763" stopOpacity={0} />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#e6ebef" vertical={false} />
-              <XAxis
-                dataKey="mes"
-                tick={{ fontSize: 12, fill: '#395f82' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <YAxis
-                allowDecimals={false}
-                tick={{ fontSize: 12, fill: '#395f82' }}
-                axisLine={false}
-                tickLine={false}
-              />
-              <Tooltip
-                content={({ active, payload, label }) => {
-                  if (!active || !payload || payload.length === 0) return null
-                  return (
-                    <div className="rounded-lg bg-primary-900 px-3 py-2 text-center text-white shadow-lg">
-                      <p className="text-sm font-semibold">{payload[0].value} abonados</p>
-                      <p className="text-[11px] text-primary-300">{label}</p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-primary-900">Requieren seguimiento</h2>
+            <Link
+              to="/dashboard/averias"
+              className="text-xs font-semibold text-primary-600 hover:text-primary-800"
+            >
+              Ver todas
+            </Link>
+          </div>
+          <p className="mt-1 text-sm text-primary-400">Averías abiertas, de más antigua a más reciente</p>
+
+          {averiasAbiertas.length === 0 ? (
+            <p className="py-16 text-center text-sm text-primary-400">
+              No hay averías pendientes en este momento.
+            </p>
+          ) : (
+            <div className="mt-3 divide-y divide-primary-50">
+              {averiasAbiertas.slice(0, 6).map((a) => {
+                const severidad = colorSeveridad(a.diasAbierta)
+                return (
+                  <Link
+                    key={a.id}
+                    to="/dashboard/averias"
+                    className="flex items-center gap-3 py-3 hover:bg-primary-50/50"
+                  >
+                    <span className={`h-2.5 w-2.5 flex-none rounded-full ${severidad.dot}`} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-primary-900">{a.tipo_averia}</p>
+                      <p className="truncate text-xs text-primary-400">
+                        {a.empleado ? `Asignada a ${a.empleado.nombre}` : 'Sin fontanero asignado'}
+                      </p>
                     </div>
-                  )
-                }}
-              />
-              <Area
-                type="monotone"
-                dataKey="total"
-                stroke="#073763"
-                strokeWidth={2.5}
-                fill="url(#colorAbonados)"
-                activeDot={{ r: 5 }}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
+                    <span className={`flex-none rounded-full px-2.5 py-1 text-xs font-semibold ${severidad.bg} ${severidad.text}`}>
+                      {a.diasAbierta === 0 ? 'Hoy' : `${a.diasAbierta} día${a.diasAbierta === 1 ? '' : 's'}`}
+                    </span>
+                  </Link>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
     </div>
