@@ -137,6 +137,21 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 - "Cancelar" siempre usa el estilo de botón secundario (borde `primary-200`, fondo blanco, texto `primary-700`).
 - Aplica a todos los modales del dashboard: Abonados, Inventario (items y proveedores), Averías (asignar/confirmar), Administrativo (publicaciones), y cualquier modal nuevo que se agregue.
 
+### Modales con más de dos botones (ej. gestión de solicitudes)
+
+Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila:
+
+```jsx
+<div className="flex flex-wrap justify-end gap-2">
+  <button className="rounded-lg bg-blue-600 ...">Marcar en proceso</button>
+  <button className="rounded-lg bg-green-600 ...">Aprobar</button>
+  <button className="rounded-lg bg-red-600 ...">Rechazar</button>
+  <button className="rounded-lg border border-primary-200 ... text-primary-700">Cancelar</button>
+</div>
+```
+
+Aplica a: SolicitudesOtro, SolicitudesCambioRepresentante, SolicitudesCambioPropietario, SolicitudesCambioMedidor, y cualquier modal nuevo con este mismo patrón de gestión.
+
 ## Encabezado de una lista en el dashboard (filtros vs. botón de crear)
 
 Regla estándar para todas las páginas del dashboard que muestran una tabla/lista: el título y su descripción van arriba; debajo, en su propia fila, van los controles de búsqueda/filtro/orden **alineados a la izquierda**. El botón para crear algo nuevo ("+ Nuevo abonado", "+ Agregar item") va **a la derecha, en la misma fila que el título** — nunca junto a los filtros.

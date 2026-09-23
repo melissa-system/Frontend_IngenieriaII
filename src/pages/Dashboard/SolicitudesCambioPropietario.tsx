@@ -1317,14 +1317,6 @@ function VistaAdministrador() {
                 <div className="flex flex-wrap justify-end gap-2">
                   <button
                     type="button"
-                    onClick={() => setDetalle(null)}
-                    disabled={gestionando}
-                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
                     onClick={() => gestionar('en_proceso')}
                     disabled={gestionando || detalle.estado === 'en_proceso'}
                     className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
@@ -1346,6 +1338,14 @@ function VistaAdministrador() {
                     className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Rechazar'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDetalle(null)}
+                    disabled={gestionando}
+                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                  >
+                    Cancelar
                   </button>
                 </div>
               </div>
