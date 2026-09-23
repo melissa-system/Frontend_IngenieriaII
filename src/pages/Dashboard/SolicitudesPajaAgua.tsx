@@ -214,20 +214,11 @@ function SolicitudesPajaAgua() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Paja de Agua</h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Solicitudes de disponibilidad de servicio registradas desde el sitio público
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={cargar}
-          className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-        >
-          Actualizar
-        </button>
+      <div>
+        <h1 className="text-2xl font-semibold text-primary-900">Paja de Agua</h1>
+        <p className="mt-1 text-sm text-primary-500">
+          Solicitudes de disponibilidad de servicio registradas desde el sitio público
+        </p>
       </div>
 
       {error && (
@@ -328,7 +319,6 @@ function SolicitudesPajaAgua() {
               <tr>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Solicitante</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
@@ -341,15 +331,6 @@ function SolicitudesPajaAgua() {
                   <td className="px-4 py-3 text-primary-600">
                     <div className="font-medium text-primary-800">{s.nombre_solicitante}</div>
                     <div className="text-xs text-primary-400">{s.identificacion}</div>
-                  </td>
-                  <td className="px-4 py-3 text-primary-600">
-                    {s.canton && s.distrito ? (
-                      <>
-                        {s.distrito}, {s.canton}
-                      </>
-                    ) : (
-                      <span className="text-primary-300">Sin desglose</span>
-                    )}
                   </td>
                   <td className="px-4 py-3">
                     <BadgeEstado estado={s.estado} />
