@@ -163,6 +163,10 @@ function VistaAbonado() {
   const [error, setError] = useState('')
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
+  // Alterna entre ver el historial y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
   const cargar = useCallback(async () => {
     try {
       const lista = await obtenerSolicitudesCambioPropietario()
@@ -286,6 +290,7 @@ function VistaAbonado() {
       setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Error al registrar la solicitud.')
     } finally {
@@ -320,6 +325,33 @@ function VistaAbonado() {
         </div>
       )}
 
+      <div className="flex gap-6 border-b border-primary-100">
+        <button
+          type="button"
+          onClick={() => setVista('lista')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'lista'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Mis solicitudes
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista('crear')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'crear'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Nueva solicitud
+        </button>
+      </div>
+
+      {vista === 'crear' && (
+      <>
       {/* Formulario */}
       <form
         onSubmit={handleSubmit}
@@ -537,7 +569,11 @@ function VistaAbonado() {
           </button>
         </div>
       </form>
+      </>
+      )}
 
+      {vista === 'lista' && (
+      <>
       {/* Historial de Solicitudes del Abonado */}
       <div className="space-y-4">
         <h2 className="text-lg font-semibold text-primary-900">
@@ -616,6 +652,8 @@ function VistaAbonado() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }

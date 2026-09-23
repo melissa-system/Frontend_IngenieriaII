@@ -165,6 +165,10 @@ function VistaAbonado() {
   const [error, setError] = useState('')
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
+  // Alterna entre ver el historial y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
   const juridico = perfil?.tipo_asociacion === 'abonado' ? perfil.juridico ?? null : null
   const esJuridica = !!juridico
 
@@ -277,6 +281,7 @@ function VistaAbonado() {
       setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
@@ -307,6 +312,33 @@ function VistaAbonado() {
         </div>
       )}
 
+      {esJuridica && (
+        <div className="flex gap-6 border-b border-primary-100">
+          <button
+            type="button"
+            onClick={() => setVista('lista')}
+            className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+              vista === 'lista'
+                ? 'border-primary-700 text-primary-900'
+                : 'border-transparent text-primary-400 hover:text-primary-700'
+            }`}
+          >
+            Mis solicitudes
+          </button>
+          <button
+            type="button"
+            onClick={() => setVista('crear')}
+            className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+              vista === 'crear'
+                ? 'border-primary-700 text-primary-900'
+                : 'border-transparent text-primary-400 hover:text-primary-700'
+            }`}
+          >
+            Nueva solicitud
+          </button>
+        </div>
+      )}
+
       {!esJuridica ? (
         !cargandoPerfil && (
           <EmptyState
@@ -314,7 +346,7 @@ function VistaAbonado() {
             descripcion="Tu cuenta no tiene un representante legal registrado. Si esto es un error, contactá las oficinas de la ASADA."
           />
         )
-      ) : (
+      ) : vista === 'crear' ? (
         <form
           onSubmit={onSubmit}
           className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm space-y-6"
@@ -508,8 +540,7 @@ function VistaAbonado() {
             </button>
           </div>
         </form>
-      )}
-
+      ) : (
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
@@ -556,6 +587,7 @@ function VistaAbonado() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

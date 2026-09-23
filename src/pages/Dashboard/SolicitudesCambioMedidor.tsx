@@ -107,6 +107,10 @@ function VistaAbonado() {
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
+  // Alterna entre ver el historial y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
   const tieneAbierta = useMemo(
     () =>
       solicitudes.some((s) => s.estado === 'pendiente' || s.estado === 'en_proceso'),
@@ -195,6 +199,7 @@ function VistaAbonado() {
       setMensaje('Solicitud de cambio de medidor registrada correctamente. Te notificaremos por correo el resultado.')
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
@@ -205,6 +210,32 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-6 border-b border-primary-100">
+        <button
+          type="button"
+          onClick={() => setVista('lista')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'lista'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Mis solicitudes
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista('crear')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'crear'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Nueva solicitud
+        </button>
+      </div>
+
+      {vista === 'crear' && (
       <form
         onSubmit={onSubmit}
         className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm"
@@ -325,7 +356,9 @@ function VistaAbonado() {
           )}
         </div>
       </form>
+      )}
 
+      {vista === 'lista' && (
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
@@ -389,6 +422,7 @@ function VistaAbonado() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
