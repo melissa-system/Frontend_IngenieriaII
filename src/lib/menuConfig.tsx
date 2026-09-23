@@ -135,6 +135,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       { label: 'Cambio de Propietario', to: '/dashboard/solicitudes/cambio-propietario', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Física'] },
       { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Jurídica'] },
       { label: 'Cambio de Medidor', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Conexión de Servicio', to: '/dashboard/solicitudes/conexion-servicio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
       { label: 'Otro', to: '/dashboard/solicitudes/otro', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
     ],
   },

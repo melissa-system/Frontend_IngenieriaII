@@ -19,6 +19,7 @@ import SolicitudesCambioPropietario from '../pages/Dashboard/SolicitudesCambioPr
 import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambioRepresentante'
 import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
+import SolicitudesConexion from '../pages/Dashboard/SolicitudesConexion'
 import Inventario from '../pages/Dashboard/Inventario'
 import MovimientosStock from '../pages/Dashboard/MovimientosStock'
 import Proveedores from '../pages/Dashboard/Proveedores'
@@ -70,6 +71,7 @@ function AppRoutes() {
         <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
         <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />
         <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
+        <Route path="solicitudes/conexion-servicio" element={<SolicitudesConexion />} />
         <Route
           path="inventario"
           element={<Navigate to="/dashboard/inventario/articulos" replace />}
