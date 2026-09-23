@@ -75,6 +75,20 @@ const DRAFT_INICIAL: DraftData = {
 
 const DRAFT_KEY = 'siapb:solicitud-paja-agua:draft:v1'
 
+// El borrador guardado en el navegador solo es válido por 3 días desde que
+// se empezó a llenar. Pasado ese plazo, se descarta y el formulario arranca
+// de cero (sin avisar con nada más que el formulario vacío).
+const LIMITE_BORRADOR_MS = 3 * 24 * 60 * 60 * 1000
+
+function formatearFechaLimite(fechaMs: number): string {
+  return new Intl.DateTimeFormat('es-CR', {
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(fechaMs))
+}
+
 const TITULOS_PASO = [
   'Verificación de identidad',
   'Datos de contacto',
@@ -103,6 +117,11 @@ function Afiliacion() {
   const [draft, setDraft] = useState<DraftData>(DRAFT_INICIAL)
   const [hidratado, setHidratado] = useState(false)
   const [huboDraftGuardado, setHuboDraftGuardado] = useState(false)
+  const [huboDraftExpirado, setHuboDraftExpirado] = useState(false)
+  // Marca de tiempo de cuándo se empezó ESTE borrador (no se actualiza en
+  // cada guardado, para que el plazo de 3 días sea desde que la persona
+  // arrancó la solicitud, no desde el último cambio que hizo).
+  const [iniciadoEn, setIniciadoEn] = useState<number | null>(null)
 
   const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
   const [lookupRepStatus, setLookupRepStatus] = useState<LookupStatus>('idle')
@@ -128,14 +147,33 @@ function Afiliacion() {
     try {
       const guardado = localStorage.getItem(DRAFT_KEY)
       if (guardado) {
-        const datos = JSON.parse(guardado) as { draft?: Partial<DraftData>; paso?: number }
-        if (datos.draft) {
-          setDraft({ ...DRAFT_INICIAL, ...datos.draft })
-          if (datos.draft.nombreSolicitante) setLookupStatus('found')
+        const datos = JSON.parse(guardado) as {
+          draft?: Partial<DraftData>
+          paso?: number
+          iniciadoEn?: number
         }
-        if (typeof datos.paso === 'number' && datos.paso > 0) {
-          setPaso(datos.paso)
-          setHuboDraftGuardado(true)
+
+        const expirado =
+          typeof datos.iniciadoEn === 'number' &&
+          Date.now() - datos.iniciadoEn > LIMITE_BORRADOR_MS
+
+        if (expirado) {
+          // Pasaron más de 3 días: se descarta el borrador y el formulario
+          // arranca en blanco, sin restaurar nada.
+          localStorage.removeItem(DRAFT_KEY)
+          setHuboDraftExpirado(true)
+        } else {
+          if (datos.draft) {
+            setDraft({ ...DRAFT_INICIAL, ...datos.draft })
+            if (datos.draft.nombreSolicitante) setLookupStatus('found')
+          }
+          if (typeof datos.paso === 'number' && datos.paso > 0) {
+            setPaso(datos.paso)
+            setHuboDraftGuardado(true)
+          }
+          if (typeof datos.iniciadoEn === 'number') {
+            setIniciadoEn(datos.iniciadoEn)
+          }
         }
       }
     } catch {
@@ -150,11 +188,16 @@ function Afiliacion() {
   useEffect(() => {
     if (!hidratado || enviado) return
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify({ draft, paso }))
+      const marcaInicio = iniciadoEn ?? Date.now()
+      if (iniciadoEn === null) setIniciadoEn(marcaInicio)
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ draft, paso, iniciadoEn: marcaInicio }),
+      )
     } catch {
       // se ignora: si falla, el peor caso es que no se pueda retomar después
     }
-  }, [draft, paso, hidratado, enviado])
+  }, [draft, paso, hidratado, enviado, iniciadoEn])
 
   const limpiarBorrador = () => {
     try {
@@ -180,7 +223,21 @@ function Afiliacion() {
     setErrorArchivoCedulaDorso(null)
     setErrorSubmit(null)
     setHuboDraftGuardado(false)
+    setHuboDraftExpirado(false)
+    setIniciadoEn(null)
   }
+
+  // --- Avisar antes de salir si hay una solicitud en progreso sin enviar ---
+  useEffect(() => {
+    if (paso === 0 || enviado) return
+    const manejarBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue =
+        'Tu solicitud quedará guardada en este navegador por 3 días para que puedas continuarla luego.'
+    }
+    window.addEventListener('beforeunload', manejarBeforeUnload)
+    return () => window.removeEventListener('beforeunload', manejarBeforeUnload)
+  }, [paso, enviado])
 
   const actualizar = <K extends keyof DraftData>(campo: K, valor: DraftData[K]) => {
     setDraft((prev) => ({ ...prev, [campo]: valor }))
@@ -503,7 +560,11 @@ function Afiliacion() {
 
           {huboDraftGuardado && paso > 0 && (
             <p className="mt-2 rounded-lg bg-primary-50 px-3 py-2 text-center text-xs text-primary-700">
-              Retomamos tu solicitud donde la dejaste.{' '}
+              Retomamos tu solicitud donde la dejaste. Podés continuar hasta el{' '}
+              {iniciadoEn
+                ? formatearFechaLimite(iniciadoEn + LIMITE_BORRADOR_MS)
+                : 'límite de 3 días'}
+              , luego el formulario se reinicia.{' '}
               <button
                 type="button"
                 onClick={empezarDeNuevo}
@@ -511,6 +572,13 @@ function Afiliacion() {
               >
                 Empezar de nuevo
               </button>
+            </p>
+          )}
+
+          {huboDraftExpirado && paso === 0 && (
+            <p className="mt-2 rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs text-yellow-700">
+              Tu solicitud anterior venció (pasaron más de 3 días) y tuvimos que reiniciarla.
+              Empezá de nuevo cuando quieras.
             </p>
           )}
 
