@@ -138,7 +138,7 @@ function Bitacora() {
               onChange={(e) =>
                 aplicarFiltro(setModulo)(e.target.value as ModuloBitacora | '')
               }
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="">Todos</option>
               {MODULOS_CON_MOVIMIENTOS.map((m) => (
@@ -162,7 +162,7 @@ function Bitacora() {
               onChange={(e) =>
                 aplicarFiltro(setAccion)(e.target.value as AccionBitacora | '')
               }
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             >
               <option value="">Todas</option>
               {ACCIONES_BITACORA.map((a) => (
@@ -185,7 +185,7 @@ function Bitacora() {
               type="date"
               value={desde}
               onChange={(e) => aplicarFiltro(setDesde)(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             />
           </div>
 
@@ -201,7 +201,7 @@ function Bitacora() {
               type="date"
               value={hasta}
               onChange={(e) => aplicarFiltro(setHasta)(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
             />
           </div>
         </div>

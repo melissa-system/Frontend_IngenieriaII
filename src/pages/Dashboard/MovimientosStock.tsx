@@ -499,7 +499,7 @@ function MovimientosStock() {
                 placeholder="Buscar por artículo o motivo..."
                 value={search}
                 onChange={(e) => manejarBusqueda(e.target.value)}
-                className="w-full rounded-lg border border-primary-200 py-2 pl-9 pr-8 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className="w-full rounded-full border border-primary-200 py-2 pl-9 pr-8 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
               />
               {search && (
                 <button
@@ -522,7 +522,7 @@ function MovimientosStock() {
                 setFiltroTipo(e.target.value as 'todos' | 'entrada' | 'salida')
                 setPagina(1)
               }}
-              className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className="rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
             >
               <option value="todos">Todos los tipos</option>
               <option value="entrada">Solo Entradas (+)</option>

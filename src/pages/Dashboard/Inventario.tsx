@@ -829,7 +829,7 @@ function Inventario() {
           placeholder="Buscar por nombre, descripción o ubicación..."
           value={search}
           onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
         />
         {search && (
           <button
