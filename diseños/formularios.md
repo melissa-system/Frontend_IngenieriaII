@@ -209,6 +209,39 @@ Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más anti
 
 Aplica a todas las listas del dashboard que combinen orden + filtro (Solicitudes, Averías, y cualquiera nueva con el mismo patrón).
 
+## Pestañas para alternar contenido dentro de una misma pantalla (ej. Solicitudes registradas / Generar solicitud)
+
+Cuando una pantalla del dashboard alterna entre dos vistas (ej. "Solicitudes registradas" vs "Generar solicitud"), la pestaña activa se marca con una línea inferior (`border-b-2`), no con un botón de fondo sólido tipo pastilla — mismo criterio que otras pestañas del sitio:
+
+```jsx
+<div className="flex gap-6 border-b border-primary-100">
+  <button
+    type="button"
+    onClick={() => setVista('lista')}
+    className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+      vista === 'lista'
+        ? 'border-primary-700 text-primary-900'
+        : 'border-transparent text-primary-400 hover:text-primary-700'
+    }`}
+  >
+    Solicitudes registradas
+  </button>
+  <button
+    type="button"
+    onClick={() => setVista('crear')}
+    className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+      vista === 'crear'
+        ? 'border-primary-700 text-primary-900'
+        : 'border-transparent text-primary-400 hover:text-primary-700'
+    }`}
+  >
+    Generar solicitud
+  </button>
+</div>
+```
+
+Aplica a: SolicitudesCambioMedidor, SolicitudesCambioPropietario, SolicitudesCambioRepresentante, SolicitudesOtro, y cualquier pantalla nueva con este mismo patrón de alternar vistas.
+
 ## Pantalla de confirmación (después de enviar)
 
 ```jsx

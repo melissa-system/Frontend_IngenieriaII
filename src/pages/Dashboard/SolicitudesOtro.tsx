@@ -553,14 +553,14 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
-      <div className="inline-flex w-full max-w-sm rounded-lg border border-primary-200 bg-primary-50 p-1">
+      <div className="flex gap-6 border-b border-primary-100">
         <button
           type="button"
           onClick={() => setVista('lista')}
-          className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
             vista === 'lista'
-              ? 'bg-primary-700 text-white shadow'
-              : 'text-primary-700 hover:text-primary-900'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
           }`}
         >
           Solicitudes registradas
@@ -568,10 +568,10 @@ function VistaAdministrador() {
         <button
           type="button"
           onClick={() => setVista('crear')}
-          className={`flex-1 rounded-md py-1.5 text-sm font-semibold transition-colors ${
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
             vista === 'crear'
-              ? 'bg-primary-700 text-white shadow'
-              : 'text-primary-700 hover:text-primary-900'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
           }`}
         >
           Generar solicitud
