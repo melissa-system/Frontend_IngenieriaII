@@ -163,7 +163,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Abonado'],
   },
   {
-    label: 'Administración',
+    label: 'Usuarios',
     icon: <AdminIcon />,
     roles: ['Administrador', 'Junta Directiva'],
     submenu: [

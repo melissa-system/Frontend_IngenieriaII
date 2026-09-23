@@ -188,7 +188,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   // Cambia el perfil activo (rol base <-> Abonado) y vuelve al home del
   // dashboard, igual que el switcher del DashboardHeader — evita quedar en
-  // una pantalla que ya no aplica al perfil nuevo (ej. Administración).
+  // una pantalla que ya no aplica al perfil nuevo (ej. Usuarios).
   async function seleccionarPerfil(perfil: PerfilActivo) {
     await cambiarPerfil(perfil)
     setPerfilMenuOpen(false)
