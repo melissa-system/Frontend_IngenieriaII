@@ -378,7 +378,7 @@ function AveriasAdmin() {
   return (
     <div className="space-y-4">
       {/* Barra de búsqueda + filtros */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-96">
           <svg className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
             fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -398,19 +398,17 @@ function AveriasAdmin() {
           )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <button type="button" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="flex h-10 items-center gap-1 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50">
-            {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
-          </button>
-          <select value={filter} onChange={(e) => { setFilter(e.target.value); setPagina(1) }}
-            className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none">
-            <option value="Todas">Todos los estados</option>
-            <option value="Pendiente">Pendiente</option>
-            <option value="En proceso">En proceso</option>
-            <option value="Finalizado">Finalizado</option>
-          </select>
-        </div>
+        <button type="button" onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+          className="flex h-10 items-center gap-1 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50">
+          {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
+        </button>
+        <select value={filter} onChange={(e) => { setFilter(e.target.value); setPagina(1) }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none">
+          <option value="Todas">Todos los estados</option>
+          <option value="Pendiente">Pendiente</option>
+          <option value="En proceso">En proceso</option>
+          <option value="Finalizado">Finalizado</option>
+        </select>
       </div>
 
       {/* Tabla */}
