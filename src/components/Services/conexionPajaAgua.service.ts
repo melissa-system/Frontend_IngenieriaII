@@ -177,6 +177,16 @@ export interface SolicitudConexion {
   correo: string
   estado: EstadoSolicitud
   solicitud_paja_agua_codigo: string
+  tipo_persona: 'fisica' | 'juridica'
+  nombre_solicitante: string
+  identificacion_solicitante: string
+  telefono_solicitante: string
+  provincia: string | null
+  canton: string | null
+  distrito: string | null
+  direccion_inmueble: string
+  naturaleza_inmueble: string | null
+  calidad_titular: string | null
   medio_notificacion_principal: string
   valor_notificacion_principal: string
   medio_notificacion_secundario: string | null

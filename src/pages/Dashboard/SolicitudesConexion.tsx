@@ -22,10 +22,7 @@ import {
 import { FileDropZone, validarDocumento } from '../../components/common/FileDropZone'
 import { FirmaCanvas } from '../../components/common/FirmaCanvas'
 import { extensionDesdeUrl } from '../../lib/descargarArchivo'
-import {
-  descargarDocumentoConexion,
-  generarDocumentoConexion,
-} from '../../lib/generarDocumentoConexion'
+import { descargarPdfConexion, generarPdfConexion } from '../../lib/generarPdfConexion'
 import Toast, { type TipoToast } from '../../components/Dashboard/Toast'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
@@ -197,24 +194,53 @@ function VistaAbonado() {
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-50">
               {misSolicitudes.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 font-medium text-primary-900">{s.codigo_solicitud}</td>
-                  <td className="px-4 py-3 text-primary-700">{etiquetaTipoTramite(s.tipo_tramite)}</td>
-                  <td className="px-4 py-3 text-primary-500">{formatearFecha(s.fecha_creacion)}</td>
-                  <td className="px-4 py-3">
-                    <BadgeEstado estado={s.estado} />
-                  </td>
-                </tr>
+                <FilaMiSolicitud key={s.id} solicitud={s} />
               ))}
             </tbody>
           </table>
         </div>
       )}
     </div>
+  )
+}
+
+function FilaMiSolicitud({ solicitud }: { solicitud: SolicitudConexion }) {
+  const [generando, setGenerando] = useState(false)
+
+  async function descargar() {
+    setGenerando(true)
+    try {
+      const blob = await generarPdfConexion(solicitud)
+      descargarPdfConexion(blob, solicitud.codigo_solicitud)
+    } finally {
+      setGenerando(false)
+    }
+  }
+
+  return (
+    <tr>
+      <td className="px-4 py-3 font-medium text-primary-900">{solicitud.codigo_solicitud}</td>
+      <td className="px-4 py-3 text-primary-700">{etiquetaTipoTramite(solicitud.tipo_tramite)}</td>
+      <td className="px-4 py-3 text-primary-500">{formatearFecha(solicitud.fecha_creacion)}</td>
+      <td className="px-4 py-3">
+        <BadgeEstado estado={solicitud.estado} />
+      </td>
+      <td className="px-4 py-3">
+        <button
+          type="button"
+          onClick={descargar}
+          disabled={generando}
+          className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+        >
+          {generando ? 'Generando…' : 'Descargar PDF'}
+        </button>
+      </td>
+    </tr>
   )
 }
 
@@ -781,8 +807,8 @@ function ModalDetalle({
   async function manejarDescargarDocumento() {
     setGenerando(true)
     try {
-      const blob = await generarDocumentoConexion(solicitud)
-      descargarDocumentoConexion(blob, solicitud.codigo_solicitud)
+      const blob = await generarPdfConexion(solicitud)
+      descargarPdfConexion(blob, solicitud.codigo_solicitud)
     } finally {
       setGenerando(false)
     }
@@ -890,7 +916,7 @@ function ModalDetalle({
                 disabled={generando}
                 className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
               >
-                {generando ? 'Generando…' : 'Descargar documento (Word)'}
+                {generando ? 'Generando…' : 'Descargar documento (PDF)'}
               </button>
             </div>
           </>
