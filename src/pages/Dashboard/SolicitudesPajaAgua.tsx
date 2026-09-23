@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   obtenerSolicitudesPajaAgua,
+  cambiarEstadoSolicitudPajaAgua,
   type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
 import {
@@ -14,6 +15,7 @@ import {
   type DatosDocumentoSolicitud,
 } from '../../lib/generarDocumentoSolicitud'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import Toast from '../../components/Dashboard/Toast'
 
 // Traduce una fila de la tabla (forma de SolicitudPajaAgua) a la forma
 // común que espera el generador de documentos — la misma función que usa
@@ -47,10 +49,15 @@ type Estado = SolicitudPajaAgua['estado']
 
 const ESTADO_COLOR: Record<Estado, string> = {
   Pendiente: 'bg-yellow-100 text-yellow-700',
+  'En proceso': 'bg-blue-100 text-blue-700',
   Aprobada: 'bg-green-100 text-green-700',
   Rechazada: 'bg-red-100 text-red-700',
-  Completada: 'bg-blue-100 text-blue-700',
+  Completada: 'bg-indigo-100 text-indigo-700',
 }
+
+// Mínimo de caracteres del motivo al rechazar — debe coincidir con
+// MIN_MOTIVO_RECHAZO_PAJA_AGUA del backend.
+const MIN_MOTIVO = 10
 
 function BadgeEstado({ estado }: { estado: Estado }) {
   return (
@@ -83,6 +90,9 @@ function SolicitudesPajaAgua() {
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<SolicitudPajaAgua | null>(null)
   const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
+  const [motivoRechazo, setMotivoRechazo] = useState('')
+  const [gestionando, setGestionando] = useState(false)
+  const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -106,6 +116,40 @@ function SolicitudesPajaAgua() {
       .then(setConfiguracion)
       .catch(() => setConfiguracion(null))
   }, [cargar])
+
+  const abrirDetalle = (s: SolicitudPajaAgua) => {
+    setMotivoRechazo(s.motivo_rechazo ?? '')
+    setDetalle(s)
+  }
+
+  const gestionar = async (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => {
+    if (!detalle) return
+    setGestionando(true)
+    setToast(null)
+    try {
+      await cambiarEstadoSolicitudPajaAgua(detalle.id, {
+        estado,
+        motivoRechazo: estado === 'Rechazada' ? motivoRechazo : undefined,
+      })
+      setToast({
+        tipo: 'exito',
+        mensaje:
+          estado === 'Aprobada'
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al solicitante por correo con los próximos pasos.`
+            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${estado}".`,
+      })
+      setDetalle(null)
+      setMotivoRechazo('')
+      await cargar()
+    } catch (err) {
+      setToast({
+        tipo: 'error',
+        mensaje: err instanceof Error ? err.message : 'No se pudo actualizar la solicitud.',
+      })
+    } finally {
+      setGestionando(false)
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -175,7 +219,7 @@ function SolicitudesPajaAgua() {
                   <td className="px-4 py-3">
                     <button
                       type="button"
-                      onClick={() => setDetalle(s)}
+                      onClick={() => abrirDetalle(s)}
                       className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
                     >
                       Ver detalle
@@ -192,8 +236,16 @@ function SolicitudesPajaAgua() {
         <ModalDetalle
           solicitud={detalle}
           configuracion={configuracion}
+          motivoRechazo={motivoRechazo}
+          setMotivoRechazo={setMotivoRechazo}
+          gestionando={gestionando}
           onCerrar={() => setDetalle(null)}
+          onGestionar={gestionar}
         />
+      )}
+
+      {toast && (
+        <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
       )}
     </div>
   )
@@ -245,19 +297,34 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
   )
 }
 
-// Modal de solo lectura: mostrar toda la información para que la junta
-// directiva pueda revisar la solicitud (aprobar/rechazar es el Paso 2 del
-// flujo, todavía no construido — ver conversación con Meli).
+// Modal de detalle + gestión: muestra toda la información de la solicitud y,
+// si todavía no está en un estado final, permite Marcar en proceso / Aprobar
+// / Rechazar (al aprobar, el backend crea/vincula el Abonado y notifica por
+// correo los próximos pasos).
 function ModalDetalle({
   solicitud,
   configuracion,
+  motivoRechazo,
+  setMotivoRechazo,
+  gestionando,
   onCerrar,
+  onGestionar,
 }: {
   solicitud: SolicitudPajaAgua
   configuracion: Configuracion | null
+  motivoRechazo: string
+  setMotivoRechazo: (valor: string) => void
+  gestionando: boolean
   onCerrar: () => void
+  onGestionar: (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => void
 }) {
   const [generandoDocumento, setGenerandoDocumento] = useState(false)
+
+  const esFinal =
+    solicitud.estado === 'Aprobada' ||
+    solicitud.estado === 'Rechazada' ||
+    solicitud.estado === 'Completada'
+  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   async function manejarDescargarDocumento() {
     if (!configuracion) return
@@ -332,6 +399,20 @@ function ModalDetalle({
           )}
 
           <Campo etiqueta="Fecha de solicitud" valor={formatearFecha(solicitud.fecha_solicitud)} />
+
+          {solicitud.motivo_rechazo && (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+            </div>
+          )}
+
+          {solicitud.abonado && (
+            <div className="sm:col-span-2">
+              <dt className="text-xs font-medium uppercase text-primary-400">Abonado vinculado</dt>
+              <dd className="mt-0.5 text-primary-800">{solicitud.abonado.numero_abonado}</dd>
+            </div>
+          )}
         </dl>
 
         <div className="mt-5 border-t border-primary-100 pt-4">
@@ -371,15 +452,74 @@ function ModalDetalle({
           )}
         </div>
 
-        <div className="mt-6 flex justify-end">
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-          >
-            Cerrar
-          </button>
-        </div>
+        {esFinal ? (
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={onCerrar}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+            >
+              Cerrar
+            </button>
+          </div>
+        ) : (
+          <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
+            <label
+              htmlFor="motivoRechazoPajaAgua"
+              className="block text-sm font-medium text-primary-700"
+            >
+              Motivo (obligatorio al rechazar)
+            </label>
+            <textarea
+              id="motivoRechazoPajaAgua"
+              value={motivoRechazo}
+              onChange={(e) => setMotivoRechazo(e.target.value)}
+              rows={3}
+              placeholder="Ej: Documentación incompleta o ilegible..."
+              className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
+            {motivoRechazo.trim().length > 0 && !motivoValido && (
+              <p className="text-xs text-amber-600">
+                Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar (llevas{' '}
+                {motivoRechazo.trim().length}).
+              </p>
+            )}
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => onGestionar('En proceso')}
+                disabled={gestionando || solicitud.estado === 'En proceso'}
+                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+              >
+                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onGestionar('Aprobada')}
+                disabled={gestionando}
+                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+              >
+                {gestionando ? 'Guardando...' : 'Aprobar'}
+              </button>
+              <button
+                type="button"
+                onClick={() => onGestionar('Rechazada')}
+                disabled={gestionando || !motivoValido}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+              >
+                {gestionando ? 'Guardando...' : 'Rechazar'}
+              </button>
+              <button
+                type="button"
+                onClick={onCerrar}
+                disabled={gestionando}
+                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

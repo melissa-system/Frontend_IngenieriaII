@@ -134,8 +134,16 @@ export interface SolicitudPajaAgua {
   carta_solicitud_path: string | null
   cedula_frente_path: string | null
   cedula_dorso_path: string | null
-  estado: 'Pendiente' | 'Aprobada' | 'Rechazada' | 'Completada'
+  estado: 'Pendiente' | 'En proceso' | 'Aprobada' | 'Rechazada' | 'Completada'
+  motivo_rechazo: string | null
   fecha_solicitud: string
+  empleado: { id: number; nombre: string } | null
+  abonado: { id: number; numero_abonado: string } | null
+}
+
+export interface ActualizarEstadoSolicitudPajaAguaPayload {
+  estado: 'En proceso' | 'Aprobada' | 'Rechazada'
+  motivoRechazo?: string
 }
 
 // Traduce errores de axios/backend a un mensaje legible, igual que en el
@@ -214,6 +222,26 @@ export const obtenerSolicitudesPajaAgua = async (): Promise<SolicitudPajaAgua[]>
   } catch (error) {
     throw new Error(
       obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de paja de agua.'),
+    )
+  }
+}
+
+// Cambio de estado (Marcar en proceso / Aprobar / Rechazar). Al aprobar, el
+// backend crea (o vincula) automáticamente el Abonado y le notifica por
+// correo los próximos pasos (permisos municipales + solicitud de conexión).
+export const cambiarEstadoSolicitudPajaAgua = async (
+  id: number,
+  payload: ActualizarEstadoSolicitudPajaAguaPayload,
+): Promise<SolicitudPajaAgua> => {
+  try {
+    const { data } = await apiClient.patch<SolicitudPajaAgua>(
+      `/solicitudes/${id}/estado`,
+      payload,
+    )
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
     )
   }
 }
