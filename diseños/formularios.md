@@ -141,18 +141,32 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 
 Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila.
 
-Estos botones son **siempre `rounded-full`** (píldora completa, no `rounded-lg`), y usan el mismo color pastel que los badges de estado (`bg-color-100`/`text-color-700`) en vez de un fondo sólido — así se ven consistentes con el resto de la UI y no compiten visualmente con el botón primario del modal:
+Estos botones son **siempre `rounded-full`** (píldora completa, no `rounded-lg`), con fondo sólido y saturado (`bg-color-500`/texto blanco) para las 3 acciones semánticas — no pastel, no color plano tipo `primary-700` para todas:
 
 ```jsx
 <div className="flex flex-wrap justify-end gap-2">
-  <button className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50">Marcar en proceso</button>
-  <button className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50">Aprobar</button>
-  <button className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50">Rechazar</button>
+  <button className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50">Marcar en proceso</button>
+  <button className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50">Aprobar</button>
+  <button className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">Rechazar</button>
   <button className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50">Cancelar</button>
 </div>
 ```
 
 El botón "Cerrar" que reemplaza a este bloque cuando la solicitud ya quedó en estado final también es `rounded-full` (fondo sólido `bg-primary-700`, texto blanco).
+
+**El campo de motivo no se muestra por defecto**: el textarea (y su label/validación) van envueltos en una condición sobre un estado local `mostrarMotivo` (`useState(false)`), y el botón que exige motivo (normalmente "Rechazar") tiene un manejador de dos pasos: el primer clic solo revela el campo (`setMostrarMotivo(true)`, sin ejecutar la acción), el segundo clic —ya con el motivo válido— la confirma:
+
+```jsx
+function manejarClicRechazar() {
+  if (!mostrarMotivo) {
+    setMostrarMotivo(true)
+    return
+  }
+  if (motivoValido) onGestionar('rechazado')
+}
+```
+
+Si el motivo es obligatorio tanto al aprobar como al rechazar (caso de SolicitudesOtro), el mismo `mostrarMotivo` controla ambos botones, cada uno con su propio manejador de dos pasos.
 
 Aplica a: SolicitudesPajaAgua, SolicitudesOtro, SolicitudesCambioRepresentante, SolicitudesCambioPropietario, SolicitudesCambioMedidor, y cualquier modal nuevo con este mismo patrón de gestión.
 

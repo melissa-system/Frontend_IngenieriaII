@@ -655,6 +655,9 @@ function VistaAdministrador() {
   const MIN_MOTIVO = 10
   const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
   const [gestionando, setGestionando] = useState(false)
+  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
+  // (ya con motivo válido) confirma el rechazo.
+  const [mostrarMotivo, setMostrarMotivo] = useState(false)
 
   // Notificaciones
   const [enviando, setEnviando] = useState(false)
@@ -831,6 +834,16 @@ function VistaAdministrador() {
     } finally {
       setGestionando(false)
     }
+  }
+
+  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
+  // (ya con motivo válido) confirma el rechazo.
+  const manejarClicRechazar = () => {
+    if (!mostrarMotivo) {
+      setMostrarMotivo(true)
+      return
+    }
+    if (motivoValido) gestionar('rechazado')
   }
 
   return (
@@ -1174,6 +1187,7 @@ function VistaAdministrador() {
                         onClick={() => {
                           setDetalle(s)
                           setMotivoRechazo(s.motivo_rechazo ?? '')
+                          setMostrarMotivo(false)
                         }}
                         className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
                       >
@@ -1312,23 +1326,27 @@ function VistaAdministrador() {
               </div>
             ) : (
               <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivo"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: la documentación de respaldo no acredita la cesión de derechos de la paja de agua"
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
+                {mostrarMotivo && (
+                  <>
+                    <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
+                      Motivo (obligatorio al rechazar)
+                    </label>
+                    <textarea
+                      id="motivo"
+                      value={motivoRechazo}
+                      onChange={(e) => setMotivoRechazo(e.target.value)}
+                      rows={3}
+                      placeholder="Ej: la documentación de respaldo no acredita la cesión de derechos de la paja de agua"
+                      className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    />
 
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                    (llevas {motivoRechazo.trim().length}).
-                  </p>
+                    {motivoRechazo.trim().length > 0 && !motivoValido && (
+                      <p className="text-xs text-amber-600">
+                        Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
+                        (llevas {motivoRechazo.trim().length}).
+                      </p>
+                    )}
+                  </>
                 )}
 
                 <div className="flex flex-wrap justify-end gap-2">
@@ -1336,7 +1354,7 @@ function VistaAdministrador() {
                     type="button"
                     onClick={() => gestionar('en_proceso')}
                     disabled={gestionando || detalle.estado === 'en_proceso'}
-                    className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+                    className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Marcar en proceso'}
                   </button>
@@ -1344,15 +1362,15 @@ function VistaAdministrador() {
                     type="button"
                     onClick={() => gestionar('aprobado')}
                     disabled={gestionando}
-                    className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50"
+                    className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Aprobar'}
                   </button>
                   <button
                     type="button"
-                    onClick={() => gestionar('rechazado')}
-                    disabled={gestionando || !motivoValido}
-                    className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
+                    onClick={manejarClicRechazar}
+                    disabled={gestionando || (mostrarMotivo && !motivoValido)}
+                    className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Rechazar'}
                   </button>

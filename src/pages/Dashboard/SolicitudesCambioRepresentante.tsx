@@ -1101,6 +1101,17 @@ function ModalDetalle({
   const MIN_MOTIVO = 10
   const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
+  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
+  // (ya con motivo válido) confirma el rechazo.
+  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  function manejarClicRechazar() {
+    if (!mostrarMotivo) {
+      setMostrarMotivo(true)
+      return
+    }
+    if (motivoValido) onGestionar('rechazado')
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
@@ -1192,31 +1203,35 @@ function ModalDetalle({
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-              Motivo (obligatorio al rechazar)
-            </label>
-            <textarea
-              id="motivo"
-              value={motivoRechazo}
-              onChange={(e) => setMotivoRechazo(e.target.value)}
-              rows={3}
-              placeholder="Ej: la cédula adjunta no coincide con la identificación del nuevo representante"
-              className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
- 
-            {motivoRechazo.trim().length > 0 && !motivoValido && (
-              <p className="text-xs text-amber-600">
-                Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                (llevas {motivoRechazo.trim().length}).
-              </p>
+            {mostrarMotivo && (
+              <>
+                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
+                  Motivo (obligatorio al rechazar)
+                </label>
+                <textarea
+                  id="motivo"
+                  value={motivoRechazo}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
+                  rows={3}
+                  placeholder="Ej: la cédula adjunta no coincide con la identificación del nuevo representante"
+                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                />
+
+                {motivoRechazo.trim().length > 0 && !motivoValido && (
+                  <p className="text-xs text-amber-600">
+                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
+                    (llevas {motivoRechazo.trim().length}).
+                  </p>
+                )}
+              </>
             )}
- 
+
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
                 onClick={() => onGestionar('en_proceso')}
                 disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50"
+                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Marcar en proceso'}
               </button>
@@ -1224,15 +1239,15 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('aprobado')}
                 disabled={gestionando}
-                className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50"
+                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </button>
               <button
                 type="button"
-                onClick={() => onGestionar('rechazado')}
-                disabled={gestionando || !motivoValido}
-                className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
+                onClick={manejarClicRechazar}
+                disabled={gestionando || (mostrarMotivo && !motivoValido)}
+                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </button>
