@@ -852,7 +852,7 @@ function Inventario() {
             setFiltroClasificacion(e.target.value)
             setPagina(1)
           }}
-          className="rounded-lg border border-primary-200 bg-white px-3 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+          className="rounded-full border border-primary-200 bg-white px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todas">Todas las clasificaciones</option>
           <option value="articulo">Artículo</option>
@@ -865,28 +865,28 @@ function Inventario() {
             setFiltroEstado(e.target.value)
             setPagina(1)
           }}
-          className="rounded-lg border border-primary-200 bg-white px-3 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+          className="rounded-full border border-primary-200 bg-white px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todos">Todos los estados</option>
           <option value="activo">Activos</option>
           <option value="inactivo">Inactivos</option>
         </select>
 
-        <label className="flex cursor-pointer select-none items-center gap-2 rounded-lg border border-primary-200 bg-white px-3 py-2.5 text-sm font-medium text-primary-700 hover:bg-primary-50">
-          <input
-            type="checkbox"
-            checked={soloStockBajo}
-            onChange={(e) => {
-              setSoloStockBajo(e.target.checked)
-              setPagina(1)
-            }}
-            className="h-4 w-4 rounded border-primary-300 text-primary-700 focus:ring-primary-500"
-          />
-          <span className="flex items-center gap-1">
-            <span>⚠️</span>
-            Solo stock bajo
-          </span>
-        </label>
+        <button
+          type="button"
+          onClick={() => {
+            setSoloStockBajo(!soloStockBajo)
+            setPagina(1)
+          }}
+          className={`inline-flex items-center gap-1.5 rounded-full border px-4 py-2.5 text-sm font-medium transition-colors ${
+            soloStockBajo
+              ? 'border-amber-300 bg-amber-100 text-amber-800'
+              : 'border-primary-200 bg-white text-primary-700 hover:bg-primary-50'
+          }`}
+        >
+          <span>⚠️</span>
+          Solo stock bajo
+        </button>
       </div>
 
       {/* Error de carga */}
