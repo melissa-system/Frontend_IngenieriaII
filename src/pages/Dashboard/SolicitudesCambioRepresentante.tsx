@@ -1019,7 +1019,6 @@ function VistaAdministrador() {
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo representante</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula adjunta</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
@@ -1034,9 +1033,6 @@ function VistaAdministrador() {
                       <div className="text-xs text-primary-400">{s.numero_abonado}</div>
                     </td>
                     <td className="px-4 py-3 text-primary-600">{s.representante_nuevo_nombre}</td>
-                    <td className="px-4 py-3">
-                      <EnlaceCedula url={s.copia_cedula_url} />
-                    </td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
                     </td>
@@ -1189,7 +1185,7 @@ function ModalDetalle({
             <button
               type="button"
               onClick={onCerrar}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
             >
               Cerrar
             </button>
@@ -1220,7 +1216,7 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('en_proceso')}
                 disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Marcar en proceso'}
               </button>
@@ -1228,7 +1224,7 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('aprobado')}
                 disabled={gestionando}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </button>
@@ -1236,7 +1232,7 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('rechazado')}
                 disabled={gestionando || !motivoValido}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </button>
@@ -1244,7 +1240,7 @@ function ModalDetalle({
                 type="button"
                 onClick={onCerrar}
                 disabled={gestionando}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
               >
                 Cancelar
               </button>

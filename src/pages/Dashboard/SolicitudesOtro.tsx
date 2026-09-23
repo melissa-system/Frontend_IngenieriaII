@@ -935,7 +935,7 @@ function ModalDetalle({
             <button
               type="button"
               onClick={onCerrar}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
             >
               Cerrar
             </button>
@@ -970,7 +970,7 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('en_proceso')}
                 disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Marcar en proceso'}
               </button>
@@ -978,7 +978,7 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('aprobado')}
                 disabled={gestionando || !motivoValido}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </button>
@@ -986,7 +986,7 @@ function ModalDetalle({
                 type="button"
                 onClick={() => onGestionar('rechazado')}
                 disabled={gestionando || !motivoValido}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
               >
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </button>
@@ -994,7 +994,7 @@ function ModalDetalle({
                 type="button"
                 onClick={onCerrar}
                 disabled={gestionando}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
               >
                 Cancelar
               </button>

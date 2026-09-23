@@ -1138,7 +1138,6 @@ function VistaAdministrador() {
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Titular Anterior</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
                 </tr>
@@ -1165,26 +1164,6 @@ function VistaAdministrador() {
                     </td>
                     <td className="px-4 py-3 text-primary-700">
                       {s.motivo_traspaso}
-                    </td>
-                    <td className="px-4 py-3">
-                      {s.documento_soporte_url ? (
-                        <button
-                          type="button"
-                          onClick={() =>
-                            descargarArchivo(
-                              s.documento_soporte_url!,
-                              `documento-soporte${extensionDesdeUrl(
-                                s.documento_soporte_url!,
-                              )}`,
-                            )
-                          }
-                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
-                        >
-                          Descargar
-                        </button>
-                      ) : (
-                        <span className="text-xs text-gray-400">Sin archivo</span>
-                      )}
                     </td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
@@ -1326,7 +1305,7 @@ function VistaAdministrador() {
                 <button
                   type="button"
                   onClick={() => setDetalle(null)}
-                  className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+                  className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
                 >
                   Cerrar
                 </button>
@@ -1357,7 +1336,7 @@ function VistaAdministrador() {
                     type="button"
                     onClick={() => gestionar('en_proceso')}
                     disabled={gestionando || detalle.estado === 'en_proceso'}
-                    className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                    className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Marcar en proceso'}
                   </button>
@@ -1365,7 +1344,7 @@ function VistaAdministrador() {
                     type="button"
                     onClick={() => gestionar('aprobado')}
                     disabled={gestionando}
-                    className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                    className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Aprobar'}
                   </button>
@@ -1373,7 +1352,7 @@ function VistaAdministrador() {
                     type="button"
                     onClick={() => gestionar('rechazado')}
                     disabled={gestionando || !motivoValido}
-                    className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                    className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50"
                   >
                     {gestionando ? 'Guardando...' : 'Rechazar'}
                   </button>
@@ -1381,7 +1360,7 @@ function VistaAdministrador() {
                     type="button"
                     onClick={() => setDetalle(null)}
                     disabled={gestionando}
-                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+                    className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
                   >
                     Cancelar
                   </button>

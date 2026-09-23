@@ -139,18 +139,26 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 
 ### Modales con más de dos botones (ej. gestión de solicitudes)
 
-Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila:
+Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila.
+
+Estos botones son **siempre `rounded-full`** (píldora completa, no `rounded-lg`), y usan el mismo color pastel que los badges de estado (`bg-color-100`/`text-color-700`) en vez de un fondo sólido — así se ven consistentes con el resto de la UI y no compiten visualmente con el botón primario del modal:
 
 ```jsx
 <div className="flex flex-wrap justify-end gap-2">
-  <button className="rounded-lg bg-blue-600 ...">Marcar en proceso</button>
-  <button className="rounded-lg bg-green-600 ...">Aprobar</button>
-  <button className="rounded-lg bg-red-600 ...">Rechazar</button>
-  <button className="rounded-lg border border-primary-200 ... text-primary-700">Cancelar</button>
+  <button className="rounded-full bg-blue-100 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-200 disabled:opacity-50">Marcar en proceso</button>
+  <button className="rounded-full bg-green-100 px-4 py-2 text-sm font-semibold text-green-700 hover:bg-green-200 disabled:opacity-50">Aprobar</button>
+  <button className="rounded-full bg-red-100 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-200 disabled:opacity-50">Rechazar</button>
+  <button className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50">Cancelar</button>
 </div>
 ```
 
-Aplica a: SolicitudesOtro, SolicitudesCambioRepresentante, SolicitudesCambioPropietario, SolicitudesCambioMedidor, y cualquier modal nuevo con este mismo patrón de gestión.
+El botón "Cerrar" que reemplaza a este bloque cuando la solicitud ya quedó en estado final también es `rounded-full` (fondo sólido `bg-primary-700`, texto blanco).
+
+Aplica a: SolicitudesPajaAgua, SolicitudesOtro, SolicitudesCambioRepresentante, SolicitudesCambioPropietario, SolicitudesCambioMedidor, y cualquier modal nuevo con este mismo patrón de gestión.
+
+### Evitar columnas duplicadas en listas con modal de detalle
+
+Cuando una fila de tabla ya tiene un botón "Ver / gestionar" que abre un modal con toda la información (incluyendo enlaces de descarga de documentos adjuntos), la tabla **no** debe repetir esos documentos como columna con su propio botón de descarga — es un espacio duplicado. La columna de documento/evidencia solo se muestra en tablas que no tienen modal de detalle (por ejemplo, el listado de "Mis solicitudes" del propio abonado, que no tiene botón de gestión).
 
 ## Encabezado de una lista en el dashboard (filtros vs. botón de crear)
 
