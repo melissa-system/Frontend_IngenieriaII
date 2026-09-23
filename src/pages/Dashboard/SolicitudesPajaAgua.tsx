@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   obtenerSolicitudesPajaAgua,
@@ -55,9 +55,31 @@ const ESTADO_COLOR: Record<Estado, string> = {
   Completada: 'bg-indigo-100 text-indigo-700',
 }
 
+// Colores de acento para las tarjetas de resumen y las pestañas de filtro
+// (mismo mapeo semántico que ESTADO_COLOR, pero pensado para fondos sólidos
+// de tarjeta en vez de badges).
+const ESTADO_ACENTO: Record<Estado, string> = {
+  Pendiente: 'border-yellow-200 bg-yellow-50 text-yellow-700',
+  'En proceso': 'border-blue-200 bg-blue-50 text-blue-700',
+  Aprobada: 'border-green-200 bg-green-50 text-green-700',
+  Rechazada: 'border-red-200 bg-red-50 text-red-700',
+  Completada: 'border-indigo-200 bg-indigo-50 text-indigo-700',
+}
+
+const ESTADOS: Estado[] = ['Pendiente', 'En proceso', 'Aprobada', 'Rechazada', 'Completada']
+
 // Mínimo de caracteres del motivo al rechazar — debe coincidir con
 // MIN_MOTIVO_RECHAZO_PAJA_AGUA del backend.
 const MIN_MOTIVO = 10
+
+// Ignora tildes y mayúsculas para que la búsqueda encuentre "Jose" al
+// escribir "josé" y viceversa (mismo criterio que AveriasAdmin.tsx).
+function normalizarBusqueda(texto: string | null | undefined): string {
+  return (texto ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .toLowerCase()
+}
 
 function BadgeEstado({ estado }: { estado: Estado }) {
   return (
@@ -94,6 +116,9 @@ function SolicitudesPajaAgua() {
   const [gestionando, setGestionando] = useState(false)
   const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
 
+  const [filtroEstado, setFiltroEstado] = useState<Estado | 'Todas'>('Todas')
+  const [busqueda, setBusqueda] = useState('')
+
   const cargar = useCallback(async () => {
     setCargando(true)
     try {
@@ -121,6 +146,42 @@ function SolicitudesPajaAgua() {
     setMotivoRechazo(s.motivo_rechazo ?? '')
     setDetalle(s)
   }
+
+  // Conteo por estado para las tarjetas de resumen y las pestañas de
+  // filtro — se calcula sobre TODAS las solicitudes, sin aplicar la
+  // búsqueda de texto, para que los números no "salten" al escribir.
+  const conteos = useMemo(() => {
+    const base: Record<Estado, number> = {
+      Pendiente: 0,
+      'En proceso': 0,
+      Aprobada: 0,
+      Rechazada: 0,
+      Completada: 0,
+    }
+    for (const s of solicitudes) base[s.estado] += 1
+    return base
+  }, [solicitudes])
+
+  const solicitudesFiltradas = useMemo(() => {
+    let resultado =
+      filtroEstado === 'Todas' ? solicitudes : solicitudes.filter((s) => s.estado === filtroEstado)
+
+    const q = normalizarBusqueda(busqueda)
+    if (q) {
+      resultado = resultado.filter((s) => {
+        const campos = [
+          s.codigo_solicitud,
+          s.nombre_solicitante,
+          s.identificacion,
+          s.correo,
+          s.distrito,
+          s.canton,
+        ]
+        return campos.some((c) => normalizarBusqueda(c).includes(q))
+      })
+    }
+    return resultado
+  }, [solicitudes, filtroEstado, busqueda])
 
   const gestionar = async (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => {
     if (!detalle) return
@@ -173,12 +234,92 @@ function SolicitudesPajaAgua() {
         <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>
       )}
 
+      {!cargando && solicitudes.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <button
+            type="button"
+            onClick={() => setFiltroEstado('Todas')}
+            className={`rounded-xl border p-3 text-left shadow-sm transition-colors ${
+              filtroEstado === 'Todas'
+                ? 'border-primary-700 bg-primary-700 text-white'
+                : 'border-primary-100 bg-white hover:bg-primary-50'
+            }`}
+          >
+            <p
+              className={`text-xs font-medium uppercase ${
+                filtroEstado === 'Todas' ? 'text-primary-100' : 'text-primary-400'
+              }`}
+            >
+              Todas
+            </p>
+            <p className="mt-1 text-2xl font-semibold">{solicitudes.length}</p>
+          </button>
+          {ESTADOS.map((estado) => (
+            <button
+              key={estado}
+              type="button"
+              onClick={() => setFiltroEstado(estado)}
+              className={`rounded-xl border p-3 text-left shadow-sm transition-colors ${
+                filtroEstado === estado
+                  ? `${ESTADO_ACENTO[estado]} ring-1 ring-inset ring-current`
+                  : 'border-primary-100 bg-white hover:bg-primary-50'
+              }`}
+            >
+              <p className="text-xs font-medium uppercase text-primary-400">{estado}</p>
+              <p className="mt-1 text-2xl font-semibold text-primary-900">{conteos[estado]}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!cargando && solicitudes.length > 0 && (
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por código, nombre, cédula o correo…"
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {busqueda && (
+            <button
+              type="button"
+              onClick={() => setBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
+
       {cargando ? (
         <p className="text-sm text-primary-400">Cargando solicitudes…</p>
       ) : solicitudes.length === 0 ? (
         <EmptyState
           titulo="No hay solicitudes registradas de este tipo."
           descripcion="Las solicitudes de paja de agua enviadas desde el sitio público aparecerán aquí."
+        />
+      ) : solicitudesFiltradas.length === 0 ? (
+        <EmptyState
+          titulo="Ninguna solicitud coincide con el filtro."
+          descripcion="Probá con otro estado o limpiá la búsqueda."
         />
       ) : (
         <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
@@ -194,7 +335,7 @@ function SolicitudesPajaAgua() {
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-100">
-              {solicitudes.map((s) => (
+              {solicitudesFiltradas.map((s) => (
                 <tr key={s.id} className="hover:bg-primary-50/50">
                   <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
                   <td className="px-4 py-3 text-primary-600">
