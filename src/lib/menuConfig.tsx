@@ -132,10 +132,12 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     submenu: [
       // Paja de Agua es solo para administración; los abonados no la ven.
       { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva'] },
+      // Conexión de Servicio va primero para el Abonado: es la continuación
+      // directa de su trámite de paja de agua ya aprobado.
+      { label: 'Conexión de Servicio', to: '/dashboard/solicitudes/conexion-servicio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
       { label: 'Cambio de Propietario', to: '/dashboard/solicitudes/cambio-propietario', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Física'] },
       { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Jurídica'] },
       { label: 'Cambio de Medidor por Daños', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Conexión de Servicio', to: '/dashboard/solicitudes/conexion-servicio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
       { label: 'Otro', to: '/dashboard/solicitudes/otro', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
     ],
   },
