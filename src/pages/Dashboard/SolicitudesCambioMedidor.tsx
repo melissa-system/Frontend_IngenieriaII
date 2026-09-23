@@ -75,7 +75,7 @@ function SolicitudesCambioMedidor() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Medidor</h1>
+        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Medidor por Daños</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Solicitá el cambio o revisión técnica del medidor registrado en tu propiedad'

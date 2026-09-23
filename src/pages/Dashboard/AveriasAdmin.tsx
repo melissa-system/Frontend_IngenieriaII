@@ -452,12 +452,12 @@ function AveriasAdmin() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2">
                       <button type="button" onClick={() => setViewDetail(a)}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
+                        className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
                         Ver
                       </button>
                       {a.estado !== 'Finalizado' && (
                         <button type="button" onClick={() => setGestionModal(a)}
-                          className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
+                          className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
                           Gestionar
                         </button>
                       )}
@@ -482,20 +482,20 @@ function AveriasAdmin() {
             </p>
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 1}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
                 ‹ Anterior
               </button>
               {numerosPagina.map((n) => (
                 <button key={n} type="button" onClick={() => setPagina(n)} disabled={n === paginaActual}
                   aria-current={n === paginaActual ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
+                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
                     n === paginaActual ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
                   }`}>
                   {n}
                 </button>
               ))}
               <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
                 Siguiente ›
               </button>
             </div>
