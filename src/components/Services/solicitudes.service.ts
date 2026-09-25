@@ -164,8 +164,14 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
 // tome la URL del backend de VITE_API_URL en vez de tener localhost
 // harcodeado (bug que hacía que esta solicitud nunca funcionara ya
 // publicada en Netlify).
+// El token de reCAPTCHA viaja en un encabezado y no dentro del FormData
+// porque el backend lo valida en un guard, que corre antes de que se lea el
+// contenido del formulario (ver recaptcha.guard.ts).
+export const ENCABEZADO_RECAPTCHA = 'X-Recaptcha-Token'
+
 export const crearSolicitudPajaAgua = async (
   payload: SolicitudPajaAguaPayload,
+  tokenRecaptcha: string,
 ): Promise<SolicitudPajaAgua> => {
   const formData = new FormData()
 
@@ -201,7 +207,11 @@ export const crearSolicitudPajaAgua = async (
   formData.append('cedulaDorso', payload.cedulaDorso)
 
   try {
-    const { data } = await apiClient.post<SolicitudPajaAgua>('/solicitudes', formData)
+    const { data } = await apiClient.post<SolicitudPajaAgua>(
+      '/solicitudes',
+      formData,
+      { headers: { [ENCABEZADO_RECAPTCHA]: tokenRecaptcha } },
+    )
     return data
   } catch (error) {
     throw new Error(

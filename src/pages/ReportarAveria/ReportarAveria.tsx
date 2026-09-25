@@ -1,6 +1,7 @@
-import { useState, type FormEvent } from 'react'
+import { useState, type FormEvent, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
+import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 import { partirNombreCompleto } from '../../lib/nombres'
@@ -72,11 +73,17 @@ function ReportarAveria() {
     }
   }
 
+  // Token de la casilla "No soy un robot". Sin él no se habilita el envío,
+  // y el backend además lo exige (un bot podría saltarse el frontend).
+  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(null)
+  const recaptchaRef = useRef<RecaptchaRef>(null)
+
   const nombreFinal =
     tipoId === 'nacional' ? nombreEncontrado || manualNombre : nombreDimex
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
+    if (!tokenRecaptcha) return
     setSubmitting(true)
     setErrorSubmit(null)
 
@@ -99,9 +106,14 @@ function ReportarAveria() {
         nombre_reportante: nombre,
         apellido1_reportante: apellido1 || undefined,
         apellido2_reportante: apellido2 || undefined,
-      })
+      }, tokenRecaptcha)
       setSubmitted(true)
     } catch (error) {
+      // El token de reCAPTCHA es de un solo uso: si el envío falla hay que
+      // reiniciar la casilla, porque reintentar con el mismo token siempre
+      // sería rechazado por el backend.
+      recaptchaRef.current?.reiniciar()
+      setTokenRecaptcha(null)
       console.error('Error al enviar la avería:', error)
       setErrorSubmit(
         'No se pudo guardar el reporte en la base de datos. Inténtalo de nuevo.',
@@ -421,9 +433,11 @@ function ReportarAveria() {
                 </p>
               )}
 
+              <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || !tokenRecaptcha}
                 className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
               >
                 {submitting ? 'Enviando...' : 'Enviar reporte'}

@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -137,6 +138,9 @@ function Afiliacion() {
 
   const [enviado, setEnviado] = useState(false)
   const [enviando, setEnviando] = useState(false)
+  // Token de la casilla "No soy un robot" del último paso.
+  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(null)
+  const recaptchaRef = useRef<RecaptchaRef>(null)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
   const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
@@ -394,6 +398,7 @@ function Afiliacion() {
   const handleSubmit = async () => {
     if (!paso4Valido || !permisosMunicipales || !cartaSolicitud || !cedulaFrente || !cedulaDorso)
       return
+    if (!tokenRecaptcha) return
     setEnviando(true)
     setErrorSubmit(null)
     try {
@@ -422,7 +427,7 @@ function Afiliacion() {
         cartaSolicitud,
         cedulaFrente,
         cedulaDorso,
-      })
+      }, tokenRecaptcha)
       limpiarBorrador()
       setSolicitudCreada(creada)
       setEnviado(true)
@@ -466,6 +471,11 @@ function Afiliacion() {
         )
       }
     } catch (error) {
+      // El token de reCAPTCHA es de un solo uso: si el envío falla hay que
+      // reiniciar la casilla, porque reintentar con el mismo token siempre
+      // sería rechazado por el backend.
+      recaptchaRef.current?.reiniciar()
+      setTokenRecaptcha(null)
       const mensaje =
         error instanceof Error && error.message
           ? error.message
@@ -1029,6 +1039,11 @@ function Afiliacion() {
                     className={inputCls}
                   />
                 </div>
+
+                {/* Verificación anti-bots: va en el último paso, justo
+                    antes de enviar, porque el token dura pocos minutos. */}
+                <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+
                 {errorSubmit && (
                   <p className="rounded-lg bg-red-50 p-2 text-xs font-medium text-red-600">
                     {errorSubmit}
@@ -1061,7 +1076,7 @@ function Afiliacion() {
               <button
                 type="button"
                 onClick={handleSubmit}
-                disabled={!paso4Valido || enviando}
+                disabled={!paso4Valido || enviando || !tokenRecaptcha}
                 className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {enviando ? 'Enviando...' : 'Enviar solicitud'}
