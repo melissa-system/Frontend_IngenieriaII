@@ -64,9 +64,19 @@ function obtenerMensajeError(error: unknown, fallback: string): string {
   return fallback
 }
 
-export const crearAveria = async (payload: AveriaPayload): Promise<AveriaBackend> => {
+// El token de reCAPTCHA viaja en un encabezado y no en el cuerpo porque el
+// backend lo valida en un guard, que se ejecuta antes de leer el cuerpo de
+// la petición (ver recaptcha.guard.ts).
+export const ENCABEZADO_RECAPTCHA = 'X-Recaptcha-Token'
+
+export const crearAveria = async (
+  payload: AveriaPayload,
+  tokenRecaptcha: string,
+): Promise<AveriaBackend> => {
   try {
-    const { data } = await apiClient.post<AveriaBackend>(RESOURCE, payload)
+    const { data } = await apiClient.post<AveriaBackend>(RESOURCE, payload, {
+      headers: { [ENCABEZADO_RECAPTCHA]: tokenRecaptcha },
+    })
     return data
   } catch (error) {
     throw new Error(
