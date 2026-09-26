@@ -115,16 +115,34 @@ const Recaptcha = forwardRef<RecaptchaRef, { onCambio: (token: string | null) =>
       }
 
       let cancelado = false
+
+      // Si el script no carga en este plazo se da por fallido. El
+      // temporizador se cancela apenas el widget queda listo: si no, seguiría
+      // corriendo y marcaría error aunque todo hubiera funcionado (pasaba en
+      // formularios largos, donde la persona tarda más de ese plazo en
+      // llegar al paso del widget).
       const temporizador = setTimeout(() => {
         if (!cancelado) setEstado('error')
       }, ESPERA_MAXIMA_MS)
 
+      const marcarListo = () => {
+        clearTimeout(temporizador)
+        if (!cancelado) setEstado('listo')
+      }
+
       cargarScript()
         .then(() => {
           if (cancelado || !contenedorRef.current) return
-          // Si el widget ya se dibujó (por un re-render en desarrollo con
-          // StrictMode), no se vuelve a dibujar: Google lanza error.
-          if (widgetIdRef.current !== null) return
+
+          // En desarrollo, React monta el componente dos veces seguidas
+          // (StrictMode). Si el widget ya está dibujado en este contenedor no
+          // se vuelve a dibujar — Google lanza error si se intenta — pero sí
+          // hay que marcarlo como listo: antes se salía sin hacerlo y el
+          // widget quedaba invisible y luego en estado de error.
+          if (contenedorRef.current.childElementCount > 0) {
+            marcarListo()
+            return
+          }
 
           widgetIdRef.current = window.grecaptcha!.render(contenedorRef.current, {
             sitekey: CLAVE_SITIO,
@@ -139,13 +157,15 @@ const Recaptcha = forwardRef<RecaptchaRef, { onCambio: (token: string | null) =>
               onCambioRef.current(null)
             },
             'error-callback': () => {
+              clearTimeout(temporizador)
               setEstado('error')
               onCambioRef.current(null)
             },
           })
-          setEstado('listo')
+          marcarListo()
         })
         .catch(() => {
+          clearTimeout(temporizador)
           if (!cancelado) setEstado('error')
         })
 
