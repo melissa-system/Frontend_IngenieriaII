@@ -154,8 +154,24 @@ export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Averías',
     icon: <AveriasIcon />,
-    to: '/dashboard/averias',
-    roles: ['Administrador', 'Fontanero'],
+    // Junta Directiva no se lista acá porque el guard le da acceso total al
+    // sistema; se agrega igual para que el ítem le aparezca en el menú.
+    roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+    submenu: [
+      {
+        label: 'Reporte de Averías',
+        to: '/dashboard/averias',
+        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+      },
+      {
+        // Registro de actividad: el fontanero llena el suyo; la
+        // administración consulta los de todos. Son dos pantallas
+        // distintas, por eso cada una lista solo sus roles.
+        label: 'Fontanero',
+        to: '/dashboard/averias/fontanero',
+        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+      },
+    ],
   },
   {
     label: 'Mis Averías',

@@ -24,6 +24,7 @@ import Inventario from '../pages/Dashboard/Inventario'
 import MovimientosStock from '../pages/Dashboard/MovimientosStock'
 import Proveedores from '../pages/Dashboard/Proveedores'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
+import ActividadFontanero from '../pages/Dashboard/ActividadFontanero'
 import MisAverias from '../pages/Dashboard/MisAverias'
 import Publicaciones from '../pages/Dashboard/Publicaciones'
 import DocumentosAdmin from '../pages/Dashboard/DocumentosAdmin'
@@ -80,6 +81,7 @@ function AppRoutes() {
         <Route path="inventario/movimientos" element={<MovimientosStock />} />
         <Route path="inventario/proveedores" element={<Proveedores />} />
         <Route path="averias" element={<AveriasAdmin />} />
+        <Route path="averias/fontanero" element={<ActividadFontanero />} />
         <Route path="mis-averias" element={<MisAverias />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="administrativo" element={<Publicaciones />} />
