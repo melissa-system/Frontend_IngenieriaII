@@ -322,9 +322,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
-        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:static lg:h-screen lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
+      className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
+        ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}
+        lg:static lg:right-auto lg:h-screen lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
     >
       <div className="flex items-center justify-between border-b border-primary-700 px-5 py-5">
         <span
@@ -367,7 +367,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               estar pegada al fondo. */}
           <div className="relative" ref={perfilMenuRef}>
             {perfilMenuOpen && (
-              <div className="absolute bottom-full left-0 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-primary-700 bg-primary-800 shadow-2xl">
+              <div className="absolute bottom-full right-0 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-primary-700 bg-primary-800 shadow-2xl lg:right-auto lg:left-0">
                 <div className="px-4 py-3">
                   <p className="truncate text-sm font-medium text-white">{user?.nombre}</p>
                   <p className="truncate text-xs text-primary-400">{user?.email}</p>
