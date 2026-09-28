@@ -161,13 +161,13 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       {
         label: 'Reporte de Averías',
         to: '/dashboard/averias',
-        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+        roles: ['Administrador', 'Junta Directiva'],
       },
       {
         // Registro de actividad: el fontanero llena el suyo; la
         // administración consulta los de todos. Son dos pantallas
         // distintas, por eso cada una lista solo sus roles.
-        label: 'Fontanero',
+        label: 'Reporte fontanero',
         to: '/dashboard/averias/fontanero',
         roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
       },
@@ -182,7 +182,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Abonado'],
   },
   {
-    label: 'Usuarios',
+    label: 'Directorio',
     icon: <AdminIcon />,
     roles: ['Administrador', 'Junta Directiva'],
     submenu: [

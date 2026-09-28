@@ -255,3 +255,44 @@ export const cambiarEstadoSolicitudPajaAgua = async (
     )
   }
 }
+
+// Reportes estadísticos: mismo contrato que el endpoint de averías para que
+// la página de reportes use la misma lógica en los tres módulos. El backend
+// agrega tanto las solicitudes genéricas como las de paja de agua.
+export interface FiltrosEstadisticasSolicitudes {
+  fechaInicio?: string
+  fechaFin?: string
+  tipo?: string
+  estado?: string
+}
+
+export interface RegistroSolicitudEstadistica {
+  codigo: string
+  tipo: string
+  solicitante: string
+  estado: string
+  fecha: string
+}
+
+export interface EstadisticasSolicitudesBackend {
+  total: number
+  porTipo: { tipo: string; total: number }[]
+  porEstado: { estado: string; total: number }[]
+  registros: RegistroSolicitudEstadistica[]
+}
+
+export const obtenerEstadisticasSolicitudes = async (
+  params?: FiltrosEstadisticasSolicitudes,
+): Promise<EstadisticasSolicitudesBackend> => {
+  try {
+    const { data } = await apiClient.get<EstadisticasSolicitudesBackend>(
+      '/solicitudes/estadisticas',
+      { params },
+    )
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de solicitudes.'),
+    )
+  }
+}
