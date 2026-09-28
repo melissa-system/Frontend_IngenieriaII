@@ -1,7 +1,7 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import type { SolicitudConexion } from '../components/Services/conexionPajaAgua.service'
-import { ASADA_NOMBRE_LEGAL } from './generarDocumentoSolicitud'
+import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
 
 // PDF de la Solicitud de conexión de servicio (GNU-42-01-F1), fiel al HTML
 // entregado por Meli: mismas 5 páginas, mismo layout, sin ningún color

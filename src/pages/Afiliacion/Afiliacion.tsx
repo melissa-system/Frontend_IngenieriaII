@@ -25,12 +25,11 @@ import {
   extensionFotoIdentificacionPermitida,
   MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
 } from '../../lib/extensionesPermitidas'
-import { obtenerConfiguracion } from '../../components/Services/configuracion.service'
 import {
-  generarDocumentoSolicitud,
-  descargarDocumentoSolicitud,
+  generarPdfSolicitud,
+  descargarPdfSolicitud,
   type DatosDocumentoSolicitud,
-} from '../../lib/generarDocumentoSolicitud'
+} from '../../lib/generarPdfSolicitud'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
@@ -434,10 +433,8 @@ function Afiliacion() {
 
       // Generar el documento lleno para poder verlo/descargarlo de una vez.
       // Se arma con los datos que la persona ACABA de escribir (no hace
-      // falta volver a pedirle nada al backend) + los datos reales de la
-      // ASADA (dirección/teléfono/correo), que sí vienen de Configuracion.
+      // falta volver a pedirle nada al backend).
       try {
-        const configuracion = await obtenerConfiguracion()
         const datosDocumento: DatosDocumentoSolicitud = {
           codigoSolicitud: creada.codigo_solicitud,
           fecha: creada.fecha_solicitud,
@@ -462,7 +459,7 @@ function Afiliacion() {
           tipoConexion: draft.tipoConexion,
           observaciones: draft.observaciones || null,
         }
-        setDocumentoBlob(await generarDocumentoSolicitud(datosDocumento, configuracion))
+        setDocumentoBlob(await generarPdfSolicitud(datosDocumento))
       } catch {
         // No es crítico: la solicitud YA se guardó. Solo no se podrá
         // ver/descargar el documento formal desde esta pantalla.
@@ -517,14 +514,14 @@ function Afiliacion() {
               <button
                 type="button"
                 onClick={() =>
-                  descargarDocumentoSolicitud(
+                  descargarPdfSolicitud(
                     documentoBlob,
                     solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
                   )
                 }
                 className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
               >
-                Descargar documento (Word)
+                Descargar documento (PDF)
               </button>
             </div>
           )}

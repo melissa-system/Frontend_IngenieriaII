@@ -6,14 +6,10 @@ import {
   type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
 import {
-  obtenerConfiguracion,
-  type Configuracion,
-} from '../../components/Services/configuracion.service'
-import {
-  generarDocumentoSolicitud,
-  descargarDocumentoSolicitud,
+  generarPdfSolicitud,
+  descargarPdfSolicitud,
   type DatosDocumentoSolicitud,
-} from '../../lib/generarDocumentoSolicitud'
+} from '../../lib/generarPdfSolicitud'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 import Toast from '../../components/Dashboard/Toast'
 
@@ -111,7 +107,6 @@ function SolicitudesPajaAgua() {
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<SolicitudPajaAgua | null>(null)
-  const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [gestionando, setGestionando] = useState(false)
   const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
@@ -134,12 +129,6 @@ function SolicitudesPajaAgua() {
 
   useEffect(() => {
     cargar()
-    // Datos reales de la ASADA (dirección/teléfono/correo) para el
-    // documento generado — ruta pública, no hace falta re-manejar errores
-    // de sesión acá: si falla, simplemente no se ofrece el documento.
-    obtenerConfiguracion()
-      .then(setConfiguracion)
-      .catch(() => setConfiguracion(null))
   }, [cargar])
 
   const abrirDetalle = (s: SolicitudPajaAgua) => {
@@ -357,7 +346,6 @@ function SolicitudesPajaAgua() {
       {detalle && (
         <ModalDetalle
           solicitud={detalle}
-          configuracion={configuracion}
           motivoRechazo={motivoRechazo}
           setMotivoRechazo={setMotivoRechazo}
           gestionando={gestionando}
@@ -425,7 +413,6 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
 // correo los próximos pasos).
 function ModalDetalle({
   solicitud,
-  configuracion,
   motivoRechazo,
   setMotivoRechazo,
   gestionando,
@@ -433,7 +420,6 @@ function ModalDetalle({
   onGestionar,
 }: {
   solicitud: SolicitudPajaAgua
-  configuracion: Configuracion | null
   motivoRechazo: string
   setMotivoRechazo: (valor: string) => void
   gestionando: boolean
@@ -451,11 +437,10 @@ function ModalDetalle({
   const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   async function manejarDescargarDocumento() {
-    if (!configuracion) return
     setGenerandoDocumento(true)
     try {
-      const blob = await generarDocumentoSolicitud(aDatosDocumento(solicitud), configuracion)
-      descargarDocumentoSolicitud(blob, solicitud.codigo_solicitud)
+      const blob = await generarPdfSolicitud(aDatosDocumento(solicitud))
+      descargarPdfSolicitud(blob, solicitud.codigo_solicitud)
     } finally {
       setGenerandoDocumento(false)
     }
@@ -587,22 +572,16 @@ function ModalDetalle({
               <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
                 Documento de solicitud (machote)
               </p>
-              {configuracion ? (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={manejarDescargarDocumento}
-                    disabled={generandoDocumento}
-                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-                  >
-                    {generandoDocumento ? 'Generando…' : 'Descargar documento (Word)'}
-                  </button>
-                </div>
-              ) : (
-                <p className="text-xs text-primary-400">
-                  No se pudo cargar la información de la ASADA para generar el documento.
-                </p>
-              )}
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={manejarDescargarDocumento}
+                  disabled={generandoDocumento}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
+                >
+                  {generandoDocumento ? 'Generando…' : 'Descargar documento (PDF)'}
+                </button>
+              </div>
             </div>
           </>
         )}
