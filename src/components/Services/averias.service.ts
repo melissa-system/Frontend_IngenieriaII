@@ -155,3 +155,34 @@ export const subirImagenAveria = async (
     )
   }
 }
+
+export interface FiltrosEstadisticasAverias {
+  fechaInicio?: string
+  fechaFin?: string
+  tipo?: string
+  estado?: string
+}
+
+export interface EstadisticasAveriasBackend {
+  total: number
+  porTipo: { tipo: string; total: number }[]
+  porEstado: { estado: string; total: number }[]
+  registros: AveriaBackend[]
+}
+
+export const obtenerEstadisticasAverias = async (
+  params?: FiltrosEstadisticasAverias,
+): Promise<EstadisticasAveriasBackend> => {
+  try {
+    const { data } = await apiClient.get<EstadisticasAveriasBackend>(
+      `${RESOURCE}/estadisticas`,
+      { params },
+    )
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de averías.'),
+    )
+  }
+}
+
