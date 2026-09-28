@@ -23,6 +23,12 @@ import {
 } from '../../components/common/FileDropZone'
 import ModalConfirmacion from '../../components/common/ModalConfirmacion'
 import Toast from '../../components/Dashboard/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -625,6 +631,19 @@ function VistaAdministrador() {
   // mostrar ambas cosas apiladas en la misma pantalla.
   const [vista, setVista] = useState<'lista' | 'crear'>('lista')
 
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_abonado,
+      s.numero_abonado,
+      s.cedula,
+      s.representante_nuevo_nombre,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
+
   const cargar = useCallback(async () => {
     try {
       const lista = await obtenerSolicitudesCambioRepresentante()
@@ -1044,46 +1063,77 @@ function VistaAdministrador() {
             descripcion="Las solicitudes registradas aparecerán aquí."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo representante</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
-                {solicitudes.map((s) => (
-                  <tr key={s.id} className="hover:bg-primary-50/50">
-                    <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
-                    <td className="px-4 py-3 text-primary-600">
-                      <div className="font-medium text-primary-800">{s.nombre_abonado}</div>
-                      <div className="text-xs text-primary-400">{s.numero_abonado}</div>
-                    </td>
-                    <td className="px-4 py-3 text-primary-600">{s.representante_nuevo_nombre}</td>
-                    <td className="px-4 py-3">
-                      <BadgeEstado estado={s.estado} />
-                    </td>
-                    <td className="px-4 py-3 text-primary-500">
-                      {formatearFecha(s.fecha_creacion)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => abrirDetalle(s)}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
-                        Ver / gestionar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            <BarraFiltrosSolicitudes
+              busca={filtrosLista.busqueda}
+              manejarBusqueda={filtrosLista.cambiarBusqueda}
+              placeholder="Buscar por código, abonado o nuevo representante…"
+              orden={filtrosLista.orden}
+              cambiarOrden={filtrosLista.cambiarOrden}
+              filtroEstado={filtrosLista.filtroEstado}
+              cambiarEstado={filtrosLista.cambiarEstado}
+              estados={ESTADOS_ABONADO}
+            />
+            {filtrosLista.filtradas.length === 0 ? (
+              <EmptyState
+                titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+                descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+              />
+            ) : (
+              <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+                <table className="min-w-full divide-y divide-primary-100 text-sm">
+                  <thead className="bg-primary-50">
+                    <tr>
+                      <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
+                      <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
+                      <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo representante</th>
+                      <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
+                      <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
+                      <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-primary-100">
+                    {filtrosLista.filasVisibles.map((s) => (
+                      <tr key={s.id} className="hover:bg-primary-50/50">
+                        <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
+                        <td className="px-4 py-3 text-primary-600">
+                          <div className="font-medium text-primary-800">{s.nombre_abonado}</div>
+                          <div className="text-xs text-primary-400">{s.numero_abonado}</div>
+                        </td>
+                        <td className="px-4 py-3 text-primary-600">{s.representante_nuevo_nombre}</td>
+                        <td className="px-4 py-3">
+                          <BadgeEstado estado={s.estado} />
+                        </td>
+                        <td className="px-4 py-3 text-primary-500">
+                          {formatearFecha(s.fecha_creacion)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={() => abrirDetalle(s)}
+                            className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                          >
+                            Ver / gestionar
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+
+                <PaginadorSolicitudes
+                  total={filtrosLista.filtradas.length}
+                  primeraFila={filtrosLista.primeraFila}
+                  porPagina={filtrosLista.porPagina}
+                  paginaActual={filtrosLista.paginaActual}
+                  totalPaginas={filtrosLista.totalPaginas}
+                  numerosPagina={filtrosLista.numerosPagina}
+                  busca={filtrosLista.busqueda}
+                  etiqueta="solicitudes"
+                  irPagina={filtrosLista.irPagina}
+                />
+              </div>
+            )}
           </div>
         )}
       </div>

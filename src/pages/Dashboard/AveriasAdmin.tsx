@@ -35,15 +35,46 @@ function nombreFontanero(a: AveriaBackend) {
   return `${a.empleado.nombre} ${a.empleado.apellido1 || ''} ${a.empleado.apellido2 || ''}`.trim()
 }
 
-function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null; onClose: () => void }) {
-  if (!viewDetail) return null
-  const a = viewDetail
-  const fontanero = nombreFontanero(a)
+function GestionModal({
+  averia,
+  onClose,
+  onGuardar,
+  asignarFontanero,
+  setAsignarFontanero,
+  asignarObs,
+  setAsignarObs,
+  nuevoEstado,
+  setNuevoEstado,
+  empleados,
+  procesando,
+}: {
+  averia: AveriaBackend
+  onClose: () => void
+  onGuardar: () => void
+  asignarFontanero: string
+  setAsignarFontanero: (v: string) => void
+  asignarObs: string
+  setAsignarObs: (v: string) => void
+  nuevoEstado: string
+  setNuevoEstado: (v: string) => void
+  empleados: Array<{ id: number; nombre: string; cedula: string; puesto: string }>
+  procesando: boolean
+}) {
+  const a = averia
+  const esPendiente = a.estado === 'Pendiente'
+  const gestionable = a.estado !== 'Finalizado'
+  const fontaneroActual = nombreFontanero(a)
+
   return (
     <div className={modalBgCls}>
       <div className={modalCls}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
+            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>
+              {a.estado}
+            </span>
+          </div>
           <button type="button" onClick={onClose}
             className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -74,14 +105,8 @@ function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null
             <span className="text-primary-900">
               {new Date(a.fecha_reporte).toLocaleDateString('es-CR', { timeZone: 'America/Costa_Rica' })}
             </span>
-            <span className="font-medium text-primary-700">Estado actual:</span>
-            <span>
-              <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>
-                {a.estado}
-              </span>
-            </span>
             <span className="font-medium text-primary-700">Fontanero:</span>
-            <span className="text-primary-900">{fontanero || <span className="text-primary-400">Sin asignar</span>}</span>
+            <span className="text-primary-900">{fontaneroActual || <span className="text-primary-400">Sin asignar</span>}</span>
           </div>
 
           {a.imagen_url && (
@@ -126,118 +151,70 @@ function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null
               </div>
             )}
           </div>
-        </div>
 
-        <div className="mt-6 flex justify-end">
-          <button type="button" onClick={onClose}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+          {gestionable && (
+            <div className="rounded-xl border border-primary-100 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-primary-900">Gestión</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">Cambiar estado</label>
+                  <select value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}
+                    disabled={!asignarFontanero && !fontaneroActual}
+                    className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">Mantener: {a.estado}</option>
+                    {['Pendiente', 'En proceso', 'Finalizado']
+                      .filter((e) => e !== a.estado)
+                      .map((e) => (
+                        <option key={e} value={e}>{e}</option>
+                      ))}
+                  </select>
+                  {!asignarFontanero && !fontaneroActual && (
+                    <p className="mt-1 text-xs text-amber-600">Debe asignar un fontanero antes de cambiar el estado.</p>
+                  )}
+                </div>
 
-function GestionModal({
-  averia,
-  onClose,
-  onGuardar,
-  asignarFontanero,
-  setAsignarFontanero,
-  asignarObs,
-  setAsignarObs,
-  nuevoEstado,
-  setNuevoEstado,
-  empleados,
-  procesando,
-}: {
-  averia: AveriaBackend
-  onClose: () => void
-  onGuardar: () => void
-  asignarFontanero: string
-  setAsignarFontanero: (v: string) => void
-  asignarObs: string
-  setAsignarObs: (v: string) => void
-  nuevoEstado: string
-  setNuevoEstado: (v: string) => void
-  empleados: Array<{ id: number; nombre: string; cedula: string; puesto: string }>
-  procesando: boolean
-}) {
-  const a = averia
-  const esPendiente = a.estado === 'Pendiente'
-  const fontaneroActual = nombreFontanero(a)
+                {esPendiente && (
+                  <div>
+                    <label className="block text-sm font-medium text-primary-700">Asignar Fontanero</label>
+                    <select value={asignarFontanero} onChange={(e) => setAsignarFontanero(e.target.value)}
+                      className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
+                      <option value="">Seleccionar fontanero...</option>
+                      {empleados.map((emp) => (
+                        <option key={emp.id} value={emp.nombre}>{emp.nombre}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
-  return (
-    <div className={modalBgCls}>
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">Gestionar Avería</h2>
-          <button type="button" onClick={onClose}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="space-y-2 rounded-lg bg-primary-50 p-3 text-sm">
-          <p><span className="font-medium text-primary-700">Avería:</span> {a.tipo_averia}</p>
-          <p><span className="font-medium text-primary-700">Reportado por:</span> {nombreReportante(a)}</p>
-          <p><span className="font-medium text-primary-700">Estado actual:</span> <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>{a.estado}</span></p>
-          {fontaneroActual && (
-            <p><span className="font-medium text-primary-700">Fontanero actual:</span> {fontaneroActual}</p>
-          )}
-        </div>
-
-        <div className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Cambiar estado</label>
-            <select value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}
-              disabled={!asignarFontanero && !fontaneroActual}
-              className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
-              <option value="">Mantener: {a.estado}</option>
-              {['Pendiente', 'En proceso', 'Finalizado']
-                .filter((e) => e !== a.estado)
-                .map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-            </select>
-            {!asignarFontanero && !fontaneroActual && (
-              <p className="mt-1 text-xs text-amber-600">Debe asignar un fontanero antes de cambiar el estado.</p>
-            )}
-          </div>
-
-          {esPendiente && (
-            <div>
-              <label className="block text-sm font-medium text-primary-700">Asignar Fontanero</label>
-              <select value={asignarFontanero} onChange={(e) => setAsignarFontanero(e.target.value)}
-                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
-                <option value="">Seleccionar fontanero...</option>
-                {empleados.map((emp) => (
-                  <option key={emp.id} value={emp.nombre}>{emp.nombre}</option>
-                ))}
-              </select>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">Observaciones</label>
+                  <textarea value={asignarObs} onChange={(e) => setAsignarObs(e.target.value)}
+                    rows={2} placeholder="Notas o instrucciones..."
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none" />
+                </div>
+              </div>
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Observaciones</label>
-            <textarea value={asignarObs} onChange={(e) => setAsignarObs(e.target.value)}
-              rows={3} placeholder="Notas o instrucciones..."
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none" />
-          </div>
         </div>
 
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onGuardar} disabled={procesando}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">
-            {procesando ? 'Guardando...' : 'Guardar cambios'}
-          </button>
-          <button type="button" onClick={onClose}
-            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
-            Cancelar
-          </button>
+          {gestionable ? (
+            <>
+              <button type="button" onClick={onGuardar} disabled={procesando}
+                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">
+                {procesando ? 'Guardando...' : 'Guardar cambios'}
+              </button>
+              <button type="button" onClick={onClose}
+                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
+                Cancelar
+              </button>
+            </>
+          ) : (
+            <button type="button" onClick={onClose}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
+              Cerrar
+            </button>
+          )}
         </div>
       </div>
     </div>
@@ -256,7 +233,6 @@ function AveriasAdmin() {
   const [filter, setFilter] = useState('Todas')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const [viewDetail, setViewDetail] = useState<AveriaBackend | null>(null)
   const [gestionModal, setGestionModal] = useState<AveriaBackend | null>(null)
 
   const [asignarFontanero, setAsignarFontanero] = useState('')
@@ -377,6 +353,15 @@ function AveriasAdmin() {
   // ─── Render ────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* Encabezado */}
+      <div>
+        <h1 className="text-2xl font-semibold text-primary-900">Averías</h1>
+        <p className="mt-1 text-sm text-primary-500">
+          Reportes de averías registrados desde el sitio público, con estado, fontanero asignado e
+          historial de cambios
+        </p>
+      </div>
+
       {/* Barra de búsqueda + filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-96">
@@ -450,18 +435,13 @@ function AveriasAdmin() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => setViewDetail(a)}
-                        className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
-                        Ver
-                      </button>
-                      {a.estado !== 'Finalizado' && (
-                        <button type="button" onClick={() => setGestionModal(a)}
-                          className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
-                          Gestionar
-                        </button>
-                      )}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setGestionModal(a)}
+                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                    >
+                      Ver / gestionar
+                    </button>
                   </td>
                 </tr>
               ))
@@ -503,7 +483,6 @@ function AveriasAdmin() {
         )}
       </div>
 
-      <DetailModal viewDetail={viewDetail} onClose={() => setViewDetail(null)} />
       {gestionModal && (
         <GestionModal
           averia={gestionModal}

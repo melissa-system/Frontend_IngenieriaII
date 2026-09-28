@@ -99,7 +99,6 @@ function Inventario() {
   const [search, setSearch] = useState('')
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas')
   const [filtroEstado, setFiltroEstado] = useState('Todos')
-  const [soloStockBajo, setSoloStockBajo] = useState(false)
   const [pagina, setPagina] = useState(1)
 
   // Modales
@@ -146,7 +145,6 @@ function Inventario() {
         obtenerArticulos({
           clasificacion: filtroClasificacion,
           estado: filtroEstado,
-          soloStockBajo,
         }),
         obtenerProveedores(),
       ])
@@ -162,7 +160,7 @@ function Inventario() {
     } finally {
       setLoading(false)
     }
-  }, [filtroClasificacion, filtroEstado, soloStockBajo, form.proveedorId])
+  }, [filtroClasificacion, filtroEstado, form.proveedorId])
 
   useEffect(() => {
     void cargarDatos()
@@ -185,9 +183,6 @@ function Inventario() {
       if (filtroEstado !== 'Todos' && a.estado !== filtroEstado) {
         return false
       }
-      if (soloStockBajo && !a.stockBajo) {
-        return false
-      }
       if (q === '') return true
       return (
         normalizarBusqueda(a.nombre).includes(q) ||
@@ -196,7 +191,7 @@ function Inventario() {
         normalizarBusqueda(a.proveedor?.nombre || '').includes(q)
       )
     })
-  }, [articulos, filtroClasificacion, filtroEstado, soloStockBajo, q])
+  }, [articulos, filtroClasificacion, filtroEstado, q])
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / ARTICULOS_POR_PAGINA))
   const paginaActual = Math.min(pagina, totalPaginas)
@@ -619,16 +614,9 @@ function Inventario() {
             </span>
 
             <span className="font-medium text-primary-700">Stock disponible:</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono font-bold text-primary-900">
-                {viewDetail.cantidad_disponible} unidades
-              </span>
-              {viewDetail.stockBajo && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                  ⚠️ Stock bajo
-                </span>
-              )}
-            </div>
+            <span className="font-mono font-bold text-primary-900">
+              {viewDetail.cantidad_disponible} unidades
+            </span>
 
             <span className="font-medium text-primary-700">Umbral de alerta:</span>
             <span className="text-primary-900">
@@ -872,22 +860,6 @@ function Inventario() {
           <option value="activo">Activos</option>
           <option value="inactivo">Inactivos</option>
         </select>
-
-        <button
-          type="button"
-          onClick={() => {
-            setSoloStockBajo(!soloStockBajo)
-            setPagina(1)
-          }}
-          className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors ${
-            soloStockBajo
-              ? 'border-amber-300 bg-amber-100 text-amber-800'
-              : 'border-primary-200 bg-white text-primary-700 hover:bg-primary-50'
-          }`}
-        >
-          <span>⚠️</span>
-          Solo stock bajo
-        </button>
       </div>
 
       {/* Error de carga */}
@@ -993,21 +965,11 @@ function Inventario() {
                           className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
                             item.cantidad_disponible === 0
                               ? 'bg-red-100 text-red-700'
-                              : item.stockBajo
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-emerald-100 text-emerald-800'
+                              : 'bg-emerald-100 text-emerald-800'
                           }`}
                         >
                           {item.cantidad_disponible} uds
                         </span>
-                        {item.stockBajo && (
-                          <span
-                            title={`Stock menor o igual al umbral mínimo (${item.umbral_minimo ?? 5})`}
-                            className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
-                          >
-                            ⚠️ Stock bajo
-                          </span>
-                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-primary-600">{item.ubicacion || '—'}</td>

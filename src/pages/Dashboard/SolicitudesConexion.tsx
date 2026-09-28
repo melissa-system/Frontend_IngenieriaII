@@ -24,6 +24,12 @@ import { FirmaCanvas } from '../../components/common/FirmaCanvas'
 import { extensionDesdeUrl } from '../../lib/descargarArchivo'
 import { descargarPdfConexion, generarPdfConexion } from '../../lib/generarPdfConexion'
 import Toast, { type TipoToast } from '../../components/Dashboard/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -610,11 +616,11 @@ function FormularioConexion({
         </p>
       )}
 
-      <div className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-4">
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
         <button
           type="submit"
           disabled={enviando}
-          className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
+          className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {enviando ? 'Enviando...' : 'Enviar solicitud'}
         </button>
@@ -622,7 +628,7 @@ function FormularioConexion({
           type="button"
           onClick={onCancelar}
           disabled={enviando}
-          className="rounded-full border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+          className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-50"
         >
           Cancelar
         </button>
@@ -660,6 +666,19 @@ function VistaAdministrador() {
   useEffect(() => {
     cargar()
   }, [])
+
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_abonado,
+      s.numero_abonado,
+      s.cedula,
+      s.tipo_tramite,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
 
   async function gestionar(estado: 'en_proceso' | 'aprobado' | 'rechazado') {
     if (!detalle) return
@@ -719,41 +738,72 @@ function VistaAdministrador() {
           descripcion="Las solicitudes de conexión de servicio que envíen los abonados aparecerán aquí."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
-              {solicitudes.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 font-medium text-primary-900">{s.codigo_solicitud}</td>
-                  <td className="px-4 py-3 text-primary-700">{s.nombre_abonado}</td>
-                  <td className="px-4 py-3 text-primary-700">{etiquetaTipoTramite(s.tipo_tramite)}</td>
-                  <td className="px-4 py-3 text-primary-500">{formatearFecha(s.fecha_creacion)}</td>
-                  <td className="px-4 py-3">
-                    <BadgeEstado estado={s.estado} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => setDetalle(s)}
-                      className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                    >
-                      Ver detalle
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          <BarraFiltrosSolicitudes
+            busca={filtrosLista.busqueda}
+            manejarBusqueda={filtrosLista.cambiarBusqueda}
+            placeholder="Buscar por código, abonado, cédula o tipo de trámite…"
+            orden={filtrosLista.orden}
+            cambiarOrden={filtrosLista.cambiarOrden}
+            filtroEstado={filtrosLista.filtroEstado}
+            cambiarEstado={filtrosLista.cambiarEstado}
+            estados={ESTADOS_ABONADO}
+          />
+          {filtrosLista.filtradas.length === 0 ? (
+            <EmptyState
+              titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+              descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+            />
+          ) : (
+            <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+              <table className="min-w-full divide-y divide-primary-100 text-sm">
+                <thead className="bg-primary-50">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
+                    <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
+                    <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
+                    <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
+                    <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
+                    <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-primary-50">
+                  {filtrosLista.filasVisibles.map((s) => (
+                    <tr key={s.id}>
+                      <td className="px-4 py-3 font-medium text-primary-900">{s.codigo_solicitud}</td>
+                      <td className="px-4 py-3 text-primary-700">{s.nombre_abonado}</td>
+                      <td className="px-4 py-3 text-primary-700">{etiquetaTipoTramite(s.tipo_tramite)}</td>
+                      <td className="px-4 py-3 text-primary-500">{formatearFecha(s.fecha_creacion)}</td>
+                      <td className="px-4 py-3">
+                        <BadgeEstado estado={s.estado} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <button
+                          type="button"
+                          onClick={() => setDetalle(s)}
+                          className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                        >
+                          Ver / gestionar
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              <PaginadorSolicitudes
+                total={filtrosLista.filtradas.length}
+                primeraFila={filtrosLista.primeraFila}
+                porPagina={filtrosLista.porPagina}
+                paginaActual={filtrosLista.paginaActual}
+                totalPaginas={filtrosLista.totalPaginas}
+                numerosPagina={filtrosLista.numerosPagina}
+                busca={filtrosLista.busqueda}
+                etiqueta="solicitudes"
+                irPagina={filtrosLista.irPagina}
+              />
+            </div>
+          )}
         </div>
       )}
 
