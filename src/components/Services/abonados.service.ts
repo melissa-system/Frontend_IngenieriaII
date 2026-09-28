@@ -171,6 +171,29 @@ export const vincularCuentaAbonado = async (
   }
 };
 
+// Reenvía el correo de "definir tu contraseña" a un abonado que YA tiene
+// cuenta vinculada (por si el enlace original venció): POST
+// /abonados/:id/reenviar-acceso. El backend limita esto a 1 solicitud cada
+// 15s por IP (ver abonados-throttle.config.ts) — el 429 de esa respuesta se
+// traduce acá a un mensaje legible en vez del genérico.
+export const reenviarCorreoAccesoAbonado = async (
+  id: number | string,
+): Promise<{ mensaje: string }> => {
+  try {
+    const { data } = await apiClient.post<{ mensaje: string }>(
+      `${RESOURCE}/${id}/reenviar-acceso`,
+    );
+    return data;
+  } catch (error) {
+    if (axios.isAxiosError(error) && error.response?.status === 429) {
+      throw new Error('Esperá unos segundos antes de volver a reenviar el correo.');
+    }
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo reenviar el correo de acceso.'),
+    );
+  }
+};
+
 // Un registro por cada campo modificado en una edición del abonado.
 export interface HistorialAbonado {
   id: number;
@@ -193,6 +216,43 @@ export const obtenerHistorialAbonado = async (
   } catch (error) {
     throw new Error(
       obtenerMensajeError(error, 'No se pudo cargar el historial de cambios.'),
+    );
+  }
+};
+
+// Resumen personal del abonado logueado: datos personales, conteo de
+// solicitudes y averías, y las 5 más recientes de cada una.
+export interface SolicitudResumen {
+  id: number;
+  codigo_solicitud: string;
+  tipo_solicitud: string;
+  estado: string;
+  fecha_creacion: string;
+}
+
+export interface AveriaResumen {
+  id: number;
+  codigo_averia: string;
+  tipo_averia: string;
+  descripcion: string;
+  estado: string;
+  fecha_reporte: string;
+}
+
+export interface MiResumen {
+  abonado: Abonado;
+  estadisticas: { totalSolicitudes: number; totalAverias: number };
+  solicitudesRecientes: SolicitudResumen[];
+  averiasRecientes: AveriaResumen[];
+}
+
+export const obtenerMiResumen = async (): Promise<MiResumen> => {
+  try {
+    const { data } = await apiClient.get<MiResumen>(`${RESOURCE}/mi-resumen`);
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudo cargar tu resumen.'),
     );
   }
 };

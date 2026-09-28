@@ -1,689 +1,1053 @@
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
-  MOCK_INVENTARIO, MOCK_PROVEEDORES,
-  type InventarioItem, type MovimientoInventario,
+  obtenerArticulos,
+  crearArticulo,
+  actualizarArticulo,
+  obtenerHistorialArticulo,
+  cambiarEstadoArticulo,
+  obtenerProveedores,
+  type Articulo,
+  type MovimientoInventario,
   type Proveedor,
-} from '../../lib/mockData'
-import { useAuth } from '../../contexts/AuthContext'
+  type CrearArticuloPayload,
+} from '../../components/Services/inventario.service'
 
-const CATEGORIAS = ['Material', 'Herramienta', 'Medidor']
-const UBICACIONES = ['Bodega A', 'Bodega B', 'Taller']
+const CLASIFICACIONES = [
+  { valor: 'articulo', etiqueta: 'Artículo' },
+  { valor: 'inmueble', etiqueta: 'Inmueble' },
+] as const
 
-const CATEGORIA_COLORS: Record<string, string> = {
-  Material: 'bg-blue-100 text-blue-700',
-  Herramienta: 'bg-orange-100 text-orange-700',
-  Medidor: 'bg-purple-100 text-purple-700',
+const ARTICULOS_POR_PAGINA = 10
+
+function hoyIso(): string {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function getEstadoColor(estado: string) {
+  if (estado === 'activo') return 'bg-green-100 text-green-700'
+  return 'bg-red-100 text-red-700'
+}
+
+function getClasificacionBadge(clasificacion: string) {
+  if (clasificacion === 'articulo') return 'bg-blue-100 text-blue-700'
+  return 'bg-purple-100 text-purple-700'
+}
+
+function formatearFechaHora(fechaIso: string): string {
+  if (!fechaIso) return '—'
+  const d = new Date(fechaIso)
+  if (Number.isNaN(d.getTime())) return fechaIso
+  return d.toLocaleString('es-CR', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function normalizarBusqueda(t: string) {
+  return t
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-z0-9]/g, '')
+}
+
+// Interruptor interactivo idéntico al de Abonados
+function EstadoSwitch({
+  estado,
+  disabled,
+  onChange,
+}: {
+  estado: string
+  disabled?: boolean
+  onChange: () => void
+}) {
+  const activo = estado === 'activo'
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={activo}
+      aria-label={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
+      disabled={disabled}
+      onClick={onChange}
+      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-green-500' : 'bg-gray-300'
+      }`}
+    >
+      <span
+        className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow transition-transform ${
+          activo ? 'translate-x-[18px]' : 'translate-x-[3px]'
+        }`}
+      />
+    </button>
+  )
 }
 
 function Inventario() {
-  const { user } = useAuth()
-  const [tab, setTab] = useState<'inventario' | 'proveedores'>('inventario')
+  // Datos
+  const [articulos, setArticulos] = useState<Articulo[]>([])
+  const [proveedores, setProveedores] = useState<Proveedor[]>([])
+  const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [confirmacion, setConfirmacion] = useState<string | null>(null)
 
-  const [items, setItems] = useState<InventarioItem[]>(MOCK_INVENTARIO)
-  const [proveedores, setProveedores] = useState<Proveedor[]>(MOCK_PROVEEDORES)
-
+  // Filtros & Búsqueda
   const [search, setSearch] = useState('')
-  const [catFilter, setCatFilter] = useState('Todas')
+  const [filtroClasificacion, setFiltroClasificacion] = useState('Todas')
+  const [filtroEstado, setFiltroEstado] = useState('Todos')
+  const [soloStockBajo, setSoloStockBajo] = useState(false)
+  const [pagina, setPagina] = useState(1)
 
-  const [addModal, setAddModal] = useState(false)
-  const [editItem, setEditItem] = useState<InventarioItem | null>(null)
+  // Modales
+  const [modalOpen, setModalOpen] = useState(false)
+  const [editando, setEditando] = useState<Articulo | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
-  const [provAddModal, setProvAddModal] = useState(false)
-  const [editProv, setEditProv] = useState<Proveedor | null>(null)
+  // Modal Detalle
+  const [viewDetail, setViewDetail] = useState<Articulo | null>(null)
+  const [historialDetalle, setHistorialDetalle] = useState<MovimientoInventario[]>([])
+  const [historialLoading, setHistorialLoading] = useState(false)
+  const [historialError, setHistorialError] = useState<string | null>(null)
 
-  const [newItemForm, setNewItemForm] = useState({
-    nombre: '', categoria: 'Material', proveedor: '',
-    tipoProveedor: 'Físico' as 'Físico' | 'Jurídico',
-    stock: 0, stockMinimo: 0, ubicacion: 'Bodega A',
+  // Modal Cambio de Estado (Task 451)
+  const [cambioEstado, setCambioEstado] = useState<{
+    articulo: Articulo
+    nuevo: 'activo' | 'inactivo'
+  } | null>(null)
+  const [cambiandoEstadoId, setCambiandoEstadoId] = useState<number | null>(null)
+  const [errorCambioEstado, setErrorCambioEstado] = useState<string | null>(null)
+
+  // Estado del Formulario Artículo
+  const [form, setForm] = useState<CrearArticuloPayload>({
+    nombre: '',
+    descripcion: '',
+    clasificacion: 'articulo',
+    cantidad: 0,
+    umbralMinimo: 5,
+    fechaIngreso: hoyIso(),
+    ubicacion: '',
+    proveedorId: 0,
+    personaRecibe: '',
   })
 
-  const [newProvForm, setNewProvForm] = useState({
-    nombre: '', tipo: 'Jurídico' as 'Físico' | 'Jurídico',
-    contacto: '', telefono: '', correo: '', direccion: '', estado: 'Activo' as 'Activo' | 'Inactivo',
-  })
-
-  const filteredItems = useMemo(() => {
-    let result = [...items]
-    if (catFilter !== 'Todas') result = result.filter((i) => i.categoria === catFilter)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      result = result.filter(
-        (i) =>
-          i.nombre.toLowerCase().includes(q) ||
-          i.categoria.toLowerCase().includes(q) ||
-          i.proveedor.toLowerCase().includes(q),
+  // ------------------------------------------------------------------
+  // Carga de Datos
+  // ------------------------------------------------------------------
+  const cargarDatos = useCallback(async () => {
+    setLoading(true)
+    setLoadError(null)
+    try {
+      const [articulosRes, proveedoresRes] = await Promise.all([
+        obtenerArticulos({
+          clasificacion: filtroClasificacion,
+          estado: filtroEstado,
+          soloStockBajo,
+        }),
+        obtenerProveedores(),
+      ])
+      setArticulos(articulosRes)
+      setProveedores(proveedoresRes)
+      if (proveedoresRes.length > 0 && form.proveedorId === 0) {
+        setForm((p) => ({ ...p, proveedorId: proveedoresRes[0].id }))
+      }
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : 'No se pudo cargar la lista de artículos.',
       )
+    } finally {
+      setLoading(false)
     }
-    return result
-  }, [items, catFilter, search])
+  }, [filtroClasificacion, filtroEstado, soloStockBajo, form.proveedorId])
 
-  const filteredProv = useMemo(() => {
-    if (!search.trim()) return proveedores
-    const q = search.toLowerCase()
-    return proveedores.filter(
-      (p) =>
-        p.nombre.toLowerCase().includes(q) ||
-        p.contacto.toLowerCase().includes(q) ||
-        p.telefono.includes(q),
-    )
-  }, [proveedores, search])
+  useEffect(() => {
+    void cargarDatos()
+  }, [cargarDatos])
 
-  const stockCritico = useMemo(
-    () => items.filter((i) => i.stock < i.stockMinimo * 0.5),
-    [items],
-  )
-  const stockBajo = useMemo(
-    () => items.filter((i) => i.stock <= i.stockMinimo && i.stock >= i.stockMinimo * 0.5),
-    [items],
-  )
-
-  function resetNewItemForm() {
-    setNewItemForm({ nombre: '', categoria: 'Material', proveedor: '', tipoProveedor: 'Físico', stock: 0, stockMinimo: 0, ubicacion: 'Bodega A' })
+  function notificarExito(msg: string) {
+    setConfirmacion(msg)
+    setTimeout(() => setConfirmacion(null), 4000)
   }
 
-  function handleAddItem() {
-    const nuevo: InventarioItem = {
-      id: String(Date.now()),
-      nombre: newItemForm.nombre,
-      categoria: newItemForm.categoria,
-      proveedor: newItemForm.proveedor,
-      tipoProveedor: newItemForm.tipoProveedor,
-      stock: newItemForm.stock,
-      stockMinimo: newItemForm.stockMinimo,
-      ubicacion: newItemForm.ubicacion,
-      historial: [
-        {
-          fecha: new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' }),
-          tipo: 'entrada',
-          cantidad: newItemForm.stock,
-          stockAnterior: 0,
-          stockNuevo: newItemForm.stock,
-          realizadoPor: user?.nombre ?? 'Sistema',
-          observacion: 'Item agregado al inventario',
-        },
-      ],
-    }
-    setItems((prev) => [nuevo, ...prev])
-    setAddModal(false)
-    resetNewItemForm()
+  // ------------------------------------------------------------------
+  // Filtrado & Paginación
+  // ------------------------------------------------------------------
+  const q = normalizarBusqueda(search)
+  const filtered = useMemo(() => {
+    return articulos.filter((a) => {
+      if (filtroClasificacion !== 'Todas' && a.clasificacion !== filtroClasificacion) {
+        return false
+      }
+      if (filtroEstado !== 'Todos' && a.estado !== filtroEstado) {
+        return false
+      }
+      if (soloStockBajo && !a.stockBajo) {
+        return false
+      }
+      if (q === '') return true
+      return (
+        normalizarBusqueda(a.nombre).includes(q) ||
+        normalizarBusqueda(a.descripcion || '').includes(q) ||
+        normalizarBusqueda(a.ubicacion || '').includes(q) ||
+        normalizarBusqueda(a.proveedor?.nombre || '').includes(q)
+      )
+    })
+  }, [articulos, filtroClasificacion, filtroEstado, soloStockBajo, q])
+
+  const totalPaginas = Math.max(1, Math.ceil(filtered.length / ARTICULOS_POR_PAGINA))
+  const paginaActual = Math.min(pagina, totalPaginas)
+  const primeraFila = (paginaActual - 1) * ARTICULOS_POR_PAGINA
+  const filasVisibles = filtered.slice(primeraFila, primeraFila + ARTICULOS_POR_PAGINA)
+  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+
+  function manejarBusqueda(val: string) {
+    setSearch(val)
+    setPagina(1)
   }
 
-  function handleEditItem(
-    id: string,
-    data: {
-      nombre: string; categoria: string; proveedor: string
-      tipoProveedor: 'Físico' | 'Jurídico'
-      stock: number; stockMinimo: number; ubicacion: string
-    },
-  ) {
-    setItems((prev) =>
-      prev.map((it) => {
-        if (it.id !== id) return it
-        const diff = data.stock - it.stock
-        if (diff !== 0) {
-          const mov: MovimientoInventario = {
-            fecha: new Date().toLocaleString('es-CR', { timeZone: 'America/Costa_Rica' }),
-            tipo: diff > 0 ? 'entrada' : 'salida',
-            cantidad: Math.abs(diff),
-            stockAnterior: it.stock,
-            stockNuevo: data.stock,
-            realizadoPor: user?.nombre ?? 'Sistema',
-            observacion: diff > 0 ? 'Ajuste por edición (incremento)' : 'Ajuste por edición (decremento)',
-          }
-          return { ...it, ...data, historial: [...it.historial, mov] }
+  // ------------------------------------------------------------------
+  // Apertura y Cierre de Modales
+  // ------------------------------------------------------------------
+  function cerrarModal() {
+    setModalOpen(false)
+    setEditando(null)
+    setFormError(null)
+  }
+
+  function openCreate() {
+    setEditando(null)
+    setForm({
+      nombre: '',
+      descripcion: '',
+      clasificacion: 'articulo',
+      cantidad: 0,
+      umbralMinimo: 5,
+      fechaIngreso: hoyIso(),
+      ubicacion: '',
+      proveedorId: proveedores[0]?.id ?? 0,
+      personaRecibe: '',
+    })
+    setFormError(null)
+    setModalOpen(true)
+  }
+
+  function openEditar(articulo: Articulo) {
+    setEditando(articulo)
+    setForm({
+      nombre: articulo.nombre,
+      descripcion: articulo.descripcion,
+      clasificacion: articulo.clasificacion,
+      cantidad: articulo.cantidad_disponible,
+      umbralMinimo: articulo.umbral_minimo ?? 5,
+      fechaIngreso: articulo.fecha_ingreso ? articulo.fecha_ingreso.slice(0, 10) : hoyIso(),
+      ubicacion: articulo.ubicacion,
+      proveedorId: articulo.proveedor?.id ?? proveedores[0]?.id ?? 0,
+      personaRecibe: articulo.persona_recibe || '',
+    })
+    setFormError(null)
+    setModalOpen(true)
+  }
+
+  async function openDetalle(articulo: Articulo) {
+    setViewDetail(articulo)
+    setHistorialDetalle([])
+    setHistorialError(null)
+    setHistorialLoading(true)
+    try {
+      const hist = await obtenerHistorialArticulo(articulo.id)
+      setHistorialDetalle(hist)
+    } catch {
+      setHistorialError('No se pudo cargar el historial del artículo.')
+    } finally {
+      setHistorialLoading(false)
+    }
+  }
+
+
+  // ------------------------------------------------------------------
+  // Formulario: Crear / Editar
+  // ------------------------------------------------------------------
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault()
+    setFormError(null)
+
+    if (!form.nombre.trim()) {
+      setFormError('El nombre del artículo es obligatorio.')
+      return
+    }
+    if (!form.descripcion.trim()) {
+      setFormError('La descripción es obligatoria.')
+      return
+    }
+    if (!form.ubicacion.trim()) {
+      setFormError('La ubicación es obligatoria.')
+      return
+    }
+    if (!form.personaRecibe.trim()) {
+      setFormError('La persona que recibe es obligatoria.')
+      return
+    }
+    if (!form.proveedorId) {
+      setFormError('Debe seleccionar un proveedor válido.')
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      if (editando) {
+        const actualizado = await actualizarArticulo(editando.id, {
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim(),
+          clasificacion: form.clasificacion,
+          umbralMinimo: Number(form.umbralMinimo) || 5,
+          ubicacion: form.ubicacion.trim(),
+          proveedorId: Number(form.proveedorId),
+          personaRecibe: form.personaRecibe.trim(),
+        })
+        setArticulos((prev) => prev.map((a) => (a.id === actualizado.id ? actualizado : a)))
+        if (viewDetail && viewDetail.id === actualizado.id) {
+          setViewDetail(actualizado)
         }
-        return { ...it, ...data }
-      }),
-    )
-    setEditItem(null)
+        notificarExito(`Artículo "${actualizado.nombre}" actualizado correctamente.`)
+      } else {
+        const creado = await crearArticulo({
+          ...form,
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim(),
+          ubicacion: form.ubicacion.trim(),
+          personaRecibe: form.personaRecibe.trim(),
+          cantidad: Number(form.cantidad),
+          umbralMinimo: Number(form.umbralMinimo) || 5,
+          proveedorId: Number(form.proveedorId),
+        })
+        setArticulos((prev) => [creado, ...prev])
+        notificarExito(`Artículo "${creado.nombre}" registrado exitosamente.`)
+      }
+      cerrarModal()
+    } catch (err) {
+      setFormError(
+        err instanceof Error ? err.message : 'Ocurrió un error al guardar el artículo.',
+      )
+    } finally {
+      setSubmitting(false)
+    }
   }
 
-  function resetNewProvForm() {
-    setNewProvForm({ nombre: '', tipo: 'Jurídico', contacto: '', telefono: '', correo: '', direccion: '', estado: 'Activo' })
+  // ------------------------------------------------------------------
+  // Cambio de Estado (Task 451)
+  // ------------------------------------------------------------------
+  async function confirmarCambioEstado() {
+    if (!cambioEstado) return
+    const { articulo, nuevo } = cambioEstado
+    setCambiandoEstadoId(articulo.id)
+    setErrorCambioEstado(null)
+    try {
+      const actualizado = await cambiarEstadoArticulo(articulo.id, nuevo)
+      setArticulos((prev) => prev.map((a) => (a.id === actualizado.id ? actualizado : a)))
+      if (viewDetail && viewDetail.id === actualizado.id) {
+        setViewDetail(actualizado)
+      }
+      setCambioEstado(null)
+      notificarExito(
+        `El artículo "${articulo.nombre}" ahora está ${nuevo === 'activo' ? 'Activo' : 'Inactivo'}.`,
+      )
+    } catch (err) {
+      setErrorCambioEstado(
+        err instanceof Error ? err.message : 'No se pudo cambiar el estado del artículo.',
+      )
+    } finally {
+      setCambiandoEstadoId(null)
+    }
   }
 
-  function handleAddProveedor() {
-    const nuevo: Proveedor = { id: String(Date.now()), ...newProvForm }
-    setProveedores((prev) => [nuevo, ...prev])
-    setProvAddModal(false)
-    resetNewProvForm()
-  }
+  // ------------------------------------------------------------------
+  // Modales JSX
+  // ------------------------------------------------------------------
 
-  function handleEditProveedor(id: string, data: Omit<Proveedor, 'id'>) {
-    setProveedores((prev) => prev.map((p) => (p.id === id ? { ...p, ...data } : p)))
-    setEditProv(null)
-  }
-
-  function handleDeleteProveedor(id: string) {
-    setProveedores((prev) => prev.filter((p) => p.id !== id))
-  }
-
-  const inputCls = 'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
-  const selectCls = 'mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
-  const labelCls = 'block text-sm font-medium text-primary-700'
-  const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40'
-  const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
-
-  function AddItemModal() {
-    if (!addModal) return null
-    return (
-      <div className={modalBgCls}>
-        <div className={modalCls}>
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">Agregar Item</h2>
-            <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
-              className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className={labelCls}>Nombre del item</label>
-              <input type="text" value={newItemForm.nombre} onChange={(e) => setNewItemForm((p) => ({ ...p, nombre: e.target.value }))} className={inputCls} placeholder="Nombre del item" />
-            </div>
-            <div>
-              <label className={labelCls}>Categoría</label>
-              <select value={newItemForm.categoria} onChange={(e) => setNewItemForm((p) => ({ ...p, categoria: e.target.value }))} className={selectCls}>
-                {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Ubicación</label>
-              <select value={newItemForm.ubicacion} onChange={(e) => setNewItemForm((p) => ({ ...p, ubicacion: e.target.value }))} className={selectCls}>
-                {UBICACIONES.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Proveedor</label>
-              <input type="text" value={newItemForm.proveedor} onChange={(e) => setNewItemForm((p) => ({ ...p, proveedor: e.target.value }))} className={inputCls} placeholder="Nombre del proveedor" list="prov-list" />
-              <datalist id="prov-list">
-                {proveedores.map((p) => <option key={p.id} value={p.nombre} />)}
-              </datalist>
-            </div>
-            <div>
-              <label className={labelCls}>Tipo de proveedor</label>
-              <select value={newItemForm.tipoProveedor} onChange={(e) => setNewItemForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
-                <option value="Físico">Físico</option>
-                <option value="Jurídico">Jurídico</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Stock inicial</label>
-              <input type="number" min={0} value={newItemForm.stock} onChange={(e) => setNewItemForm((p) => ({ ...p, stock: Number(e.target.value) }))} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Stock mínimo</label>
-              <input type="number" min={0} value={newItemForm.stockMinimo} onChange={(e) => setNewItemForm((p) => ({ ...p, stockMinimo: Number(e.target.value) }))} className={inputCls} />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={handleAddItem} disabled={!newItemForm.nombre || !newItemForm.proveedor}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">Agregar item</button>
-            <button type="button" onClick={() => { setAddModal(false); resetNewItemForm() }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  function EditItemModal() {
-    if (!editItem) return null
-    const [form, setForm] = useState({ ...editItem })
-    return (
-      <div className={modalBgCls}>
-        <div className={modalCls}>
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">Editar: {editItem.nombre}</h2>
-            <button type="button" onClick={() => setEditItem(null)}
-              className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <label className={labelCls}>Nombre</label>
-              <input type="text" value={form.nombre} onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Categoría</label>
-              <select value={form.categoria} onChange={(e) => setForm((p) => ({ ...p, categoria: e.target.value }))} className={selectCls}>
-                {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Ubicación</label>
-              <select value={form.ubicacion} onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))} className={selectCls}>
-                {UBICACIONES.map((u) => <option key={u} value={u}>{u}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Proveedor</label>
-              <input type="text" value={form.proveedor} onChange={(e) => setForm((p) => ({ ...p, proveedor: e.target.value }))} className={inputCls} list="edit-prov-list" />
-              <datalist id="edit-prov-list">
-                {proveedores.map((p) => <option key={p.id} value={p.nombre} />)}
-              </datalist>
-            </div>
-            <div>
-              <label className={labelCls}>Tipo de proveedor</label>
-              <select value={form.tipoProveedor} onChange={(e) => setForm((p) => ({ ...p, tipoProveedor: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
-                <option value="Físico">Físico</option>
-                <option value="Jurídico">Jurídico</option>
-              </select>
-            </div>
-            <div>
-              <label className={labelCls}>Stock actual</label>
-              <input type="number" min={0} value={form.stock} onChange={(e) => setForm((p) => ({ ...p, stock: Number(e.target.value) }))} className={inputCls} />
-            </div>
-            <div>
-              <label className={labelCls}>Stock mínimo</label>
-              <input type="number" min={0} value={form.stockMinimo} onChange={(e) => setForm((p) => ({ ...p, stockMinimo: Number(e.target.value) }))} className={inputCls} />
-            </div>
-          </div>
-
-          <div className="mt-5 border-t border-primary-100 pt-4">
-            <h3 className="mb-3 text-base font-semibold text-primary-900">Historial de Movimientos</h3>
-            {form.historial.length === 0 ? (
-              <p className="text-sm text-primary-400">Sin movimientos registrados.</p>
-            ) : (
-              <div className="max-h-48 space-y-2 overflow-y-auto">
-                {[...form.historial].reverse().map((m, i) => (
-                  <div key={i} className="flex items-center gap-3 rounded-lg border border-primary-100 bg-primary-50/50 p-3 text-sm">
-                    <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold
-                      ${m.tipo === 'entrada' ? 'bg-green-100 text-green-700' : ''}
-                      ${m.tipo === 'salida' ? 'bg-red-100 text-red-700' : ''}
-                      ${m.tipo === 'ajuste' ? 'bg-yellow-100 text-yellow-700' : ''}
-                    `}>
-                      {m.tipo === 'entrada' ? '+E' : m.tipo === 'salida' ? '-S' : 'ajuste'}
-                    </span>
-                    <div className="flex-1">
-                      <p className="text-primary-700">{m.observacion}</p>
-                      <p className="text-xs text-primary-400">{m.cantidad} uds ({m.stockAnterior} \u2192 {m.stockNuevo}) &middot; {m.fecha} &middot; {m.realizadoPor}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
+  // 1. Modal Formulario (Crear / Editar)
+  const modalFormEl = !modalOpen ? null : (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-6 flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-semibold text-primary-900">
+              {editando ? 'Editar Artículo' : 'Nuevo Artículo'}
+            </h2>
+            {editando && (
+              <p className="mt-0.5 text-xs text-primary-500">
+                ID #{editando.id} · {editando.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'} · Stock: {editando.cantidad_disponible} uds
+              </p>
             )}
           </div>
-
-          <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => handleEditItem(editItem.id, form)}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">Guardar cambios</button>
-            <button type="button" onClick={() => setEditItem(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
-          </div>
+          <button
+            type="button"
+            onClick={cerrarModal}
+            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
         </div>
-      </div>
-    )
-  }
 
-  function AddProveedorModal() {
-    if (!provAddModal) return null
-    return (
-      <div className={modalBgCls}>
-        <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">Nuevo Proveedor</h2>
-            <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
-              className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-primary-700">
+              Nombre del artículo *
+            </label>
+            <input
+              type="text"
+              required
+              value={form.nombre}
+              onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
+              placeholder="Ej. Tubería PVC 1/2 pulgada"
+              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-700">
+              Descripción detallada *
+            </label>
+            <textarea
+              rows={2}
+              required
+              value={form.descripcion}
+              onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
+              placeholder="Especificaciones técnicas, marca, uso..."
+              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Clasificación *
+              </label>
+              <select
+                value={form.clasificacion}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    clasificacion: e.target.value as 'inmueble' | 'articulo',
+                  }))
+                }
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              >
+                {CLASIFICACIONES.map((c) => (
+                  <option key={c.valor} value={c.valor}>
+                    {c.etiqueta}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Proveedor *
+              </label>
+              <select
+                value={form.proveedorId}
+                onChange={(e) =>
+                  setForm((p) => ({ ...p, proveedorId: Number(e.target.value) }))
+                }
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              >
+                {proveedores.map((pr) => (
+                  <option key={pr.id} value={pr.id}>
+                    {pr.nombre} ({pr.tipo})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {!editando && (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Cantidad inicial en stock *
+                  </label>
+                  <input
+                    type="number"
+                    min={0}
+                    required
+                    value={form.cantidad}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, cantidad: Number(e.target.value) }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">
+                    Fecha de ingreso *
+                  </label>
+                  <input
+                    type="date"
+                    max={hoyIso()}
+                    required
+                    value={form.fechaIngreso}
+                    onChange={(e) =>
+                      setForm((p) => ({ ...p, fechaIngreso: e.target.value }))
+                    }
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                  />
+                </div>
+              </>
+            )}
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Ubicación actual *
+              </label>
+              <input
+                type="text"
+                required
+                value={form.ubicacion}
+                onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))}
+                placeholder="Ej. Bodega A / Taller Central"
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Persona que recibe *
+              </label>
+              <input
+                type="text"
+                required
+                value={form.personaRecibe}
+                onChange={(e) => setForm((p) => ({ ...p, personaRecibe: e.target.value }))}
+                placeholder="Nombre del encargado"
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-primary-700">
+                Umbral mínimo de alerta *
+              </label>
+              <input
+                type="number"
+                min={1}
+                required
+                value={form.umbralMinimo}
+                onChange={(e) =>
+                  setForm((p) => ({
+                    ...p,
+                    umbralMinimo: Math.max(1, parseInt(e.target.value, 10) || 1),
+                  }))
+                }
+                placeholder="5"
+                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              />
+              <p className="mt-1 text-xs text-primary-400">
+                Alerta cuando el stock disponible sea menor o igual a este valor.
+              </p>
+            </div>
+          </div>
+
+          {formError && (
+            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+              {formError}
+            </p>
+          )}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button
+              type="submit"
+              disabled={submitting}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+            >
+              {submitting
+                ? 'Guardando...'
+                : editando
+                  ? 'Guardar cambios'
+                  : 'Crear artículo'}
+            </button>
+            <button
+              type="button"
+              onClick={() => cerrarModal()}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+            >
+              Cancelar
             </button>
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className={labelCls}>Nombre</label>
-              <input type="text" value={newProvForm.nombre} onChange={(e) => setNewProvForm((p) => ({ ...p, nombre: e.target.value }))} className={inputCls} />
+        </form>
+      </div>
+    </div>
+  )
+
+  // 2. Modal Detalle con Línea de Tiempo de Movimientos
+  const detailModalEl = !viewDetail ? null : (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-xl font-semibold text-primary-900">Detalle del Artículo</h2>
+          <button
+            type="button"
+            onClick={() => setViewDetail(null)}
+            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="space-y-3 text-sm">
+          <div className="grid grid-cols-2 gap-2">
+            <span className="font-medium text-primary-700">Nombre:</span>
+            <span className="text-primary-900 font-medium">{viewDetail.nombre}</span>
+
+            <span className="font-medium text-primary-700">Descripción:</span>
+            <span className="text-primary-900">{viewDetail.descripcion || '—'}</span>
+
+            <span className="font-medium text-primary-700">Clasificación:</span>
+            <span
+              className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${getClasificacionBadge(
+                viewDetail.clasificacion,
+              )}`}
+            >
+              {viewDetail.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'}
+            </span>
+
+            <span className="font-medium text-primary-700">Stock disponible:</span>
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="font-mono font-bold text-primary-900">
+                {viewDetail.cantidad_disponible} unidades
+              </span>
+              {viewDetail.stockBajo && (
+                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
+                  ⚠️ Stock bajo
+                </span>
+              )}
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Tipo</label>
-                <select value={newProvForm.tipo} onChange={(e) => setNewProvForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
-                  <option value="Físico">Físico</option>
-                  <option value="Jurídico">Jurídico</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Estado</label>
-                <select value={newProvForm.estado} onChange={(e) => setNewProvForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={selectCls}>
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Contacto</label>
-              <input type="text" value={newProvForm.contacto} onChange={(e) => setNewProvForm((p) => ({ ...p, contacto: e.target.value }))} className={inputCls} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Teléfono</label>
-                <input type="text" value={newProvForm.telefono} onChange={(e) => setNewProvForm((p) => ({ ...p, telefono: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Correo</label>
-                <input type="email" value={newProvForm.correo} onChange={(e) => setNewProvForm((p) => ({ ...p, correo: e.target.value }))} className={inputCls} />
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Dirección</label>
-              <input type="text" value={newProvForm.direccion} onChange={(e) => setNewProvForm((p) => ({ ...p, direccion: e.target.value }))} className={inputCls} />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={handleAddProveedor} disabled={!newProvForm.nombre}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">Agregar proveedor</button>
-            <button type="button" onClick={() => { setProvAddModal(false); resetNewProvForm() }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
+
+            <span className="font-medium text-primary-700">Umbral de alerta:</span>
+            <span className="text-primary-900">
+              {viewDetail.umbral_minimo ?? 5} unidades
+            </span>
+
+            <span className="font-medium text-primary-700">Ubicación actual:</span>
+            <span className="text-primary-900">{viewDetail.ubicacion || '—'}</span>
+
+            <span className="font-medium text-primary-700">Proveedor:</span>
+            <span className="text-primary-900">{viewDetail.proveedor?.nombre || '—'}</span>
+
+            <span className="font-medium text-primary-700">Persona que recibe:</span>
+            <span className="text-primary-900">{viewDetail.persona_recibe || '—'}</span>
+
+            <span className="font-medium text-primary-700">Fecha de ingreso:</span>
+            <span className="text-primary-900">
+              {formatearFechaHora(viewDetail.fecha_ingreso || viewDetail.fecha_creacion)}
+            </span>
+
+            <span className="font-medium text-primary-700">Estado:</span>
+            <span
+              className={`inline-block w-fit rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(
+                viewDetail.estado,
+              )}`}
+            >
+              {viewDetail.estado === 'activo' ? 'Activo' : 'Inactivo'}
+            </span>
           </div>
         </div>
-      </div>
-    )
-  }
 
-  function EditProveedorModal() {
-    if (!editProv) return null
-    const [form, setForm] = useState({ ...editProv })
-    return (
-      <div className={modalBgCls}>
-        <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-          <div className="mb-6 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">Editar Proveedor</h2>
-            <button type="button" onClick={() => setEditProv(null)}
-              className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
-              <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+        <div className="mt-5 border-t border-primary-100 pt-4">
+          <h3 className="mb-3 text-sm font-medium text-primary-700">Historial de movimientos</h3>
+          {historialLoading ? (
+            <p className="text-xs text-primary-400">Cargando historial...</p>
+          ) : historialError ? (
+            <p className="text-xs font-medium text-red-500">{historialError}</p>
+          ) : historialDetalle.length === 0 ? (
+            <p className="text-xs text-primary-400">Sin movimientos registrados aún.</p>
+          ) : (
+            <ul className="space-y-3">
+              {historialDetalle.map((m, i) => (
+                <li key={m.id} className="relative flex gap-3 pb-3 last:pb-0">
+                  {i < historialDetalle.length - 1 && (
+                    <span className="absolute left-[5px] top-4 h-full w-px bg-primary-200" />
+                  )}
+                  <span
+                    className={`mt-1 h-2.5 w-2.5 flex-none rounded-full ${
+                      m.tipo_movimiento === 'entrada' ? 'bg-emerald-500' : 'bg-red-500'
+                    }`}
+                  />
+                  <div className="min-w-0 text-xs">
+                    <p className="font-medium text-primary-900">
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.2 text-[11px] font-semibold ${
+                          m.tipo_movimiento === 'entrada'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : 'bg-red-100 text-red-800'
+                        }`}
+                      >
+                        {m.tipo_movimiento === 'entrada' ? '+ Entrada' : '- Salida'}
+                      </span>{' '}
+                      <span className="font-mono font-bold">{m.cantidad} uds</span> &mdash; Motivo:{' '}
+                      {m.motivo}
+                    </p>
+                    <p className="mt-0.5 text-primary-500">
+                      {formatearFechaHora(m.fecha_movimiento)} · {m.nombre_persona_registro || 'Sistema'}
+                      {m.responsable_destino ? ` · Destino: ${m.responsable_destino}` : ''}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
+        <div className="mt-6 flex justify-end">
+          <button
+            type="button"
+            onClick={() => setViewDetail(null)}
+            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+          >
+            Cerrar
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+
+  // 3. Modal Cambio de Estado (Task 451)
+  const cambioEstadoModalEl =
+    cambioEstado === null ? null : (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+          <h2 className="text-lg font-semibold text-primary-900">Cambiar estado del artículo</h2>
+          <p className="mt-3 text-sm text-primary-600">
+            ¿Seguro que deseas cambiar el estado de{' '}
+            <span className="font-semibold text-primary-800">{cambioEstado.articulo.nombre}</span>?
+          </p>
+          <p className="mt-3 flex items-center gap-2 text-sm">
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(
+                cambioEstado.articulo.estado,
+              )}`}
+            >
+              {cambioEstado.articulo.estado === 'activo' ? 'Activo' : 'Inactivo'}
+            </span>
+            <span aria-hidden="true" className="text-primary-400">
+              →
+            </span>
+            <span
+              className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(
+                cambioEstado.nuevo,
+              )}`}
+            >
+              {cambioEstado.nuevo === 'activo' ? 'Activo' : 'Inactivo'}
+            </span>
+          </p>
+          <p className="mt-3 text-xs text-primary-400">
+            {cambioEstado.nuevo === 'inactivo'
+              ? 'Al inhabilitar el artículo, no se podrán registrar nuevas entradas ni salidas hasta que vuelva a activarse.'
+              : 'Al reactivar el artículo, volverá a estar disponible para movimientos en bodega.'}
+          </p>
+          {errorCambioEstado && (
+            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              {errorCambioEstado}
+            </p>
+          )}
+          <div className="mt-6 flex justify-end gap-2">
+            <button
+              type="button"
+              onClick={confirmarCambioEstado}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
+            </button>
+            <button
+              type="button"
+              onClick={() => setCambioEstado(null)}
+              disabled={cambiandoEstadoId !== null}
+              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              Cancelar
             </button>
           </div>
-          <div className="space-y-4">
-            <div>
-              <label className={labelCls}>Nombre</label>
-              <input type="text" value={form.nombre} onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))} className={inputCls} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Tipo</label>
-                <select value={form.tipo} onChange={(e) => setForm((p) => ({ ...p, tipo: e.target.value as 'Físico' | 'Jurídico' }))} className={selectCls}>
-                  <option value="Físico">Físico</option>
-                  <option value="Jurídico">Jurídico</option>
-                </select>
-              </div>
-              <div>
-                <label className={labelCls}>Estado</label>
-                <select value={form.estado} onChange={(e) => setForm((p) => ({ ...p, estado: e.target.value as 'Activo' | 'Inactivo' }))} className={selectCls}>
-                  <option value="Activo">Activo</option>
-                  <option value="Inactivo">Inactivo</option>
-                </select>
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Contacto</label>
-              <input type="text" value={form.contacto} onChange={(e) => setForm((p) => ({ ...p, contacto: e.target.value }))} className={inputCls} />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>Teléfono</label>
-                <input type="text" value={form.telefono} onChange={(e) => setForm((p) => ({ ...p, telefono: e.target.value }))} className={inputCls} />
-              </div>
-              <div>
-                <label className={labelCls}>Correo</label>
-                <input type="email" value={form.correo} onChange={(e) => setForm((p) => ({ ...p, correo: e.target.value }))} className={inputCls} />
-              </div>
-            </div>
-            <div>
-              <label className={labelCls}>Dirección</label>
-              <input type="text" value={form.direccion} onChange={(e) => setForm((p) => ({ ...p, direccion: e.target.value }))} className={inputCls} />
-            </div>
-          </div>
-          <div className="mt-6 flex justify-end gap-3">
-            <button type="button" onClick={() => handleEditProveedor(editProv.id, form)}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">Guardar cambios</button>
-            <button type="button" onClick={() => setEditProv(null)}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">Cancelar</button>
-          </div>
         </div>
       </div>
     )
-  }
 
+
+  // ------------------------------------------------------------------
+  // RENDER PRINCIPAL (Homologado con Abonados.tsx)
+  // ------------------------------------------------------------------
   return (
     <div className="space-y-6">
+      {/* Encabezado */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Inventario
-          </h1>
+          <h1 className="text-2xl font-semibold text-primary-900">Catálogo de Artículos</h1>
           <p className="mt-1 text-sm text-primary-500">
-            {items.length} items registrados &middot; {stockBajo.length + stockCritico.length} con stock bajo
+            {loading ? 'Cargando...' : `${articulos.length} artículos registrados`}
           </p>
         </div>
+        <button
+          type="button"
+          onClick={openCreate}
+          className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
+        >
+          + Nuevo artículo
+        </button>
+      </div>
 
-        {tab === 'inventario' ? (
-          <button type="button" onClick={() => setAddModal(true)}
-            className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800">
-            + Agregar item
-          </button>
-        ) : (
-          <button type="button" onClick={() => setProvAddModal(true)}
-            className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800">
-            + Nuevo proveedor
+      {/* Alerta de confirmación */}
+      {confirmacion && (
+        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
+          {confirmacion}
+        </div>
+      )}
+
+      {/* Búsqueda */}
+      <div className="relative w-full sm:w-96">
+        <svg
+          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+          fill="none"
+          stroke="currentColor"
+          viewBox="0 0 24 24"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+          />
+        </svg>
+        <input
+          type="text"
+          placeholder="Buscar por nombre, descripción o ubicación..."
+          value={search}
+          onChange={(e) => manejarBusqueda(e.target.value)}
+          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+        />
+        {search && (
+          <button
+            type="button"
+            onClick={() => manejarBusqueda('')}
+            title="Limpiar búsqueda"
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+          >
+            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         )}
       </div>
 
-      <div className="flex gap-1 rounded-xl bg-primary-100 p-1">
-        <button type="button" onClick={() => setTab('inventario')}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors
-            ${tab === 'inventario' ? 'bg-white text-primary-900 shadow-sm' : 'text-primary-600 hover:text-primary-800'}`}>
-          Productos
-        </button>
-        <button type="button" onClick={() => setTab('proveedores')}
-          className={`flex-1 rounded-lg px-4 py-2 text-sm font-semibold transition-colors
-            ${tab === 'proveedores' ? 'bg-white text-primary-900 shadow-sm' : 'text-primary-600 hover:text-primary-800'}`}>
-          Proveedores
+      {/* Filtros */}
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          value={filtroClasificacion}
+          onChange={(e) => {
+            setFiltroClasificacion(e.target.value)
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todas">Todas las clasificaciones</option>
+          <option value="articulo">Artículo</option>
+          <option value="inmueble">Inmueble</option>
+        </select>
+
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value)
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los estados</option>
+          <option value="activo">Activos</option>
+          <option value="inactivo">Inactivos</option>
+        </select>
+
+        <button
+          type="button"
+          onClick={() => {
+            setSoloStockBajo(!soloStockBajo)
+            setPagina(1)
+          }}
+          className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors ${
+            soloStockBajo
+              ? 'border-amber-300 bg-amber-100 text-amber-800'
+              : 'border-primary-200 bg-white text-primary-700 hover:bg-primary-50'
+          }`}
+        >
+          <span>⚠️</span>
+          Solo stock bajo
         </button>
       </div>
 
-      {tab === 'inventario' && (
-        <>
-          {stockCritico.length > 0 && (
-            <div className="animate-pulse rounded-xl border-2 border-red-300 bg-red-50 p-4 shadow-[0_0_15px_rgba(239,68,68,0.3)]">
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4.5c-.77-.833-2.694-.833-3.464 0L3.34 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                </svg>
-                <p className="text-sm font-bold text-red-800">
-                  Stock crítico detectado
-                </p>
-              </div>
-              <ul className="mt-2 space-y-1 pl-7">
-                {stockCritico.map((item) => (
-                  <li key={item.id} className="flex items-center gap-2 text-sm font-medium text-red-700">
-                    <span className="inline-flex h-2 w-2 rounded-full bg-red-500" />
-                    {item.nombre} &mdash; Stock: {item.stock} (mín: {item.stockMinimo})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {stockBajo.length > 0 && stockCritico.length === 0 && (
-            <div className="rounded-xl border border-yellow-200 bg-yellow-50 p-4">
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01" />
-                </svg>
-                <p className="text-sm font-semibold text-yellow-800">Alerta de stock bajo</p>
-              </div>
-              <ul className="mt-2 space-y-1 pl-7">
-                {stockBajo.map((item) => (
-                  <li key={item.id} className="text-sm text-yellow-700">
-                    {item.nombre} &mdash; Stock: {item.stock} (m\u00edn: {item.stockMinimo})
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-            <div className="relative sm:max-w-md sm:flex-1">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-              </svg>
-              <input
-                type="text" placeholder="Buscar por nombre, categoría o proveedor..."
-                value={search} onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-primary-200 py-2.5 pl-9 pr-4 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              />
-            </div>
-            <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)}
-              className="w-full rounded-full border border-primary-200 px-4 py-2.5 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none sm:w-auto sm:min-w-[200px]">
-              <option value="Todas">Todas las categorías</option>
-              {CATEGORIAS.map((c) => <option key={c} value={c}>{c}</option>)}
-            </select>
-          </div>
-
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Categoría</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Proveedor</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Stock</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Mínimo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
-                {filteredItems.length === 0 ? (
-                  <tr>
-                    <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                      No se encontraron items.
-                    </td>
-                  </tr>
-                ) : (
-                  filteredItems.map((item) => {
-                    const critico = item.stock < item.stockMinimo * 0.5
-                    const bajo = item.stock <= item.stockMinimo && !critico
-                    return (
-                      <tr key={item.id}
-                        className={`${critico ? 'bg-red-50 shadow-[inset_0_0_8px_rgba(239,68,68,0.15)]' : ''}
-                          ${bajo ? 'bg-yellow-50/50' : ''}
-                          hover:bg-primary-50/50`}>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            {critico && (
-                              <svg className="h-4 w-4 shrink-0 text-red-500" fill="currentColor" viewBox="0 0 20 20">
-                                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                              </svg>
-                            )}
-                            <span className="font-medium text-primary-900">{item.nombre}</span>
-                            {critico && (
-                              <span className="inline-flex animate-pulse items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-xs font-bold text-red-700">
-                                <span className="h-1.5 w-1.5 rounded-full bg-red-500" />
-                                Stock crítico
-                              </span>
-                            )}
-                            {bajo && !critico && (
-                              <span className="inline-flex rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-semibold text-yellow-700">
-                                Stock bajo
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${CATEGORIA_COLORS[item.categoria]}`}>
-                            {item.categoria}
-                          </span>
-                        </td>
-                        <td className="px-4 py-3 text-primary-600">{item.proveedor}</td>
-                        <td className={`px-4 py-3 font-mono font-medium ${critico ? 'text-red-600' : bajo ? 'text-yellow-600' : 'text-primary-700'}`}>
-                          {item.stock}
-                        </td>
-                        <td className="px-4 py-3 text-primary-500">{item.stockMinimo}</td>
-                        <td className="px-4 py-3 text-primary-500">{item.ubicacion}</td>
-                        <td className="px-4 py-3">
-                          <button type="button" onClick={() => setEditItem(item)}
-                            className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline">
-                            Editar
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })
-                )}
-              </tbody>
-            </table>
-          </div>
-        </>
-      )}
-
-      {tab === 'proveedores' && (
-        <>
-          <div className="relative">
-            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              type="text" placeholder="Buscar por nombre, contacto o teléfono..."
-              value={search} onChange={(e) => setSearch(e.target.value)}
-              className="w-full rounded-lg border border-primary-200 py-2.5 pl-9 pr-4 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none sm:w-96"
-            />
-          </div>
-
+      {/* Error de carga */}
+      {loadError ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
+          <p className="text-sm font-medium text-red-600">{loadError}</p>
+          <button
+            type="button"
+            onClick={cargarDatos}
+            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+          >
+            Reintentar
+          </button>
+        </div>
+      ) : (
+        /* Tabla de Artículos */
         <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
           <table className="min-w-full divide-y divide-primary-100 text-sm">
             <thead className="bg-primary-50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Contacto</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Teléfono</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Clasificación</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Stock Disp.</th>
+                <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                 <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-primary-50">
-              {filteredProv.length === 0 ? (
+              {loading ? (
+                Array.from({ length: 5 }).map((_, fila) => (
+                  <tr key={`skeleton-${fila}`}>
+                    {Array.from({ length: 6 }).map((__, col) => (
+                      <td key={col} className="px-4 py-3.5">
+                        <div
+                          className={`animate-pulse rounded bg-primary-100 ${
+                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
+                          }`}
+                        />
+                      </td>
+                    ))}
+                  </tr>
+                ))
+              ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-primary-400">
-                    No se encontraron proveedores.
+                  <td colSpan={6} className="px-4 py-12 text-center">
+                    <svg
+                      className="mx-auto h-8 w-8 text-primary-300"
+                      fill="none"
+                      stroke="currentColor"
+                      viewBox="0 0 24 24"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+                      />
+                    </svg>
+                    {search ? (
+                      <>
+                        <p className="mt-3 text-sm font-medium text-primary-600">
+                          No encontramos artículos para "{search}"
+                        </p>
+                        <p className="mt-1 text-xs text-primary-400">
+                          Revisa el término escrito o prueba con otro criterio.
+                        </p>
+                        <button
+                          type="button"
+                          onClick={() => manejarBusqueda('')}
+                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
+                        >
+                          Limpiar búsqueda
+                        </button>
+                      </>
+                    ) : (
+                      <p className="mt-3 text-sm font-medium text-primary-600">
+                        Aún no hay artículos registrados. Usa el botón "+ Nuevo artículo" para crear
+                        el primero.
+                      </p>
+                    )}
                   </td>
                 </tr>
               ) : (
-                filteredProv.map((p) => (
-                  <tr key={p.id} className="hover:bg-primary-50/50">
-                    <td className="px-4 py-3 font-medium text-primary-900">{p.nombre}</td>
+                filasVisibles.map((item) => (
+                  <tr key={item.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${p.tipo === 'Jurídico' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
-                        {p.tipo}
+                      <div className="font-medium text-primary-900">{item.nombre}</div>
+                      <div className="text-xs text-primary-400 line-clamp-1">{item.descripcion}</div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getClasificacionBadge(
+                          item.clasificacion,
+                        )}`}
+                      >
+                        {item.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-primary-600">{p.contacto}</td>
-                    <td className="px-4 py-3 font-mono text-primary-600">{p.telefono}</td>
+                    <td className="px-4 py-3 font-mono">
+                      <div className="flex flex-col items-start gap-1">
+                        <span
+                          className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                            item.cantidad_disponible === 0
+                              ? 'bg-red-100 text-red-700'
+                              : item.stockBajo
+                                ? 'bg-amber-100 text-amber-800'
+                                : 'bg-emerald-100 text-emerald-800'
+                          }`}
+                        >
+                          {item.cantidad_disponible} uds
+                        </span>
+                        {item.stockBajo && (
+                          <span
+                            title={`Stock menor o igual al umbral mínimo (${item.umbral_minimo ?? 5})`}
+                            className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
+                          >
+                            ⚠️ Stock bajo
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-primary-600">{item.ubicacion || '—'}</td>
                     <td className="px-4 py-3">
-                      <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${p.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                        {p.estado}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <EstadoSwitch
+                          estado={item.estado}
+                          disabled={cambiandoEstadoId === item.id}
+                          onChange={() => {
+                            setErrorCambioEstado(null)
+                            setCambioEstado({
+                              articulo: item,
+                              nuevo: item.estado === 'activo' ? 'inactivo' : 'activo',
+                            })
+                          }}
+                        />
+                        <span
+                          className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(
+                            item.estado,
+                          )}`}
+                        >
+                          {item.estado === 'activo' ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-3">
-                        <button type="button" onClick={() => setEditProv(p)}
-                          className="text-sm font-medium text-primary-600 hover:text-primary-800 hover:underline">
+                        <button
+                          type="button"
+                          onClick={() => openEditar(item)}
+                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
+                        >
                           Editar
                         </button>
-                        <button type="button" onClick={() => handleDeleteProveedor(p.id)}
-                          className="text-sm font-medium text-red-500 hover:text-red-700 hover:underline">
-                          Eliminar
+                        <button
+                          type="button"
+                          onClick={() => openDetalle(item)}
+                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
+                        >
+                          Ver
                         </button>
                       </div>
                     </td>
@@ -692,14 +1056,64 @@ function Inventario() {
               )}
             </tbody>
           </table>
+
+          {/* Barra de Paginación */}
+          {!loading && articulos.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-primary-500">
+                Mostrando{' '}
+                {filtered.length === 0
+                  ? 0
+                  : `${primeraFila + 1}–${Math.min(
+                      primeraFila + ARTICULOS_POR_PAGINA,
+                      filtered.length,
+                    )}`}{' '}
+                de {filtered.length} artículos
+                {search ? ` (filtro: "${search}")` : ''}
+              </p>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  ‹ Anterior
+                </button>
+                {numerosPagina.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPagina(n)}
+                    disabled={n === paginaActual}
+                    aria-current={n === paginaActual ? 'page' : undefined}
+                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
+                      n === paginaActual
+                        ? 'bg-primary-700 text-white'
+                        : 'text-primary-700 hover:bg-primary-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => setPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}
+                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Siguiente ›
+                </button>
+              </div>
+            </div>
+          )}
         </div>
-        </>
       )}
 
-      <AddItemModal />
-      <EditItemModal />
-      <AddProveedorModal />
-      <EditProveedorModal />
+      {/* Modales */}
+      {modalFormEl}
+      {detailModalEl}
+      {cambioEstadoModalEl}
     </div>
   )
 }

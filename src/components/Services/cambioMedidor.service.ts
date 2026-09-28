@@ -41,7 +41,7 @@ export interface CrearSolicitudCambioMedidorPayload {
   motivoFalla: string
   direccionExacta: string
   justificacion: string
-  evidencia: File
+  evidencia?: File | null
 }
 
 export interface ActualizarEstadoPayload {
@@ -72,7 +72,9 @@ export const crearSolicitudCambioMedidor = async (
     formData.append('motivoFalla', payload.motivoFalla)
     formData.append('direccionExacta', payload.direccionExacta)
     formData.append('justificacion', payload.justificacion)
-    formData.append('evidencia', payload.evidencia)
+    if (payload.evidencia) {
+      formData.append('evidencia', payload.evidencia)
+    }
 
     const { data } = await apiClient.post<SolicitudCambioMedidor>(
       RESOURCE,

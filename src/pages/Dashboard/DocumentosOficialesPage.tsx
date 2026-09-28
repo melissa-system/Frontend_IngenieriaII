@@ -6,6 +6,7 @@ import {
   type Documento,
   type TipoDocumento,
 } from '../../components/Services/documentos.service'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -154,15 +155,19 @@ function DocumentosOficialesPage() {
                 {doc.version > 1 ? ` · versión ${doc.version}` : ''}
               </p>
 
-              <a
-                href={obtenerUrlArchivo(doc.ubicacion)}
-                target="_blank"
-                rel="noopener noreferrer"
+              <button
+                type="button"
+                onClick={() =>
+                  descargarArchivo(
+                    obtenerUrlArchivo(doc.ubicacion),
+                    `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
+                  )
+                }
                 className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
               >
                 <DownloadIcon />
                 Descargar
-              </a>
+              </button>
             </div>
           ))}
         </div>

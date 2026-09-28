@@ -1,197 +1,282 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
+import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
-import { useCedulaLookup, type LookupStatus } from '../../hooks/useCedulaLookup'
 import {
   crearSolicitudPajaAgua,
   formatearCedula,
   normalizarIdentificacion,
+  detectarTipoIdentificacion,
   IDENTIFICACION_REGEX,
   TELEFONO_REGEX,
   EMAIL_REGEX,
+  NATURALEZA_INMUEBLE_OPCIONES,
+  CALIDAD_TITULAR_OPCIONES,
+  TIPO_SERVICIO_OPCIONES,
+  TIPO_CONEXION_OPCIONES,
+  type TipoIdentificacionDetectado,
+  type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
+import {
+  ACCEPT_ARCHIVOS_PERMITIDOS,
+  extensionPermitida,
+  MENSAJE_FORMATO_NO_PERMITIDO,
+  ACCEPT_FOTO_IDENTIFICACION,
+  extensionFotoIdentificacionPermitida,
+  MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
+} from '../../lib/extensionesPermitidas'
+import { obtenerConfiguracion } from '../../components/Services/configuracion.service'
+import {
+  generarDocumentoSolicitud,
+  descargarDocumentoSolicitud,
+  type DatosDocumentoSolicitud,
+} from '../../lib/generarDocumentoSolicitud'
 
-interface SolicitudFisicaForm {
-  nombre: string
-  telefono: string
-  correo: string
-  direccion: string
-  numeroPlano: string
-  observaciones: string
-}
+type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
-const INITIAL_FISICA: SolicitudFisicaForm = {
-  nombre: '',
-  telefono: '',
-  correo: '',
-  direccion: '',
-  numeroPlano: '',
-  observaciones: '',
-}
-
-interface SolicitudJuridicaForm {
-  nombreEmpresa: string
-  cedulaJuridica: string
+interface DraftData {
+  identificacion: string
+  nombreSolicitante: string
   nombreRepresentante: string
   cedulaRepresentante: string
   telefono: string
+  telefonoSecundario: string
   correo: string
+  provincia: string
+  canton: string
+  distrito: string
   direccion: string
   numeroPlano: string
+  naturalezaInmueble: string
+  calidadTitular: string
+  tipoServicio: string
+  tipoConexion: string
   observaciones: string
 }
 
-const INITIAL_JURIDICA: SolicitudJuridicaForm = {
-  nombreEmpresa: '',
-  cedulaJuridica: '',
+const DRAFT_INICIAL: DraftData = {
+  identificacion: '',
+  nombreSolicitante: '',
   nombreRepresentante: '',
   cedulaRepresentante: '',
   telefono: '',
+  telefonoSecundario: '',
   correo: '',
+  provincia: '',
+  canton: '',
+  distrito: '',
   direccion: '',
   numeroPlano: '',
+  naturalezaInmueble: '',
+  calidadTitular: '',
+  tipoServicio: '',
+  tipoConexion: '',
   observaciones: '',
 }
 
-type TipoPersona = 'fisica' | 'juridica' | ''
-type TipoIdentificacion = 'nacional' | 'dimex' | ''
+const DRAFT_KEY = 'siapb:solicitud-paja-agua:draft:v1'
+
+// El borrador guardado en el navegador solo es válido por 3 días desde que
+// se empezó a llenar. Pasado ese plazo, se descarta y el formulario arranca
+// de cero (sin avisar con nada más que el formulario vacío).
+const LIMITE_BORRADOR_MS = 3 * 24 * 60 * 60 * 1000
+
+function formatearFechaLimite(fechaMs: number): string {
+  return new Intl.DateTimeFormat('es-CR', {
+    day: 'numeric',
+    month: 'long',
+    hour: 'numeric',
+    minute: '2-digit',
+  }).format(new Date(fechaMs))
+}
+
+const TITULOS_PASO = [
+  'Verificación de identidad',
+  'Datos de contacto',
+  'Ubicación del inmueble',
+  'Detalles de la solicitud',
+  'Documentos y envío',
+]
+
+const TOTAL_PASOS = TITULOS_PASO.length
+
+const inputCls =
+  'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
+const labelCls = 'block text-xs font-semibold text-primary-900'
+const selectCls =
+  'mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
+
+function etiquetaTipo(tipo: TipoIdentificacionDetectado): string {
+  if (tipo === 'fisica') return 'Persona física'
+  if (tipo === 'juridica') return 'Persona jurídica'
+  if (tipo === 'dimex') return 'DIMEX (residente extranjero)'
+  return ''
+}
 
 function Afiliacion() {
-  const [tipoPersona, setTipoPersona] = useState<TipoPersona>('')
-  const [tipoId, setTipoId] = useState<TipoIdentificacion>('')
+  const [paso, setPaso] = useState(0)
+  const [draft, setDraft] = useState<DraftData>(DRAFT_INICIAL)
+  const [hidratado, setHidratado] = useState(false)
+  const [huboDraftGuardado, setHuboDraftGuardado] = useState(false)
+  const [huboDraftExpirado, setHuboDraftExpirado] = useState(false)
+  // Marca de tiempo de cuándo se empezó ESTE borrador (no se actualiza en
+  // cada guardado, para que el plazo de 3 días sea desde que la persona
+  // arrancó la solicitud, no desde el último cambio que hizo).
+  const [iniciadoEn, setIniciadoEn] = useState<number | null>(null)
 
-  // Flujo persona física: cédula nacional (API de Hacienda)
-  const {
-    cedula,
-    setCedula,
-    lookupStatus,
-    setLookupStatus,
-    datosListos: datosListosNacional,
-    nombreEncontrado,
-    buscarCedula,
-  } = useCedulaLookup()
+  const [lookupStatus, setLookupStatus] = useState<LookupStatus>('idle')
+  const [lookupRepStatus, setLookupRepStatus] = useState<LookupStatus>('idle')
 
-  // Flujo persona física: DIMEX (registro manual)
-  const [numeroDimex, setNumeroDimex] = useState('')
-  const [nombreDimex, setNombreDimex] = useState('')
-
-  // Flujo persona jurídica: rastreo de la razón social por cédula
-  // jurídica en la API de Hacienda, igual que en la gestión de abonados.
-  const [buscandoJuridica, setBuscandoJuridica] = useState(false)
-  const [lookupJuridica, setLookupJuridica] = useState<LookupStatus>('idle')
-
-  const [formFisica, setFormFisica] = useState<SolicitudFisicaForm>(INITIAL_FISICA)
-  const [formJuridica, setFormJuridica] =
-    useState<SolicitudJuridicaForm>(INITIAL_JURIDICA)
-
-  const [permisosMunicipales, setPermisosMunicipales] = useState<File | null>(
-    null,
-  )
+  const [permisosMunicipales, setPermisosMunicipales] = useState<File | null>(null)
   const [cartaSolicitud, setCartaSolicitud] = useState<File | null>(null)
-  const [submitted, setSubmitted] = useState(false)
+  const [cedulaFrente, setCedulaFrente] = useState<File | null>(null)
+  const [cedulaDorso, setCedulaDorso] = useState<File | null>(null)
+  const [errorArchivoPermisos, setErrorArchivoPermisos] = useState<string | null>(null)
+  const [errorArchivoCarta, setErrorArchivoCarta] = useState<string | null>(null)
+  const [errorArchivoCedulaFrente, setErrorArchivoCedulaFrente] = useState<string | null>(null)
+  const [errorArchivoCedulaDorso, setErrorArchivoCedulaDorso] = useState<string | null>(null)
 
-  // Estados para controlar el envío al backend
-  const [submitting, setSubmitting] = useState(false)
+  const [enviado, setEnviado] = useState(false)
+  const [enviando, setEnviando] = useState(false)
+  // Token de la casilla "No soy un robot" del último paso.
+  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(null)
+  const recaptchaRef = useRef<RecaptchaRef>(null)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
+  const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
+  const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
+  const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
 
+  // --- Cargar borrador guardado (si existe) al montar ---
   useEffect(() => {
-    if (nombreEncontrado) {
-      setFormFisica((prev) => ({ ...prev, nombre: nombreEncontrado }))
-    }
-  }, [nombreEncontrado])
+    try {
+      const guardado = localStorage.getItem(DRAFT_KEY)
+      if (guardado) {
+        const datos = JSON.parse(guardado) as {
+          draft?: Partial<DraftData>
+          paso?: number
+          iniciadoEn?: number
+        }
 
-  const resetTodo = () => {
-    setTipoId('')
-    setCedula('')
+        const expirado =
+          typeof datos.iniciadoEn === 'number' &&
+          Date.now() - datos.iniciadoEn > LIMITE_BORRADOR_MS
+
+        if (expirado) {
+          // Pasaron más de 3 días: se descarta el borrador y el formulario
+          // arranca en blanco, sin restaurar nada.
+          localStorage.removeItem(DRAFT_KEY)
+          setHuboDraftExpirado(true)
+        } else {
+          if (datos.draft) {
+            setDraft({ ...DRAFT_INICIAL, ...datos.draft })
+            if (datos.draft.nombreSolicitante) setLookupStatus('found')
+          }
+          if (typeof datos.paso === 'number' && datos.paso > 0) {
+            setPaso(datos.paso)
+            setHuboDraftGuardado(true)
+          }
+          if (typeof datos.iniciadoEn === 'number') {
+            setIniciadoEn(datos.iniciadoEn)
+          }
+        }
+      }
+    } catch {
+      // localStorage puede fallar (modo privado, cuota llena, etc.) — no es
+      // crítico, el usuario simplemente empieza desde cero.
+    } finally {
+      setHidratado(true)
+    }
+  }, [])
+
+  // --- Guardar borrador en cada cambio (nunca los archivos: File no es serializable) ---
+  useEffect(() => {
+    if (!hidratado || enviado) return
+    try {
+      const marcaInicio = iniciadoEn ?? Date.now()
+      if (iniciadoEn === null) setIniciadoEn(marcaInicio)
+      localStorage.setItem(
+        DRAFT_KEY,
+        JSON.stringify({ draft, paso, iniciadoEn: marcaInicio }),
+      )
+    } catch {
+      // se ignora: si falla, el peor caso es que no se pueda retomar después
+    }
+  }, [draft, paso, hidratado, enviado, iniciadoEn])
+
+  const limpiarBorrador = () => {
+    try {
+      localStorage.removeItem(DRAFT_KEY)
+    } catch {
+      // se ignora
+    }
+  }
+
+  const empezarDeNuevo = () => {
+    limpiarBorrador()
+    setDraft(DRAFT_INICIAL)
+    setPaso(0)
     setLookupStatus('idle')
-    setNumeroDimex('')
-    setNombreDimex('')
-    setBuscandoJuridica(false)
-    setLookupJuridica('idle')
-    setFormFisica(INITIAL_FISICA)
-    setFormJuridica(INITIAL_JURIDICA)
+    setLookupRepStatus('idle')
     setPermisosMunicipales(null)
     setCartaSolicitud(null)
+    setCedulaFrente(null)
+    setCedulaDorso(null)
+    setErrorArchivoPermisos(null)
+    setErrorArchivoCarta(null)
+    setErrorArchivoCedulaFrente(null)
+    setErrorArchivoCedulaDorso(null)
+    setErrorSubmit(null)
+    setHuboDraftGuardado(false)
+    setHuboDraftExpirado(false)
+    setIniciadoEn(null)
   }
 
-  const datosListosFisica =
-    tipoId === 'nacional'
-      ? datosListosNacional
-      : tipoId === 'dimex'
-        ? numeroDimex.trim() !== '' && nombreDimex.trim() !== ''
-        : false
+  // --- Avisar antes de salir si hay una solicitud en progreso sin enviar ---
+  useEffect(() => {
+    if (paso === 0 || enviado) return
+    const manejarBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue =
+        'Tu solicitud quedará guardada en este navegador por 3 días para que puedas continuarla luego.'
+    }
+    window.addEventListener('beforeunload', manejarBeforeUnload)
+    return () => window.removeEventListener('beforeunload', manejarBeforeUnload)
+  }, [paso, enviado])
 
-  const datosListos =
-    tipoPersona === 'fisica'
-      ? datosListosFisica
-      : tipoPersona === 'juridica'
-        ? true
-        : false
-
-  const nombreValido = (nombre: string) => nombre.trim().length >= 3
-  const telefonoValido = (t: string) => TELEFONO_REGEX.test(t.trim())
-  const correoValido = (c: string) => EMAIL_REGEX.test(c.trim())
-
-  const datosFisicaCompletos =
-    datosListos &&
-    nombreValido(tipoId === 'nacional' ? formFisica.nombre : nombreDimex) &&
-    (tipoId === 'nacional'
-      ? IDENTIFICACION_REGEX.test(cedula)
-      : /^\d{11,12}$/.test(numeroDimex)) &&
-    telefonoValido(formFisica.telefono) &&
-    correoValido(formFisica.correo) &&
-    formFisica.direccion.trim() !== '' &&
-    formFisica.numeroPlano.trim() !== '' &&
-    permisosMunicipales !== null &&
-    cartaSolicitud !== null
-
-  const datosJuridicaCompletos =
-    nombreValido(formJuridica.nombreEmpresa) &&
-    IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) &&
-    nombreValido(formJuridica.nombreRepresentante) &&
-    IDENTIFICACION_REGEX.test(formJuridica.cedulaRepresentante) &&
-    telefonoValido(formJuridica.telefono) &&
-    correoValido(formJuridica.correo) &&
-    formJuridica.direccion.trim() !== '' &&
-    formJuridica.numeroPlano.trim() !== '' &&
-    permisosMunicipales !== null &&
-    cartaSolicitud !== null
-
-  const formularioValido =
-    tipoPersona === 'fisica' ? datosFisicaCompletos : datosJuridicaCompletos
-
-  const nombreFinal =
-    tipoPersona === 'juridica'
-      ? formJuridica.nombreEmpresa || 'la empresa'
-      : tipoId === 'nacional'
-        ? formFisica.nombre || 'vecino/a'
-        : nombreDimex || 'vecino/a'
-
-  const handleChangeFisica = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target
-    setFormFisica((prev) => ({ ...prev, [name]: value }))
+  const actualizar = <K extends keyof DraftData>(campo: K, valor: DraftData[K]) => {
+    setDraft((prev) => ({ ...prev, [campo]: valor }))
   }
 
-  const handleChangeJuridica = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
-  ) => {
-    const { name, value } = e.target
-    setFormJuridica((prev) => ({ ...prev, [name]: value }))
+  // ---------- Paso 0: identificación ----------
+  const digitos = draft.identificacion.replace(/\D/g, '')
+  const tipoDetectado = detectarTipoIdentificacion(digitos)
+
+  const handleIdentificacionChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const soloDigitos = e.target.value.replace(/\D/g, '').slice(0, 12)
+    let formateado = soloDigitos
+    if (soloDigitos.length <= 9) formateado = formatearCedula(soloDigitos, 'fisica')
+    else if (soloDigitos.length === 10) formateado = formatearCedula(soloDigitos, 'juridica')
+    setDraft((prev) => ({
+      ...prev,
+      identificacion: formateado,
+      nombreSolicitante: '',
+    }))
+    setLookupStatus('idle')
   }
 
-  // Consulta la API de Hacienda con la cédula jurídica y autocompleta
-  // el nombre de la empresa si la encuentra.
-  const buscarCedulaJuridica = async () => {
-    const digitos = formJuridica.cedulaJuridica.replace(/\D/g, '')
-    if (!digitos) return
+  const buscarIdentificacion = async () => {
+    if (!tipoDetectado) return
 
-    setBuscandoJuridica(true)
-    setLookupJuridica('idle')
+    // La API de Hacienda no cubre DIMEX de forma confiable: se pasa directo
+    // al nombre manual en vez de intentar una búsqueda que casi siempre falla.
+    if (tipoDetectado === 'dimex') {
+      setLookupStatus('not-found')
+      return
+    }
+
+    setLookupStatus('loading')
     try {
-      const res = await fetch(
-        `https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`,
-      )
+      const res = await fetch(`https://api.hacienda.go.cr/fe/ae?identificacion=${digitos}`)
       const text = await res.text()
       let data: { nombre?: string } = {}
       try {
@@ -199,776 +284,805 @@ function Afiliacion() {
       } catch {
         data = {}
       }
-
       if (data.nombre) {
-        setFormJuridica((prev) => ({ ...prev, nombreEmpresa: data.nombre! }))
-        setLookupJuridica('found')
+        actualizar('nombreSolicitante', data.nombre)
+        setLookupStatus('found')
       } else {
-        setLookupJuridica('not-found')
+        setLookupStatus('not-found')
       }
     } catch {
-      setLookupJuridica('error')
-    } finally {
-      setBuscandoJuridica(false)
+      setLookupStatus('error')
     }
   }
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
-    setSubmitting(true)
-    setErrorSubmit(null)
+  const handleCedulaRepresentanteChange = (e: ChangeEvent<HTMLInputElement>) => {
+    actualizar('cedulaRepresentante', formatearCedula(e.target.value, 'fisica'))
+    setLookupRepStatus('idle')
+  }
 
-    if (!permisosMunicipales || !cartaSolicitud) {
-      setErrorSubmit(
-        'Debes adjuntar los permisos municipales y la carta de solicitud.',
-      )
-      setSubmitting(false)
-      return
+  const buscarRepresentante = async () => {
+    const digitosRep = draft.cedulaRepresentante.replace(/\D/g, '')
+    if (digitosRep.length !== 9) return
+    setLookupRepStatus('loading')
+    try {
+      const res = await fetch(`https://api.hacienda.go.cr/fe/ae?identificacion=${digitosRep}`)
+      const text = await res.text()
+      let data: { nombre?: string } = {}
+      try {
+        data = text ? JSON.parse(text) : {}
+      } catch {
+        data = {}
+      }
+      if (data.nombre) {
+        actualizar('nombreRepresentante', data.nombre)
+        setLookupRepStatus('found')
+      } else {
+        setLookupRepStatus('not-found')
+      }
+    } catch {
+      setLookupRepStatus('error')
+    }
+  }
+
+  const nombreValido = draft.nombreSolicitante.trim().length >= 3
+  const esJuridica = tipoDetectado === 'juridica'
+
+  const paso0Valido =
+    tipoDetectado !== null &&
+    nombreValido &&
+    (!esJuridica ||
+      (draft.nombreRepresentante.trim().length >= 3 &&
+        IDENTIFICACION_REGEX.test(draft.cedulaRepresentante)))
+
+  // ---------- Paso 1: contacto ----------
+  const telefonoValido = TELEFONO_REGEX.test(draft.telefono)
+  const telefonoSecundarioValido =
+    draft.telefonoSecundario.trim() === '' || TELEFONO_REGEX.test(draft.telefonoSecundario)
+  const correoValido = EMAIL_REGEX.test(draft.correo)
+  const paso1Valido = telefonoValido && correoValido && telefonoSecundarioValido
+
+  // ---------- Paso 2: ubicación ----------
+  const paso2Valido =
+    draft.provincia !== '' &&
+    draft.canton !== '' &&
+    draft.distrito !== '' &&
+    draft.direccion.trim() !== '' &&
+    draft.numeroPlano.trim() !== ''
+
+  // ---------- Paso 3: detalles de la solicitud ----------
+  const paso3Valido =
+    draft.naturalezaInmueble !== '' &&
+    draft.calidadTitular !== '' &&
+    draft.tipoServicio !== '' &&
+    draft.tipoConexion !== ''
+
+  // ---------- Paso 4: documentos ----------
+  const handleFileChange =
+    (
+      setter: (f: File | null) => void,
+      setError: (m: string | null) => void,
+      validarExtension: (nombre: string) => boolean = extensionPermitida,
+      mensajeError: string = MENSAJE_FORMATO_NO_PERMITIDO,
+    ) =>
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0] ?? null
+      if (file && !validarExtension(file.name)) {
+        setError(mensajeError)
+        setter(null)
+        e.target.value = ''
+        return
+      }
+      setError(null)
+      setter(file)
     }
 
+  const paso4Valido =
+    permisosMunicipales !== null &&
+    cartaSolicitud !== null &&
+    cedulaFrente !== null &&
+    cedulaDorso !== null
+
+  const validezPorPaso = [paso0Valido, paso1Valido, paso2Valido, paso3Valido, paso4Valido]
+  const pasoActualValido = validezPorPaso[paso]
+
+  const irSiguiente = () => {
+    if (!pasoActualValido || paso >= TOTAL_PASOS - 1) return
+    setPaso((p) => Math.min(p + 1, TOTAL_PASOS - 1))
+  }
+  const irAtras = () => {
+    setPaso((p) => Math.max(p - 1, 0))
+  }
+
+  const nombreFinal = draft.nombreSolicitante || 'vecino/a'
+
+  const handleSubmit = async () => {
+    if (!paso4Valido || !permisosMunicipales || !cartaSolicitud || !cedulaFrente || !cedulaDorso)
+      return
+    if (!tokenRecaptcha) return
+    setEnviando(true)
+    setErrorSubmit(null)
     try {
-      if (tipoPersona === 'fisica') {
-        await crearSolicitudPajaAgua({
-          tipoPersona: 'fisica',
-          nombreSolicitante:
-            tipoId === 'nacional' ? formFisica.nombre : nombreDimex,
-          identificacion:
-            tipoId === 'nacional'
-              ? normalizarIdentificacion(cedula)
-              : normalizarIdentificacion(numeroDimex),
-          telefono: formFisica.telefono,
-          correo: formFisica.correo,
-          direccion: formFisica.direccion,
-          numeroPlano: formFisica.numeroPlano,
-          observaciones: formFisica.observaciones,
-          permisosMunicipales,
-          cartaSolicitud,
-        })
-      } else {
-        await crearSolicitudPajaAgua({
-          tipoPersona: 'juridica',
-          nombreSolicitante: formJuridica.nombreEmpresa,
-          identificacion: normalizarIdentificacion(formJuridica.cedulaJuridica),
-          nombreRepresentante: formJuridica.nombreRepresentante,
-          cedulaRepresentante: normalizarIdentificacion(
-            formJuridica.cedulaRepresentante,
-          ),
-          telefono: formJuridica.telefono,
-          correo: formJuridica.correo,
-          direccion: formJuridica.direccion,
-          numeroPlano: formJuridica.numeroPlano,
-          observaciones: formJuridica.observaciones,
-          permisosMunicipales,
-          cartaSolicitud,
-        })
+      const creada = await crearSolicitudPajaAgua({
+        tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
+        nombreSolicitante: draft.nombreSolicitante,
+        identificacion: normalizarIdentificacion(draft.identificacion),
+        nombreRepresentante: esJuridica ? draft.nombreRepresentante : undefined,
+        cedulaRepresentante: esJuridica
+          ? normalizarIdentificacion(draft.cedulaRepresentante)
+          : undefined,
+        telefono: draft.telefono,
+        telefonoSecundario: draft.telefonoSecundario || undefined,
+        correo: draft.correo,
+        provincia: draft.provincia,
+        canton: draft.canton,
+        distrito: draft.distrito,
+        direccion: draft.direccion,
+        numeroPlano: draft.numeroPlano,
+        naturalezaInmueble: draft.naturalezaInmueble,
+        calidadTitular: draft.calidadTitular,
+        tipoServicio: draft.tipoServicio,
+        tipoConexion: draft.tipoConexion,
+        observaciones: draft.observaciones || undefined,
+        permisosMunicipales,
+        cartaSolicitud,
+        cedulaFrente,
+        cedulaDorso,
+      }, tokenRecaptcha)
+      limpiarBorrador()
+      setSolicitudCreada(creada)
+      setEnviado(true)
+
+      // Generar el documento lleno para poder verlo/descargarlo de una vez.
+      // Se arma con los datos que la persona ACABA de escribir (no hace
+      // falta volver a pedirle nada al backend) + los datos reales de la
+      // ASADA (dirección/teléfono/correo), que sí vienen de Configuracion.
+      try {
+        const configuracion = await obtenerConfiguracion()
+        const datosDocumento: DatosDocumentoSolicitud = {
+          codigoSolicitud: creada.codigo_solicitud,
+          fecha: creada.fecha_solicitud,
+          tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
+          nombreSolicitante: draft.nombreSolicitante,
+          identificacion: normalizarIdentificacion(draft.identificacion),
+          nombreRepresentante: esJuridica ? draft.nombreRepresentante : null,
+          cedulaRepresentante: esJuridica
+            ? normalizarIdentificacion(draft.cedulaRepresentante)
+            : null,
+          telefono: draft.telefono,
+          telefonoSecundario: draft.telefonoSecundario || null,
+          correo: draft.correo,
+          provincia: draft.provincia,
+          canton: draft.canton,
+          distrito: draft.distrito,
+          direccion: draft.direccion,
+          numeroPlano: draft.numeroPlano,
+          naturalezaInmueble: draft.naturalezaInmueble,
+          calidadTitular: draft.calidadTitular,
+          tipoServicio: draft.tipoServicio,
+          tipoConexion: draft.tipoConexion,
+          observaciones: draft.observaciones || null,
+        }
+        setDocumentoBlob(await generarDocumentoSolicitud(datosDocumento, configuracion))
+      } catch {
+        // No es crítico: la solicitud YA se guardó. Solo no se podrá
+        // ver/descargar el documento formal desde esta pantalla.
+        setErrorDocumento(
+          'La solicitud se envió correctamente, pero no pudimos generar el documento para descargar. Guardá tu código de seguimiento.',
+        )
       }
-      setSubmitted(true)
     } catch (error) {
-      console.error('Error al enviar la solicitud:', error)
+      // El token de reCAPTCHA es de un solo uso: si el envío falla hay que
+      // reiniciar la casilla, porque reintentar con el mismo token siempre
+      // sería rechazado por el backend.
+      recaptchaRef.current?.reiniciar()
+      setTokenRecaptcha(null)
       const mensaje =
         error instanceof Error && error.message
           ? error.message
-          : 'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.'
+          : 'No se pudo guardar la solicitud. Inténtalo de nuevo.'
       setErrorSubmit(mensaje)
     } finally {
-      setSubmitting(false)
+      setEnviando(false)
     }
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8">
-      <Link
-        to="/"
-        className="text-sm font-medium text-primary-700 hover:underline"
-      >
+    <section className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
+      <Link to="/" className="text-sm font-medium text-primary-700 hover:underline">
         ← Volver al inicio
       </Link>
 
-      <h1 className="mt-4 text-center text-3xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-4xl">
+      <h1 className="mt-2 text-center text-2xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-3xl">
         Solicitud de paja de agua
       </h1>
-      <p className="mt-3 text-center text-primary-700">
-        Completa tus datos para solicitar una nueva conexión de agua potable.
-        Verificaremos la disponibilidad de paja de agua para tu propiedad y
-        te contactaremos.
-      </p>
 
-      {submitted ? (
-        <div className="mt-10 rounded-2xl bg-primary-50 p-8 text-center">
-          <h2 className="text-xl font-semibold text-primary-900">
-            ¡Solicitud enviada!
-          </h2>
+      {enviado ? (
+        <div className="mt-8 rounded-2xl bg-primary-50 p-8 text-center">
+          <h2 className="text-xl font-semibold text-primary-900">¡Solicitud enviada!</h2>
           <p className="mt-3 text-primary-700">
-            Gracias, {nombreFinal}. Recibimos tu solicitud de paja de agua.
-            Nos pondremos en contacto contigo para confirmar la
-            disponibilidad en tu propiedad.
+            Gracias, {nombreFinal}. Recibimos tu solicitud de disponibilidad de servicio.
+            La junta directiva la revisará y te contactaremos con el resultado.
           </p>
+          {solicitudCreada && (
+            <p className="mt-3 text-sm text-primary-600">
+              Tu código de seguimiento es{' '}
+              <span className="font-semibold text-primary-900">
+                {solicitudCreada.codigo_solicitud}
+              </span>
+            </p>
+          )}
+
+          {documentoBlob && (
+            <div className="mt-5 flex flex-wrap justify-center gap-3">
+              <button
+                type="button"
+                onClick={() =>
+                  descargarDocumentoSolicitud(
+                    documentoBlob,
+                    solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
+                  )
+                }
+                className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
+              >
+                Descargar documento (Word)
+              </button>
+            </div>
+          )}
+          {errorDocumento && (
+            <p className="mt-3 text-xs text-primary-500">{errorDocumento}</p>
+          )}
+
           <Link
             to="/"
-            className="mt-6 inline-block rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-800"
+            className="mt-6 inline-block text-sm font-medium text-primary-700 hover:underline"
           >
             Volver al inicio
           </Link>
         </div>
       ) : (
-        <div className="mt-10 space-y-8">
-          {/* Paso 0: tipo de persona */}
-          <div>
-            <label
-              htmlFor="tipoPersona"
-              className="block text-sm font-medium text-primary-900"
-            >
-              Tipo de solicitante
-            </label>
-            <select
-              id="tipoPersona"
-              required
-              value={tipoPersona}
-              onChange={(e) => {
-                setTipoPersona(e.target.value as TipoPersona)
-                resetTodo()
-              }}
-              className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-            >
-              <option value="" disabled>
-                Selecciona una opción
-              </option>
-              <option value="fisica">Persona física</option>
-              <option value="juridica">Persona jurídica</option>
-            </select>
-          </div>
-
-          {/* Paso 0b (solo persona física): tipo de identificación */}
-          {tipoPersona === 'fisica' && (
-            <div>
-              <label
-                htmlFor="tipoId"
-                className="block text-sm font-medium text-primary-900"
-              >
-                Tipo de identificación
-              </label>
-              <select
-                id="tipoId"
-                required
-                value={tipoId}
-                onChange={(e) => {
-                  const value = e.target.value as TipoIdentificacion
-                  setTipoId(value)
-                  // Reiniciamos los flujos al cambiar de tipo de identificación
-                  setCedula('')
-                  setLookupStatus('idle')
-                  setNumeroDimex('')
-                  setNombreDimex('')
-                  setFormFisica(INITIAL_FISICA)
-                }}
-                className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-              >
-                <option value="" disabled>
-                  Selecciona una opción
-                </option>
-                <option value="nacional">Cédula nacional</option>
-                <option value="dimex">DIMEX</option>
-              </select>
-            </div>
-          )}
-
-          {/* Paso 1a: cédula nacional (API de Hacienda) */}
-          {tipoPersona === 'fisica' && tipoId === 'nacional' && (
-            <form onSubmit={buscarCedula} className="space-y-4">
-              <div>
-                <label
-                  htmlFor="cedula"
-                  className="block text-sm font-medium text-primary-900"
+        <div className="mt-4">
+          {/* Indicador de pasos numerado */}
+          <div className="flex items-center justify-center gap-1.5 sm:gap-2">
+            {TITULOS_PASO.map((_, i) => (
+              <div key={i} className="flex items-center">
+                <div
+                  className={`flex h-7 w-7 flex-none items-center justify-center rounded-full text-xs font-semibold sm:h-8 sm:w-8 ${
+                    i === paso
+                      ? 'bg-primary-700 text-white'
+                      : i < paso
+                        ? 'bg-primary-200 text-primary-800'
+                        : 'bg-primary-50 text-primary-400'
+                  }`}
                 >
-                  Número de cédula
-                </label>
-                <div className="mt-1 flex flex-col gap-3 sm:flex-row">
-                  <input
-                    id="cedula"
-                    type="text"
-                    required
-                    value={cedula}
-                    disabled={datosListosNacional}
-                    onChange={(e) =>
-                      setCedula(formatearCedula(e.target.value, 'fisica'))
-                    }
-                    placeholder="Ej. 1-2345-6789"
-                    className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
-                  />
-                  {!datosListosNacional && (
-                    <button
-                      type="submit"
-                      disabled={lookupStatus === 'loading'}
-                      className="flex-none rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-60"
-                    >
-                      {lookupStatus === 'loading' ? 'Buscando...' : 'Buscar'}
-                    </button>
-                  )}
+                  {i < paso ? '✓' : i + 1}
                 </div>
+                {i < TITULOS_PASO.length - 1 && (
+                  <div
+                    className={`h-0.5 w-4 sm:w-8 ${i < paso ? 'bg-primary-300' : 'bg-primary-100'}`}
+                  />
+                )}
               </div>
+            ))}
+          </div>
+          <p className="mt-2 text-center text-xs font-semibold tracking-wide text-primary-600 uppercase">
+            Paso {paso + 1} de {TOTAL_PASOS} · {TITULOS_PASO[paso]}
+          </p>
 
-              {lookupStatus === 'found' && (
-                <p className="rounded-lg bg-primary-50 px-4 py-3 text-primary-800">
-                  Nombre:{' '}
-                  <span className="font-semibold">{formFisica.nombre}</span>
-                </p>
-              )}
-
-              {lookupStatus === 'not-found' && (
-                <div className="space-y-2">
-                  <p className="text-sm text-primary-600">
-                    No encontramos datos para esa cédula. Verifica el número
-                    o completa tu nombre manualmente abajo para continuar.
-                  </p>
-                  <input
-                    type="text"
-                    required
-                    name="nombre"
-                    value={formFisica.nombre}
-                    onChange={handleChangeFisica}
-                    placeholder="Nombre completo"
-                    className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                </div>
-              )}
-
-              {lookupStatus === 'error' && (
-                <div className="space-y-2">
-                  <p className="text-sm text-primary-600">
-                    No pudimos verificar tu cédula automáticamente. Puedes
-                    continuar e ingresar tu nombre manualmente abajo.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setLookupStatus('not-found')}
-                    className="text-sm font-medium text-primary-700 hover:underline"
-                  >
-                    Continuar de todas formas →
-                  </button>
-                </div>
-              )}
-            </form>
+          {huboDraftGuardado && paso > 0 && (
+            <p className="mt-2 rounded-lg bg-primary-50 px-3 py-2 text-center text-xs text-primary-700">
+              Retomamos tu solicitud donde la dejaste. Podés continuar hasta el{' '}
+              {iniciadoEn
+                ? formatearFechaLimite(iniciadoEn + LIMITE_BORRADOR_MS)
+                : 'límite de 3 días'}
+              , luego el formulario se reinicia.{' '}
+              <button
+                type="button"
+                onClick={empezarDeNuevo}
+                className="font-semibold underline hover:text-primary-900"
+              >
+                Empezar de nuevo
+              </button>
+            </p>
           )}
 
-          {/* Paso 1b: DIMEX (registro manual) */}
-          {tipoPersona === 'fisica' && tipoId === 'dimex' && (
-            <div className="space-y-4">
-              <div>
-                <label
-                  htmlFor="numeroDimex"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Número de DIMEX
-                </label>
-                <input
-                  id="numeroDimex"
-                  type="text"
-                  required
-                  value={numeroDimex}
-                  onChange={(e) =>
-                    setNumeroDimex(
-                      e.target.value.replace(/\D/g, '').slice(0, 12),
-                    )
-                  }
-                  placeholder="Número de DIMEX"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-                {numeroDimex.trim() !== '' &&
-                  !/^\d{11,12}$/.test(numeroDimex) && (
-                    <p className="mt-1 text-xs text-red-500">
-                      El DIMEX debe tener 11 o 12 dígitos
+          {huboDraftExpirado && paso === 0 && (
+            <p className="mt-2 rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs text-yellow-700">
+              Tu solicitud anterior venció (pasaron más de 3 días) y tuvimos que reiniciarla.
+              Empezá de nuevo cuando quieras.
+            </p>
+          )}
+
+          {/* Contenido del paso actual: min-h fija (no flex-1) para que un
+              paso con pocos campos (ej. Paso 1) no estire la tarjeta a toda
+              la altura de la pantalla dejando un vacío enorme abajo. El
+              valor cubre el paso más cargado (Ubicación) sin scroll. */}
+          <div className="mt-4 min-h-[280px] rounded-2xl border border-primary-100 p-4 sm:min-h-[300px] sm:p-5">
+            {paso === 0 && (
+              <div className="space-y-3">
+                <p className="text-xs text-primary-600">
+                  Ingresá tu número de identificación: detectamos automáticamente si sos
+                  persona física, jurídica o extranjero (DIMEX).
+                </p>
+                <div>
+                  <label htmlFor="identificacion" className={labelCls}>
+                    Número de identificación
+                  </label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      id="identificacion"
+                      type="text"
+                      value={draft.identificacion}
+                      onChange={handleIdentificacionChange}
+                      placeholder="Cédula, cédula jurídica o DIMEX"
+                      className={`${inputCls} mt-0 flex-1`}
+                      disabled={lookupStatus === 'found'}
+                    />
+                    {lookupStatus !== 'found' && (
+                      <button
+                        type="button"
+                        onClick={buscarIdentificacion}
+                        disabled={!tipoDetectado || lookupStatus === 'loading'}
+                        className="flex-none rounded-full bg-primary-700 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+                      >
+                        {lookupStatus === 'loading' ? 'Buscando...' : 'Buscar'}
+                      </button>
+                    )}
+                  </div>
+                  {tipoDetectado && (
+                    <p className="mt-1 text-xs font-medium text-primary-600">
+                      {etiquetaTipo(tipoDetectado)}
                     </p>
                   )}
-              </div>
-              <div>
-                <label
-                  htmlFor="nombreDimex"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Nombre completo
-                </label>
-                <input
-                  id="nombreDimex"
-                  type="text"
-                  required
-                  value={nombreDimex}
-                  onChange={(e) => setNombreDimex(e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-            </div>
-          )}
+                </div>
 
-          {/* Paso 2 (persona física): resto de datos, solo si ya pasamos la verificación */}
-          {tipoPersona === 'fisica' && datosListos && (
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-6 border-t border-primary-100 pt-8"
-            >
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="telefono"
-                    className="block text-sm font-medium text-primary-900"
-                  >
-                    Teléfono
-                  </label>
-                  <input
-                    id="telefono"
-                    name="telefono"
-                    type="tel"
-                    required
-                    value={formFisica.telefono}
-                    onChange={handleChangeFisica}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                  {formFisica.telefono.trim() !== '' &&
-                    !telefonoValido(formFisica.telefono) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        Formato inválido. Usa 8888-8888
+                {lookupStatus === 'found' && (
+                  <div className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                    <p>
+                      {esJuridica ? 'Razón social:' : 'Nombre:'}{' '}
+                      <span className="font-semibold">{draft.nombreSolicitante}</span>
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLookupStatus('idle')
+                        actualizar('nombreSolicitante', '')
+                      }}
+                      className="mt-1 text-xs font-medium text-primary-700 hover:underline"
+                    >
+                      No soy yo, corregir identificación
+                    </button>
+                  </div>
+                )}
+
+                {(lookupStatus === 'not-found' || lookupStatus === 'error') && (
+                  <div>
+                    {lookupStatus === 'error' && (
+                      <p className="mb-1 text-xs text-primary-600">
+                        No pudimos verificar automáticamente. Escribí el nombre para continuar.
                       </p>
                     )}
+                    {lookupStatus === 'not-found' && tipoDetectado !== 'dimex' && (
+                      <p className="mb-1 text-xs text-primary-600">
+                        No encontramos datos para esa identificación. Escribí el nombre para
+                        continuar.
+                      </p>
+                    )}
+                    <label htmlFor="nombreSolicitante" className={labelCls}>
+                      {esJuridica ? 'Razón social' : 'Nombre completo'}
+                    </label>
+                    <input
+                      id="nombreSolicitante"
+                      type="text"
+                      value={draft.nombreSolicitante}
+                      onChange={(e) => actualizar('nombreSolicitante', e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                )}
+
+                {esJuridica && lookupStatus !== 'idle' && lookupStatus !== 'loading' && (
+                  <div className="space-y-3 border-t border-primary-100 pt-3">
+                    <div>
+                      <label htmlFor="cedulaRepresentante" className={labelCls}>
+                        Cédula del representante legal
+                      </label>
+                      <div className="mt-1 flex gap-2">
+                        <input
+                          id="cedulaRepresentante"
+                          type="text"
+                          value={draft.cedulaRepresentante}
+                          onChange={handleCedulaRepresentanteChange}
+                          placeholder="Ej. 1-2345-6789"
+                          className={`${inputCls} mt-0 flex-1`}
+                        />
+                        <button
+                          type="button"
+                          onClick={buscarRepresentante}
+                          disabled={
+                            draft.cedulaRepresentante.replace(/\D/g, '').length !== 9 ||
+                            lookupRepStatus === 'loading'
+                          }
+                          className="flex-none rounded-full bg-primary-700 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+                        >
+                          {lookupRepStatus === 'loading' ? 'Buscando...' : 'Buscar'}
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <label htmlFor="nombreRepresentante" className={labelCls}>
+                        Nombre del representante legal
+                      </label>
+                      <input
+                        id="nombreRepresentante"
+                        type="text"
+                        value={draft.nombreRepresentante}
+                        onChange={(e) => actualizar('nombreRepresentante', e.target.value)}
+                        className={inputCls}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {paso === 1 && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="telefono" className={labelCls}>
+                      Teléfono principal
+                    </label>
+                    <input
+                      id="telefono"
+                      type="tel"
+                      value={draft.telefono}
+                      onChange={(e) => actualizar('telefono', e.target.value)}
+                      placeholder="8888-8888"
+                      className={inputCls}
+                    />
+                    {draft.telefono.trim() !== '' && !telefonoValido && (
+                      <p className="mt-1 text-xs text-red-500">Formato inválido. Usa 8888-8888</p>
+                    )}
+                  </div>
+                  <div>
+                    <label htmlFor="telefonoSecundario" className={labelCls}>
+                      Teléfono secundario (opcional)
+                    </label>
+                    <input
+                      id="telefonoSecundario"
+                      type="tel"
+                      value={draft.telefonoSecundario}
+                      onChange={(e) => actualizar('telefonoSecundario', e.target.value)}
+                      placeholder="8888-8888"
+                      className={inputCls}
+                    />
+                    {draft.telefonoSecundario.trim() !== '' && !telefonoSecundarioValido && (
+                      <p className="mt-1 text-xs text-red-500">Formato inválido. Usa 8888-8888</p>
+                    )}
+                  </div>
                 </div>
                 <div>
-                  <label
-                    htmlFor="correo"
-                    className="block text-sm font-medium text-primary-900"
-                  >
+                  <label htmlFor="correo" className={labelCls}>
                     Correo electrónico
                   </label>
                   <input
                     id="correo"
-                    name="correo"
                     type="email"
-                    required
-                    value={formFisica.correo}
-                    onChange={handleChangeFisica}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                    value={draft.correo}
+                    onChange={(e) => actualizar('correo', e.target.value)}
+                    className={inputCls}
                   />
-                  {formFisica.correo.trim() !== '' &&
-                    !correoValido(formFisica.correo) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        El correo no es válido
-                      </p>
-                    )}
+                  {draft.correo.trim() !== '' && !correoValido && (
+                    <p className="mt-1 text-xs text-red-500">El correo no es válido</p>
+                  )}
                 </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="direccion"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Dirección exacta de la propiedad
-                </label>
-                <input
-                  id="direccion"
-                  name="direccion"
-                  type="text"
-                  required
-                  value={formFisica.direccion}
-                  onChange={handleChangeFisica}
-                  placeholder="Ej. 100m norte de..."
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="numeroPlano"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Número de plano
-                </label>
-                <input
-                  id="numeroPlano"
-                  name="numeroPlano"
-                  type="text"
-                  required
-                  value={formFisica.numeroPlano}
-                  onChange={handleChangeFisica}
-                  placeholder="Ej. G-1234567-2024"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="permisosMunicipales"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Permisos municipales (adjuntar documento)
-                </label>
-                <input
-                  id="permisosMunicipales"
-                  type="file"
-                  required
-                  accept="image/*,.pdf"
-                  onChange={(e) =>
-                    setPermisosMunicipales(e.target.files?.[0] ?? null)
-                  }
-                  className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="cartaSolicitud"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Carta correspondiente a la solicitud (adjuntar documento)
-                </label>
-                <input
-                  id="cartaSolicitud"
-                  type="file"
-                  required
-                  accept="image/*,.pdf"
-                  onChange={(e) =>
-                    setCartaSolicitud(e.target.files?.[0] ?? null)
-                  }
-                  className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="observaciones"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Observaciones (opcional)
-                </label>
-                <textarea
-                  id="observaciones"
-                  name="observaciones"
-                  rows={4}
-                  value={formFisica.observaciones}
-                  onChange={handleChangeFisica}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              {errorSubmit && (
-                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-                  {errorSubmit}
+                <p className="text-xs text-primary-500">
+                  Usaremos estos datos como medio principal de notificación sobre tu solicitud.
                 </p>
-              )}
+              </div>
+            )}
 
-              {!formularioValido && (
-                <p className="text-sm text-primary-600">
-                  Completa todos los campos correctamente y adjunta los
-                  documentos para poder enviar la solicitud.
-                </p>
-              )}
-              <button
-                type="submit"
-                disabled={submitting || !formularioValido}
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
-              >
-                {submitting ? 'Enviando...' : 'Enviar solicitud'}
-              </button>
-            </form>
-          )}
-
-          {/* Formulario completo (persona jurídica) */}
-          {tipoPersona === 'juridica' && (
-            <form
-              onSubmit={handleSubmit}
-              className="space-y-6 border-t border-primary-100 pt-8"
-            >
-              <div>
-                <label
-                  htmlFor="cedulaJuridica"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Cédula jurídica
-                </label>
-                <div className="mt-1 flex flex-col gap-3 sm:flex-row">
-                  <input
-                    id="cedulaJuridica"
-                    name="cedulaJuridica"
-                    type="text"
-                    required
-                    value={formJuridica.cedulaJuridica}
-                    onChange={(e) => {
-                      setFormJuridica((prev) => ({
-                        ...prev,
-                        cedulaJuridica: formatearCedula(e.target.value, 'juridica'),
-                        // Al cambiar la cédula, la razón social anterior
-                        // ya no es válida: se limpia para evitar enviar un
-                        // nombre que no corresponde a esta cédula.
-                        nombreEmpresa: '',
-                      }))
-                      setLookupJuridica('idle')
-                    }}
-                    placeholder="Ej. 3-101-123456"
-                    className="w-full flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={buscarCedulaJuridica}
-                    disabled={buscandoJuridica}
-                    className="flex-none rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    {buscandoJuridica ? 'Buscando...' : 'Buscar'}
-                  </button>
-                </div>
-                {lookupJuridica === 'found' && (
-                  <p className="mt-2 rounded-lg bg-primary-50 px-4 py-3 text-sm text-primary-800">
-                    Razón social encontrada:{' '}
-                    <span className="font-semibold">
-                      {formJuridica.nombreEmpresa}
-                    </span>
-                  </p>
-                )}
-                {(lookupJuridica === 'not-found' || lookupJuridica === 'error') && (
-                  <div className="mt-4">
-                    <label
-                      htmlFor="nombreEmpresa"
-                      className="block text-sm font-medium text-primary-900"
-                    >
-                      Nombre de la empresa
+            {paso === 2 && (
+              <div className="space-y-3">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                  <div>
+                    <label htmlFor="provincia" className={labelCls}>
+                      Provincia
                     </label>
                     <input
-                      id="nombreEmpresa"
-                      name="nombreEmpresa"
+                      id="provincia"
                       type="text"
-                      required
-                      value={formJuridica.nombreEmpresa}
-                      onChange={handleChangeJuridica}
-                      placeholder="Ej. Sociedad Anónima ABC"
-                      className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                      value={draft.provincia}
+                      onChange={(e) => actualizar('provincia', e.target.value)}
+                      placeholder="Ej. Puntarenas"
+                      className={inputCls}
                     />
-                    <p className="mt-1 text-xs text-primary-600">
-                      No pudimos obtener la razón social automáticamente.
-                      Escríbela para continuar con la solicitud.
-                    </p>
                   </div>
+                  <div>
+                    <label htmlFor="canton" className={labelCls}>
+                      Cantón
+                    </label>
+                    <input
+                      id="canton"
+                      type="text"
+                      value={draft.canton}
+                      onChange={(e) => actualizar('canton', e.target.value)}
+                      placeholder="Ej. Puntarenas"
+                      className={inputCls}
+                    />
+                  </div>
+                  <div>
+                    <label htmlFor="distrito" className={labelCls}>
+                      Distrito
+                    </label>
+                    <input
+                      id="distrito"
+                      type="text"
+                      value={draft.distrito}
+                      onChange={(e) => actualizar('distrito', e.target.value)}
+                      placeholder="Ej. Paquera"
+                      className={inputCls}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <label htmlFor="direccion" className={labelCls}>
+                    Dirección exacta del inmueble
+                  </label>
+                  <textarea
+                    id="direccion"
+                    rows={2}
+                    value={draft.direccion}
+                    onChange={(e) => actualizar('direccion', e.target.value)}
+                    placeholder="Ej. 100m norte de la escuela, casa portón verde"
+                    className={inputCls}
+                  />
+                </div>
+                <div>
+                  <label htmlFor="numeroPlano" className={labelCls}>
+                    Número de plano catastrado
+                  </label>
+                  <input
+                    id="numeroPlano"
+                    type="text"
+                    value={draft.numeroPlano}
+                    onChange={(e) => actualizar('numeroPlano', e.target.value)}
+                    placeholder="Ej. G-1234567-2024"
+                    className={inputCls}
+                  />
+                </div>
+              </div>
+            )}
+
+            {paso === 3 && (
+              <div className="space-y-3">
+                <div>
+                  <label htmlFor="naturalezaInmueble" className={labelCls}>
+                    Naturaleza del inmueble
+                  </label>
+                  <select
+                    id="naturalezaInmueble"
+                    value={draft.naturalezaInmueble}
+                    onChange={(e) => actualizar('naturalezaInmueble', e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="" disabled>
+                      Selecciona una opción
+                    </option>
+                    {NATURALEZA_INMUEBLE_OPCIONES.map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label htmlFor="calidadTitular" className={labelCls}>
+                    Calidad del titular respecto al inmueble
+                  </label>
+                  <select
+                    id="calidadTitular"
+                    value={draft.calidadTitular}
+                    onChange={(e) => actualizar('calidadTitular', e.target.value)}
+                    className={selectCls}
+                  >
+                    <option value="" disabled>
+                      Selecciona una opción
+                    </option>
+                    {CALIDAD_TITULAR_OPCIONES.map((op) => (
+                      <option key={op} value={op}>
+                        {op}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="tipoServicio" className={labelCls}>
+                      Servicio que solicita
+                    </label>
+                    <select
+                      id="tipoServicio"
+                      value={draft.tipoServicio}
+                      onChange={(e) => actualizar('tipoServicio', e.target.value)}
+                      className={selectCls}
+                    >
+                      <option value="" disabled>
+                        Selecciona
+                      </option>
+                      {TIPO_SERVICIO_OPCIONES.map((op) => (
+                        <option key={op} value={op}>
+                          {op}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label htmlFor="tipoConexion" className={labelCls}>
+                      Tipo de conexión
+                    </label>
+                    <select
+                      id="tipoConexion"
+                      value={draft.tipoConexion}
+                      onChange={(e) => actualizar('tipoConexion', e.target.value)}
+                      className={selectCls}
+                    >
+                      <option value="" disabled>
+                        Selecciona
+                      </option>
+                      {TIPO_CONEXION_OPCIONES.map((op) => (
+                        <option key={op} value={op}>
+                          {op}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {paso === 4 && (
+              <div className="space-y-3">
+                {huboDraftGuardado && (
+                  <p className="rounded-lg bg-primary-50 px-3 py-2 text-xs text-primary-700">
+                    Por seguridad del navegador, los documentos no quedan guardados si recargás
+                    la página: adjuntalos de nuevo aquí.
+                  </p>
                 )}
-                {formJuridica.cedulaJuridica.trim() !== '' &&
-                  !IDENTIFICACION_REGEX.test(formJuridica.cedulaJuridica) && (
-                    <p className="mt-1 text-xs text-red-500">
-                      Formato inválido. Usa 3-101-123456
-                    </p>
-                  )}
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="nombreRepresentante"
-                    className="block text-sm font-medium text-primary-900"
-                  >
-                    Nombre del representante
-                  </label>
-                  <input
-                    id="nombreRepresentante"
-                    name="nombreRepresentante"
-                    type="text"
-                    required
-                    value={formJuridica.nombreRepresentante}
-                    onChange={handleChangeJuridica}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="cedulaRepresentante"
-                    className="block text-sm font-medium text-primary-900"
-                  >
-                    Cédula del representante
-                  </label>
-                  <input
-                    id="cedulaRepresentante"
-                    name="cedulaRepresentante"
-                    type="text"
-                    required
-                    value={formJuridica.cedulaRepresentante}
-                    onChange={(e) =>
-                      setFormJuridica((prev) => ({
-                        ...prev,
-                        cedulaRepresentante: formatearCedula(
-                          e.target.value,
-                          'fisica',
-                        ),
-                      }))
-                    }
-                    placeholder="Ej. 1-2345-6789"
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                  {formJuridica.cedulaRepresentante.trim() !== '' &&
-                    !IDENTIFICACION_REGEX.test(
-                      formJuridica.cedulaRepresentante,
-                    ) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        Formato inválido. Usa 1-2345-6789
-                      </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="cedulaFrente" className={labelCls}>
+                      Foto de cédula (frente)
+                    </label>
+                    <input
+                      id="cedulaFrente"
+                      type="file"
+                      accept={ACCEPT_FOTO_IDENTIFICACION}
+                      onChange={handleFileChange(
+                        setCedulaFrente,
+                        setErrorArchivoCedulaFrente,
+                        extensionFotoIdentificacionPermitida,
+                        MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
+                      )}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoCedulaFrente && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaFrente}</p>
                     )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="telefonoJuridica"
-                    className="block text-sm font-medium text-primary-900"
-                  >
-                    Número de contacto
-                  </label>
-                  <input
-                    id="telefonoJuridica"
-                    name="telefono"
-                    type="tel"
-                    required
-                    value={formJuridica.telefono}
-                    onChange={handleChangeJuridica}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                  {formJuridica.telefono.trim() !== '' &&
-                    !telefonoValido(formJuridica.telefono) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        Formato inválido. Usa 8888-8888
-                      </p>
+                  </div>
+                  <div>
+                    <label htmlFor="cedulaDorso" className={labelCls}>
+                      Foto de cédula (dorso)
+                    </label>
+                    <input
+                      id="cedulaDorso"
+                      type="file"
+                      accept={ACCEPT_FOTO_IDENTIFICACION}
+                      onChange={handleFileChange(
+                        setCedulaDorso,
+                        setErrorArchivoCedulaDorso,
+                        extensionFotoIdentificacionPermitida,
+                        MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
+                      )}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoCedulaDorso && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaDorso}</p>
                     )}
+                  </div>
                 </div>
-                <div>
-                  <label
-                    htmlFor="correoJuridica"
-                    className="block text-sm font-medium text-primary-900"
-                  >
-                    Correo electrónico
-                  </label>
-                  <input
-                    id="correoJuridica"
-                    name="correo"
-                    type="email"
-                    required
-                    value={formJuridica.correo}
-                    onChange={handleChangeJuridica}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                  />
-                  {formJuridica.correo.trim() !== '' &&
-                    !correoValido(formJuridica.correo) && (
-                      <p className="mt-1 text-xs text-red-500">
-                        El correo no es válido
-                      </p>
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div>
+                    <label htmlFor="permisosMunicipales" className={labelCls}>
+                      Permisos municipales
+                    </label>
+                    <input
+                      id="permisosMunicipales"
+                      type="file"
+                      accept={ACCEPT_ARCHIVOS_PERMITIDOS}
+                      onChange={handleFileChange(setPermisosMunicipales, setErrorArchivoPermisos)}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoPermisos && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoPermisos}</p>
                     )}
+                  </div>
+                  <div>
+                    <label htmlFor="cartaSolicitud" className={labelCls}>
+                      Carta de solicitud
+                    </label>
+                    <input
+                      id="cartaSolicitud"
+                      type="file"
+                      accept={ACCEPT_ARCHIVOS_PERMITIDOS}
+                      onChange={handleFileChange(setCartaSolicitud, setErrorArchivoCarta)}
+                      className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+                    />
+                    {errorArchivoCarta && (
+                      <p className="mt-1 text-xs text-red-500">{errorArchivoCarta}</p>
+                    )}
+                  </div>
                 </div>
-              </div>
-
-              <div>
-                <label
-                  htmlFor="direccionJuridica"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Dirección exacta de la propiedad
-                </label>
-                <input
-                  id="direccionJuridica"
-                  name="direccion"
-                  type="text"
-                  required
-                  value={formJuridica.direccion}
-                  onChange={handleChangeJuridica}
-                  placeholder="Ej. 100m norte de..."
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="numeroPlanoJuridica"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Número de plano
-                </label>
-                <input
-                  id="numeroPlanoJuridica"
-                  name="numeroPlano"
-                  type="text"
-                  required
-                  value={formJuridica.numeroPlano}
-                  onChange={handleChangeJuridica}
-                  placeholder="Ej. G-1234567-2024"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="permisosMunicipalesJuridica"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Permisos municipales (adjuntar documento)
-                </label>
-                <input
-                  id="permisosMunicipalesJuridica"
-                  type="file"
-                  required
-                  accept="image/*,.pdf"
-                  onChange={(e) =>
-                    setPermisosMunicipales(e.target.files?.[0] ?? null)
-                  }
-                  className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="cartaSolicitudJuridica"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Carta correspondiente a la solicitud (adjuntar documento)
-                </label>
-                <input
-                  id="cartaSolicitudJuridica"
-                  type="file"
-                  required
-                  accept="image/*,.pdf"
-                  onChange={(e) =>
-                    setCartaSolicitud(e.target.files?.[0] ?? null)
-                  }
-                  className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
-                />
-              </div>
-
-              <div>
-                <label
-                  htmlFor="observacionesJuridica"
-                  className="block text-sm font-medium text-primary-900"
-                >
-                  Observaciones (opcional)
-                </label>
-                <textarea
-                  id="observacionesJuridica"
-                  name="observaciones"
-                  rows={4}
-                  value={formJuridica.observaciones}
-                  onChange={handleChangeJuridica}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-                />
-              </div>
-
-              {errorSubmit && (
-                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-                  {errorSubmit}
+                <p className="text-[11px] text-primary-500">
+                  Cédula: imágenes o PDF. Permisos y carta: imágenes, Word, Excel, PowerPoint o
+                  PDF.
                 </p>
-              )}
+                <div>
+                  <label htmlFor="observaciones" className={labelCls}>
+                    Observaciones (opcional)
+                  </label>
+                  <textarea
+                    id="observaciones"
+                    rows={2}
+                    value={draft.observaciones}
+                    onChange={(e) => actualizar('observaciones', e.target.value)}
+                    className={inputCls}
+                  />
+                </div>
 
-              {!formularioValido && (
-                <p className="text-sm text-primary-600">
-                  Completa todos los campos correctamente y adjunta los
-                  documentos para poder enviar la solicitud.
-                </p>
-              )}
+                {/* Verificación anti-bots: va en el último paso, justo
+                    antes de enviar, porque el token dura pocos minutos. */}
+                <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+
+                {errorSubmit && (
+                  <p className="rounded-lg bg-red-50 p-2 text-xs font-medium text-red-600">
+                    {errorSubmit}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Navegación: Atrás / Siguiente (o Enviar en el último paso) */}
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <button
+              type="button"
+              onClick={irAtras}
+              disabled={paso === 0}
+              className="rounded-full border border-primary-200 px-5 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+            >
+              Atrás
+            </button>
+            {paso < TOTAL_PASOS - 1 ? (
               <button
-                type="submit"
-                disabled={submitting || !formularioValido}
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
+                type="button"
+                onClick={irSiguiente}
+                disabled={!pasoActualValido}
+                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {submitting ? 'Enviando...' : 'Enviar solicitud'}
+                Siguiente
               </button>
-            </form>
-          )}
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!paso4Valido || enviando || !tokenRecaptcha}
+                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {enviando ? 'Enviando...' : 'Enviar solicitud'}
+              </button>
+            )}
+          </div>
         </div>
       )}
     </section>

@@ -137,6 +137,43 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 - "Cancelar" siempre usa el estilo de botón secundario (borde `primary-200`, fondo blanco, texto `primary-700`).
 - Aplica a todos los modales del dashboard: Abonados, Inventario (items y proveedores), Averías (asignar/confirmar), Administrativo (publicaciones), y cualquier modal nuevo que se agregue.
 
+### Modales con más de dos botones (ej. gestión de solicitudes)
+
+Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila.
+
+Estos botones son **siempre `rounded-full`** (píldora completa, no `rounded-lg`), con fondo sólido y saturado (`bg-color-500`/texto blanco) para las 3 acciones semánticas — no pastel, no color plano tipo `primary-700` para todas:
+
+```jsx
+<div className="flex flex-wrap justify-end gap-2">
+  <button className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50">Marcar en proceso</button>
+  <button className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50">Aprobar</button>
+  <button className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">Rechazar</button>
+  <button className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50">Cancelar</button>
+</div>
+```
+
+El botón "Cerrar" que reemplaza a este bloque cuando la solicitud ya quedó en estado final también es `rounded-full` (fondo sólido `bg-primary-700`, texto blanco).
+
+**El campo de motivo no se muestra por defecto**: el textarea (y su label/validación) van envueltos en una condición sobre un estado local `mostrarMotivo` (`useState(false)`), y el botón que exige motivo (normalmente "Rechazar") tiene un manejador de dos pasos: el primer clic solo revela el campo (`setMostrarMotivo(true)`, sin ejecutar la acción), el segundo clic —ya con el motivo válido— la confirma:
+
+```jsx
+function manejarClicRechazar() {
+  if (!mostrarMotivo) {
+    setMostrarMotivo(true)
+    return
+  }
+  if (motivoValido) onGestionar('rechazado')
+}
+```
+
+Si el motivo es obligatorio tanto al aprobar como al rechazar (caso de SolicitudesOtro), el mismo `mostrarMotivo` controla ambos botones, cada uno con su propio manejador de dos pasos.
+
+Aplica a: SolicitudesPajaAgua, SolicitudesOtro, SolicitudesCambioRepresentante, SolicitudesCambioPropietario, SolicitudesCambioMedidor, y cualquier modal nuevo con este mismo patrón de gestión.
+
+### Evitar columnas duplicadas en listas con modal de detalle
+
+Cuando una fila de tabla ya tiene un botón "Ver / gestionar" que abre un modal con toda la información (incluyendo enlaces de descarga de documentos adjuntos), la tabla **no** debe repetir esos documentos como columna con su propio botón de descarga — es un espacio duplicado. La columna de documento/evidencia solo se muestra en tablas que no tienen modal de detalle (por ejemplo, el listado de "Mis solicitudes" del propio abonado, que no tiene botón de gestión).
+
 ## Encabezado de una lista en el dashboard (filtros vs. botón de crear)
 
 Regla estándar para todas las páginas del dashboard que muestran una tabla/lista: el título y su descripción van arriba; debajo, en su propia fila, van los controles de búsqueda/filtro/orden **alineados a la izquierda**. El botón para crear algo nuevo ("+ Nuevo abonado", "+ Agregar item") va **a la derecha, en la misma fila que el título** — nunca junto a los filtros.
@@ -185,6 +222,39 @@ Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más anti
 ```
 
 Aplica a todas las listas del dashboard que combinen orden + filtro (Solicitudes, Averías, y cualquiera nueva con el mismo patrón).
+
+## Pestañas para alternar contenido dentro de una misma pantalla (ej. Solicitudes registradas / Generar solicitud)
+
+Cuando una pantalla del dashboard alterna entre dos vistas (ej. "Solicitudes registradas" vs "Generar solicitud"), la pestaña activa se marca con una línea inferior (`border-b-2`), no con un botón de fondo sólido tipo pastilla — mismo criterio que otras pestañas del sitio:
+
+```jsx
+<div className="flex gap-6 border-b border-primary-100">
+  <button
+    type="button"
+    onClick={() => setVista('lista')}
+    className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+      vista === 'lista'
+        ? 'border-primary-700 text-primary-900'
+        : 'border-transparent text-primary-400 hover:text-primary-700'
+    }`}
+  >
+    Solicitudes registradas
+  </button>
+  <button
+    type="button"
+    onClick={() => setVista('crear')}
+    className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+      vista === 'crear'
+        ? 'border-primary-700 text-primary-900'
+        : 'border-transparent text-primary-400 hover:text-primary-700'
+    }`}
+  >
+    Generar solicitud
+  </button>
+</div>
+```
+
+Aplica a: SolicitudesCambioMedidor, SolicitudesCambioPropietario, SolicitudesCambioRepresentante, SolicitudesOtro, y cualquier pantalla nueva con este mismo patrón de alternar vistas.
 
 ## Pantalla de confirmación (después de enviar)
 

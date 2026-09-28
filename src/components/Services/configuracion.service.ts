@@ -1,7 +1,6 @@
 import axios from 'axios';
 import apiClient from '../../lib/apiClient';
 
-const API_URL = 'http://localhost:3000/configuracion';
 const RESOURCE = '/configuracion';
 
 export interface Configuracion {
@@ -36,15 +35,19 @@ function obtenerMensajeErrorAxios(error: unknown, fallback: string): string {
   return fallback;
 }
 
-// Lectura pública — landing y footer la necesitan sin autenticación
+// Lectura pública — landing y footer la necesitan sin autenticación. Usa
+// apiClient (en vez de fetch a una URL hardcodeada) para tomar el backend
+// real de VITE_API_URL — el fetch a localhost:3000 nunca hubiera funcionado
+// ya publicado en Netlify (mismo bug que tenía solicitudes.service.ts).
 export const obtenerConfiguracion = async (): Promise<Configuracion> => {
-  const response = await fetch(API_URL);
-  if (!response.ok) {
+  try {
+    const { data } = await apiClient.get<Configuracion>(RESOURCE);
+    return data;
+  } catch (error) {
     throw new Error(
-      `Error al cargar la configuración: ${response.status}`,
+      obtenerMensajeErrorAxios(error, 'No se pudo cargar la configuración.'),
     );
   }
-  return await response.json();
 };
 
 // Actualización — requiere sesión de admin (apiClient adjunta el Bearer token)

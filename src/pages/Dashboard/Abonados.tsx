@@ -6,6 +6,7 @@ import {
   actualizarAbonado,
   cambiarEstadoAbonado,
   vincularCuentaAbonado,
+  reenviarCorreoAccesoAbonado,
   obtenerHistorialAbonado,
   nombreVisible,
   type Abonado,
@@ -216,6 +217,17 @@ function Abonados() {
   const [vinculandoId, setVinculandoId] = useState<string | number | null>(null)
   const [errorVincular, setErrorVincular] = useState<string | null>(null)
 
+  // Reenvío del correo de "definir tu contraseña" a un abonado que ya tiene
+  // cuenta vinculada (por si el enlace original venció). reenvioCooldown
+  // cuenta los segundos restantes antes de poder volver a presionar el
+  // botón — se arranca de inmediato al hacer clic (no al recibir la
+  // respuesta), para que un doble clic nunca alcance a disparar dos
+  // solicitudes; el backend igual lo limita a 1 cada 15s por si acaso.
+  const [reenviandoAcceso, setReenviandoAcceso] = useState(false)
+  const [reenvioCooldown, setReenvioCooldown] = useState(0)
+  const [reenvioMensaje, setReenvioMensaje] = useState<string | null>(null)
+  const [reenvioError, setReenvioError] = useState<string | null>(null)
+
   // Búsqueda de nombre por cédula (API de Hacienda). Solo el nombre viene de
   // ahí: teléfono, correo y dirección no existen en ninguna fuente pública,
   // así que esos siempre se completan a mano.
@@ -240,6 +252,14 @@ function Abonados() {
       setLoading(false)
     }
   }
+
+  // Cuenta regresiva del cooldown de "reenviar correo de acceso": baja de
+  // segundo en segundo mientras sea mayor a 0.
+  useEffect(() => {
+    if (reenvioCooldown <= 0) return
+    const id = setTimeout(() => setReenvioCooldown((s) => s - 1), 1000)
+    return () => clearTimeout(id)
+  }, [reenvioCooldown])
 
   useEffect(() => {
     cargarAbonados()
@@ -337,6 +357,9 @@ function Abonados() {
     setForm(formDesdeAbonado(abonado))
     setFormError(null)
     setCedulaLookupStatus('idle')
+    setReenvioMensaje(null)
+    setReenvioError(null)
+    setReenvioCooldown(0)
     setModalOpen(true)
 
     obtenerAbonado(abonado.id)
@@ -574,10 +597,33 @@ function Abonados() {
     }
   }
 
+  // Reenvía el correo de "definir tu contraseña" a un abonado que ya tiene
+  // cuenta vinculada. El cooldown arranca ANTES del await (ver comentario en
+  // la declaración del estado) para que el botón se deshabilite al instante.
+  async function handleReenviarAcceso() {
+    if (!editando || reenviandoAcceso || reenvioCooldown > 0) return
+    setReenviandoAcceso(true)
+    setReenvioCooldown(15)
+    setReenvioError(null)
+    setReenvioMensaje(null)
+    try {
+      const { mensaje } = await reenviarCorreoAccesoAbonado(editando.id)
+      setReenvioMensaje(mensaje)
+    } catch (err) {
+      setReenvioError(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo reenviar el correo de acceso.',
+      )
+    } finally {
+      setReenviandoAcceso(false)
+    }
+  }
+
   const esJuridica = form.tipo_abonado === 'Jurídica'
 
   const modalFormEl = !modalOpen ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-6 flex items-center justify-between">
             <div>
@@ -778,13 +824,41 @@ function Abonados() {
                   Cuenta de acceso
                 </h3>
                 {editando.usuario_id != null ? (
-                  <p className="mt-2 text-sm text-primary-600">
-                    Vinculada a{' '}
-                    <span className="break-all font-semibold text-primary-800">
-                      {editando.usuario_email ||
-                        `usuario #${editando.usuario_id}`}
-                    </span>
-                  </p>
+                  <div className="mt-2 space-y-2">
+                    <p className="text-sm text-primary-600">
+                      Vinculada a{' '}
+                      <span className="break-all font-semibold text-primary-800">
+                        {editando.usuario_email ||
+                          `usuario #${editando.usuario_id}`}
+                      </span>
+                    </p>
+                    <p className="text-xs text-primary-500">
+                      Si el enlace para definir la contraseña ya venció,
+                      podés reenviarlo.
+                    </p>
+                    {reenvioMensaje && (
+                      <p className="rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
+                        {reenvioMensaje}
+                      </p>
+                    )}
+                    {reenvioError && (
+                      <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                        {reenvioError}
+                      </p>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleReenviarAcceso}
+                      disabled={reenviandoAcceso || reenvioCooldown > 0}
+                      className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {reenviandoAcceso
+                        ? 'Enviando...'
+                        : reenvioCooldown > 0
+                          ? `Reenviar correo de acceso (${reenvioCooldown}s)`
+                          : 'Reenviar correo de acceso'}
+                    </button>
+                  </div>
                 ) : (
                   <div className="mt-2 space-y-2">
                     {!vincularConfirmando ? (
@@ -885,7 +959,7 @@ function Abonados() {
   // abonado antes de tocar la base de datos.
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
           <h2 className="text-lg font-semibold text-primary-900">
             Cambiar estado del abonado
@@ -945,7 +1019,7 @@ function Abonados() {
   // que "Cancelar" regrese al formulario tal cual quedó.
   const confirmacionCedulaModalEl =
     confirmacionCedula === null ? null : (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
         <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
           <h2 className="text-lg font-semibold text-primary-900">
             Cédula ya registrada
@@ -978,7 +1052,7 @@ function Abonados() {
   const a = viewDetail
   const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
   const detailModalEl = !a ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
         <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
           <div className="mb-4 flex items-center justify-between">
             <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
@@ -1132,7 +1206,7 @@ function Abonados() {
           placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
           value={search}
           onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
         />
         {search && (
           <button

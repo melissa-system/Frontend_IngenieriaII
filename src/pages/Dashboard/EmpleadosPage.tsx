@@ -526,7 +526,7 @@ function EmpleadosPage() {
           placeholder="Buscar por nombre, cédula, puesto o teléfono…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-lg border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
         />
         {search && (
           <button
@@ -656,7 +656,7 @@ function EmpleadosPage() {
 
       {/* ── Modal crear/editar ────────────────────────────── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-primary-900">
               {editando ? 'Editar empleado' : 'Nuevo empleado'}
@@ -974,7 +974,7 @@ function EmpleadosPage() {
 
       {/* ── Modal detalle ────────────────────────────────── */}
       {viewDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">Detalle del Empleado</h2>
@@ -1022,7 +1022,7 @@ function EmpleadosPage() {
 
       {/* ── Modal confirmación cédula cruzada ────────────── */}
       {confirmacionCedula && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-primary-900">
               Cédula ya registrada
@@ -1054,7 +1054,7 @@ function EmpleadosPage() {
 
       {/* ── Modal cambio de estado ───────────────────────── */}
       {cambioEstado && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
             <h2 className="text-lg font-semibold text-primary-900">
               Cambiar estado del empleado

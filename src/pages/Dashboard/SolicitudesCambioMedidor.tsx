@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -10,6 +10,12 @@ import {
   type EstadoSolicitud,
   type MotivoFallaMedidor,
 } from '../../components/Services/cambioMedidor.service'
+import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import {
+  FileDropZone,
+  validarDocumento,
+} from '../../components/common/FileDropZone'
+import Toast from '../../components/Dashboard/Toast'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -69,7 +75,7 @@ function SolicitudesCambioMedidor() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Medidor</h1>
+        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Medidor por Daños</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Solicitá el cambio o revisión técnica del medidor registrado en tu propiedad'
@@ -84,7 +90,7 @@ function SolicitudesCambioMedidor() {
 
 // ---------------------------------------------------------------------------
 // Vista del ABONADO: formulario con motivo, dirección, justificación y
-// evidencia fotográfica obligatoria.
+// evidencia fotográfica opcional.
 // ---------------------------------------------------------------------------
 function VistaAbonado() {
   const [motivoFalla, setMotivoFalla] = useState<MotivoFallaMedidor | ''>('')
@@ -92,13 +98,18 @@ function VistaAbonado() {
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
+
+  // Alterna entre ver el historial y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
 
   const tieneAbierta = useMemo(
     () =>
@@ -121,23 +132,15 @@ function VistaAbonado() {
     cargar()
   }, [cargar])
 
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) {
+  const handleFileSelect = (file: File) => {
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La fotografía o documento no puede superar los 5 MB.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-
-    setError('')
+    setErrorArchivo('')
     setArchivo(file)
     if (file.type.startsWith('image/')) {
       setArchivoPreview(URL.createObjectURL(file))
@@ -146,13 +149,19 @@ function VistaAbonado() {
     }
   }
 
+  const handleRemoveFile = () => {
+    setArchivo(null)
+    setArchivoPreview(null)
+    setErrorArchivo('')
+  }
+
   const limpiarFormulario = () => {
     setMotivoFalla('')
     setDireccionExacta('')
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
@@ -160,36 +169,73 @@ function VistaAbonado() {
     setError('')
     setMensaje('')
 
+    if (enviandoRef.current) return
+
     if (!motivoFalla) {
       setError('Debes seleccionar un motivo de falla.')
       return
     }
 
-    if (!archivo) {
-      setError('Debes adjuntar una fotografía o evidencia del medidor.')
+    const direccionLimpia = direccionExacta.trim()
+    const justificacionLimpia = justificacion.trim()
+    if (direccionLimpia.length < 15) {
+      setError('Las señas escritas deben tener al menos 15 caracteres.')
+      return
+    }
+    if (justificacionLimpia.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
       return
     }
 
+    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudCambioMedidor({
         motivoFalla,
-        direccionExacta,
-        justificacion,
+        direccionExacta: direccionLimpia,
+        justificacion: justificacionLimpia,
         evidencia: archivo,
       })
       setMensaje('Solicitud de cambio de medidor registrada correctamente. Te notificaremos por correo el resultado.')
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-6 border-b border-primary-100">
+        <button
+          type="button"
+          onClick={() => setVista('lista')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'lista'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Mis solicitudes
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista('crear')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'crear'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Nueva solicitud
+        </button>
+      </div>
+
+      {vista === 'crear' && (
       <form
         onSubmit={onSubmit}
         className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm"
@@ -260,39 +306,16 @@ function VistaAbonado() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="evidenciaAbonado" className="block text-sm font-medium text-primary-700">
-              Fotografía o evidencia del medidor (Máx 5MB)
-            </label>
-            <input
-              ref={fileInputRef}
-              id="evidenciaAbonado"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={onFileChange}
-              required
-              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+            <FileDropZone
+              archivo={archivo}
+              archivoPreview={archivoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Fotografía o evidencia del medidor"
+              ayuda="Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio={false}
             />
-            <p className="mt-1 text-xs text-primary-400">
-              Se admiten imágenes (.jpg, .png, .webp) o documentos .pdf.
-            </p>
-
-            {archivoPreview && (
-              <div className="mt-3 flex items-center gap-3">
-                <img
-                  src={archivoPreview}
-                  alt="Vista previa de evidencia"
-                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-                />
-                <span className="text-xs text-primary-600 font-medium">
-                  {archivo?.name}
-                </span>
-              </div>
-            )}
-            {!archivoPreview && archivo && (
-              <div className="mt-2 text-xs font-medium text-primary-700">
-                Archivo seleccionado: {archivo.name}
-              </div>
-            )}
           </div>
         </div>
 
@@ -307,7 +330,7 @@ function VistaAbonado() {
           </p>
         )}
 
-        <div className="mt-5 flex items-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
           <button
             type="submit"
             disabled={tieneAbierta || enviando}
@@ -315,14 +338,27 @@ function VistaAbonado() {
           >
             {enviando ? 'Subiendo solicitud…' : 'Enviar solicitud'}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
+          </button>
           {tieneAbierta && (
-            <p className="text-xs font-medium text-yellow-700">
+            <p className="w-full text-center text-xs font-medium text-yellow-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
             </p>
           )}
         </div>
       </form>
+      )}
 
+      {vista === 'lista' && (
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
@@ -354,14 +390,18 @@ function VistaAbonado() {
                     <td className="max-w-xs px-4 py-3 text-primary-600 truncate">{s.direccion_exacta}</td>
                     <td className="px-4 py-3">
                       {s.evidencia_url ? (
-                        <a
-                          href={s.evidencia_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() =>
+                            descargarArchivo(
+                              s.evidencia_url as string,
+                              `evidencia-${s.codigo_solicitud}${extensionDesdeUrl(s.evidencia_url as string)}`,
+                            )
+                          }
                           className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
-                          Ver archivo
-                        </a>
+                          Descargar
+                        </button>
                       ) : (
                         <span className="text-xs text-primary-400">Sin archivo</span>
                       )}
@@ -382,6 +422,7 @@ function VistaAbonado() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }
@@ -399,18 +440,23 @@ function VistaAdministrador() {
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
-  const fileInputRef = useRef<HTMLInputElement>(null)
+  const [errorArchivo, setErrorArchivo] = useState('')
   const [cargandoAbonados, setCargandoAbonados] = useState(true)
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
+  const enviandoRef = useRef(false)
   const [error, setError] = useState('')
   const [mensaje, setMensaje] = useState('')
 
   const [detalle, setDetalle] = useState<SolicitudCambioMedidor | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [gestionando, setGestionando] = useState(false)
+
+  // Alterna entre ver el listado y generar una solicitud nueva, en vez de
+  // mostrar ambas cosas apiladas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>('lista')
 
   const cargar = useCallback(async () => {
     try {
@@ -443,29 +489,27 @@ function VistaAdministrador() {
 
   const abonadoElegido = abonados.find((a) => String(a.id) === abonadoSel)
 
-  const onFileChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
-    if (!file) {
+  const handleFileSelect = (file: File) => {
+    const errorMsg = validarDocumento(file)
+    if (errorMsg) {
+      setErrorArchivo(errorMsg)
       setArchivo(null)
       setArchivoPreview(null)
       return
     }
-
-    if (file.size > 5 * 1024 * 1024) {
-      setError('La fotografía o documento no puede superar los 5 MB.')
-      if (fileInputRef.current) fileInputRef.current.value = ''
-      setArchivo(null)
-      setArchivoPreview(null)
-      return
-    }
-
-    setError('')
+    setErrorArchivo('')
     setArchivo(file)
     if (file.type.startsWith('image/')) {
       setArchivoPreview(URL.createObjectURL(file))
     } else {
       setArchivoPreview(null)
     }
+  }
+
+  const handleRemoveFile = () => {
+    setArchivo(null)
+    setArchivoPreview(null)
+    setErrorArchivo('')
   }
 
   const limpiarFormulario = () => {
@@ -476,13 +520,15 @@ function VistaAdministrador() {
     setJustificacion('')
     setArchivo(null)
     setArchivoPreview(null)
-    if (fileInputRef.current) fileInputRef.current.value = ''
+    setErrorArchivo('')
   }
 
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
     setMensaje('')
+
+    if (enviandoRef.current) return
 
     if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
       setError('Seleccioná un abonado activo para la solicitud.')
@@ -494,50 +540,66 @@ function VistaAdministrador() {
       return
     }
 
-    if (!archivo) {
-      setError('Debes adjuntar la fotografía o evidencia del medidor.')
+    const direccionLimpia = direccionExacta.trim()
+    const justificacionLimpia = justificacion.trim()
+    if (direccionLimpia.length < 15) {
+      setError('Las señas escritas deben tener al menos 15 caracteres.')
+      return
+    }
+    if (justificacionLimpia.length < 10) {
+      setError('La justificación debe tener al menos 10 caracteres.')
       return
     }
 
+    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudCambioMedidor({
         idAbonado: Number(abonadoElegido.id),
         motivoFalla,
-        direccionExacta,
-        justificacion,
+        direccionExacta: direccionLimpia,
+        justificacion: justificacionLimpia,
         evidencia: archivo,
       })
       setMensaje('Solicitud de cambio de medidor registrada correctamente.')
       limpiarFormulario()
       await cargar()
+      setVista('lista')
     } catch (err) {
       setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
+      enviandoRef.current = false
       setEnviando(false)
     }
   }
 
+  // Resultado de gestionar una solicitud desde el modal. Va separado de
+  // mensaje/error, que son del formulario de ventanilla: ese formulario se ve
+  // donde la persona está escribiendo, pero el modal se cierra y la deja
+  // viendo la lista, así que su resultado se muestra como toast flotante.
+  const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
+
   const gestionar = async (estado: 'en_proceso' | 'aprobado' | 'rechazado') => {
     if (!detalle) return
     setGestionando(true)
-    setError('')
-    setMensaje('')
+    setToast(null)
     try {
       await cambiarEstadoSolicitudCambioMedidor(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
       })
-      setMensaje(
-        estado === 'aprobado'
-          ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al abonado por correo.`
-          : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
-      )
+      setToast({
+        tipo: 'exito',
+        mensaje:
+          estado === 'aprobado'
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al abonado por correo.`
+            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
+      })
       setDetalle(null)
       setMotivoRechazo('')
       await cargar()
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo actualizar la solicitud.')
+      setToast({ tipo: 'error', mensaje: err instanceof Error ? err.message : 'No se pudo actualizar la solicitud.' })
     } finally {
       setGestionando(false)
     }
@@ -550,6 +612,32 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
+      <div className="flex gap-6 border-b border-primary-100">
+        <button
+          type="button"
+          onClick={() => setVista('lista')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'lista'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Solicitudes registradas
+        </button>
+        <button
+          type="button"
+          onClick={() => setVista('crear')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            vista === 'crear'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Generar solicitud
+        </button>
+      </div>
+
+      {vista === 'crear' && (
       <form
         onSubmit={onSubmit}
         className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm"
@@ -567,21 +655,14 @@ function VistaAdministrador() {
 
             {abonadoElegido ? (
               <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
-                <div>
-                  <p className="font-medium text-primary-900">
-                    {nombreVisible(abonadoElegido)}
-                  </p>
-                  <p className="text-xs text-primary-600">
-                    {abonadoElegido.numero_abonado} — Cédula: {abonadoElegido.cedula}
-                  </p>
-                </div>
+                <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                 <button
                   type="button"
                   onClick={() => {
                     setAbonadoSel('')
                     setBusqueda('')
                   }}
-                  className="rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                  className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                 >
                   Quitar
                 </button>
@@ -697,35 +778,16 @@ function VistaAdministrador() {
           </div>
 
           <div className="sm:col-span-2">
-            <label htmlFor="evidenciaAdmin" className="block text-sm font-medium text-primary-700">
-              Fotografía o evidencia del medidor (Máx 5MB)
-            </label>
-            <input
-              ref={fileInputRef}
-              id="evidenciaAdmin"
-              type="file"
-              accept="image/jpeg,image/png,image/webp,application/pdf"
-              onChange={onFileChange}
-              required
-              className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
+            <FileDropZone
+              archivo={archivo}
+              archivoPreview={archivoPreview}
+              onFileSelect={handleFileSelect}
+              onRemoveFile={handleRemoveFile}
+              errorArchivo={errorArchivo}
+              label="Fotografía o evidencia del medidor"
+              ayuda="Se admiten fotos (.jpg, .jpeg, .png) o el documento en .pdf. Máximo 5 MB."
+              obligatorio={false}
             />
-            {archivoPreview && (
-              <div className="mt-3 flex items-center gap-3">
-                <img
-                  src={archivoPreview}
-                  alt="Vista previa de evidencia"
-                  className="h-20 w-20 rounded-lg border border-primary-200 object-cover shadow-sm"
-                />
-                <span className="text-xs text-primary-600 font-medium">
-                  {archivo?.name}
-                </span>
-              </div>
-            )}
-            {!archivoPreview && archivo && (
-              <div className="mt-2 text-xs font-medium text-primary-700">
-                Archivo seleccionado: {archivo.name}
-              </div>
-            )}
           </div>
         </div>
 
@@ -740,7 +802,7 @@ function VistaAdministrador() {
           </p>
         )}
 
-        <div className="mt-5">
+        <div className="mt-5 flex justify-center gap-3">
           <button
             type="submit"
             disabled={enviando}
@@ -748,9 +810,22 @@ function VistaAdministrador() {
           >
             {enviando ? 'Subiendo solicitud…' : 'Registrar solicitud'}
           </button>
+          <button
+            type="button"
+            onClick={() => {
+              limpiarFormulario()
+              setError('')
+              setMensaje('')
+            }}
+            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
+          >
+            Cancelar
+          </button>
         </div>
       </form>
+      )}
 
+      {vista === 'lista' && (
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
@@ -769,7 +844,6 @@ function VistaAdministrador() {
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Evidencia</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
                   <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
@@ -784,20 +858,6 @@ function VistaAdministrador() {
                       <div className="text-xs text-primary-400">{s.numero_abonado}</div>
                     </td>
                     <td className="px-4 py-3 font-medium text-primary-800">{s.motivo_falla}</td>
-                    <td className="px-4 py-3">
-                      {s.evidencia_url ? (
-                        <a
-                          href={s.evidencia_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
-                        >
-                          Ver archivo
-                        </a>
-                      ) : (
-                        <span className="text-xs text-primary-400">Sin archivo</span>
-                      )}
-                    </td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
                     </td>
@@ -820,6 +880,7 @@ function VistaAdministrador() {
           </div>
         )}
       </div>
+      )}
 
       {detalle && (
         <ModalDetalle
@@ -830,6 +891,9 @@ function VistaAdministrador() {
           onCerrar={() => setDetalle(null)}
           onGestionar={gestionar}
         />
+      )}
+      {toast && (
+        <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
       )}
     </div>
   )
@@ -854,6 +918,23 @@ function ModalDetalle({
   onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
+
+  // Mínimo de caracteres del motivo al rechazar. Un "no" o un "." no le
+  // sirven al abonado, que recibe este texto por correo como única
+  // explicación del rechazo.
+  const MIN_MOTIVO = 10
+  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
+
+  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
+  // (ya con motivo válido) confirma el rechazo.
+  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  function manejarClicRechazar() {
+    if (!mostrarMotivo) {
+      setMostrarMotivo(true)
+      return
+    }
+    if (motivoValido) onGestionar('rechazado')
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -903,11 +984,15 @@ function ModalDetalle({
             <dd className="mt-1">
               {solicitud.evidencia_url ? (
                 <div className="space-y-2">
-                  <a
-                    href={solicitud.evidencia_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="group relative inline-block overflow-hidden rounded-lg border border-primary-200"
+                  <button
+                    type="button"
+                    onClick={() =>
+                      descargarArchivo(
+                        solicitud.evidencia_url as string,
+                        `evidencia-${solicitud.codigo_solicitud}${extensionDesdeUrl(solicitud.evidencia_url as string)}`,
+                      )
+                    }
+                    className="group relative block overflow-hidden rounded-lg border border-primary-200 text-left"
                   >
                     <img
                       src={solicitud.evidencia_url}
@@ -920,10 +1005,10 @@ function ModalDetalle({
                     />
                     <div className="mt-1">
                       <span className="inline-flex items-center gap-1 text-xs font-medium text-primary-700 hover:underline">
-                        Abrir archivo en tamaño completo ↗
+                        Descargar archivo ↓
                       </span>
                     </div>
-                  </a>
+                  </button>
                 </div>
               ) : (
                 <p className="text-xs text-primary-400">No se adjuntó evidencia.</p>
@@ -948,57 +1033,68 @@ function ModalDetalle({
             <button
               type="button"
               onClick={onCerrar}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
+              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
             >
               Cerrar
             </button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            <label htmlFor="motivoRechazoMedidor" className="block text-sm font-medium text-primary-700">
-              Motivo (obligatorio al rechazar)
-            </label>
-            <textarea
-              id="motivoRechazoMedidor"
-              value={motivoRechazo}
-              onChange={(e) => setMotivoRechazo(e.target.value)}
-              rows={3}
-              placeholder="Ej: La fotografía adjunta no corresponde al medidor o no se aprecia el daño"
-              className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
+            {mostrarMotivo && (
+              <>
+                <label htmlFor="motivoRechazoMedidor" className="block text-sm font-medium text-primary-700">
+                  Motivo (obligatorio al rechazar)
+                </label>
+                <textarea
+                  id="motivoRechazoMedidor"
+                  value={motivoRechazo}
+                  onChange={(e) => setMotivoRechazo(e.target.value)}
+                  rows={3}
+                  placeholder="Ej: La fotografía adjunta no corresponde al medidor o no se aprecia el daño"
+                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                />
+
+                {motivoRechazo.trim().length > 0 && !motivoValido && (
+                  <p className="text-xs text-amber-600">
+                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
+                    (llevas {motivoRechazo.trim().length}).
+                  </p>
+                )}
+              </>
+            )}
 
             <div className="flex flex-wrap justify-end gap-2">
               <button
                 type="button"
-                onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
                 onClick={() => onGestionar('en_proceso')}
                 disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50"
+                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
               >
-                Marcar en proceso
+                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
               </button>
               <button
                 type="button"
                 onClick={() => onGestionar('aprobado')}
                 disabled={gestionando}
-                className="rounded-lg bg-green-600 px-4 py-2 text-sm font-semibold text-white hover:bg-green-700 disabled:opacity-50"
+                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
               >
-                Aprobar
+                {gestionando ? 'Guardando...' : 'Aprobar'}
               </button>
               <button
                 type="button"
-                onClick={() => onGestionar('rechazado')}
-                disabled={gestionando || motivoRechazo.trim() === ''}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                onClick={manejarClicRechazar}
+                disabled={gestionando || (mostrarMotivo && !motivoValido)}
+                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
               >
-                Rechazar
+                {gestionando ? 'Guardando...' : 'Rechazar'}
+              </button>
+              <button
+                type="button"
+                onClick={onCerrar}
+                disabled={gestionando}
+                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
+              >
+                Cancelar
               </button>
             </div>
           </div>

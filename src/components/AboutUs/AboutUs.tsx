@@ -9,7 +9,7 @@ const STATS = [
 const VALUES = [
   {
     title: 'Responsabilidad',
-    desc: 'Administramos los recursos hídricos con transparencia y honestidad.',
+    desc: 'Administramos los recursos hídricos con transparencia y compromiso con la comunidad.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -33,8 +33,8 @@ const VALUES = [
     ),
   },
   {
-    title: 'Calidad',
-    desc: 'Garantizamos agua potable segura y en óptimas condiciones.',
+    title: 'Honestidad',
+    desc: 'Actuamos con transparencia en el manejo de los recursos y la información de la ASADA.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -47,8 +47,9 @@ const VALUES = [
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 2l2.4 7.2H22l-6 4.8 2.4 7.2L12 16.8 5.6 21.2 8 14l-6-4.8h7.6L12 2Z"
+          d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
         />
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
       </svg>
     ),
   },
@@ -67,19 +68,14 @@ const VALUES = [
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 21.5C8.5 18.5 4 14.5 4 10a8 8 0 0 1 16 0c0 4.5-4.5 8.5-8 11.5Z"
-        />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M12 10m-3 0a3 3 0 1 0 6 0 3 3 0 1 0-6 0"
+          d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12Z"
         />
       </svg>
     ),
   },
   {
-    title: 'Sostenibilidad',
-    desc: 'Cuidamos el ambiente para garantizar el agua del futuro.',
+    title: 'Comunicación',
+    desc: 'Mantenemos informados a los abonados de forma clara y oportuna.',
     icon: (
       <svg
         xmlns="http://www.w3.org/2000/svg"
@@ -92,18 +88,47 @@ const VALUES = [
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M12 22c3.3 0 6-5.4 6-12S15.3 2 12 2 6 3.4 6 10s2.7 12 6 12Z"
+          d="M21 12a8.5 8.5 0 0 1-12.4 7.5L4 21l1.6-4.4A8.5 8.5 0 1 1 21 12Z"
         />
+      </svg>
+    ),
+  },
+  {
+    title: 'Compañerismo',
+    desc: 'Trabajamos en equipo, apoyándonos entre la Junta Directiva y el personal.',
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        className="h-8 w-8"
+      >
+        <circle cx="8" cy="9" r="3" />
+        <circle cx="16" cy="9" r="3" />
         <path
           strokeLinecap="round"
           strokeLinejoin="round"
-          d="M8 12c0 5.5 2.7 10 4 10"
+          d="M2.5 20a5.5 5.5 0 0 1 11 0M10.5 20a5.5 5.5 0 0 1 11 0"
         />
-        <path
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          d="M16 12c0 5.5-2.7 10-4 10"
-        />
+      </svg>
+    ),
+  },
+  {
+    title: 'Tolerancia',
+    desc: 'Escuchamos y respetamos las distintas necesidades de la comunidad.',
+    icon: (
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.8}
+        className="h-8 w-8"
+      >
+        <circle cx="9" cy="12" r="6" />
+        <circle cx="15" cy="12" r="6" />
       </svg>
     ),
   },
@@ -162,12 +187,17 @@ function AboutUs() {
             <h3 className="text-lg font-semibold text-primary-900 sm:text-xl">
               Nuestra historia
             </h3>
-            <p className="mt-2 text-sm leading-relaxed text-primary-800">
-              Desde nuestros inicios, hemos trabajado incansablemente para
-              garantizar el acceso al agua potable a cada hogar de Pueblo Nuevo,
-              adaptándonos a los desafíos y creciendo junto a nuestra comunidad.
-              Cada día renovamos nuestro compromiso de ofrecer un servicio de
-              calidad, con transparencia y responsabilidad.
+            <p className="mt-2 text-sm leading-normal text-primary-800">
+              Todo comenzó en el año 2005, cuando la comunidad de Pueblo Nuevo
+              se unió para construir su propio acueducto; ese mismo año nació
+              formalmente la ASADA, bajo la cédula jurídica 3-002-458332. En
+              marzo del 2014 formalizamos nuestro compromiso institucional al
+              firmar el convenio de delegación con el AyA, respaldado además
+              por el Permiso Sanitario de Funcionamiento del Ministerio de
+              Salud. Hoy, más de veinte años después, seguimos trabajando día
+              a día por un servicio de agua continuo y de calidad para las
+              familias de Pueblo Nuevo, en el distrito de Paquera, cantón y
+              provincia de Puntarenas.
             </p>
           </div>
         </div>
@@ -191,7 +221,7 @@ function AboutUs() {
               <h3 className="text-center text-2xl font-semibold text-primary-900">
                 Nuestros valores
               </h3>
-              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {VALUES.map((v) => (
                   <div
                     key={v.title}
@@ -234,10 +264,10 @@ function AboutUs() {
                   Nuestra Misión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
-                  Brindar un servicio de agua potable eficiente, continuo y de
-                  calidad a la comunidad de Pueblo Nuevo, garantizando el buen
-                  uso y la administración responsable de los recursos
-                  hídricos en beneficio de nuestros abonados.
+                  Somos una ASADA administradora del recurso hídrico,
+                  responsable de que la comunidad de Pueblo Nuevo tenga un
+                  servicio de agua de calidad, amigable y saludable con el
+                  ambiente.
                 </p>
               </div>
               <div className="flex flex-col items-center justify-center rounded-2xl bg-primary-600 px-10 py-16 text-center text-white shadow-sm">
@@ -260,10 +290,9 @@ function AboutUs() {
                   Nuestra Visión
                 </h3>
                 <p className="mt-4 max-w-sm leading-relaxed text-primary-200">
-                  Ser una ASADA modelo, reconocida por la gestión responsable
-                  del recurso hídrico, la mejora continua de su
-                  infraestructura y el compromiso con el desarrollo
-                  sostenible de la comunidad.
+                  Una ASADA consolidada, con conocimiento hídrico, gestando
+                  recursos para el desarrollo de la comunidad, con una
+                  calidad de vida amigable y saludable con el ambiente.
                 </p>
               </div>
             </div>

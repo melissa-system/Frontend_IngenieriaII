@@ -15,6 +15,8 @@ import { tokenStore } from '../lib/tokenStore'
 interface VinculoAbonado {
   id: number
   nombre: string
+  /** 'Física' | 'Jurídica' — determina qué solicitudes puede ver el abonado. */
+  tipo_abonado: 'Física' | 'Jurídica'
 }
 interface VinculoEmpleado {
   id: number

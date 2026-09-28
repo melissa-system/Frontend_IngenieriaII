@@ -1,4 +1,4 @@
-﻿export interface MedidorInfo {
+export interface MedidorInfo {
   numero: string
   diametro: string
   ubicacion: string
@@ -166,22 +166,22 @@ export const MOCK_SOLICITUDES: Solicitud[] = [
     ],
   },
   {
-    id: '2', codigo: 'SOL-002', tipo: 'Cambio de domicilio',
-    solicitante: 'Mar\u00eda Rodr\u00edguez', cedula: '2-2345-6789',
+    id: '2', codigo: 'SOL-002', tipo: 'Cambio de propietario',
+    solicitante: 'María Rodríguez', cedula: '2-2345-6789',
     telefono: '8888-2222', correo: 'maria@email.com',
-    direccion: '100m este del sal\u00f3n comunal',
-    detalle: 'Cambio de direcci\u00f3n por mudanza al centro del distrito.',
+    direccion: '100m este del salón comunal',
+    detalle: 'Cesión y traspaso de derechos de paja de agua.',
     estado: 'Pendiente', fecha: '2026-07-15', notificado: false,
     historial: [
       { fecha: '2026-07-15 09:00', estadoAnterior: '', estadoNuevo: 'Pendiente', realizadoPor: 'Mar\u00eda Rodr\u00edguez', observacion: 'Solicitud creada por el abonado.' },
     ],
   },
   {
-    id: '3', codigo: 'SOL-003', tipo: 'Traslado de medidor',
-    solicitante: 'Juan P\u00e9rez', cedula: '3-3456-7890',
+    id: '3', codigo: 'SOL-003', tipo: 'Cambio de propietario',
+    solicitante: 'Juan Pérez', cedula: '3-3456-7890',
     telefono: '8888-3333', correo: 'juan@email.com',
     direccion: '50m norte de la escuela',
-    detalle: 'Solicita trasladar el medidor del interior al exterior de la vivienda.',
+    detalle: 'Solicita cesión y cambio de propietario del servicio de agua potable.',
     estado: 'Completada', fecha: '2026-07-05', notificado: true,
     historial: [
       { fecha: '2026-07-05 11:00', estadoAnterior: 'Aprobada', estadoNuevo: 'Completada', realizadoPor: 'Fontanero Principal', observacion: 'Trabajo finalizado. Medidor reubicado correctamente.' },
@@ -224,11 +224,11 @@ export const MOCK_SOLICITUDES: Solicitud[] = [
     ],
   },
   {
-    id: '7', codigo: 'SOL-007', tipo: 'Cambio de domicilio',
+    id: '7', codigo: 'SOL-007', tipo: 'Otro',
     solicitante: 'Roberto Quesada', cedula: '1-7890-1234',
     telefono: '8888-7777', correo: 'roberto@email.com',
     direccion: '25m sur de la bomba',
-    detalle: 'Cambio de domicilio por venta de la propiedad anterior.',
+    detalle: 'Consulta y gestión de trámite administrativo general.',
     estado: 'Aprobada', fecha: '2026-07-08', notificado: true,
     historial: [
       { fecha: '2026-07-08 09:15', estadoAnterior: 'Pendiente', estadoNuevo: 'Aprobada', realizadoPor: 'Administrador SIAPB', observacion: 'Documentos en regla, aprobado.' },
@@ -391,11 +391,11 @@ export const MOCK_DOCUMENTOS: Documento[] = [
 ]
 
 export const MOCK_SOLICITUDES_POR_TIPO = [
-  { tipo: 'Nueva conexi\u00f3n', cantidad: 18 },
-  { tipo: 'Cambio de domicilio', cantidad: 8 },
-  { tipo: 'Traslado de medidor', cantidad: 5 },
+  { tipo: 'Nueva conexión', cantidad: 18 },
+  { tipo: 'Cambio de propietario', cantidad: 5 },
   { tipo: 'Cambio de medidor', cantidad: 7 },
   { tipo: 'Cambio de representante', cantidad: 3 },
+  { tipo: 'Otro', cantidad: 4 },
 ]
 
 export const MOCK_AVERIAS_POR_TIPO = [

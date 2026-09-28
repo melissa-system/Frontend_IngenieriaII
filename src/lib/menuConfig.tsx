@@ -6,6 +6,20 @@ export interface SubMenuItem {
   // "submenu", se despliega en más opciones) — nunca ambos.
   to?: string
   roles: string[]
+  /** Solo si se define: el ítem se muestra únicamente a abonados de estos
+   * tipos ('Física' | 'Jurídica'). Administrador y Junta Directiva ven el
+   * ítem sin importar este campo. */
+  tipoAbonado?: string[]
+  /** Marca ítems exclusivos de la vista de Abonado: solo aparecen con rol
+   * efectivo 'Abonado', ni siquiera para Junta Directiva (que por la "Regla
+   * de Oro" ve el resto del menú completo). Ej: "Mis Averías". */
+  soloAbonado?: boolean
+  /** Ignora la "Regla de Oro" de Junta Directiva (que por defecto ve todo el
+   * menú): el ítem solo se muestra a los roles listados en `roles`, tal
+   * cual. Útil para ítems que ya están cubiertos por otra sección del panel
+   * administrativo y solo tienen sentido para roles operativos (Abonado,
+   * Fontanero). Ej: "Documentos Oficiales". */
+  estrictoPorRol?: boolean
   submenu?: SubMenuItem[]
 }
 
@@ -15,6 +29,8 @@ export interface MenuItemConfig {
   to?: string
   submenu?: SubMenuItem[]
   roles: string[]
+  soloAbonado?: boolean
+  estrictoPorRol?: boolean
 }
 
 function DashboardIcon() {
@@ -24,15 +40,6 @@ function DashboardIcon() {
       <rect x="14" y="3" width="7" height="7" rx="1" />
       <rect x="3" y="14" width="7" height="7" rx="1" />
       <rect x="14" y="14" width="7" height="7" rx="1" />
-    </svg>
-  )
-}
-
-function AbonadosIcon() {
-  return (
-    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.354a4 4 0 1 0 0 5.292M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2" />
-      <circle cx="12" cy="8" r="4" />
     </svg>
   )
 }
@@ -71,10 +78,10 @@ function AdminIcon() {
   )
 }
 
-function PersonalIcon() {
+function AuditoriaIcon() {
   return (
     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
-      <path strokeLinecap="round" strokeLinejoin="round" d="M20.25 14.15v4.25c0 1.094-.787 2.036-1.872 2.18-2.087.277-4.216.42-6.378.42s-4.291-.143-6.378-.42c-1.085-.144-1.872-1.086-1.872-2.18v-4.25m16.5 0a2.18 2.18 0 0 0 .75-1.661V8.706c0-1.081-.768-2.015-1.837-2.175a48.114 48.114 0 0 0-3.413-.387m4.5 8.006c-.194.165-.42.295-.673.38A23.978 23.978 0 0 1 12 15.75c-2.648 0-5.195-.429-7.577-1.22a2.016 2.016 0 0 1-.673-.38m0 0A2.18 2.18 0 0 1 3 12.489V8.706c0-1.081.768-2.015 1.837-2.175a48.111 48.111 0 0 1 3.413-.387m7.5 0V5.25A2.25 2.25 0 0 0 13.5 3h-3a2.25 2.25 0 0 0-2.25 2.25v.894m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75 11.25 15 15 9.75m-3-7.036A11.959 11.959 0 0 1 3.598 6 11.99 11.99 0 0 0 3 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285Z" />
     </svg>
   )
 }
@@ -103,67 +110,108 @@ function DocumentosOficialesIcon() {
   )
 }
 
+function EdicionPaginaIcon() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="m16.862 4.487 1.687-1.688a1.875 1.875 0 1 1 2.652 2.652L10.582 16.07a4.5 4.5 0 0 1-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 0 1 1.13-1.897l8.932-8.931Zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0 1 15.75 21H5.25A2.25 2.25 0 0 1 3 18.75V8.25A2.25 2.25 0 0 1 5.25 6H10" />
+    </svg>
+  )
+}
+
 export const MENU_CONFIG: MenuItemConfig[] = [
   {
     label: 'Dashboard',
     icon: <DashboardIcon />,
     to: '/dashboard',
-    roles: ['Administrador', 'Fontanero', 'Junta Directiva'],
-  },
-  {
-    label: 'Abonados',
-    icon: <AbonadosIcon />,
-    to: '/dashboard/abonados',
-    roles: ['Administrador'],
+    roles: ['Administrador', 'Fontanero', 'Junta Directiva', 'Abonado'],
   },
   {
     label: 'Solicitudes',
     icon: <SolicitudesIcon />,
     roles: ['Administrador', 'Junta Directiva', 'Abonado'],
     submenu: [
-      { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Cambio de Domicilio', to: '/dashboard/solicitudes/cambio-domicilio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Cambio de Medidor', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
-      { label: 'Traslado de Medidor', to: '/dashboard/solicitudes/traslado-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      // Paja de Agua es solo para administración; los abonados no la ven.
+      { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva'] },
+      // Conexión de Servicio va primero para el Abonado: es la continuación
+      // directa de su trámite de paja de agua ya aprobado.
+      { label: 'Conexión de Servicio', to: '/dashboard/solicitudes/conexion-servicio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
+      { label: 'Cambio de Propietario', to: '/dashboard/solicitudes/cambio-propietario', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Física'] },
+      { label: 'Cambio de Representante', to: '/dashboard/solicitudes/cambio-representante', roles: ['Administrador', 'Junta Directiva', 'Abonado'], tipoAbonado: ['Jurídica'] },
+      { label: 'Cambio de Medidor por Daños', to: '/dashboard/solicitudes/cambio-medidor', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
       { label: 'Otro', to: '/dashboard/solicitudes/otro', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },
     ],
   },
   {
     label: 'Inventario',
     icon: <InventarioIcon />,
-    to: '/dashboard/inventario',
     roles: ['Administrador'],
+    submenu: [
+      { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
+      { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
+      { label: 'Movimientos de Stock', to: '/dashboard/inventario/movimientos', roles: ['Administrador'] },
+    ],
   },
   {
     label: 'Averías',
     icon: <AveriasIcon />,
-    to: '/dashboard/averias',
-    roles: ['Administrador', 'Fontanero'],
+    // Junta Directiva no se lista acá porque el guard le da acceso total al
+    // sistema; se agrega igual para que el ítem le aparezca en el menú.
+    roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+    submenu: [
+      {
+        label: 'Reporte de Averías',
+        to: '/dashboard/averias',
+        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+      },
+      {
+        // Registro de actividad: el fontanero llena el suyo; la
+        // administración consulta los de todos. Son dos pantallas
+        // distintas, por eso cada una lista solo sus roles.
+        label: 'Fontanero',
+        to: '/dashboard/averias/fontanero',
+        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+      },
+    ],
   },
   {
-    label: 'Personal',
-    icon: <PersonalIcon />,
-    to: '/dashboard/personal',
-    roles: ['Administrador'],
+    label: 'Mis Averías',
+    icon: <AveriasIcon />,
+    to: '/dashboard/mis-averias',
+    // Exclusivo de la vista de Abonado: ni la Junta Directiva lo ve.
+    soloAbonado: true,
+    roles: ['Abonado'],
   },
   {
-    label: 'Administración',
+    label: 'Usuarios',
     icon: <AdminIcon />,
     roles: ['Administrador', 'Junta Directiva'],
     submenu: [
+      { label: 'Abonados', to: '/dashboard/abonados', roles: ['Administrador', 'Junta Directiva'] },
+      // Empleados es exclusivo de Junta Directiva: el Administrador no lo ve.
+      { label: 'Empleados', to: '/dashboard/personal', roles: ['Junta Directiva'] },
       { label: 'Usuarios', to: '/dashboard/seguridad', roles: ['Administrador', 'Junta Directiva'] },
-      { label: 'Publicaciones', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
-      { label: 'Documentos', to: '/dashboard/documentos', roles: ['Administrador', 'Junta Directiva'] },
-      {
-        label: 'Edición de página',
-        roles: ['Administrador', 'Junta Directiva'],
-        submenu: [
-          { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
-          { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
-        ],
-      },
     ],
+  },
+  {
+    label: 'Edición de página',
+    icon: <EdicionPaginaIcon />,
+    roles: ['Administrador', 'Junta Directiva'],
+    submenu: [
+      { label: 'Horario de Atención', to: '/dashboard/horario-asada', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Info. de Contacto', to: '/dashboard/contacto-asada', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Documentos', to: '/dashboard/documentos', roles: ['Administrador', 'Junta Directiva'] },
+      { label: 'Noticias', to: '/dashboard/administrativo', roles: ['Administrador', 'Junta Directiva'] },
+    ],
+  },
+  {
+    // Auditoría es un módulo propio y no un submenú de Administración: es una
+    // herramienta de consulta sobre TODO el sistema (abonados, solicitudes,
+    // averías, inventario...), no la gestión de un área en particular.
+    label: 'Auditoría',
+    icon: <AuditoriaIcon />,
+    to: '/dashboard/auditoria',
+    // Solo Junta Directiva: el Administrador no tiene acceso a la auditoría.
+    roles: ['Junta Directiva'],
   },
   {
     label: 'Reportes',
@@ -175,7 +223,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Documentos Oficiales',
     icon: <DocumentosOficialesIcon />,
     to: '/dashboard/documentos-oficiales',
-    roles: ['Abonado'],
+    // Solo para Abonado y Fontanero: Administrador/Junta Directiva ya
+    // tienen su propia sección "Documentos" en Edición de página, así que
+    // estrictoPorRol evita que la "Regla de Oro" se lo muestre también ahí.
+    roles: ['Abonado', 'Fontanero'],
+    estrictoPorRol: true,
   },
   {
     // Sin "to": el Sidebar arma su propio submenú anidado para este ítem
@@ -188,25 +240,49 @@ export const MENU_CONFIG: MenuItemConfig[] = [
 ]
 
 // Filtra un submenú por rol de forma recursiva: un grupo (sub.submenu) solo
-// sobrevive si le queda al menos una opción visible para el rol.
-function filterSubMenuByRole(subs: SubMenuItem[], role: string): SubMenuItem[] {
+// sobrevive si le queda al menos una opción visible para el rol. El tipo de
+// abonado ('Física' | 'Jurídica') solo acota los ítems con 'tipoAbonado'
+// definido y únicamente cuando el rol efectivo es 'Abonado'; Administrador y
+// Junta Directiva (que ven el menú completo) ignoran esa restricción.
+function filterSubMenuByRole(
+  subs: SubMenuItem[],
+  role: string,
+  tipoAbonado?: string | null,
+): SubMenuItem[] {
   return subs
     // 'Junta Directiva' (SUPER_ADMIN) ve todo, igual que la "Regla de Oro"
     // del RolesGuard del backend — así no hay que acordarse de agregarlo a
     // mano en cada ítem nuevo (eso fue justo lo que faltó en varios).
-    .filter((sub) => role === 'Junta Directiva' || sub.roles.includes(role))
+    .filter((sub) => {
+      if (sub.soloAbonado) return role === 'Abonado'
+      if (role !== 'Junta Directiva' && !sub.roles.includes(role)) return false
+      if (sub.tipoAbonado && role === 'Abonado') {
+        return tipoAbonado ? sub.tipoAbonado.includes(tipoAbonado) : false
+      }
+      return true
+    })
     .map((sub) => ({
       ...sub,
-      submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role) : undefined,
+      submenu: sub.submenu ? filterSubMenuByRole(sub.submenu, role, tipoAbonado) : undefined,
     }))
     .filter((sub) => !sub.submenu || sub.submenu.length > 0)
 }
 
-export function filterMenuByRole(items: MenuItemConfig[], role: string): MenuItemConfig[] {
+export function filterMenuByRole(
+  items: MenuItemConfig[],
+  role: string,
+  tipoAbonado?: string | null,
+): MenuItemConfig[] {
   return items
-    .filter((item) => role === 'Junta Directiva' || item.roles.includes(role))
+    .filter((item) => {
+      if (item.soloAbonado) return role === 'Abonado'
+      if (item.estrictoPorRol) return item.roles.includes(role)
+      return role === 'Junta Directiva' || item.roles.includes(role)
+    })
     .map((item) => ({
       ...item,
-      submenu: item.submenu ? filterSubMenuByRole(item.submenu, role) : undefined,
+      submenu: item.submenu
+        ? filterSubMenuByRole(item.submenu, role, tipoAbonado)
+        : undefined,
     }))
 }

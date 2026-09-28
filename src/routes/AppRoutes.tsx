@@ -1,11 +1,13 @@
-import { Routes, Route } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout/MainLayout'
 import DashboardLayout from '../components/Dashboard/DashboardLayout'
 import ProtectedRoute from '../components/Dashboard/ProtectedRoute'
+import RoleRoute from '../components/Dashboard/RoleRoute'
 import Home from '../pages/Home/Home'
 import RedirectSolicitudes from './RedirectSolicitudes'
 import Afiliacion from '../pages/Afiliacion/Afiliacion'
 import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
+import DocumentosPublicos from '../pages/Documentos/DocumentosPublicos'
 import Login from '../pages/Login/Login'
 import RecuperarPassword from '../pages/RecuperarPassword/RecuperarPassword'
 import RestablecerPassword from '../pages/RestablecerPassword/RestablecerPassword'
@@ -13,13 +15,17 @@ import VerificarCuenta from '../pages/VerificarCuenta/VerificarCuenta'
 import DashboardHome from '../pages/Dashboard/DashboardHome'
 import Abonados from '../pages/Dashboard/Abonados'
 import SolicitudesPajaAgua from '../pages/Dashboard/SolicitudesPajaAgua'
-import SolicitudesCambioDomicilio from '../pages/Dashboard/SolicitudesCambioDomicilio'
+import SolicitudesCambioPropietario from '../pages/Dashboard/SolicitudesCambioPropietario'
 import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambioRepresentante'
 import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
-import SolicitudesTrasladoMedidor from '../pages/Dashboard/SolicitudesTrasladoMedidor'
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
+import SolicitudesConexion from '../pages/Dashboard/SolicitudesConexion'
 import Inventario from '../pages/Dashboard/Inventario'
+import MovimientosStock from '../pages/Dashboard/MovimientosStock'
+import Proveedores from '../pages/Dashboard/Proveedores'
 import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
+import ActividadFontanero from '../pages/Dashboard/ActividadFontanero'
+import MisAverias from '../pages/Dashboard/MisAverias'
 import Publicaciones from '../pages/Dashboard/Publicaciones'
 import DocumentosAdmin from '../pages/Dashboard/DocumentosAdmin'
 import Seguridad from '../pages/Dashboard/Seguridad'
@@ -30,6 +36,7 @@ import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
 import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
 import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
 import DocumentosOficialesPage from '../pages/Dashboard/DocumentosOficialesPage'
+import Bitacora from '../pages/Dashboard/Bitacora'
 
 function AppRoutes() {
   return (
@@ -38,6 +45,7 @@ function AppRoutes() {
         <Route path="/" element={<Home />} />
         <Route path="/afiliacion" element={<Afiliacion />} />
         <Route path="/reportar-averia" element={<ReportarAveria />} />
+        <Route path="/documentos" element={<DocumentosPublicos />} />
       </Route>
 
       <Route path="/login" element={<Login />} />
@@ -60,22 +68,45 @@ function AppRoutes() {
           element={<RedirectSolicitudes />}
         />
         <Route path="solicitudes/paja-de-agua" element={<SolicitudesPajaAgua />} />
-        <Route path="solicitudes/cambio-domicilio" element={<SolicitudesCambioDomicilio />} />
+        <Route path="solicitudes/cambio-propietario" element={<SolicitudesCambioPropietario />} />
         <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
         <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />
-        <Route path="solicitudes/traslado-medidor" element={<SolicitudesTrasladoMedidor />} />
         <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
-        <Route path="inventario" element={<Inventario />} />
+        <Route path="solicitudes/conexion-servicio" element={<SolicitudesConexion />} />
+        <Route
+          path="inventario"
+          element={<Navigate to="/dashboard/inventario/articulos" replace />}
+        />
+        <Route path="inventario/articulos" element={<Inventario />} />
+        <Route path="inventario/movimientos" element={<MovimientosStock />} />
+        <Route path="inventario/proveedores" element={<Proveedores />} />
         <Route path="averias" element={<AveriasAdmin />} />
+        <Route path="averias/fontanero" element={<ActividadFontanero />} />
+        <Route path="mis-averias" element={<MisAverias />} />
         <Route path="reportes" element={<Reportes />} />
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />
+        <Route
+          path="auditoria"
+          element={
+            <RoleRoute role="Junta Directiva">
+              <Bitacora />
+            </RoleRoute>
+          }
+        />
         <Route path="perfil" element={<PerfilEditar />} />
         <Route path="perfil/contrasena" element={<PerfilContrasena />} />
         <Route path="contacto-asada" element={<ContactoAsadaPage />} />
         <Route path="horario-asada" element={<HorarioAsadaPage />} />
-        <Route path="personal" element={<EmpleadosPage />} />
+        <Route
+          path="personal"
+          element={
+            <RoleRoute role="Junta Directiva">
+              <EmpleadosPage />
+            </RoleRoute>
+          }
+        />
         <Route path="documentos-oficiales" element={<DocumentosOficialesPage />} />
       </Route>
 

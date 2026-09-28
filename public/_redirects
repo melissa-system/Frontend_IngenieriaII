@@ -1,0 +1,4 @@
+# SPA fallback: todas las rutas las maneja React Router en el cliente.
+# Sin esto, Netlify devuelve su propio 404 en cualquier link directo
+# (ej. el del correo de recuperar contraseña, o refrescar /dashboard/...).
+/*    /index.html   200

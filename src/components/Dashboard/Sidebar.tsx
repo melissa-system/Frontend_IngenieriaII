@@ -89,8 +89,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   const location = useLocation()
   const navigate = useNavigate()
   const role = rolEfectivo ?? ''
+  const tipoAbonado = user?.vinculos.abonado?.tipo_abonado ?? null
 
-  const visibleItems = filterMenuByRole(MENU_CONFIG, role)
+  const visibleItems = filterMenuByRole(MENU_CONFIG, role, tipoAbonado)
 
   const mainItems = visibleItems.filter((item) => item.label !== 'Perfil')
   const perfilItem = visibleItems.find((item) => item.label === 'Perfil')
@@ -187,7 +188,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   // Cambia el perfil activo (rol base <-> Abonado) y vuelve al home del
   // dashboard, igual que el switcher del DashboardHeader — evita quedar en
-  // una pantalla que ya no aplica al perfil nuevo (ej. Administración).
+  // una pantalla que ya no aplica al perfil nuevo (ej. Usuarios).
   async function seleccionarPerfil(perfil: PerfilActivo) {
     await cambiarPerfil(perfil)
     setPerfilMenuOpen(false)
@@ -196,7 +197,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   // Renderiza una opción de submenú: enlace directo (hoja) o, si trae su
   // propio "submenu", un grupo desplegable más (recursivo, cualquier
-  // profundidad — hoy solo se usa un nivel extra, en "Edición de página").
+  // profundidad).
   function renderSubItem(sub: SubMenuItem, keyPrefix: string) {
     if (!sub.submenu) {
       const active = isActive(sub.to!)
@@ -321,9 +322,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-screen w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
+      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
         ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:static lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
+        lg:static lg:h-screen lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
     >
       <div className="flex items-center justify-between border-b border-primary-700 px-5 py-5">
         <span
@@ -443,6 +444,12 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                     onClick={() => {
                       setPerfilMenuOpen(false)
                       logout()
+                      // Recarga completa a '/' (en vez de navigate() de
+                      // react-router): evita la carrera con ProtectedRoute,
+                      // que al ver isAuthenticated=false en el mismo render
+                      // redirige a /login antes de que el navigate() al
+                      // landing termine de aplicarse.
+                      window.location.href = '/'
                     }}
                     className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-300 transition-colors hover:bg-primary-700 hover:text-red-200"
                   >
