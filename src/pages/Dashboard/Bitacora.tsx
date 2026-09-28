@@ -224,31 +224,31 @@ function Bitacora() {
       )}
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-primary-100 text-sm">
+          <thead className="bg-primary-50">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
+              <th className="px-4 py-3 text-left font-medium text-primary-700">
                 Fecha
               </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
+              <th className="px-4 py-3 text-left font-medium text-primary-700">
                 Módulo
               </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
+              <th className="px-4 py-3 text-left font-medium text-primary-700">
                 Registro
               </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
+              <th className="px-4 py-3 text-left font-medium text-primary-700">
                 Acción
               </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
+              <th className="px-4 py-3 text-left font-medium text-primary-700">
                 Usuario
               </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
+              <th className="px-4 py-3 text-left font-medium text-primary-700">
                 Detalle
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-primary-50">
             {cargando ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
@@ -265,7 +265,7 @@ function Bitacora() {
               </tr>
             ) : (
               registros.map((registro) => (
-                <tr key={registro.id} className="hover:bg-gray-50">
+                <tr key={registro.id} className="hover:bg-primary-50/50">
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {formatearFecha(registro.fecha)}
                   </td>
@@ -298,35 +298,49 @@ function Bitacora() {
             )}
           </tbody>
         </table>
-      </div>
 
-      {/* Paginación */}
-      {total > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-primary-600">
-            {total} movimiento{total === 1 ? '' : 's'} · página {pagina} de{' '}
-            {totalPaginas}
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.max(1, p - 1))}
-              disabled={pagina === 1 || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-              disabled={pagina >= totalPaginas || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente
-            </button>
+        {total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-primary-500">
+              Mostrando{' '}
+              {`${(pagina - 1) * LIMITE_POR_PAGINA + 1}–${Math.min(pagina * LIMITE_POR_PAGINA, total)}`}{' '}
+              de {total} reportes
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={pagina === 1 || cargando}
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ‹ Anterior
+              </button>
+              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPagina(n)}
+                  disabled={n === pagina}
+                  aria-current={n === pagina ? 'page' : undefined}
+                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                    n === pagina ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={pagina >= totalPaginas || cargando}
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Siguiente ›
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }

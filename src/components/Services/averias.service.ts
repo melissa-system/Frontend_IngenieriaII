@@ -107,6 +107,22 @@ export const obtenerMisAverias = async (): Promise<AveriaBackend[]> => {
   }
 }
 
+// Averías asignadas al fontanero autenticado que siguen abiertas. Se usan
+// como bandeja de pendientes en su perfil y como opciones del formulario de
+// reporte de actividad.
+export const obtenerMisAveriasFontanero = async (): Promise<AveriaBackend[]> => {
+  try {
+    const { data } = await apiClient.get<AveriaBackend[]>(
+      `${RESOURCE}/mis-averias-fontanero`,
+    )
+    return data
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar tus averías asignadas.'),
+    )
+  }
+}
+
 export const obtenerAveria = async (id: number): Promise<AveriaBackend> => {
   try {
     const { data } = await apiClient.get<AveriaBackend>(`${RESOURCE}/${id}`)

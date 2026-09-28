@@ -3,7 +3,13 @@ import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerMiResumen, type MiResumen } from '../../components/Services/abonados.service'
-import { obtenerAverias, type AveriaBackend } from '../../components/Services/averias.service'
+import { obtenerAverias, obtenerMisAveriasFontanero, type AveriaBackend } from '../../components/Services/averias.service'
+import {
+  obtenerMisReportes,
+  formatearTiempo,
+  ETIQUETA_ACTIVIDAD,
+  type ReporteFontanero,
+} from '../../components/Services/reportesFontanero.service'
 
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
@@ -158,6 +164,14 @@ function IconPublicaciones() {
   )
 }
 
+function IconDocumento() {
+  return (
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
+  )
+}
+
 // Fila compacta de alerta (no la tarjeta grande de antes): pensada para
 // vivir varias juntas dentro de una sola tarjeta contenedora, como una
 // mini-lista de pendientes en vez de un bloque de KPIs por separado.
@@ -219,6 +233,10 @@ function DashboardHome() {
 
   if (rolEfectivo === 'Abonado') {
     return <DashboardAbonado />
+  }
+
+  if (rolEfectivo === 'Fontanero') {
+    return <DashboardFontanero />
   }
 
   return <DashboardHomeContenido />
@@ -862,6 +880,193 @@ function DashboardAbonado() {
             </ul>
           )}
         </div>
+      </div>
+    </div>
+  )
+}
+
+// Dashboard personalizado para fontaneros: muestra su resumen de actividad
+// (reportes registrados y horas acumuladas) y accesos rápidos a su sección
+// y a los documentos oficiales. Mismo patrón que DashboardAbonado.
+function DashboardFontanero() {
+  const { user } = useAuth()
+  const [reportes, setReportes] = useState<ReporteFontanero[]>([])
+  const [averiasPendientes, setAveriasPendientes] = useState<AveriaBackend[]>([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelado = false
+    Promise.all([obtenerMisReportes(), obtenerMisAveriasFontanero()])
+      .then(([reportesData, averiasData]) => {
+        if (!cancelado) {
+          setReportes(reportesData)
+          setAveriasPendientes(averiasData)
+        }
+      })
+      .catch((err) => {
+        if (!cancelado) setError(err.message || 'No se pudo cargar tu resumen.')
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  const minutosTotales = reportes.reduce((suma, r) => suma + r.tiempo_minutos, 0)
+  const primerNombre = user?.nombre?.split(' ')[0] ?? ''
+
+  if (cargando) {
+    return (
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+          <div className="h-8 w-48 animate-pulse rounded bg-primary-200/50" />
+          <div className="mt-2 h-4 w-64 animate-pulse rounded bg-primary-200/30" />
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-primary-100/50" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-red-700">
+          {error}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Panel de bienvenida + KPIs */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-2xl font-semibold text-primary-900">
+            Bienvenido, {primerNombre}
+          </h1>
+          <p className="mt-1 text-sm text-primary-500">
+            Resumen de tu actividad como fontanero
+          </p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <StatCard
+            variant="dark"
+            icon={<IconAveria />}
+            title="Averías asignadas"
+            value={String(averiasPendientes.length)}
+            subtitle="Por atender"
+            to="/dashboard/averias/fontanero"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconSolicitud />}
+            title="Mis Reportes"
+            value={String(reportes.length)}
+            subtitle="Total registrados"
+            to="/dashboard/averias/fontanero"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconDocumento />}
+            title="Horas reportadas"
+            value={formatearTiempo(minutosTotales)}
+            subtitle="Acumuladas"
+            to="/dashboard/averias/fontanero"
+          />
+        </div>
+      </div>
+
+      {/* Averías pendientes asignadas por la administración */}
+      <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-primary-900">
+            Averías asignadas por atender
+          </h2>
+          <Link
+            to="/dashboard/averias/fontanero"
+            className="text-sm font-medium text-primary-600 hover:text-primary-800"
+          >
+            Registrar actividad
+          </Link>
+        </div>
+        {averiasPendientes.length === 0 ? (
+          <p className="mt-4 text-sm text-primary-400">
+            No tienes averías asignadas pendientes.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {averiasPendientes.slice(0, 5).map((averia) => (
+              <li
+                key={averia.id}
+                className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-primary-900">
+                    <span className="text-primary-500">{averia.codigo_averia}</span>{' '}
+                    — {averia.tipo_averia}
+                  </p>
+                  <p className="truncate text-xs text-primary-500">
+                    {averia.descripcion}
+                  </p>
+                </div>
+                <span className="flex-none rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                  {averia.estado}
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Mis últimos reportes */}
+      <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-primary-900">Mis últimos reportes</h2>
+          <Link
+            to="/dashboard/averias/fontanero"
+            className="text-sm font-medium text-primary-600 hover:text-primary-800"
+          >
+            Ver todos
+          </Link>
+        </div>
+        {reportes.length === 0 ? (
+          <p className="mt-4 text-sm text-primary-400">
+            Aún no has registrado ninguna actividad.
+          </p>
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {reportes.slice(0, 5).map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-primary-900">
+                    {ETIQUETA_ACTIVIDAD[r.tipo_actividad]}
+                  </p>
+                  <p className="truncate text-xs text-primary-500">{r.descripcion}</p>
+                </div>
+                <div className="flex flex-none items-center gap-2">
+                  <span className="text-[11px] text-primary-400">{r.fecha_trabajo}</span>
+                  <span className="flex-none rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-medium text-primary-700">
+                    {formatearTiempo(r.tiempo_minutos)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
       </div>
     </div>
   )

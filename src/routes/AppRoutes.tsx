@@ -80,7 +80,14 @@ function AppRoutes() {
         <Route path="inventario/articulos" element={<Inventario />} />
         <Route path="inventario/movimientos" element={<MovimientosStock />} />
         <Route path="inventario/proveedores" element={<Proveedores />} />
-        <Route path="averias" element={<AveriasAdmin />} />
+        <Route
+          path="averias"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <AveriasAdmin />
+            </RoleRoute>
+          }
+        />
         <Route path="averias/fontanero" element={<ActividadFontanero />} />
         <Route path="mis-averias" element={<MisAverias />} />
         <Route path="reportes" element={<Reportes />} />

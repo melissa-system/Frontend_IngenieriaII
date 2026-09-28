@@ -256,3 +256,35 @@ export const obtenerMiResumen = async (): Promise<MiResumen> => {
     );
   }
 };
+
+// Reportes estadísticos: mismo contrato que el endpoint de averías para que
+// la página de reportes use la misma lógica en los tres módulos.
+export interface FiltrosEstadisticasAbonados {
+  fechaInicio?: string;
+  fechaFin?: string;
+  tipo?: string;
+  estado?: string;
+}
+
+export interface EstadisticasAbonadosBackend {
+  total: number;
+  porTipo: { tipo: string; total: number }[];
+  porEstado: { estado: string; total: number }[];
+  registros: Abonado[];
+}
+
+export const obtenerEstadisticasAbonados = async (
+  params?: FiltrosEstadisticasAbonados,
+): Promise<EstadisticasAbonadosBackend> => {
+  try {
+    const { data } = await apiClient.get<EstadisticasAbonadosBackend>(
+      `${RESOURCE}/estadisticas`,
+      { params },
+    );
+    return data;
+  } catch (error) {
+    throw new Error(
+      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de abonados.'),
+    );
+  }
+};

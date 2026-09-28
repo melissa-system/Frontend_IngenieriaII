@@ -43,6 +43,11 @@ function MovimientosStock() {
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'entrada' | 'salida'>('todos')
   const [pagina, setPagina] = useState(1)
 
+  // Alterna entre el formulario de registro y el historial general, en vez de
+  // mostrarlos apilados en la misma pantalla (mismo patrón que el resto del
+  // sistema, ej. Solicitudes de Cambio de Medidor).
+  const [pestana, setPestana] = useState<'registrar' | 'historial'>('registrar')
+
   // ------------------------------------------------------------------
   // Estado del Formulario de Registro Rápido
   // ------------------------------------------------------------------
@@ -247,9 +252,36 @@ function MovimientosStock() {
         </div>
       )}
 
+      {/* Pestañas: registrar vs. historial */}
+      <div className="flex gap-6 border-b border-primary-100">
+        <button
+          type="button"
+          onClick={() => setPestana('registrar')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            pestana === 'registrar'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Registrar Movimiento
+        </button>
+        <button
+          type="button"
+          onClick={() => setPestana('historial')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            pestana === 'historial'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Historial General
+        </button>
+      </div>
+
       {/* ------------------------------------------------------------------ */}
       {/* SECCIÓN 1: FORMULARIO DE REGISTRO RÁPIDO (Entrada / Salida) */}
       {/* ------------------------------------------------------------------ */}
+      {pestana === 'registrar' && (
       <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-primary-900">
@@ -436,7 +468,14 @@ function MovimientosStock() {
             </p>
           )}
 
-          <div className="flex justify-end gap-3 pt-2">
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <button
+              type="submit"
+              disabled={submitting || esSalidaInvalida || !articuloActual}
+              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {submitting ? 'Registrando...' : 'Confirmar Movimiento'}
+            </button>
             <button
               type="button"
               onClick={() => {
@@ -446,24 +485,19 @@ function MovimientosStock() {
                 setMotivo('')
                 setFormError(null)
               }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+              className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
             >
-              Limpiar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || esSalidaInvalida || !articuloActual}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? 'Registrando...' : 'Confirmar Movimiento'}
+              Cancelar
             </button>
           </div>
         </form>
       </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* SECCIÓN 2: TABLA DE HISTORIAL GENERAL DE MOVIMIENTOS */}
       {/* ------------------------------------------------------------------ */}
+      {pestana === 'historial' && (
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -700,6 +734,7 @@ function MovimientosStock() {
           </div>
         )}
       </div>
+      )}
     </div>
   )
 }

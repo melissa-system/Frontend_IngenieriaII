@@ -16,6 +16,12 @@ import {
   validarDocumento,
 } from '../../components/common/FileDropZone'
 import Toast from '../../components/Dashboard/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
 
 const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   pendiente: 'Pendiente',
@@ -458,6 +464,13 @@ function VistaAdministrador() {
   // mostrar ambas cosas apiladas en la misma pantalla.
   const [vista, setVista] = useState<'lista' | 'crear'>('lista')
 
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [s.codigo_solicitud, s.nombre_abonado, s.numero_abonado, s.motivo_falla],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
+
   const cargar = useCallback(async () => {
     try {
       const lista = await obtenerSolicitudesCambioMedidor()
@@ -829,12 +842,30 @@ function VistaAdministrador() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
+        {!cargando && solicitudes.length > 0 && (
+          <BarraFiltrosSolicitudes
+            busca={filtrosLista.busqueda}
+            manejarBusqueda={filtrosLista.cambiarBusqueda}
+            placeholder="Buscar por código, abonado o número de abonado…"
+            orden={filtrosLista.orden}
+            cambiarOrden={filtrosLista.cambiarOrden}
+            filtroEstado={filtrosLista.filtroEstado}
+            cambiarEstado={filtrosLista.cambiarEstado}
+            estados={ESTADOS_ABONADO}
+          />
+        )}
+
         {cargando ? (
           <p className="text-sm text-primary-400">Cargando solicitudes…</p>
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="No hay solicitudes de cambio de medidor"
             descripcion="Las solicitudes registradas aparecerán aquí."
+          />
+        ) : filtrosLista.filtradas.length === 0 ? (
+          <EmptyState
+            titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+            descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
           />
         ) : (
           <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
@@ -850,7 +881,7 @@ function VistaAdministrador() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-primary-100">
-                {solicitudes.map((s) => (
+                {filtrosLista.filasVisibles.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
                     <td className="px-4 py-3 text-primary-600">
@@ -877,6 +908,18 @@ function VistaAdministrador() {
                 ))}
               </tbody>
             </table>
+
+            <PaginadorSolicitudes
+              total={filtrosLista.filtradas.length}
+              primeraFila={filtrosLista.primeraFila}
+              porPagina={filtrosLista.porPagina}
+              paginaActual={filtrosLista.paginaActual}
+              totalPaginas={filtrosLista.totalPaginas}
+              numerosPagina={filtrosLista.numerosPagina}
+              busca={filtrosLista.busqueda}
+              etiqueta="solicitudes"
+              irPagina={filtrosLista.irPagina}
+            />
           </div>
         )}
       </div>

@@ -38,6 +38,9 @@ export interface ReporteFontanero {
   tiempo_minutos: number
   averia_id: number | null
   averia?: { id: number; codigo_averia: string } | null
+  /** Texto libre con los materiales usados (flujo actual). */
+  materiales_texto?: string | null
+  /** Materiales vinculados a inventario (solo reportes antiguos). */
   materiales: MaterialUtilizado[]
   fecha_registro: string
 }
@@ -48,7 +51,7 @@ export interface CrearReportePayload {
   fechaTrabajo: string
   tiempoMinutos: number
   averiaId?: number
-  materiales?: Array<{ articuloId: number; cantidad: number }>
+  materialesTexto?: string
 }
 
 export interface FiltrosReportes {

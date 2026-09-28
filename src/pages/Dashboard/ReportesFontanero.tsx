@@ -185,19 +185,19 @@ function ReportesFontanero() {
       )}
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-          <thead className="bg-gray-50">
+      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+        <table className="min-w-full divide-y divide-primary-100 text-sm">
+          <thead className="bg-primary-50">
             <tr>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Fontanero</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Fecha</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Actividad</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Tiempo</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Materiales</th>
-              <th className="px-4 py-3" />
+              <th className="px-4 py-3 text-left font-medium text-primary-700">Fontanero</th>
+              <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
+              <th className="px-4 py-3 text-left font-medium text-primary-700">Actividad</th>
+              <th className="px-4 py-3 text-left font-medium text-primary-700">Tiempo</th>
+              <th className="px-4 py-3 text-left font-medium text-primary-700">Materiales</th>
+              <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-200">
+          <tbody className="divide-y divide-primary-50">
             {cargando ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
@@ -214,7 +214,7 @@ function ReportesFontanero() {
               </tr>
             ) : (
               reportes.map((reporte) => (
-                <tr key={reporte.id} className="hover:bg-gray-50">
+                <tr key={reporte.id} className="hover:bg-primary-50/50">
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {reporte.empleado?.nombre ?? '—'}
                   </td>
@@ -227,16 +227,25 @@ function ReportesFontanero() {
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {formatearTiempo(reporte.tiempo_minutos)}
                   </td>
-                  <td className="px-4 py-3 text-primary-700">
-                    {reporte.materiales.length === 0
-                      ? '—'
-                      : `${reporte.materiales.length} material${reporte.materiales.length === 1 ? '' : 'es'}`}
+                  <td className="max-w-xs px-4 py-3 text-primary-700">
+                    {reporte.materiales_texto ? (
+                      <span
+                        className="block truncate"
+                        title={reporte.materiales_texto}
+                      >
+                        {reporte.materiales_texto}
+                      </span>
+                    ) : reporte.materiales.length === 0 ? (
+                      '—'
+                    ) : (
+                      `${reporte.materiales.length} material${reporte.materiales.length === 1 ? '' : 'es'}`
+                    )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
+                  <td className="px-4 py-3">
                     <button
                       type="button"
                       onClick={() => setDetalle(reporte)}
-                      className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
                     >
                       Ver detalle
                     </button>
@@ -246,34 +255,49 @@ function ReportesFontanero() {
             )}
           </tbody>
         </table>
-      </div>
 
-      {/* Paginación */}
-      {total > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-primary-600">
-            {total} reporte{total === 1 ? '' : 's'} · página {pagina} de {totalPaginas}
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.max(1, p - 1))}
-              disabled={pagina === 1 || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-              disabled={pagina >= totalPaginas || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente
-            </button>
+        {total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-primary-500">
+              Mostrando{' '}
+              {`${(pagina - 1) * LIMITE_POR_PAGINA + 1}–${Math.min(pagina * LIMITE_POR_PAGINA, total)}`}{' '}
+              de {total} reportes
+            </p>
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={pagina === 1 || cargando}
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                ‹ Anterior
+              </button>
+              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPagina(n)}
+                  disabled={n === pagina}
+                  aria-current={n === pagina ? 'page' : undefined}
+                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                    n === pagina ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={pagina >= totalPaginas || cargando}
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Siguiente ›
+              </button>
+            </div>
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Detalle */}
       {detalle && (
@@ -321,9 +345,13 @@ function ReportesFontanero() {
             <h3 className="mt-5 text-sm font-semibold text-primary-900">
               Materiales utilizados
             </h3>
-            {detalle.materiales.length === 0 ? (
+            {detalle.materiales_texto ? (
+              <p className="mt-1 whitespace-pre-line rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-primary-700">
+                {detalle.materiales_texto}
+              </p>
+            ) : detalle.materiales.length === 0 ? (
               <p className="mt-1 text-sm text-primary-500">
-                Este trabajo no consumió materiales del inventario.
+                Este trabajo no registró materiales.
               </p>
             ) : (
               <ul className="mt-2 divide-y divide-gray-200 rounded-lg border border-gray-200">
