@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import puebloImg from '../../assets/PuebloN.png'
+import puebloImg from '../../assets/PuebloN.jpg'
 
 const STATS = [
   { value: '20', label: 'Años brindando servicio a la comunidad' },
