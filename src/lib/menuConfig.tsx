@@ -130,8 +130,13 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     icon: <SolicitudesIcon />,
     roles: ['Administrador', 'Junta Directiva', 'Abonado'],
     submenu: [
-      // Paja de Agua es solo para administración; los abonados no la ven.
+      // Paja de Agua (bandeja de gestión) es solo para administración; los
+      // abonados usan "Nueva paja de agua" para pedir una adicional a su
+      // nombre (misma solicitud por debajo, distinto punto de entrada).
       { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva'] },
+      // Solo para Abonado: pedir una paja de agua adicional (ej. una segunda
+      // propiedad), mismo trámite y machote que el formulario público.
+      { label: 'Nueva Paja de Agua', to: '/dashboard/solicitudes/nueva-paja-de-agua', roles: ['Abonado'] },
       // Conexión de Servicio va primero para el Abonado: es la continuación
       // directa de su trámite de paja de agua ya aprobado.
       { label: 'Conexión de Servicio', to: '/dashboard/solicitudes/conexion-servicio', roles: ['Administrador', 'Junta Directiva', 'Abonado'] },

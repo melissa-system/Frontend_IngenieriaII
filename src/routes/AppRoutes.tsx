@@ -20,6 +20,7 @@ import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambio
 import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
 import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
 import SolicitudesConexion from '../pages/Dashboard/SolicitudesConexion'
+import NuevaPajaAgua from '../pages/Dashboard/NuevaPajaAgua'
 import Inventario from '../pages/Dashboard/Inventario'
 import MovimientosStock from '../pages/Dashboard/MovimientosStock'
 import Proveedores from '../pages/Dashboard/Proveedores'
@@ -68,6 +69,7 @@ function AppRoutes() {
           element={<RedirectSolicitudes />}
         />
         <Route path="solicitudes/paja-de-agua" element={<SolicitudesPajaAgua />} />
+        <Route path="solicitudes/nueva-paja-de-agua" element={<NuevaPajaAgua />} />
         <Route path="solicitudes/cambio-propietario" element={<SolicitudesCambioPropietario />} />
         <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
         <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />

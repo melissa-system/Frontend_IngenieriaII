@@ -74,6 +74,10 @@ const DRAFT_INICIAL: DraftData = {
 }
 
 const DRAFT_KEY = 'siapb:solicitud-paja-agua:draft:v1'
+// Cuando el wizard se usa desde el dashboard del Abonado (segunda propiedad),
+// el borrador se guarda aparte: si la misma persona tiene abierto el
+// formulario público en otra pestaña, no queremos que se pisen entre sí.
+const DRAFT_KEY_DASHBOARD = 'siapb:solicitud-paja-agua:draft:dashboard:v1'
 
 // El borrador guardado en el navegador solo es válido por 3 días desde que
 // se empezó a llenar. Pasado ese plazo, se descarta y el formulario arranca
@@ -112,7 +116,17 @@ function etiquetaTipo(tipo: TipoIdentificacionDetectado): string {
   return ''
 }
 
-function Afiliacion() {
+interface AfiliacionProps {
+  // 'publico': wizard de /afiliacion, con navegación "Volver al inicio".
+  // 'dashboard': el mismo wizard embebido en /dashboard/solicitudes/nueva-paja-de-agua
+  // para un Abonado que ya tiene sesión y pide una conexión adicional a su
+  // nombre — mismo proceso y mismo machote, sin los enlaces al landing.
+  variante?: 'publico' | 'dashboard'
+}
+
+function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
+  const esDashboard = variante === 'dashboard'
+  const draftKey = esDashboard ? DRAFT_KEY_DASHBOARD : DRAFT_KEY
   const [paso, setPaso] = useState(0)
   const [draft, setDraft] = useState<DraftData>(DRAFT_INICIAL)
   const [hidratado, setHidratado] = useState(false)
@@ -148,7 +162,7 @@ function Afiliacion() {
   // --- Cargar borrador guardado (si existe) al montar ---
   useEffect(() => {
     try {
-      const guardado = localStorage.getItem(DRAFT_KEY)
+      const guardado = localStorage.getItem(draftKey)
       if (guardado) {
         const datos = JSON.parse(guardado) as {
           draft?: Partial<DraftData>
@@ -163,7 +177,7 @@ function Afiliacion() {
         if (expirado) {
           // Pasaron más de 3 días: se descarta el borrador y el formulario
           // arranca en blanco, sin restaurar nada.
-          localStorage.removeItem(DRAFT_KEY)
+          localStorage.removeItem(draftKey)
           setHuboDraftExpirado(true)
         } else {
           if (datos.draft) {
@@ -185,7 +199,7 @@ function Afiliacion() {
     } finally {
       setHidratado(true)
     }
-  }, [])
+  }, [draftKey])
 
   // --- Guardar borrador en cada cambio (nunca los archivos: File no es serializable) ---
   useEffect(() => {
@@ -194,17 +208,17 @@ function Afiliacion() {
       const marcaInicio = iniciadoEn ?? Date.now()
       if (iniciadoEn === null) setIniciadoEn(marcaInicio)
       localStorage.setItem(
-        DRAFT_KEY,
+        draftKey,
         JSON.stringify({ draft, paso, iniciadoEn: marcaInicio }),
       )
     } catch {
       // se ignora: si falla, el peor caso es que no se pueda retomar después
     }
-  }, [draft, paso, hidratado, enviado, iniciadoEn])
+  }, [draft, paso, hidratado, enviado, iniciadoEn, draftKey])
 
   const limpiarBorrador = () => {
     try {
-      localStorage.removeItem(DRAFT_KEY)
+      localStorage.removeItem(draftKey)
     } catch {
       // se ignora
     }
@@ -484,14 +498,24 @@ function Afiliacion() {
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
-      <Link to="/" className="text-sm font-medium text-primary-700 hover:underline">
-        ← Volver al inicio
-      </Link>
+    <section
+      className={
+        esDashboard
+          ? 'mx-auto max-w-2xl'
+          : 'mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8'
+      }
+    >
+      {!esDashboard && (
+        <Link to="/" className="text-sm font-medium text-primary-700 hover:underline">
+          ← Volver al inicio
+        </Link>
+      )}
 
-      <h1 className="mt-2 text-center text-2xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-3xl">
-        Solicitud de paja de agua
-      </h1>
+      {!esDashboard && (
+        <h1 className="mt-2 text-center text-2xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-3xl">
+          Solicitud de paja de agua
+        </h1>
+      )}
 
       {enviado ? (
         <div className="mt-8 rounded-2xl bg-primary-50 p-8 text-center">
@@ -530,10 +554,10 @@ function Afiliacion() {
           )}
 
           <Link
-            to="/"
+            to={esDashboard ? '/dashboard' : '/'}
             className="mt-6 inline-block text-sm font-medium text-primary-700 hover:underline"
           >
-            Volver al inicio
+            {esDashboard ? 'Volver al panel' : 'Volver al inicio'}
           </Link>
         </div>
       ) : (
