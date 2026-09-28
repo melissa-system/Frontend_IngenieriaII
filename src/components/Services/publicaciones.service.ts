@@ -1,7 +1,11 @@
 import axios from 'axios';
 import apiClient from '../../lib/apiClient';
 
-const API_URL = 'http://localhost:3000/publicaciones';
+// Antes hardcodeado a localhost:3000 — nunca hubiera funcionado publicado
+// en Netlify (mismo bug que ya se corrigió en configuracion.service.ts y
+// solicitudes.service.ts). Ahora toma la URL real de VITE_API_URL.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const API_URL = `${API_BASE_URL}/publicaciones`;
 const RESOURCE = '/publicaciones';
 
 export interface PublicacionPayload {
