@@ -30,6 +30,7 @@ import {
   descargarPdfSolicitud,
   type DatosDocumentoSolicitud,
 } from '../../lib/generarPdfSolicitud'
+import { obtenerPerfil } from '../../components/Services/perfil.service'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
@@ -158,6 +159,50 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
   const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
+
+  // --- Modo dashboard: identidad quemada desde el perfil (no editable) ---
+  // Un Abonado ya autenticado no puede escribir cualquier cédula/nombre en
+  // este formulario: se precargan desde su propia cuenta y quedan de solo
+  // lectura, para que no pueda hacerse pasar por otra persona. Si alguien
+  // necesita tramitar esto a nombre de otro, debe hacerlo con un
+  // administrador (fuera de este wizard).
+  const [cargandoPerfil, setCargandoPerfil] = useState(esDashboard)
+  const [errorPerfil, setErrorPerfil] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!esDashboard) return
+    let cancelado = false
+    setCargandoPerfil(true)
+    obtenerPerfil()
+      .then((perfil) => {
+        if (cancelado) return
+        setDraft((prev) => ({
+          ...prev,
+          identificacion: perfil.cedula
+            ? formatearCedula(perfil.cedula, perfil.cedula.replace(/\D/g, '').length > 9 ? 'juridica' : 'fisica')
+            : prev.identificacion,
+          nombreSolicitante: perfil.nombre || prev.nombreSolicitante,
+          nombreRepresentante:
+            perfil.juridico?.nombre_representante_legal || prev.nombreRepresentante,
+          cedulaRepresentante: perfil.juridico?.cedula_representante
+            ? formatearCedula(perfil.juridico.cedula_representante, 'fisica')
+            : prev.cedulaRepresentante,
+        }))
+      })
+      .catch(() => {
+        if (!cancelado) {
+          setErrorPerfil(
+            'No pudimos cargar los datos de tu cuenta. Recargá la página e intentá de nuevo.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoPerfil(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [esDashboard])
 
   // --- Cargar borrador guardado (si existe) al montar ---
   useEffect(() => {
@@ -341,6 +386,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const esJuridica = tipoDetectado === 'juridica'
 
   const paso0Valido =
+    (!esDashboard || (!cargandoPerfil && !errorPerfil)) &&
     tipoDetectado !== null &&
     nombreValido &&
     (!esJuridica ||
@@ -618,7 +664,61 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
               la altura de la pantalla dejando un vacío enorme abajo. El
               valor cubre el paso más cargado (Ubicación) sin scroll. */}
           <div className="mt-4 min-h-[280px] rounded-2xl border border-primary-100 p-4 sm:min-h-[300px] sm:p-5">
-            {paso === 0 && (
+            {paso === 0 && esDashboard && (
+              <div className="space-y-3">
+                <p className="text-xs text-primary-600">
+                  Tu identidad se toma de tu cuenta registrada y no se puede modificar acá, para
+                  que nadie pueda tramitar una solicitud a nombre de otra persona. Si necesitás
+                  hacer este trámite a nombre de alguien más, hacelo directamente con la
+                  administración.
+                </p>
+
+                {cargandoPerfil && (
+                  <p className="text-sm text-primary-500">Cargando tus datos...</p>
+                )}
+
+                {errorPerfil && (
+                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                    {errorPerfil}
+                  </p>
+                )}
+
+                {!cargandoPerfil && !errorPerfil && (
+                  <div className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                    {tipoDetectado && (
+                      <p className="text-xs font-medium text-primary-600">
+                        {etiquetaTipo(tipoDetectado)}
+                      </p>
+                    )}
+                    <p className="mt-1">
+                      {esJuridica ? 'Razón social:' : 'Nombre:'}{' '}
+                      <span className="font-semibold">{draft.nombreSolicitante}</span>
+                    </p>
+                    <p className="mt-1">
+                      Identificación: <span className="font-semibold">{draft.identificacion}</span>
+                    </p>
+                    {esJuridica && (
+                      <>
+                        <p className="mt-2 border-t border-primary-100 pt-2">
+                          Representante legal:{' '}
+                          <span className="font-semibold">
+                            {draft.nombreRepresentante || '—'}
+                          </span>
+                        </p>
+                        <p className="mt-1">
+                          Cédula del representante:{' '}
+                          <span className="font-semibold">
+                            {draft.cedulaRepresentante || '—'}
+                          </span>
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {paso === 0 && !esDashboard && (
               <div className="space-y-3">
                 <p className="text-xs text-primary-600">
                   Ingresá tu número de identificación: detectamos automáticamente si sos
