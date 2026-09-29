@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   crearSolicitudPajaAgua,
   formatearCedula,
@@ -128,6 +129,17 @@ interface AfiliacionProps {
 function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const esDashboard = variante === 'dashboard'
   const draftKey = esDashboard ? DRAFT_KEY_DASHBOARD : DRAFT_KEY
+  // AuthProvider envuelve toda la app (incluido /afiliacion), así que este
+  // hook siempre es válido; en el wizard público rolEfectivo simplemente da
+  // null (no hay sesión) y bloquearIdentidad queda en false más abajo.
+  const { rolEfectivo } = useAuth()
+  // Quemar la identidad (cédula/nombre) solo tiene sentido para un Abonado
+  // pidiendo una paja de agua adicional A SU PROPIO NOMBRE. Un Administrador
+  // o Junta Directiva que entra a esta misma pantalla es personal que puede
+  // estar tramitando la solicitud a nombre de otra persona (ej. un vecino
+  // que se presenta en la oficina), así que para ellos el paso 1 se comporta
+  // igual que el formulario público: cédula editable con búsqueda en Hacienda.
+  const bloquearIdentidad = esDashboard && rolEfectivo === 'Abonado'
   const [paso, setPaso] = useState(0)
   const [draft, setDraft] = useState<DraftData>(DRAFT_INICIAL)
   const [hidratado, setHidratado] = useState(false)
@@ -160,17 +172,19 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
 
-  // --- Modo dashboard: identidad quemada desde el perfil (no editable) ---
+  // --- Modo dashboard + rol Abonado: identidad quemada desde el perfil ---
   // Un Abonado ya autenticado no puede escribir cualquier cédula/nombre en
   // este formulario: se precargan desde su propia cuenta y quedan de solo
-  // lectura, para que no pueda hacerse pasar por otra persona. Si alguien
-  // necesita tramitar esto a nombre de otro, debe hacerlo con un
-  // administrador (fuera de este wizard).
-  const [cargandoPerfil, setCargandoPerfil] = useState(esDashboard)
+  // lectura, para que no pueda hacerse pasar por otra persona. Un
+  // Administrador o Junta Directiva que entra a la misma pantalla SÍ puede
+  // estar tramitando la solicitud a nombre de otra persona (ej. un vecino
+  // en la oficina), así que para ellos no se bloquea nada (ver
+  // bloquearIdentidad más arriba).
+  const [cargandoPerfil, setCargandoPerfil] = useState(bloquearIdentidad)
   const [errorPerfil, setErrorPerfil] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!esDashboard) return
+    if (!bloquearIdentidad) return
     let cancelado = false
     setCargandoPerfil(true)
     obtenerPerfil()
@@ -202,7 +216,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
     return () => {
       cancelado = true
     }
-  }, [esDashboard])
+  }, [bloquearIdentidad])
 
   // --- Cargar borrador guardado (si existe) al montar ---
   useEffect(() => {
@@ -386,7 +400,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const esJuridica = tipoDetectado === 'juridica'
 
   const paso0Valido =
-    (!esDashboard || (!cargandoPerfil && !errorPerfil)) &&
+    (!bloquearIdentidad || (!cargandoPerfil && !errorPerfil)) &&
     tipoDetectado !== null &&
     nombreValido &&
     (!esJuridica ||
@@ -664,7 +678,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
               la altura de la pantalla dejando un vacío enorme abajo. El
               valor cubre el paso más cargado (Ubicación) sin scroll. */}
           <div className="mt-4 min-h-[280px] rounded-2xl border border-primary-100 p-4 sm:min-h-[300px] sm:p-5">
-            {paso === 0 && esDashboard && (
+            {paso === 0 && bloquearIdentidad && (
               <div className="space-y-3">
                 <p className="text-xs text-primary-600">
                   Tu identidad se toma de tu cuenta registrada y no se puede modificar acá, para
@@ -718,7 +732,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
               </div>
             )}
 
-            {paso === 0 && !esDashboard && (
+            {paso === 0 && !bloquearIdentidad && (
               <div className="space-y-3">
                 <p className="text-xs text-primary-600">
                   Ingresá tu número de identificación: detectamos automáticamente si sos
