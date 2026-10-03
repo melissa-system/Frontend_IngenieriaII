@@ -1,5 +1,20 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  entero,
+  hayErrores,
+  maximo,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoMovimiento = 'articulo' | 'cantidad' | 'responsable' | 'destino' | 'motivo'
+import {
   obtenerArticulos,
   obtenerTodosLosMovimientos,
   registrarMovimientoArticulo,
@@ -60,6 +75,7 @@ function MovimientosStock() {
   const [motivo, setMotivo] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresFormulario<CampoMovimiento>>({})
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -125,34 +141,38 @@ function MovimientosStock() {
     e.preventDefault()
     setFormError(null)
 
-    if (!articuloActual) {
-      setFormError('Debe seleccionar un artículo de la lista.')
-      return
-    }
-    if (cantNum <= 0) {
-      setFormError('La cantidad debe ser un número entero mayor a 0.')
-      return
-    }
-    if (tipoMovimiento === 'salida') {
-      if (!responsableRetira.trim()) {
-        setFormError('El campo "Responsable que retira" es obligatorio para salidas.')
-        return
-      }
-      if (!ubicacionDestino.trim()) {
-        setFormError('El campo "Ubicación / Destino" es obligatorio para salidas.')
-        return
-      }
-      if (esSalidaInvalida) {
-        setFormError(
-          `Stock insuficiente en bodega. Cantidad disponible: ${stockActual} unidades, solicitada: ${cantNum}.`,
-        )
-        return
-      }
-    }
-    if (!motivo.trim()) {
-      setFormError('El motivo del movimiento es obligatorio.')
-      return
-    }
+    // Checklist común (PBI 511): cada error se muestra junto a su campo.
+    const salida = tipoMovimiento === 'salida'
+    const nuevos = validarCampos<CampoMovimiento>(
+      {
+        articulo: [() => (articuloActual ? null : 'Debe seleccionar un artículo de la lista.')],
+        cantidad: [
+          requerido('La cantidad', true),
+          entero('La cantidad', 1),
+          () =>
+            salida && esSalidaInvalida
+              ? `Stock insuficiente: hay ${stockActual} unidades disponibles.`
+              : null,
+        ],
+        responsable: salida
+          ? [requerido('El responsable que retira'), maximo('El responsable', 120)]
+          : [],
+        destino: salida
+          ? [requerido('La ubicación / destino', true), maximo('La ubicación / destino', 120)]
+          : [],
+        motivo: [requerido('El motivo del movimiento'), maximo('El motivo', 255)],
+      },
+      {
+        articulo: articuloActual ? String(articuloActual.id) : '',
+        cantidad: String(cantidad),
+        responsable: responsableRetira,
+        destino: ubicacionDestino,
+        motivo,
+      },
+    )
+    setErrores(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos) || !articuloActual) return
 
     const responsableDestinoCombined =
       tipoMovimiento === 'salida'
@@ -190,8 +210,12 @@ function MovimientosStock() {
         `Movimiento registrado exitosamente: ${res.articulo.nombre} tiene ahora ${res.articulo.cantidad_disponible} unidades disponibles.`,
       )
     } catch (err) {
+      setErrores(erroresPorCampo<CampoMovimiento>(err, { responsableDestino: 'responsable' }))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error ? err.message : 'Error al registrar el movimiento de inventario.',
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'Error al registrar el movimiento de inventario.',
       )
     } finally {
       setSubmitting(false)
@@ -292,7 +316,7 @@ function MovimientosStock() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Selector de artículo con búsqueda predictiva */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             <div className="lg:col-span-8">
@@ -322,6 +346,7 @@ function MovimientosStock() {
                     ))
                   )}
                 </select>
+                <CampoError mensaje={errores.articulo} />
               </div>
             </div>
 
@@ -410,8 +435,9 @@ function MovimientosStock() {
                 required
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value === '' ? '' : Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.cantidad)}`}
               />
+              <CampoError mensaje={errores.cantidad} />
             </div>
 
             {tipoMovimiento === 'salida' && (
@@ -426,8 +452,10 @@ function MovimientosStock() {
                     value={responsableRetira}
                     onChange={(e) => setResponsableRetira(e.target.value)}
                     placeholder="Ej. Fontanero Mario Solano"
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.responsable)}`}
+                    maxLength={120}
                   />
+                  <CampoError mensaje={errores.responsable} />
                 </div>
 
                 <div>
@@ -440,8 +468,10 @@ function MovimientosStock() {
                     value={ubicacionDestino}
                     onChange={(e) => setUbicacionDestino(e.target.value)}
                     placeholder="Ej. Reparación tubería Sector 3"
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.destino)}`}
+                    maxLength={120}
                   />
+                  <CampoError mensaje={errores.destino} />
                 </div>
               </>
             )}
@@ -458,8 +488,10 @@ function MovimientosStock() {
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ej. Compra programada mensual / Reparación de fuga reportada en avería #14"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.motivo)}`}
+              maxLength={255}
             />
+            <CampoError mensaje={errores.motivo} />
           </div>
 
           {formError && (
@@ -484,6 +516,7 @@ function MovimientosStock() {
                 setUbicacionDestino('')
                 setMotivo('')
                 setFormError(null)
+                setErrores({})
               }}
               className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
             >

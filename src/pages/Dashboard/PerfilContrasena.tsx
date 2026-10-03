@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from 'react'
+import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { useAuth } from '../../contexts/AuthContext'
 import apiClient from '../../lib/apiClient'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
@@ -18,12 +19,9 @@ function validarFortaleza(pw: string): string | null {
   return null
 }
 
+// Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(err: unknown): string {
-  const data = (err as { response?: { data?: { message?: unknown } } })?.response
-    ?.data?.message
-  if (Array.isArray(data)) return data.join(' · ')
-  if (typeof data === 'string') return data
-  return 'No se pudo realizar la operación. Intenta nuevamente.'
+  return mensajeDeError(err, 'No se pudo realizar la operación. Intenta nuevamente.')
 }
 
 // Cambio de contraseña, separado de "Editar perfil" (ver PerfilEditar.tsx)

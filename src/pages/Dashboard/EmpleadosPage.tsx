@@ -14,8 +14,20 @@ import {
 } from '../../components/Services/empleados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import {
+  cedula,
+  correo,
+  esCorreo,
+  fecha,
+  formatearTelefono,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+} from '../../lib/validaciones'
+import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
+  erroresPorCampo,
 } from '../../components/Services/erroresApi'
 
 const PUESTOS = [
@@ -45,15 +57,6 @@ const EMPTY_FORM: FormState = {
 
 const EMPLEADOS_POR_PAGINA = 10
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Da formato al teléfono en el patrón costarricense 8888-8888 (8 dígitos).
-function formatearTelefono(valor: string): string {
-  const d = valor.replace(/\D/g, '').slice(0, 8)
-  if (!d) return ''
-  if (d.length <= 4) return d
-  return `${d.slice(0, 4)}-${d.slice(4)}`
-}
 
 function normalizarBusqueda(valor: string): string {
   return valor
@@ -123,19 +126,29 @@ interface ErroresForm {
   correo?: string
 }
 
+// Checklist común (PBI 511): además de los obligatorios, la cédula, el
+// teléfono, el correo y la fecha se validan con las mismas reglas que el
+// backend (antes solo se revisaba que no estuvieran vacíos).
+// Errores que devuelve la API: si vienen por campo se muestran junto a cada
+// input; si no, el mensaje general queda bajo el nombre (como antes).
+function erroresDelServidor(err: unknown, fallback = 'No se pudieron guardar los cambios.'): ErroresForm {
+  const porCampo = erroresPorCampo<keyof ErroresForm>(err, { email: 'correo' })
+  if (Object.keys(porCampo).length > 0) return porCampo
+  return { nombre: err instanceof Error && err.message ? err.message : fallback }
+}
+
 function validarForm(form: FormState): ErroresForm {
-  const e: ErroresForm = {}
-  if (!form.nombre.trim()) e.nombre = 'El nombre completo es obligatorio'
-  if (!form.cedula.trim()) e.cedula = 'La cédula es obligatoria'
-  if (!form.puesto.trim()) e.puesto = 'El puesto es obligatorio'
-  if (!form.telefono.trim()) e.telefono = 'El teléfono es obligatorio'
-  if (!form.fecha_ingreso) e.fecha_ingreso = 'La fecha de ingreso es obligatoria'
-  if (!form.correo.trim()) {
-    e.correo = 'El correo es obligatorio'
-  } else if (!EMAIL_REGEX.test(form.correo.trim())) {
-    e.correo = 'El correo no tiene un formato válido'
-  }
-  return e
+  return validarCampos<keyof ErroresForm>(
+    {
+      nombre: [requerido('El nombre completo'), maximo('El nombre', 150)],
+      cedula: [requerido('La cédula', true), cedula(['fisica', 'dimex'])],
+      puesto: [requerido('El puesto'), maximo('El puesto', 100)],
+      telefono: [requerido('El teléfono'), telefono()],
+      fecha_ingreso: [requerido('La fecha de ingreso', true), fecha({ noFutura: true })],
+      correo: [requerido('El correo'), correo(), maximo('El correo', 150)],
+    },
+    form,
+  )
 }
 
 type CedulaLookupStatus = 'idle' | 'found' | 'not-found' | 'error' | 'dimex'
@@ -230,7 +243,7 @@ function EmpleadosPage() {
   useEffect(() => {
     const correo = form.correo.trim()
     // Solo consulta cuando el correo parece completo (formato básico).
-    if (!EMAIL_REGEX.test(correo)) {
+    if (!esCorreo(correo)) {
       setCorreoLookupStatus('idle')
       setCorreoUsuario(null)
       return
@@ -376,7 +389,7 @@ function EmpleadosPage() {
           setTimeout(() => setConfirmacion(null), 3000)
         })
         .catch((err: Error) => {
-          setFormError({ nombre: err.message })
+          setFormError(erroresDelServidor(err))
         })
         .finally(() => setSubmitting(false))
     } else {
@@ -400,12 +413,7 @@ function EmpleadosPage() {
             setConfirmacionCedula({ info: err.info, payload })
             return
           }
-          setFormError({
-            nombre:
-              err instanceof Error
-                ? err.message
-                : 'No se pudo registrar el empleado.',
-          })
+          setFormError(erroresDelServidor(err, 'No se pudo registrar el empleado.'))
         })
         .finally(() => setSubmitting(false))
     }
@@ -728,7 +736,7 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {formError.cedula && (
-                  <p className="mt-1 text-xs text-red-600">{formError.cedula}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.cedula}</p>
                 )}
               </div>
 
@@ -748,7 +756,7 @@ function EmpleadosPage() {
                   className={formError.nombre ? inputErrorClass : inputClass}
                 />
                 {formError.nombre && (
-                  <p className="mt-1 text-xs text-red-600">{formError.nombre}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.nombre}</p>
                 )}
               </div>
 
@@ -775,7 +783,7 @@ function EmpleadosPage() {
                   ))}
                 </select>
                 {formError.puesto && (
-                  <p className="mt-1 text-xs text-red-600">{formError.puesto}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.puesto}</p>
                 )}
               </div>
 
@@ -797,7 +805,7 @@ function EmpleadosPage() {
                     className={formError.telefono ? inputErrorClass : inputClass}
                   />
                   {formError.telefono && (
-                    <p className="mt-1 text-xs text-red-600">{formError.telefono}</p>
+                    <p data-campo-error className="mt-1 text-xs text-red-600">{formError.telefono}</p>
                   )}
                 </div>
                 <div>
@@ -814,7 +822,7 @@ function EmpleadosPage() {
                     className={formError.fecha_ingreso ? inputErrorClass : inputClass}
                   />
                   {formError.fecha_ingreso && (
-                    <p className="mt-1 text-xs text-red-600">{formError.fecha_ingreso}</p>
+                    <p data-campo-error className="mt-1 text-xs text-red-600">{formError.fecha_ingreso}</p>
                   )}
                 </div>
               </div>
@@ -846,7 +854,7 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {formError.correo && (
-                  <p className="mt-1 text-xs text-red-600">{formError.correo}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.correo}</p>
                 )}
               </div>
 

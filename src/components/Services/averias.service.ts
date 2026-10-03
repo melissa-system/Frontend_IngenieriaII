@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/averias'
 
@@ -52,17 +52,6 @@ export interface ActualizarAveriaPayload {
   realizado_por?: string
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 // El token de reCAPTCHA viaja en un encabezado y no en el cuerpo porque el
 // backend lo valida en un guard, que se ejecuta antes de leer el cuerpo de
@@ -79,9 +68,7 @@ export const crearAveria = async (
     })
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo crear el reporte de avería.'),
-    )
+    throw crearErrorApi(error, 'No se pudo crear el reporte de avería.')
   }
 }
 
@@ -90,9 +77,7 @@ export const obtenerAverias = async (): Promise<AveriaBackend[]> => {
     const { data } = await apiClient.get<AveriaBackend[]>(RESOURCE)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las averías.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las averías.')
   }
 }
 
@@ -101,9 +86,7 @@ export const obtenerMisAverias = async (): Promise<AveriaBackend[]> => {
     const { data } = await apiClient.get<AveriaBackend[]>(`${RESOURCE}/mis-averias`)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar tus averías.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar tus averías.')
   }
 }
 
@@ -117,9 +100,7 @@ export const obtenerMisAveriasFontanero = async (): Promise<AveriaBackend[]> => 
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar tus averías asignadas.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar tus averías asignadas.')
   }
 }
 
@@ -128,9 +109,7 @@ export const obtenerAveria = async (id: number): Promise<AveriaBackend> => {
     const { data } = await apiClient.get<AveriaBackend>(`${RESOURCE}/${id}`)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar la avería.'),
-    )
+    throw crearErrorApi(error, 'No se pudo cargar la avería.')
   }
 }
 
@@ -145,9 +124,7 @@ export const actualizarAveria = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar la avería.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar la avería.')
   }
 }
 
@@ -166,9 +143,7 @@ export const subirImagenAveria = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo subir la imagen.'),
-    )
+    throw crearErrorApi(error, 'No se pudo subir la imagen.')
   }
 }
 
@@ -196,9 +171,7 @@ export const obtenerEstadisticasAverias = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de averías.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las estadísticas de averías.')
   }
 }
 

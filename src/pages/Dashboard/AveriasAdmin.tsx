@@ -47,6 +47,7 @@ function GestionModal({
   setNuevoEstado,
   empleados,
   procesando,
+  errorGestion,
 }: {
   averia: AveriaBackend
   onClose: () => void
@@ -59,6 +60,7 @@ function GestionModal({
   setNuevoEstado: (v: string) => void
   empleados: Array<{ id: number; nombre: string; cedula: string; puesto: string }>
   procesando: boolean
+  errorGestion: string | null
 }) {
   const a = averia
   const esPendiente = a.estado === 'Pendiente'
@@ -189,13 +191,20 @@ function GestionModal({
                 <div>
                   <label className="block text-sm font-medium text-primary-700">Observaciones</label>
                   <textarea value={asignarObs} onChange={(e) => setAsignarObs(e.target.value)}
-                    rows={2} placeholder="Notas o instrucciones..."
+                    rows={2} maxLength={1000} placeholder="Notas o instrucciones..."
                     className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none" />
+                  <p className="mt-1 text-right text-xs text-primary-400">{asignarObs.length}/1000</p>
                 </div>
               </div>
             </div>
           )}
         </div>
+
+        {errorGestion && (
+          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            {errorGestion}
+          </p>
+        )}
 
         <div className="mt-6 flex justify-end gap-3">
           {gestionable ? (
@@ -240,6 +249,7 @@ function AveriasAdmin() {
   const [nuevoEstado, setNuevoEstado] = useState('')
   const [empleados, setEmpleados] = useState<Array<{ id: number; nombre: string; cedula: string; puesto: string }>>([])
   const [procesando, setProcesando] = useState(false)
+  const [errorGestion, setErrorGestion] = useState<string | null>(null)
 
   const cargarAverias = async () => {
     try {
@@ -296,10 +306,12 @@ function AveriasAdmin() {
     setAsignarFontanero('')
     setAsignarObs('')
     setNuevoEstado('')
+    setErrorGestion(null)
   }
 
   async function handleGestionar() {
     if (!gestionModal) return
+    setErrorGestion(null)
     try {
       setProcesando(true)
 
@@ -319,11 +331,17 @@ function AveriasAdmin() {
 
       await actualizarAveria(gestionModal.id, payload)
       await cargarAverias()
-    } catch {
-      // error manejado en servicio
+      cerrarGestion()
+    } catch (err) {
+      // Antes el error se ignoraba y el modal se cerraba como si se hubiera
+      // guardado; ahora se muestra y el modal queda abierto para corregir.
+      setErrorGestion(
+        err instanceof Error && err.message
+          ? err.message
+          : 'No se pudieron guardar los cambios. Inténtalo de nuevo.',
+      )
     } finally {
       setProcesando(false)
-      cerrarGestion()
     }
   }
 
@@ -496,6 +514,7 @@ function AveriasAdmin() {
           setNuevoEstado={setNuevoEstado}
           empleados={empleados}
           procesando={procesando}
+          errorGestion={errorGestion}
         />
       )}
     </div>

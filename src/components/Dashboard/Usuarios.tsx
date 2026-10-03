@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../Services/erroresApi';
+import {
   obtenerUsuarios,
   obtenerRolesDisponibles,
   crearUsuario,
@@ -10,6 +14,11 @@ import {
 } from '../Services/usuarios.service';
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../auth/EyeIcons';
 import { useAuth } from '../../contexts/AuthContext';
+import { esCorreo, MENSAJES_VALIDACION } from '../../lib/validaciones';
+import { passwordCumpleMinimos } from '../../lib/passwordReset.service';
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../common/CampoError';
+
+type ErroresUsuario = Partial<Record<'email' | 'password' | 'rol', string>>;
 
 const ROL_LABELS: Record<string, string> = {
   super_admin: 'Junta Directiva',
@@ -92,6 +101,7 @@ export const Usuarios: React.FC = () => {
   const [nuevoRoleId, setNuevoRoleId] = useState<number | ''>('');
   const [guardandoUsuario, setGuardandoUsuario] = useState(false);
   const [errorModalCrear, setErrorModalCrear] = useState<string | null>(null);
+  const [erroresCrear, setErroresCrear] = useState<ErroresUsuario>({});
 
   // Modal Editar Rol
   const [modalEditarRol, setModalEditarRol] = useState<{
@@ -147,19 +157,24 @@ export const Usuarios: React.FC = () => {
   const cerrarModalCrear = () => {
     setModalCrearAbierto(false);
     setErrorModalCrear(null);
+    setErroresCrear({});
   };
 
   const handleCrearUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoEmail.trim() || !nuevoPassword || nuevoRoleId === '') {
-      setErrorModalCrear('Todos los campos son obligatorios');
-      return;
-    }
-
-    if (nuevoPassword.length < 8) {
-      setErrorModalCrear('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
+    // Checklist común (PBI 511): correo con el mismo formato que el resto del
+    // sistema y contraseña con las mismas reglas que el registro.
+    const nuevos: ErroresUsuario = {};
+    if (!nuevoEmail.trim()) nuevos.email = 'El correo electrónico es obligatorio.';
+    else if (!esCorreo(nuevoEmail)) nuevos.email = MENSAJES_VALIDACION.correo;
+    if (!nuevoPassword) nuevos.password = 'La contraseña es obligatoria.';
+    else if (!passwordCumpleMinimos(nuevoPassword))
+      nuevos.password =
+        'La contraseña debe tener al menos 8 caracteres, una letra mayúscula y un número.';
+    if (nuevoRoleId === '') nuevos.rol = 'Seleccione un rol.';
+    setErroresCrear(nuevos);
+    enfocarPrimerError();
+    if (Object.keys(nuevos).length > 0) return;
 
     try {
       setGuardandoUsuario(true);
@@ -184,7 +199,13 @@ export const Usuarios: React.FC = () => {
       cerrarModalCrear();
       await cargarDatos();
     } catch (err: any) {
-      setErrorModalCrear(err.message || 'No se pudo crear el usuario');
+      setErroresCrear(erroresPorCampo<'email' | 'password' | 'rol'>(err, { role_id: 'rol' }));
+      enfocarPrimerError();
+      setErrorModalCrear(
+        tieneErroresDeCampo(err)
+          ? null
+          : err.message || 'No se pudo crear el usuario',
+      );
     } finally {
       setGuardandoUsuario(false);
     }
@@ -604,7 +625,7 @@ export const Usuarios: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCrearUsuario} className="space-y-5">
+            <form onSubmit={handleCrearUsuario} noValidate className="space-y-5">
               {errorModalCrear && (
                 <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
                   {errorModalCrear}
@@ -614,29 +635,38 @@ export const Usuarios: React.FC = () => {
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Correo Electrónico
+                  <Obligatorio />
                 </label>
                 <input
                   type="email"
-                  required
                   value={nuevoEmail}
-                  onChange={(e) => setNuevoEmail(e.target.value)}
+                  maxLength={150}
+                  onChange={(e) => {
+                    setNuevoEmail(e.target.value);
+                    setErroresCrear((p) => ({ ...p, email: undefined }));
+                  }}
                   placeholder="ejemplo@asada.com"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(erroresCrear.email)}`}
                 />
+                <CampoError mensaje={erroresCrear.email} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-primary-700">
-                  Contraseña Inicial (mínimo 8 caracteres)
+                  Contraseña Inicial
+                  <Obligatorio />
                 </label>
                 <div className="relative mt-1">
                   <input
                     type={mostrarNuevoPassword ? 'text' : 'password'}
-                    required
                     value={nuevoPassword}
-                    onChange={(e) => setNuevoPassword(e.target.value)}
+                    maxLength={72}
+                    onChange={(e) => {
+                      setNuevoPassword(e.target.value);
+                      setErroresCrear((p) => ({ ...p, password: undefined }));
+                    }}
                     placeholder="••••••••"
-                    className="w-full rounded-lg border border-primary-200 px-3 py-2 pr-11 text-sm focus:border-primary-500 focus:outline-none"
+                    className={`w-full rounded-lg border px-3 py-2 pr-11 text-sm focus:outline-none ${bordeCampo(erroresCrear.password)}`}
                   />
                   <button
                     type="button"
@@ -647,11 +677,16 @@ export const Usuarios: React.FC = () => {
                     {mostrarNuevoPassword ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
                   </button>
                 </div>
+                <p className="mt-1 text-xs text-primary-400">
+                  Mínimo 8 caracteres, con al menos una mayúscula y un número.
+                </p>
+                <CampoError mensaje={erroresCrear.password} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Rol Asignado
+                  <Obligatorio />
                 </label>
                 <select
                   required
@@ -669,6 +704,7 @@ export const Usuarios: React.FC = () => {
                     ))
                   )}
                 </select>
+                <CampoError mensaje={erroresCrear.rol} />
               </div>
 
               <div className="flex justify-end gap-3 pt-2">

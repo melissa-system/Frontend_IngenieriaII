@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/solicitudes/cambio-propietario'
 
@@ -54,17 +54,6 @@ export interface ActualizarEstadoPayload {
   motivoRechazo?: string
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const crearSolicitudCambioPropietario = async (
   payload: CrearSolicitudCambioPropietarioPayload,
@@ -93,9 +82,7 @@ export const crearSolicitudCambioPropietario = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo crear la solicitud de cambio de propietario.'),
-    )
+    throw crearErrorApi(error, 'No se pudo crear la solicitud de cambio de propietario.')
   }
 }
 
@@ -106,12 +93,7 @@ export const obtenerSolicitudesCambioPropietario = async (): Promise<
     const { data } = await apiClient.get<SolicitudCambioPropietario[]>(RESOURCE)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(
-        error,
-        'No se pudieron cargar las solicitudes de cambio de propietario.',
-      ),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes de cambio de propietario.')
   }
 }
 
@@ -126,9 +108,7 @@ export const cambiarEstadoSolicitudCambioPropietario = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
   }
 }
 

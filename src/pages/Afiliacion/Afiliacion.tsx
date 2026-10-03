@@ -1,4 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
+import { MB } from '../../lib/validaciones'
+
+const MAX_TAMANO_DOCUMENTO = 5 * MB
 import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
@@ -367,6 +370,13 @@ function Afiliacion() {
       const file = e.target.files?.[0] ?? null
       if (file && !validarExtension(file.name)) {
         setError(mensajeError)
+        setter(null)
+        e.target.value = ''
+        return
+      }
+      // Mismo límite de peso que el backend (PBI 511).
+      if (file && file.size > MAX_TAMANO_DOCUMENTO) {
+        setError(`El archivo no puede superar los ${MAX_TAMANO_DOCUMENTO / MB} MB.`)
         setter(null)
         e.target.value = ''
         return

@@ -1,23 +1,14 @@
 import { useState, type FormEvent } from 'react'
+import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
+import { esCorreo } from '../../lib/validaciones'
 import { Link } from 'react-router-dom'
-import axios from 'axios'
 import { solicitarResetPassword } from '../../lib/passwordReset.service'
 import AuthLayout from '../../components/auth/AuthLayout'
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
-// Mismo helper que Login.tsx: traduce errores de red/validación del
-// backend a un mensaje legible.
+// Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return 'Ocurrió un error. Intenta de nuevo.'
+  return mensajeDeError(error, 'Ocurrió un error. Intenta de nuevo.')
 }
 
 function RecuperarPassword() {
@@ -26,7 +17,7 @@ function RecuperarPassword() {
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
 
-  const emailValido = EMAIL_REGEX.test(email.trim())
+  const emailValido = esCorreo(email)
   const puedeEnviar = emailValido && !loading
 
   const handleSubmit = async (e: FormEvent) => {

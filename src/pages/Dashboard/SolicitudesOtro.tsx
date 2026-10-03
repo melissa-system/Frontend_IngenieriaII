@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
+import CampoError, { Obligatorio, enfocarPrimerError } from '../../components/common/CampoError'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -118,6 +120,7 @@ function VistaAbonado() {
   const [solicitudes, setSolicitudes] = useState<SolicitudOtro[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [mensaje, setMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
@@ -178,28 +181,30 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [asunto, justificacion])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
 
     if (enviandoRef.current) return
     const asuntoLimpio = asunto.trim()
     const justificacionLimpia = justificacion.trim()
-    if (asuntoLimpio.length < 20) {
-      setError('El asunto debe tener al menos 20 caracteres.')
-      return
-    }
-    if (asuntoLimpio.length > 150) {
-      setError('El asunto no puede superar los 150 caracteres.')
-      return
-    }
-    if (justificacionLimpia.length < 20) {
-      setError('La justificación debe tener al menos 20 caracteres.')
+    if (asuntoLimpio.length < 20) errs.justificacion ??= 'El asunto debe tener al menos 20 caracteres.'
+    if (asuntoLimpio.length > 150) errs.asunto ??= 'El asunto no puede superar los 150 caracteres.'
+    if (justificacionLimpia.length < 20) errs.justificacion ??= 'La justificación debe tener al menos 20 caracteres.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0) {
+      setErroresCampo(errs)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudOtro({
@@ -216,7 +221,9 @@ function VistaAbonado() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -264,6 +271,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="asunto" className="block text-sm font-medium text-primary-700">
               Asunto
+              <Obligatorio />
             </label>
             <input
               id="asunto"
@@ -272,9 +280,11 @@ function VistaAbonado() {
               onChange={(e) => setAsunto(e.target.value)}
               required
               minLength={20}
+              maxLength={150}
               placeholder="Ej: Constancia de no adeudar para trámite bancario"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.asunto} />
             <p className="mt-1 text-xs text-primary-400">
               Resumen corto del trámite (entre 20 y 150 caracteres).
             </p>
@@ -283,6 +293,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
               Justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacion"
@@ -290,10 +301,12 @@ function VistaAbonado() {
               onChange={(e) => setJustificacion(e.target.value)}
               required
               minLength={20}
+              maxLength={2000}
               rows={4}
               placeholder="Explicá en detalle el trámite que solicitás y el motivo"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
@@ -380,9 +393,6 @@ function VistaAbonado() {
                     <td className="max-w-xs px-4 py-3 text-primary-600">{s.justificacion}</td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
-                      {s.motivo_rechazo && s.estado === 'rechazado' && (
-                        <p className="mt-1 text-xs text-red-500">Motivo: {s.motivo_rechazo}</p>
-                      )}
                       {s.motivo_rechazo && s.estado === 'aprobado' && (
                         <p className="mt-1 text-xs text-primary-500">Comentario: {s.motivo_rechazo}</p>
                       )}
@@ -420,6 +430,7 @@ function VistaAdministrador() {
   const [solicitudes, setSolicitudes] = useState<SolicitudOtro[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [mensaje, setMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
@@ -517,31 +528,30 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [asunto, justificacion, busqueda])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
     if (enviandoRef.current) return
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
     const asuntoLimpio = asunto.trim()
     const justificacionLimpia = justificacion.trim()
-    if (asuntoLimpio.length < 20) {
-      setError('El asunto debe tener al menos 20 caracteres.')
-      return
-    }
-    if (asuntoLimpio.length > 150) {
-      setError('El asunto no puede superar los 150 caracteres.')
-      return
-    }
-    if (justificacionLimpia.length < 20) {
-      setError('La justificación debe tener al menos 20 caracteres.')
+    if (asuntoLimpio.length < 20) errs.asunto ??= 'El asunto debe tener al menos 20 caracteres.'
+    if (asuntoLimpio.length > 150) errs.asunto ??= 'El asunto no puede superar los 150 caracteres.'
+    if (justificacionLimpia.length < 20) errs.justificacion ??= 'La justificación debe tener al menos 20 caracteres.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !abonadoElegido) {
+      setErroresCampo(errs)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
       await crearSolicitudOtro({
@@ -559,7 +569,9 @@ function VistaAdministrador() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -671,6 +683,7 @@ function VistaAdministrador() {
                   placeholder="Buscar por nombre o cédula…"
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 />
+                <CampoError mensaje={erroresCampo.abonado} />
                 {busqueda.trim() !== '' && (
                   <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-primary-200 bg-white shadow-lg">
                     {cargandoAbonados ? (
@@ -726,9 +739,11 @@ function VistaAdministrador() {
               onChange={(e) => setAsunto(e.target.value)}
               required
               minLength={20}
+              maxLength={150}
               placeholder="Resumen corto del trámite"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.asunto} />
           </div>
 
           <div className="sm:col-span-2">
@@ -741,10 +756,12 @@ function VistaAdministrador() {
               onChange={(e) => setJustificacion(e.target.value)}
               required
               minLength={20}
+              maxLength={2000}
               rows={3}
               placeholder="Descripción detallada del trámite"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
