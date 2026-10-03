@@ -5,6 +5,12 @@ import {
   useState,
   type FormEvent,
 } from 'react'
+import {
+  esCorreo,
+  esIdentificacion,
+  esTelefono,
+  MENSAJES_VALIDACION,
+} from '../../lib/validaciones'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   nombreVisible,
@@ -45,7 +51,6 @@ const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   rechazado: 'Rechazada',
 }
 
-const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function formatearCedula(valor: string): string {
   const digitos = valor.replace(/\D/g, '').slice(0, 12)
@@ -254,18 +259,30 @@ function VistaAbonado() {
     const correo = correoNuevo.trim()
     const just = justificacion.trim()
     if (nombre.length < 5) {
-      setError('El nombre del nuevo propietario es obligatorio.')
+      setError(
+        nombre
+          ? 'El nombre del nuevo propietario debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo propietario es obligatorio.',
+      )
       return
     }
-    if (cedula.length < 9) {
-      setError('La cédula del nuevo propietario es obligatoria.')
+    if (!esIdentificacion(cedula)) {
+      setError(
+        cedula
+          ? `Cédula del nuevo propietario: ${MENSAJES_VALIDACION.identificacion}`
+          : 'La cédula del nuevo propietario es obligatoria.',
+      )
       return
     }
-    if (telefono.length < 8) {
-      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
+    if (!esTelefono(telefono)) {
+      setError(
+        telefono
+          ? MENSAJES_VALIDACION.telefono
+          : 'El teléfono de contacto del nuevo propietario es obligatorio.',
+      )
       return
     }
-    if (!CORREO_REGEX.test(correo)) {
+    if (!esCorreo(correo)) {
       setError('El correo electrónico del nuevo propietario no es válido.')
       return
     }
@@ -451,7 +468,7 @@ function VistaAbonado() {
                 placeholder="1-2345-6789 o 3-101-123456"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {cedulaNueva.length > 0 && cedulaNueva.trim().length < 9 && (
+              {cedulaNueva.length > 0 && !esIdentificacion(cedulaNueva) && (
                 <p className="mt-1 text-xs text-red-500">Ingresá una identificación válida</p>
               )}
             </div>
@@ -469,6 +486,9 @@ function VistaAbonado() {
                 placeholder="8888-8888"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              {telefonoNuevo.length > 0 && !esTelefono(telefonoNuevo) && (
+                <p className="mt-1 text-xs text-red-500">{MENSAJES_VALIDACION.telefono}</p>
+              )}
             </div>
 
             <div>
@@ -484,7 +504,7 @@ function VistaAbonado() {
                 placeholder="nuevo.titular@correo.com"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {correoNuevo.length > 0 && !CORREO_REGEX.test(correoNuevo.trim()) && (
+              {correoNuevo.length > 0 && !esCorreo(correoNuevo.trim()) && (
                 <p className="mt-1 text-xs text-red-500">Formato de correo no válido</p>
               )}
             </div>
@@ -809,18 +829,30 @@ function VistaAdministrador() {
     const correo = correoNuevo.trim()
     const just = justificacion.trim()
     if (nombre.length < 5) {
-      setError('El nombre del nuevo propietario es obligatorio.')
+      setError(
+        nombre
+          ? 'El nombre del nuevo propietario debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo propietario es obligatorio.',
+      )
       return
     }
-    if (cedula.length < 9) {
-      setError('La cédula del nuevo propietario es obligatoria.')
+    if (!esIdentificacion(cedula)) {
+      setError(
+        cedula
+          ? `Cédula del nuevo propietario: ${MENSAJES_VALIDACION.identificacion}`
+          : 'La cédula del nuevo propietario es obligatoria.',
+      )
       return
     }
-    if (telefono.length < 8) {
-      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
+    if (!esTelefono(telefono)) {
+      setError(
+        telefono
+          ? MENSAJES_VALIDACION.telefono
+          : 'El teléfono de contacto del nuevo propietario es obligatorio.',
+      )
       return
     }
-    if (!CORREO_REGEX.test(correo)) {
+    if (!esCorreo(correo)) {
       setError('El correo electrónico del nuevo propietario no es válido.')
       return
     }

@@ -1,5 +1,15 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
+  entero,
+  fecha,
+  hayErrores,
+  maximo,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import {
   obtenerArticulos,
   crearArticulo,
   actualizarArticulo,
@@ -18,6 +28,16 @@ const CLASIFICACIONES = [
 ] as const
 
 const ARTICULOS_POR_PAGINA = 10
+
+type CampoArticulo =
+  | 'nombre'
+  | 'descripcion'
+  | 'ubicacion'
+  | 'personaRecibe'
+  | 'proveedorId'
+  | 'cantidad'
+  | 'fechaIngreso'
+  | 'umbralMinimo'
 
 function hoyIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -106,6 +126,7 @@ function Inventario() {
   const [editando, setEditando] = useState<Articulo | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresFormulario<CampoArticulo>>({})
 
   // Modal Detalle
   const [viewDetail, setViewDetail] = useState<Articulo | null>(null)
@@ -133,6 +154,8 @@ function Inventario() {
     proveedorId: 0,
     personaRecibe: '',
   })
+  // Al tocar el formulario se limpian los errores; se recalculan al guardar.
+  useEffect(() => setErrores({}), [form])
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -270,26 +293,32 @@ function Inventario() {
     e.preventDefault()
     setFormError(null)
 
-    if (!form.nombre.trim()) {
-      setFormError('El nombre del artículo es obligatorio.')
-      return
-    }
-    if (!form.descripcion.trim()) {
-      setFormError('La descripción es obligatoria.')
-      return
-    }
-    if (!form.ubicacion.trim()) {
-      setFormError('La ubicación es obligatoria.')
-      return
-    }
-    if (!form.personaRecibe.trim()) {
-      setFormError('La persona que recibe es obligatoria.')
-      return
-    }
-    if (!form.proveedorId) {
-      setFormError('Debe seleccionar un proveedor válido.')
-      return
-    }
+    // Checklist común (PBI 511): obligatorios, longitudes máximas, números
+    // enteros no negativos y fecha de ingreso válida (no futura).
+    const nuevos = validarCampos<CampoArticulo>(
+      {
+        nombre: [requerido('El nombre del artículo'), maximo('El nombre', 150)],
+        descripcion: [requerido('La descripción', true), maximo('La descripción', 1000)],
+        ubicacion: [requerido('La ubicación', true), maximo('La ubicación', 255)],
+        personaRecibe: [requerido('La persona que recibe', true), maximo('La persona que recibe', 150)],
+        proveedorId: [(v) => (Number(v) > 0 ? null : 'Debe seleccionar un proveedor válido.')],
+        cantidad: editando ? [] : [requerido('La cantidad', true), entero('La cantidad', 0)],
+        fechaIngreso: editando ? [] : [requerido('La fecha de ingreso', true), fecha({ noFutura: true })],
+        umbralMinimo: [requerido('El umbral mínimo'), entero('El umbral mínimo', 1)],
+      },
+      {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        ubicacion: form.ubicacion,
+        personaRecibe: form.personaRecibe,
+        proveedorId: String(form.proveedorId ?? ''),
+        cantidad: String(form.cantidad ?? ''),
+        fechaIngreso: form.fechaIngreso ?? '',
+        umbralMinimo: String(form.umbralMinimo ?? ''),
+      },
+    )
+    setErrores(nuevos)
+    if (hayErrores(nuevos)) return
 
     setSubmitting(true)
     try {
@@ -389,10 +418,11 @@ function Inventario() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-primary-700">
-              Nombre del artículo *
+              Nombre del artículo
+              <Obligatorio />
             </label>
             <input
               type="text"
@@ -400,13 +430,16 @@ function Inventario() {
               value={form.nombre}
               onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
               placeholder="Ej. Tubería PVC 1/2 pulgada"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.nombre)}`}
+              maxLength={150}
             />
+            <CampoError mensaje={errores.nombre} />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-primary-700">
-              Descripción detallada *
+              Descripción detallada
+              <Obligatorio />
             </label>
             <textarea
               rows={2}
@@ -414,14 +447,17 @@ function Inventario() {
               value={form.descripcion}
               onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
               placeholder="Especificaciones técnicas, marca, uso..."
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.descripcion)}`}
+              maxLength={1000}
             />
+            <CampoError mensaje={errores.descripcion} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Clasificación *
+                Clasificación
+                <Obligatorio />
               </label>
               <select
                 value={form.clasificacion}
@@ -443,7 +479,8 @@ function Inventario() {
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Proveedor *
+                Proveedor
+                <Obligatorio />
               </label>
               <select
                 value={form.proveedorId}
@@ -458,13 +495,15 @@ function Inventario() {
                   </option>
                 ))}
               </select>
+              <CampoError mensaje={errores.proveedorId} />
             </div>
 
             {!editando && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
-                    Cantidad inicial en stock *
+                    Cantidad inicial en stock
+                    <Obligatorio />
                   </label>
                   <input
                     type="number"
@@ -474,13 +513,15 @@ function Inventario() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, cantidad: Number(e.target.value) }))
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.cantidad)}`}
                   />
+                  <CampoError mensaje={errores.cantidad} />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
-                    Fecha de ingreso *
+                    Fecha de ingreso
+                    <Obligatorio />
                   </label>
                   <input
                     type="date"
@@ -490,15 +531,17 @@ function Inventario() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, fechaIngreso: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.fechaIngreso)}`}
                   />
+                  <CampoError mensaje={errores.fechaIngreso} />
                 </div>
               </>
             )}
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Ubicación actual *
+                Ubicación actual
+                <Obligatorio />
               </label>
               <input
                 type="text"
@@ -506,13 +549,16 @@ function Inventario() {
                 value={form.ubicacion}
                 onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))}
                 placeholder="Ej. Bodega A / Taller Central"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.ubicacion)}`}
+                maxLength={255}
               />
+              <CampoError mensaje={errores.ubicacion} />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Persona que recibe *
+                Persona que recibe
+                <Obligatorio />
               </label>
               <input
                 type="text"
@@ -520,13 +566,16 @@ function Inventario() {
                 value={form.personaRecibe}
                 onChange={(e) => setForm((p) => ({ ...p, personaRecibe: e.target.value }))}
                 placeholder="Nombre del encargado"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.personaRecibe)}`}
+                maxLength={150}
               />
+              <CampoError mensaje={errores.personaRecibe} />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Umbral mínimo de alerta *
+                Umbral mínimo de alerta
+                <Obligatorio />
               </label>
               <input
                 type="number"
@@ -545,6 +594,7 @@ function Inventario() {
               <p className="mt-1 text-xs text-primary-400">
                 Alerta cuando el stock disponible sea menor o igual a este valor.
               </p>
+              <CampoError mensaje={errores.umbralMinimo} />
             </div>
           </div>
 

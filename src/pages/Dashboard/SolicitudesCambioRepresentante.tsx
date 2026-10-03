@@ -251,8 +251,12 @@ function VistaAbonado() {
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
     const just = justificacion.trim()
-    if (!nombre) {
-      setError('El nombre del nuevo representante es obligatorio.')
+    if (nombre.length < 5) {
+      setError(
+        nombre
+          ? 'El nombre del nuevo representante debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo representante es obligatorio.',
+      )
       return
     }
     if (!IDENTIFICACION_REGEX.test(cedula)) {
@@ -728,8 +732,12 @@ function VistaAdministrador() {
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
     const just = justificacion.trim()
-    if (!nombre) {
-      setError('El nombre del nuevo representante es obligatorio.')
+    if (nombre.length < 5) {
+      setError(
+        nombre
+          ? 'El nombre del nuevo representante debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo representante es obligatorio.',
+      )
       return
     }
     if (!IDENTIFICACION_REGEX.test(cedula)) {

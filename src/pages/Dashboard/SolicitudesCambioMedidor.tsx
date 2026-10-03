@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Obligatorio } from '../../components/common/CampoError'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -255,6 +256,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="motivoFallaAbonado" className="block text-sm font-medium text-primary-700">
               Motivo de la falla
+              <Obligatorio />
             </label>
             <select
               id="motivoFallaAbonado"
@@ -277,6 +279,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="direccionExactaAbonado" className="block text-sm font-medium text-primary-700">
               Dirección exacta o señas escritas
+              <Obligatorio />
             </label>
             <input
               id="direccionExactaAbonado"
@@ -297,6 +300,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="justificacionAbonado" className="block text-sm font-medium text-primary-700">
               Detalle técnico o justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacionAbonado"
@@ -737,6 +741,7 @@ function VistaAdministrador() {
           <div>
             <label htmlFor="motivoFallaAdmin" className="block text-sm font-medium text-primary-700">
               Motivo de la falla
+              <Obligatorio />
             </label>
             <select
               id="motivoFallaAdmin"
@@ -759,6 +764,7 @@ function VistaAdministrador() {
           <div className="sm:col-span-2">
             <label htmlFor="direccionExactaAdmin" className="block text-sm font-medium text-primary-700">
               Dirección exacta o señas escritas
+              <Obligatorio />
             </label>
             <input
               id="direccionExactaAdmin"
@@ -776,6 +782,7 @@ function VistaAdministrador() {
           <div className="sm:col-span-2">
             <label htmlFor="justificacionAdmin" className="block text-sm font-medium text-primary-700">
               Detalle técnico o justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacionAdmin"

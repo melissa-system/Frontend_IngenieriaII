@@ -1,5 +1,20 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import {
+  correo as reglaCorreo,
+  formatearTelefono,
+  hayErrores,
+  maximo,
+  MB,
+  requerido,
+  telefono as telefonoRegla,
+  validarArchivo,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+
+type CampoPerfil = 'correo' | 'telefono' | 'usuario'
+import {
   obtenerPerfil,
   actualizarPerfil,
   subirFoto,
@@ -58,6 +73,7 @@ function PerfilEditar() {
   const usuarioInicialRef = useRef('')
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [errorDatos, setErrorDatos] = useState<string | null>(null)
+  const [erroresPerfil, setErroresPerfil] = useState<ErroresFormulario<CampoPerfil>>({})
   const [exitoDatos, setExitoDatos] = useState(false)
 
   useEffect(() => {
@@ -115,6 +131,17 @@ function PerfilEditar() {
   function manejarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0]
     if (!archivo) return
+    // Mismo límite que el backend: imágenes JPG, PNG, GIF o WEBP de hasta 2 MB.
+    const errorArchivo = validarArchivo(archivo, {
+      extensiones: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+      maxBytes: 2 * MB,
+      mensajeTipo: 'La foto debe ser una imagen JPG, PNG, GIF o WEBP.',
+    })
+    if (errorArchivo) {
+      setErrorFoto(errorArchivo)
+      e.target.value = ''
+      return
+    }
     setErrorFoto(null)
     setExitoFoto(false)
     setArchivoSeleccionado(archivo)
@@ -152,6 +179,24 @@ function PerfilEditar() {
     setErrorDatos(null)
     setExitoDatos(false)
 
+    // Checklist común (PBI 511): mismo formato de correo, teléfono y nombre
+    // de usuario que valida el backend.
+    const nuevos = validarCampos<CampoPerfil>(
+      {
+        correo: [requerido('El correo electrónico'), reglaCorreo(), maximo('El correo', 150)],
+        telefono: [telefonoRegla()],
+        usuario: [
+          (v) =>
+            !v.trim() || /^[a-zA-Z0-9._-]{3,30}$/.test(v.trim())
+              ? null
+              : 'El nombre de usuario debe tener entre 3 y 30 caracteres: letras, números, ".", "_" o "-", sin espacios.',
+        ],
+      },
+      { correo: correo, telefono, usuario: usuarioInput },
+    )
+    setErroresPerfil(nuevos)
+    if (hayErrores(nuevos)) return
+
     setGuardandoDatos(true)
     try {
       const actualizado = await actualizarPerfil({
@@ -188,6 +233,8 @@ function PerfilEditar() {
     'mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
   const inputReadonlyClass =
     'mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm text-primary-500'
+  const inputConError = (error?: string) =>
+    `${inputClass.replace('border-primary-200', '').replace('focus:border-primary-500', '')} ${bordeCampo(error)}`
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
@@ -286,7 +333,7 @@ function PerfilEditar() {
           </div>
 
           {/* ── Columna derecha: campos en grilla de 2 columnas ── */}
-          <form onSubmit={manejarActualizarDatos} className="space-y-5">
+          <form onSubmit={manejarActualizarDatos} noValidate className="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-primary-700">
@@ -324,10 +371,10 @@ function PerfilEditar() {
                   placeholder={usuario}
                   minLength={3}
                   maxLength={30}
-                  pattern="[a-zA-Z0-9._-]{3,30}"
                   title='Entre 3 y 30 caracteres: letras, números, ".", "_" o "-", sin espacios'
-                  className={inputClass}
+                  className={inputConError(erroresPerfil.usuario)}
                 />
+                <CampoError mensaje={erroresPerfil.usuario} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">
@@ -346,14 +393,16 @@ function PerfilEditar() {
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Correo electrónico
+                  <Obligatorio />
                 </label>
                 <input
                   type="email"
                   value={correo}
+                  maxLength={150}
                   onChange={(e) => setCorreo(e.target.value)}
-                  required
-                  className={inputClass}
+                  className={inputConError(erroresPerfil.correo)}
                 />
+                <CampoError mensaje={erroresPerfil.correo} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">
@@ -362,10 +411,12 @@ function PerfilEditar() {
                 <input
                   type="tel"
                   value={telefono}
-                  onChange={(e) => setTelefono(e.target.value)}
+                  inputMode="numeric"
+                  onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
                   placeholder="8741-8543"
-                  className={inputClass}
+                  className={inputConError(erroresPerfil.telefono)}
                 />
+                <CampoError mensaje={erroresPerfil.telefono} />
               </div>
             </div>
 

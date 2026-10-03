@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { Obligatorio } from '../../components/common/CampoError'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -264,6 +265,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="asunto" className="block text-sm font-medium text-primary-700">
               Asunto
+              <Obligatorio />
             </label>
             <input
               id="asunto"
@@ -272,6 +274,7 @@ function VistaAbonado() {
               onChange={(e) => setAsunto(e.target.value)}
               required
               minLength={20}
+              maxLength={150}
               placeholder="Ej: Constancia de no adeudar para trámite bancario"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
@@ -283,6 +286,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
               Justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacion"
@@ -290,6 +294,7 @@ function VistaAbonado() {
               onChange={(e) => setJustificacion(e.target.value)}
               required
               minLength={20}
+              maxLength={2000}
               rows={4}
               placeholder="Explicá en detalle el trámite que solicitás y el motivo"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
@@ -726,6 +731,7 @@ function VistaAdministrador() {
               onChange={(e) => setAsunto(e.target.value)}
               required
               minLength={20}
+              maxLength={150}
               placeholder="Resumen corto del trámite"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
@@ -741,6 +747,7 @@ function VistaAdministrador() {
               onChange={(e) => setJustificacion(e.target.value)}
               required
               minLength={20}
+              maxLength={2000}
               rows={3}
               placeholder="Descripción detallada del trámite"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"

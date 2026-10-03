@@ -14,6 +14,17 @@ import {
 } from '../../components/Services/empleados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import {
+  cedula,
+  correo,
+  esCorreo,
+  fecha,
+  formatearTelefono,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+} from '../../lib/validaciones'
+import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
 } from '../../components/Services/erroresApi'
@@ -45,15 +56,6 @@ const EMPTY_FORM: FormState = {
 
 const EMPLEADOS_POR_PAGINA = 10
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Da formato al teléfono en el patrón costarricense 8888-8888 (8 dígitos).
-function formatearTelefono(valor: string): string {
-  const d = valor.replace(/\D/g, '').slice(0, 8)
-  if (!d) return ''
-  if (d.length <= 4) return d
-  return `${d.slice(0, 4)}-${d.slice(4)}`
-}
 
 function normalizarBusqueda(valor: string): string {
   return valor
@@ -123,19 +125,21 @@ interface ErroresForm {
   correo?: string
 }
 
+// Checklist común (PBI 511): además de los obligatorios, la cédula, el
+// teléfono, el correo y la fecha se validan con las mismas reglas que el
+// backend (antes solo se revisaba que no estuvieran vacíos).
 function validarForm(form: FormState): ErroresForm {
-  const e: ErroresForm = {}
-  if (!form.nombre.trim()) e.nombre = 'El nombre completo es obligatorio'
-  if (!form.cedula.trim()) e.cedula = 'La cédula es obligatoria'
-  if (!form.puesto.trim()) e.puesto = 'El puesto es obligatorio'
-  if (!form.telefono.trim()) e.telefono = 'El teléfono es obligatorio'
-  if (!form.fecha_ingreso) e.fecha_ingreso = 'La fecha de ingreso es obligatoria'
-  if (!form.correo.trim()) {
-    e.correo = 'El correo es obligatorio'
-  } else if (!EMAIL_REGEX.test(form.correo.trim())) {
-    e.correo = 'El correo no tiene un formato válido'
-  }
-  return e
+  return validarCampos<keyof ErroresForm>(
+    {
+      nombre: [requerido('El nombre completo'), maximo('El nombre', 150)],
+      cedula: [requerido('La cédula', true), cedula(['fisica', 'dimex'])],
+      puesto: [requerido('El puesto'), maximo('El puesto', 100)],
+      telefono: [requerido('El teléfono'), telefono()],
+      fecha_ingreso: [requerido('La fecha de ingreso', true), fecha({ noFutura: true })],
+      correo: [requerido('El correo'), correo(), maximo('El correo', 150)],
+    },
+    form,
+  )
 }
 
 type CedulaLookupStatus = 'idle' | 'found' | 'not-found' | 'error' | 'dimex'
@@ -230,7 +234,7 @@ function EmpleadosPage() {
   useEffect(() => {
     const correo = form.correo.trim()
     // Solo consulta cuando el correo parece completo (formato básico).
-    if (!EMAIL_REGEX.test(correo)) {
+    if (!esCorreo(correo)) {
       setCorreoLookupStatus('idle')
       setCorreoUsuario(null)
       return

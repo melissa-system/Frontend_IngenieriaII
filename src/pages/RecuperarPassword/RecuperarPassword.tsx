@@ -1,10 +1,10 @@
 import { useState, type FormEvent } from 'react'
+import { esCorreo } from '../../lib/validaciones'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { solicitarResetPassword } from '../../lib/passwordReset.service'
 import AuthLayout from '../../components/auth/AuthLayout'
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Mismo helper que Login.tsx: traduce errores de red/validación del
 // backend a un mensaje legible.
@@ -26,7 +26,7 @@ function RecuperarPassword() {
   const [loading, setLoading] = useState(false)
   const [enviado, setEnviado] = useState(false)
 
-  const emailValido = EMAIL_REGEX.test(email.trim())
+  const emailValido = esCorreo(email)
   const puedeEnviar = emailValido && !loading
 
   const handleSubmit = async (e: FormEvent) => {

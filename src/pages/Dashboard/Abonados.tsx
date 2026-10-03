@@ -18,6 +18,18 @@ import {
 } from '../../components/Services/abonados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import {
+  cedula,
+  correo,
+  formatearTelefono,
+  hayErrores,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
 } from '../../components/Services/erroresApi'
@@ -45,8 +57,6 @@ const EMPTY_FORM: FormState = {
   direccion: '',
   numero_plano_catastrado: '',
 }
-
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 // Paginación client-side de la tabla de abonados
 const ABONADOS_POR_PAGINA = 10
@@ -142,28 +152,39 @@ function normalizarBusqueda(t: string) {
     .replace(/[^a-z0-9]/g, '')
 }
 
-function validarForm(form: FormState): string | null {
-  if (!form.nombre.trim()) {
-    return form.tipo_abonado === 'Jurídica'
-      ? 'La razón social es obligatoria.'
-      : 'El nombre es obligatorio.'
-  }
-  if (!form.cedula.trim()) return 'La cédula es obligatoria.'
-  if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
-  if (!form.correo.trim()) return 'El correo es obligatorio.'
-  if (!EMAIL_REGEX.test(form.correo.trim())) {
-    return 'El correo electrónico no tiene un formato válido.'
-  }
-  if (!form.direccion.trim()) return 'La dirección es obligatoria.'
-  if (form.tipo_abonado === 'Jurídica') {
-    if (!form.nombre_representante_legal.trim()) {
-      return 'El nombre del representante legal es obligatorio para persona jurídica.'
-    }
-    if (!form.cedula_representante.trim()) {
-      return 'La cédula del representante legal es obligatoria para persona jurídica.'
-    }
-  }
-  return null
+type ErroresAbonado = ErroresFormulario<keyof FormState>
+
+// Checklist común de validaciones (PBI 511): obligatorios, formato de
+// cédula/teléfono/correo y longitudes máximas, con el mismo criterio que el
+// backend. Devuelve un error por campo para mostrarlo debajo de cada input.
+function validarForm(form: FormState, editando: boolean): ErroresAbonado {
+  const juridica = form.tipo_abonado === 'Jurídica'
+  return validarCampos<keyof FormState>(
+    {
+      // La cédula no se edita: solo se valida al registrar.
+      cedula: editando
+        ? []
+        : [requerido('La cédula', true), cedula(juridica ? ['juridica'] : ['fisica', 'dimex'])],
+      nombre: [
+        requerido(juridica ? 'La razón social' : 'El nombre', juridica),
+        maximo(juridica ? 'La razón social' : 'El nombre', 150),
+      ],
+      nombre_representante_legal: juridica
+        ? [
+            requerido('El nombre del representante legal'),
+            maximo('El nombre del representante', 150),
+          ]
+        : [],
+      cedula_representante: juridica
+        ? [requerido('La cédula del representante legal', true), cedula(['fisica', 'dimex'])]
+        : [],
+      telefono: [requerido('El teléfono'), telefono()],
+      correo: [requerido('El correo electrónico'), correo(), maximo('El correo', 150)],
+      direccion: [requerido('La dirección', true), maximo('La dirección', 255)],
+      numero_plano_catastrado: [maximo('El número de plano', 50)],
+    },
+    form,
+  )
 }
 
 function Abonados() {
@@ -176,6 +197,7 @@ function Abonados() {
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresAbonado>({})
   const [submitting, setSubmitting] = useState(false)
   const [editando, setEditando] = useState<Abonado | null>(null)
   // Id del abonado en edición: descarta respuestas tardías de la precarga
@@ -344,6 +366,7 @@ function Abonados() {
     edicionIdRef.current = null
     setForm(EMPTY_FORM)
     setFormError(null)
+    setErrores({})
     setCedulaLookupStatus('idle')
     setModalOpen(true)
   }
@@ -356,6 +379,7 @@ function Abonados() {
     setEditando(abonado)
     setForm(formDesdeAbonado(abonado))
     setFormError(null)
+    setErrores({})
     setCedulaLookupStatus('idle')
     setReenvioMensaje(null)
     setReenvioError(null)
@@ -385,6 +409,7 @@ function Abonados() {
 
   function updateField(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
+    setErrores((prev) => ({ ...prev, [field]: undefined }))
     // Si cambian la cédula a mano, el resultado de la búsqueda anterior ya no aplica
     if (field === 'cedula' && cedulaLookupStatus !== 'idle') {
       setCedulaLookupStatus('idle')
@@ -442,9 +467,10 @@ function Abonados() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const validationError = validarForm(form)
-    if (validationError) {
-      setFormError(validationError)
+    const erroresForm = validarForm(form, !!editando)
+    setErrores(erroresForm)
+    if (hayErrores(erroresForm)) {
+      setFormError(null)
       return
     }
 
@@ -648,7 +674,7 @@ function Abonados() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-primary-700">
                 Tipo de abonado
@@ -667,6 +693,7 @@ function Abonados() {
             <div>
               <label className="block text-sm font-medium text-primary-700">
                 {esJuridica ? 'Cédula jurídica' : 'Cédula'}
+                <Obligatorio />
               </label>
               <div className="mt-1 flex gap-2">
                 <input
@@ -682,7 +709,7 @@ function Abonados() {
                     )
                   }
                   readOnly={!!editando}
-                  className={`w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none ${
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.cedula)} ${
                     editando
                       ? 'cursor-not-allowed bg-primary-50 text-primary-500'
                       : ''
@@ -700,6 +727,7 @@ function Abonados() {
                   </button>
                 )}
               </div>
+              <CampoError mensaje={errores.cedula} />
               {cedulaLookupStatus === 'found' && (
                 <p className="mt-1.5 text-xs font-medium text-green-600">
                   {esJuridica
@@ -722,14 +750,17 @@ function Abonados() {
             <div>
               <label className="block text-sm font-medium text-primary-700">
                 {esJuridica ? 'Razón social' : 'Nombre completo'}
+                <Obligatorio />
               </label>
               <input
                 type="text"
                 value={form.nombre}
                 onChange={(e) => updateField('nombre', e.target.value)}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.nombre)}`}
                 placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre y apellidos'}
+                maxLength={150}
               />
+              <CampoError mensaje={errores.nombre} />
             </div>
 
             {esJuridica && (
@@ -737,6 +768,7 @@ function Abonados() {
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
                     Nombre del representante legal
+                    <Obligatorio />
                   </label>
                   <input
                     type="text"
@@ -744,61 +776,77 @@ function Abonados() {
                     onChange={(e) =>
                       updateField('nombre_representante_legal', e.target.value)
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.nombre_representante_legal)}`}
                     placeholder="Nombre completo del representante"
+                    maxLength={150}
                   />
+                  <CampoError mensaje={errores.nombre_representante_legal} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
                     Cédula del representante
+                    <Obligatorio />
                   </label>
                   <input
                     type="text"
                     value={form.cedula_representante}
                     onChange={(e) =>
-                      updateField('cedula_representante', e.target.value)
+                      updateField('cedula_representante', formatearCedula(e.target.value, 'fisica'))
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.cedula_representante)}`}
                     placeholder="1-2345-6789"
                   />
+                  <CampoError mensaje={errores.cedula_representante} />
                 </div>
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-primary-700">Teléfono</label>
+                <label className="block text-sm font-medium text-primary-700">
+                  Teléfono
+                  <Obligatorio />
+                </label>
                 <input
                   type="text"
                   value={form.telefono}
-                  onChange={(e) => updateField('telefono', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  onChange={(e) => updateField('telefono', formatearTelefono(e.target.value))}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.telefono)}`}
                   placeholder="8888-8888"
                 />
+                <CampoError mensaje={errores.telefono} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Correo electrónico
+                  <Obligatorio />
                 </label>
                 <input
                   type="email"
                   value={form.correo}
                   onChange={(e) => updateField('correo', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.correo)}`}
                   placeholder="correo@example.com"
+                  maxLength={150}
                 />
+                <CampoError mensaje={errores.correo} />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary-700">Dirección</label>
+              <label className="block text-sm font-medium text-primary-700">
+                Dirección
+                <Obligatorio />
+              </label>
               <textarea
                 value={form.direccion}
                 onChange={(e) => updateField('direccion', e.target.value)}
                 rows={2}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.direccion)}`}
                 placeholder="Dirección completa"
+                maxLength={255}
               />
+              <CampoError mensaje={errores.direccion} />
             </div>
 
             {!esJuridica && (
@@ -812,9 +860,11 @@ function Abonados() {
                   onChange={(e) =>
                     updateField('numero_plano_catastrado', e.target.value)
                   }
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.numero_plano_catastrado)}`}
                   placeholder="Ej. G-1234567-2024"
+                  maxLength={50}
                 />
+                <CampoError mensaje={errores.numero_plano_catastrado} />
               </div>
             )}
 

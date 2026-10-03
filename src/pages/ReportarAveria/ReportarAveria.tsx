@@ -5,6 +5,18 @@ import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 import { partirNombreCompleto } from '../../lib/nombres'
+import {
+  hayErrores,
+  longitud,
+  maximo,
+  MB,
+  REGEX_DIMEX,
+  requerido,
+  validarArchivo,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -20,7 +32,13 @@ type TipoIdentificacion = 'nacional' | 'dimex' | ''
 // El DIMEX no tiene una API pública de consulta (a diferencia de la cédula
 // nacional vía Hacienda), así que validamos el formato: solo números,
 // 11 o 12 dígitos (formato estándar del documento en Costa Rica).
-const DIMEX_REGEX = /^\d{11,12}$/
+const DIMEX_REGEX = REGEX_DIMEX
+
+// Evidencia fotográfica: solo imágenes y hasta 5 MB.
+const EXTENSIONES_IMAGEN = ['.jpg', '.jpeg', '.png', '.webp', '.gif']
+const MAX_IMAGEN = 5 * MB
+
+type CampoAveria = 'otroDescripcion' | 'detalle' | 'imagen'
 
 function ReportarAveria() {
   const [tipoId, setTipoId] = useState<TipoIdentificacion>('')
@@ -34,6 +52,7 @@ function ReportarAveria() {
     datosListos: datosListosNacional,
     nombreEncontrado,
     buscarCedula,
+    errorCedula,
   } = useCedulaLookup()
   const [manualNombre, setManualNombre] = useState('')
 
@@ -52,6 +71,7 @@ function ReportarAveria() {
   // Estados para controlar el envío al backend
   const [submitting, setSubmitting] = useState(false)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresFormulario<CampoAveria>>({})
 
   const datosListos =
     tipoId === 'nacional'
@@ -62,6 +82,17 @@ function ReportarAveria() {
 
   const handleImagenChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null
+    const errorImagen = validarArchivo(file, {
+      extensiones: EXTENSIONES_IMAGEN,
+      maxBytes: MAX_IMAGEN,
+      mensajeTipo: 'Solo se permiten imágenes (JPG, PNG, WEBP o GIF).',
+    })
+    setErrores((prev) => ({ ...prev, imagen: errorImagen ?? undefined }))
+    if (errorImagen) {
+      e.target.value = ''
+      setImagenPreview(null)
+      return
+    }
     setImagenPreview(file ? URL.createObjectURL(file) : null)
   }
 
@@ -84,14 +115,35 @@ function ReportarAveria() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     if (!tokenRecaptcha) return
+
+    // Checklist común (PBI 511), con las mismas reglas que el backend.
+    const nuevos = validarCampos<CampoAveria>(
+      {
+        otroDescripcion:
+          tipoAveria === 'Otro'
+            ? [requerido('El tipo de avería'), maximo('El tipo de avería', 100)]
+            : [],
+        detalle: [requerido('La descripción de la avería', true), longitud('La descripción', 10, 2000)],
+      },
+      { otroDescripcion, detalle, imagen: '' },
+    )
+    if (errores.imagen) nuevos.imagen = errores.imagen
+    setErrores(nuevos)
+    if (hayErrores(nuevos)) return
+
     setSubmitting(true)
     setErrorSubmit(null)
 
-    // Concatenamos para enviar los campos que el backend en NestJS espera (tipo_averia y descripcion)
-    const tipoFinal = tipoAveria === 'Otro' ? otroDescripcion : tipoAveria
+    // El tipo viaja tal cual (incluido "Otro", que es un valor válido para
+    // el backend); lo que el vecino escribe en "Otro" va al inicio de la
+    // descripción. El DIMEX se envía solo con sus dígitos.
+    const tipoFinal = tipoAveria
     const identificacionReportante =
-      tipoId === 'nacional' ? cedula : `DIMEX ${numeroDimex}`
-    const descripcionFinal = detalle
+      tipoId === 'nacional' ? cedula : numeroDimex.trim()
+    const descripcionFinal =
+      tipoAveria === 'Otro'
+        ? `Tipo indicado: ${otroDescripcion.trim()}. ${detalle.trim()}`
+        : detalle.trim()
 
     // El formulario sigue pidiendo un solo "nombre completo" (autocompletado
     // por cédula o escrito a mano); la división en nombre/apellido1/apellido2
@@ -116,7 +168,9 @@ function ReportarAveria() {
       setTokenRecaptcha(null)
       console.error('Error al enviar la avería:', error)
       setErrorSubmit(
-        'No se pudo guardar el reporte en la base de datos. Inténtalo de nuevo.',
+        error instanceof Error && error.message
+          ? error.message
+          : 'No se pudo enviar el reporte. Inténtalo de nuevo.',
       )
     } finally {
       setSubmitting(false)
@@ -165,6 +219,7 @@ function ReportarAveria() {
               className="block text-sm font-medium text-primary-900"
             >
               Tipo de identificación
+              <Obligatorio />
             </label>
             <select
               id="tipoId"
@@ -199,6 +254,7 @@ function ReportarAveria() {
                   className="block text-sm font-medium text-primary-900"
                 >
                   Número de cédula
+                  <Obligatorio />
                 </label>
                 <div className="mt-1 flex flex-col gap-3 sm:flex-row">
                   <input
@@ -225,6 +281,7 @@ function ReportarAveria() {
                     </button>
                   )}
                 </div>
+                <CampoError mensaje={errorCedula} />
               </div>
 
               {lookupStatus === 'found' && (
@@ -286,6 +343,7 @@ function ReportarAveria() {
                   className="block text-sm font-medium text-primary-900"
                 >
                   Número de DIMEX
+                  <Obligatorio />
                 </label>
                 <input
                   id="numeroDimex"
@@ -309,6 +367,7 @@ function ReportarAveria() {
                   className="block text-sm font-medium text-primary-900"
                 >
                   Nombre completo
+                  <Obligatorio />
                 </label>
                 <input
                   id="nombreDimex"
@@ -326,6 +385,7 @@ function ReportarAveria() {
           {datosListos && (
             <form
               onSubmit={handleSubmit}
+              noValidate
               className="space-y-6 border-t border-primary-100 pt-8"
             >
               <div>
@@ -334,6 +394,7 @@ function ReportarAveria() {
                   className="block text-sm font-medium text-primary-900"
                 >
                   Tipo de avería
+                  <Obligatorio />
                 </label>
                 <select
                   id="tipoAveria"
@@ -360,15 +421,21 @@ function ReportarAveria() {
                     className="block text-sm font-medium text-primary-900"
                   >
                     Especifica el tipo de avería
+                    <Obligatorio />
                   </label>
                   <input
                     id="otroDescripcion"
                     type="text"
                     required
                     value={otroDescripcion}
-                    onChange={(e) => setOtroDescripcion(e.target.value)}
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                    maxLength={100}
+                    onChange={(e) => {
+                      setOtroDescripcion(e.target.value)
+                      setErrores((prev) => ({ ...prev, otroDescripcion: undefined }))
+                    }}
+                    className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-primary-900 focus:ring-1 focus:ring-primary-500 focus:outline-none ${bordeCampo(errores.otroDescripcion)}`}
                   />
+                  <CampoError mensaje={errores.otroDescripcion} />
                 </div>
               )}
 
@@ -378,16 +445,22 @@ function ReportarAveria() {
                   className="block text-sm font-medium text-primary-900"
                 >
                   Cuéntanos más sobre la avería
+                  <Obligatorio />
                 </label>
                 <textarea
                   id="detalle"
                   rows={4}
                   required
                   value={detalle}
-                  onChange={(e) => setDetalle(e.target.value)}
-                  placeholder="¿Dónde ocurre? ¿Desde cuándo? ¿Algo más que debamos saber?"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                  maxLength={2000}
+                  onChange={(e) => {
+                    setDetalle(e.target.value)
+                    setErrores((prev) => ({ ...prev, detalle: undefined }))
+                  }}
+                  placeholder="¿Dónde ocurre? ¿Desde cuándo? ¿Algo más que debamos saber? (mínimo 10 caracteres)"
+                  className={`mt-1 w-full rounded-lg border px-4 py-2.5 text-primary-900 focus:ring-1 focus:ring-primary-500 focus:outline-none ${bordeCampo(errores.detalle)}`}
                 />
+                <CampoError mensaje={errores.detalle} />
               </div>
 
               <div>
@@ -405,6 +478,8 @@ function ReportarAveria() {
                   onChange={handleImagenChange}
                   className="mt-1 w-full text-sm text-primary-700 file:mr-4 file:rounded-full file:border-0 file:bg-primary-100 file:px-4 file:py-2 file:text-sm file:font-semibold file:text-primary-700 hover:file:bg-primary-200 disabled:opacity-50"
                 />
+                <p className="mt-1 text-xs text-primary-500">JPG, PNG, WEBP o GIF, hasta 5 MB.</p>
+                <CampoError mensaje={errores.imagen} />
                 {imagenPreview && (
                   <img
                     src={imagenPreview}
