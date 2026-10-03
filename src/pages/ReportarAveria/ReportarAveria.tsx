@@ -1,4 +1,8 @@
 import { useState, type FormEvent, useRef } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
 import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
 import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
@@ -16,7 +20,7 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -129,6 +133,7 @@ function ReportarAveria() {
     )
     if (errores.imagen) nuevos.imagen = errores.imagen
     setErrores(nuevos)
+    enfocarPrimerError()
     if (hayErrores(nuevos)) return
 
     setSubmitting(true)
@@ -167,8 +172,12 @@ function ReportarAveria() {
       recaptchaRef.current?.reiniciar()
       setTokenRecaptcha(null)
       console.error('Error al enviar la avería:', error)
+      setErrores(erroresPorCampo<CampoAveria>(error, { descripcion: 'detalle' }))
+      enfocarPrimerError()
       setErrorSubmit(
-        error instanceof Error && error.message
+        tieneErroresDeCampo(error)
+          ? null
+          : error instanceof Error && error.message
           ? error.message
           : 'No se pudo enviar el reporte. Inténtalo de nuevo.',
       )

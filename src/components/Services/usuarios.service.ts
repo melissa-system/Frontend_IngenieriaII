@@ -1,4 +1,5 @@
 import apiClient from '../../lib/apiClient';
+import { crearErrorApi } from './erroresApi';
 
 export interface VinculoUsuario {
   tipo: 'Abonado' | 'Empleado';
@@ -36,12 +37,8 @@ export const obtenerUsuarios = async (): Promise<Usuario[]> => {
   try {
     const response = await apiClient.get<Usuario[]>('/usuarios');
     return response.data;
-  } catch (error: any) {
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error?.message ||
-      'No se pudo cargar la lista de usuarios';
-    throw new Error(Array.isArray(message) ? message.join(', ') : message);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo cargar la lista de usuarios');
   }
 };
 
@@ -50,12 +47,8 @@ export const obtenerRolesDisponibles = async (): Promise<RolDisponible[]> => {
   try {
     const response = await apiClient.get<RolDisponible[]>('/usuarios/roles-disponibles');
     return response.data;
-  } catch (error: any) {
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error?.message ||
-      'No se pudieron cargar los roles';
-    throw new Error(Array.isArray(message) ? message.join(', ') : message);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudieron cargar los roles');
   }
 };
 
@@ -66,12 +59,8 @@ export const crearUsuario = async (
   try {
     const response = await apiClient.post<Usuario & { asociacion: 'abonado' | 'empleado' | null }>('/usuarios', payload);
     return response.data;
-  } catch (error: any) {
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error?.message ||
-      'No se pudo registrar el usuario';
-    throw new Error(Array.isArray(message) ? message.join(', ') : message);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo registrar el usuario');
   }
 };
 
@@ -85,12 +74,8 @@ export const cambiarEstadoUsuario = async (
       isActive,
     });
     return response.data;
-  } catch (error: any) {
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error?.message ||
-      'No se pudo cambiar el estado del usuario';
-    throw new Error(Array.isArray(message) ? message.join(', ') : message);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo cambiar el estado del usuario');
   }
 };
 
@@ -104,11 +89,7 @@ export const cambiarRolUsuario = async (
       role_id,
     });
     return response.data;
-  } catch (error: any) {
-    const message =
-      error.response?.data?.message ||
-      error.response?.data?.error?.message ||
-      'No se pudo actualizar el rol del usuario';
-    throw new Error(Array.isArray(message) ? message.join(', ') : message);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo actualizar el rol del usuario');
   }
 };

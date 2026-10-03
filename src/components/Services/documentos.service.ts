@@ -1,5 +1,6 @@
-import axios, { type AxiosProgressEvent } from 'axios';
+import { type AxiosProgressEvent } from 'axios';
 import apiClient from '../../lib/apiClient';
+import { crearErrorApi } from './erroresApi';
 
 const RESOURCE = '/documentos';
 
@@ -73,18 +74,6 @@ export interface ActualizarDocumentoPayload {
   estado?: 'Vigente' | 'Inhabilitado';
 }
 
-// Traduce errores de axios/backend a un mensaje legible, igual que en Login/Abonados.
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
-    }
-    const msg = error.response?.data?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg)) return msg.join('. ');
-  }
-  return fallback;
-}
 
 // Sube un documento NUEVO. El nombre debe ser único en todo el repositorio
 // (el backend lo rechaza si ya existe uno con ese nombre) — para reemplazar
@@ -121,7 +110,7 @@ export const crearDocumento = async (
     });
     return data;
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudo subir el documento.'));
+    throw crearErrorApi(error, 'No se pudo subir el documento.');
   }
 };
 
@@ -150,9 +139,7 @@ export const agregarNuevaVersionDocumento = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo agregar la nueva versión.'),
-    );
+    throw crearErrorApi(error, 'No se pudo agregar la nueva versión.');
   }
 };
 
@@ -180,7 +167,7 @@ export const obtenerDocumentos = async (
     );
     return data;
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudieron cargar los documentos.'));
+    throw crearErrorApi(error, 'No se pudieron cargar los documentos.');
   }
 };
 
@@ -197,9 +184,7 @@ export const obtenerDocumentosOficiales = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar los documentos oficiales.'),
-    );
+    throw crearErrorApi(error, 'No se pudieron cargar los documentos oficiales.');
   }
 };
 
@@ -222,7 +207,7 @@ export const actualizarDocumento = async (
     const { data } = await apiClient.patch<Documento>(`${RESOURCE}/${id}`, payload);
     return data;
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudo actualizar el documento.'));
+    throw crearErrorApi(error, 'No se pudo actualizar el documento.');
   }
 };
 
@@ -238,6 +223,6 @@ export const eliminarDocumento = async (
     );
     return data;
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudo eliminar el documento.'));
+    throw crearErrorApi(error, 'No se pudo eliminar el documento.');
   }
 };

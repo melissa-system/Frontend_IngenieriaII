@@ -6,6 +6,8 @@ import {
   useState,
   type FormEvent,
 } from 'react'
+import CampoError, { enfocarPrimerError } from '../../components/common/CampoError'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerPerfil, type PerfilCompleto } from '../../components/Services/perfil.service'
@@ -169,6 +171,7 @@ function VistaAbonado() {
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   // Alterna entre ver el historial y generar una solicitud nueva, en vez de
@@ -242,43 +245,36 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nuevoNombre, nuevaCedula, nuevoCorreo, justificacion])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
 
     if (enviandoRef.current) return
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
     const just = justificacion.trim()
-    if (nombre.length < 5) {
-      setError(
-        nombre
+    if (nombre.length < 5) errs.nombre ??= nombre
           ? 'El nombre del nuevo representante debe tener al menos 5 caracteres.'
-          : 'El nombre del nuevo representante es obligatorio.',
-      )
-      return
-    }
-    if (!IDENTIFICACION_REGEX.test(cedula)) {
-      setError(
-        'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).',
-      )
-      return
-    }
-    if (correo && !CORREO_REGEX.test(correo)) {
-      setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar la foto o PDF de la cédula del nuevo representante.')
+          : 'El nombre del nuevo representante es obligatorio.'
+    if (!IDENTIFICACION_REGEX.test(cedula)) errs.cedula ??= 'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).'
+    if (correo && !CORREO_REGEX.test(correo)) errs.correo ??= 'El correo del nuevo representante no es válido.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar la foto o PDF de la cédula del nuevo representante.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
       const resp = await crearSolicitudCambioRepresentante({
@@ -293,7 +289,9 @@ function VistaAbonado() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { representanteNuevoNombre: 'nombre', representanteNuevoCedula: 'cedula', representanteNuevoCorreo: 'correo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -436,9 +434,7 @@ function VistaAbonado() {
                   placeholder="Nombre completo del nuevo representante"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
                 />
-                {nuevoNombre.length > 0 && nuevoNombre.trim().length < 5 && (
-                  <p className="mt-1 text-xs text-red-500">Mínimo 5 caracteres</p>
-                )}
+                <CampoError mensaje={erroresCampo.nombre} />
               </div>
               <div>
                 <label htmlFor="nuevaCedula" className="block text-sm font-medium text-primary-700">
@@ -454,6 +450,7 @@ function VistaAbonado() {
                   placeholder="Ej: 1-2345-6789 o 3-101-123456"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
                 />
+                <CampoError mensaje={erroresCampo.cedula} />
                 {nuevaCedula.length > 0 && !IDENTIFICACION_REGEX.test(nuevaCedula.trim()) && (
                   <p className="mt-1 text-xs text-red-500">
                     Ingresá una identificación válida (física, jurídica o DIMEX)
@@ -473,6 +470,7 @@ function VistaAbonado() {
                   placeholder="correo@ejemplo.com (opcional)"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
                 />
+                <CampoError mensaje={erroresCampo.correo} />
                 <p className="mt-1 text-xs text-primary-400">
                   Se usa para notificarlo del resultado de la solicitud.
                 </p>
@@ -497,6 +495,7 @@ function VistaAbonado() {
                   placeholder="Explicá brevemente el motivo del cambio de representante"
                   className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
                 />
+                <CampoError mensaje={erroresCampo.justificacion} />
                 {justificacion.length > 0 && justificacion.trim().length < 10 && (
                   <p className="mt-1 text-xs text-red-500">
                     La justificación debe tener al menos 10 caracteres.
@@ -583,9 +582,6 @@ function VistaAbonado() {
                     </td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
-                      {s.motivo_rechazo && (
-                        <p className="mt-1 text-xs text-red-500">{s.motivo_rechazo}</p>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-primary-500">
                       {formatearFecha(s.fecha_creacion)}
@@ -624,6 +620,7 @@ function VistaAdministrador() {
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   const [detalle, setDetalle] = useState<SolicitudCambioRepresentante | null>(null)
@@ -719,47 +716,37 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nuevoNombre, nuevaCedula, nuevoCorreo, justificacion, busqueda])
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
 
     if (enviandoRef.current) return
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
     const just = justificacion.trim()
-    if (nombre.length < 5) {
-      setError(
-        nombre
+    if (nombre.length < 5) errs.nombre ??= nombre
           ? 'El nombre del nuevo representante debe tener al menos 5 caracteres.'
-          : 'El nombre del nuevo representante es obligatorio.',
-      )
-      return
-    }
-    if (!IDENTIFICACION_REGEX.test(cedula)) {
-      setError(
-        'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).',
-      )
-      return
-    }
-    if (correo && !CORREO_REGEX.test(correo)) {
-      setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar la foto o PDF de la cédula del nuevo representante.')
+          : 'El nombre del nuevo representante es obligatorio.'
+    if (!IDENTIFICACION_REGEX.test(cedula)) errs.cedula ??= 'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).'
+    if (correo && !CORREO_REGEX.test(correo)) errs.correo ??= 'El correo del nuevo representante no es válido.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar la foto o PDF de la cédula del nuevo representante.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !abonadoElegido || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
       const resp = await crearSolicitudCambioRepresentante({
@@ -775,7 +762,9 @@ function VistaAdministrador() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { representanteNuevoNombre: 'nombre', representanteNuevoCedula: 'cedula', representanteNuevoCorreo: 'correo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -908,6 +897,7 @@ function VistaAdministrador() {
                   placeholder="Buscar abonado jurídico por nombre o cédula…"
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 />
+                <CampoError mensaje={erroresCampo.abonado} />
                 {busqueda.trim() !== '' && (
                   <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-primary-200 bg-white shadow-lg">
                     {cargandoAbonados ? (
@@ -965,6 +955,7 @@ function VistaAdministrador() {
               placeholder="Nombre completo del nuevo representante"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.nombre} />
           </div>
 
           <div>
@@ -980,6 +971,7 @@ function VistaAdministrador() {
               placeholder="Ej: 1-2345-6789"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.cedula} />
           </div>
 
           <div>
@@ -994,6 +986,7 @@ function VistaAdministrador() {
               placeholder="correo@ejemplo.com (opcional)"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.correo} />
           </div>
 
           <div className="sm:col-span-2">
@@ -1009,6 +1002,7 @@ function VistaAdministrador() {
               placeholder="Motivo del cambio de representante"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">

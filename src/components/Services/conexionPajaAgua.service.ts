@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 export type EstadoSolicitud = 'pendiente' | 'en_proceso' | 'aprobado' | 'rechazado'
 
@@ -231,17 +231,6 @@ export interface CrearSolicitudConexionPayload {
   adjuntos: { tipo: string; etiqueta: string; archivo: File }[]
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const obtenerSolicitudesPajaAguaDisponibles = async (): Promise<
   SolicitudPajaAguaDisponible[]
@@ -252,9 +241,7 @@ export const obtenerSolicitudesPajaAguaDisponibles = async (): Promise<
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar tus solicitudes disponibles.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar tus solicitudes disponibles.')
   }
 }
 
@@ -263,9 +250,7 @@ export const obtenerSolicitudesConexion = async (): Promise<SolicitudConexion[]>
     const { data } = await apiClient.get<SolicitudConexion[]>('/solicitudes/conexion-paja-agua')
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de conexión.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes de conexión.')
   }
 }
 
@@ -308,9 +293,7 @@ export const crearSolicitudConexion = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo guardar la solicitud de conexión.'),
-    )
+    throw crearErrorApi(error, 'No se pudo guardar la solicitud de conexión.')
   }
 }
 
@@ -325,8 +308,6 @@ export const cambiarEstadoSolicitudConexion = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
   }
 }

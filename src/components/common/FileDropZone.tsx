@@ -166,7 +166,7 @@ export function FileDropZone({
       )}
 
       {errorArchivo && (
-        <p className="mt-1.5 text-xs font-medium text-red-600">{errorArchivo}</p>
+        <p data-campo-error className="mt-1.5 text-xs font-medium text-red-600">{errorArchivo}</p>
       )}
     </div>
   )

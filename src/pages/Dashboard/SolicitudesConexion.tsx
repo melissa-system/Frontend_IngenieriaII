@@ -1,5 +1,9 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
   cedula,
   correo,
   hayErrores,
@@ -9,7 +13,7 @@ import {
   type ErroresFormulario,
   type Regla,
 } from '../../lib/validaciones'
-import CampoError, { bordeCampo } from '../../components/common/CampoError'
+import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 
 type CampoConexion =
   | 'valorPrincipal'
@@ -361,10 +365,8 @@ function FormularioConexion({
       { valorPrincipal, valorSecundario, numeroDisponibilidad, nombreFirmante, identificacionFirmante },
     )
     setErroresCampo(nuevos)
-    if (hayErrores(nuevos)) {
-      setErrorGeneral('Revisa los datos marcados en el formulario.')
-      return
-    }
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
 
     if (!firma) {
       setErrorGeneral('Debes firmar la solicitud antes de enviarla.')
@@ -404,7 +406,18 @@ function FormularioConexion({
       })
       onExito()
     } catch (err) {
-      setErrorGeneral(err instanceof Error ? err.message : 'No se pudo enviar la solicitud.')
+      setErroresCampo(
+        erroresPorCampo<CampoConexion>(err, {
+          valorNotificacionPrincipal: 'valorPrincipal',
+          valorNotificacionSecundario: 'valorSecundario',
+        }),
+      )
+      enfocarPrimerError()
+      setErrorGeneral(
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'No se pudo enviar la solicitud.',
+      )
     } finally {
       setEnviando(false)
     }

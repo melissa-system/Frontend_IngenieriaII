@@ -1,5 +1,9 @@
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
   correo as reglaCorreo,
   formatearTelefono,
   hayErrores,
@@ -11,7 +15,7 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 
 type CampoPerfil = 'correo' | 'telefono' | 'usuario'
 import {
@@ -195,6 +199,7 @@ function PerfilEditar() {
       { correo: correo, telefono, usuario: usuarioInput },
     )
     setErroresPerfil(nuevos)
+    enfocarPrimerError()
     if (hayErrores(nuevos)) return
 
     setGuardandoDatos(true)
@@ -215,7 +220,13 @@ function PerfilEditar() {
       usuarioInicialRef.current = usuarioActualizado
       setExitoDatos(true)
     } catch (err) {
-      setErrorDatos(obtenerMensajeError(err))
+      setErroresPerfil(erroresPorCampo<CampoPerfil>(err, { email: 'correo', username: 'usuario' }))
+      enfocarPrimerError()
+      setErrorDatos(
+        tieneErroresDeCampo(err)
+          ? null
+          : obtenerMensajeError(err),
+      )
     } finally {
       setGuardandoDatos(false)
     }

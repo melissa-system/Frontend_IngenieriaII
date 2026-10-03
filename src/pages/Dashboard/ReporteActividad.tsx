@@ -1,5 +1,9 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
   fecha as reglaFecha,
   hayErrores,
   longitud,
@@ -7,7 +11,7 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { Obligatorio } from '../../components/common/CampoError'
+import CampoError, { Obligatorio, enfocarPrimerError } from '../../components/common/CampoError'
 
 type CampoReporte = 'descripcion' | 'fecha' | 'tiempo'
 import {
@@ -129,6 +133,7 @@ function ReporteActividad() {
     if (guardando) return
     const nuevos = validar()
     setErrores(nuevos)
+    enfocarPrimerError()
     if (hayErrores(nuevos)) return
     setGuardando(true)
     setError('')
@@ -150,7 +155,13 @@ function ReporteActividad() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar el reporte.')
+      setErrores(erroresPorCampo<CampoReporte>(err, { fechaTrabajo: 'fecha', tiempoMinutos: 'tiempo' }))
+      enfocarPrimerError()
+      setError(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'No se pudo guardar el reporte.',
+      )
     } finally {
       setGuardando(false)
     }

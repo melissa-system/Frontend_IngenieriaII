@@ -1,5 +1,9 @@
 import React, { useEffect, useState } from 'react';
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../Services/erroresApi';
+import {
   obtenerUsuarios,
   obtenerRolesDisponibles,
   crearUsuario,
@@ -12,7 +16,7 @@ import { OjoAbiertoIcon, OjoCerradoIcon } from '../auth/EyeIcons';
 import { useAuth } from '../../contexts/AuthContext';
 import { esCorreo, MENSAJES_VALIDACION } from '../../lib/validaciones';
 import { passwordCumpleMinimos } from '../../lib/passwordReset.service';
-import CampoError, { Obligatorio, bordeCampo } from '../common/CampoError';
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../common/CampoError';
 
 type ErroresUsuario = Partial<Record<'email' | 'password' | 'rol', string>>;
 
@@ -169,6 +173,7 @@ export const Usuarios: React.FC = () => {
         'La contraseña debe tener al menos 8 caracteres, una letra mayúscula y un número.';
     if (nuevoRoleId === '') nuevos.rol = 'Seleccione un rol.';
     setErroresCrear(nuevos);
+    enfocarPrimerError();
     if (Object.keys(nuevos).length > 0) return;
 
     try {
@@ -194,7 +199,13 @@ export const Usuarios: React.FC = () => {
       cerrarModalCrear();
       await cargarDatos();
     } catch (err: any) {
-      setErrorModalCrear(err.message || 'No se pudo crear el usuario');
+      setErroresCrear(erroresPorCampo<'email' | 'password' | 'rol'>(err, { role_id: 'rol' }));
+      enfocarPrimerError();
+      setErrorModalCrear(
+        tieneErroresDeCampo(err)
+          ? null
+          : err.message || 'No se pudo crear el usuario',
+      );
     } finally {
       setGuardandoUsuario(false);
     }

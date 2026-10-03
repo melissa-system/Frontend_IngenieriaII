@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
   entero,
   fecha,
   hayErrores,
@@ -8,7 +12,7 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 import {
   obtenerArticulos,
   crearArticulo,
@@ -318,6 +322,7 @@ function Inventario() {
       },
     )
     setErrores(nuevos)
+    enfocarPrimerError()
     if (hayErrores(nuevos)) return
 
     setSubmitting(true)
@@ -353,8 +358,12 @@ function Inventario() {
       }
       cerrarModal()
     } catch (err) {
+      setErrores(erroresPorCampo<CampoArticulo>(err))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error ? err.message : 'Ocurrió un error al guardar el artículo.',
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'Ocurrió un error al guardar el artículo.',
       )
     } finally {
       setSubmitting(false)

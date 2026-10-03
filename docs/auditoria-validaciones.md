@@ -12,7 +12,10 @@ y son las mismas que aplica el backend (`src/common/validacion/reglas-validacion
 3. Longitudes mínimas y máximas (`maxLength` en el input y validación), números enteros
    y positivos donde corresponde.
 4. Archivos adjuntos: tipo y peso.
-5. Mensaje de error junto a cada campo (`<CampoError />`), en español.
+5. Mensaje de error junto a cada campo (`<CampoError />`), en español. Al guardar con
+   errores, la pantalla se desplaza al primer campo con error y le pone el cursor
+   (`enfocarPrimerError`). El mensaje de arriba del formulario solo se usa para errores
+   que no son de un campo (por ejemplo, sin conexión).
 
 Se probó cada formulario con datos vacíos, inválidos, en el límite y válidos. Las reglas
 comunes tienen pruebas automáticas en `tests/validaciones.test.ts` (`npm test`).
@@ -25,10 +28,10 @@ comunes tienen pruebas automáticas en `tests/validaciones.test.ts` (`npm test`)
 | Proveedores | Solo se validaba el nombre; teléfono y correo sin formato | Teléfono y correo validados si se escriben, máximos según la base de datos, errores por campo |
 | Artículos (Inventario) | Cantidad y fecha solo con validación del navegador, sin máximos | Cantidad entera ≥ 0, umbral ≥ 1, fecha real y no futura, máximos, errores por campo |
 | Movimientos de inventario | La cantidad aceptaba decimales (1.5) aunque el mensaje pedía entero | Cantidad entera ≥ 1, stock insuficiente junto a la cantidad, máximos, errores por campo |
-| Cambio de propietario | Cédula y teléfono se medían con guiones: "1-2345-67" (7 dígitos) pasaba | Cédula y teléfono con las reglas comunes en las dos vistas (abonado y administración), aviso de teléfono inválido |
-| Cambio de representante | El nombre exigía 5 caracteres en el aviso pero no al enviar | Mínimo de 5 caracteres también al enviar |
-| Cambio de medidor | Campos obligatorios sin asterisco | Asteriscos |
-| Otro trámite | Sin asteriscos; asunto y justificación sin máximo en el input | Asteriscos y `maxLength` (150 y 2000) |
+| Cambio de propietario | Cédula y teléfono se medían con guiones: "1-2345-67" (7 dígitos) pasaba | Cédula y teléfono con las reglas comunes en las dos vistas (abonado y administración); cada error debajo de su campo |
+| Cambio de representante | El nombre exigía 5 caracteres en el aviso pero no al enviar | Mínimo de 5 caracteres también al enviar; cada error debajo de su campo |
+| Cambio de medidor | Campos obligatorios sin asterisco; un solo error en un mensaje arriba | Asteriscos y cada error debajo de su campo |
+| Otro trámite | Sin asteriscos; asunto y justificación sin máximo en el input; un solo error arriba | Asteriscos, `maxLength` (150 y 2000) y cada error debajo de su campo |
 | Conexión de servicio | Sin validar identificación del firmante ni el correo de notificación | Identificación con reglas comunes, correo validado cuando el medio es correo, máximos, errores por campo |
 | Solicitud de paja de agua (pública) | Adjuntos sin control de peso | Límite de 5 MB por archivo, igual que el backend |
 | Reporte de averías (pública) | "Otro" enviaba texto libre como tipo (la BD lo rechazaba), el DIMEX viajaba como "DIMEX 123…", una cédula incompleta se rellenaba con ceros, imagen sin tipo ni peso, sin asteriscos, error genérico | Tipo válido + detalle en la descripción, DIMEX solo con dígitos, cédula de 9 dígitos exactos, imagen ≤ 5 MB, descripción de 10 a 2000 caracteres, asteriscos, mensaje real del servidor |

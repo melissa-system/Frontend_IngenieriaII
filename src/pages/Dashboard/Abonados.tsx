@@ -28,10 +28,12 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
+  erroresPorCampo,
+  tieneErroresDeCampo,
 } from '../../components/Services/erroresApi'
 
 interface FormState {
@@ -469,6 +471,7 @@ function Abonados() {
     e.preventDefault()
     const erroresForm = validarForm(form, !!editando)
     setErrores(erroresForm)
+    enfocarPrimerError()
     if (hayErrores(erroresForm)) {
       setFormError(null)
       return
@@ -507,8 +510,12 @@ function Abonados() {
         setConfirmacion('Abonado actualizado correctamente.')
         setTimeout(() => setConfirmacion(null), 3000)
       } catch (err) {
+        setErrores(erroresPorCampo<keyof FormState>(err))
+        enfocarPrimerError()
         setFormError(
-          err instanceof Error
+          tieneErroresDeCampo(err)
+            ? null
+            : err instanceof Error
             ? err.message
             : 'No se pudieron guardar los cambios. Intenta de nuevo.',
         )
@@ -556,8 +563,12 @@ function Abonados() {
         setConfirmacionCedula({ info: err.info, payload })
         return
       }
+      setErrores(erroresPorCampo<keyof FormState>(err))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error
           ? err.message
           : 'No se pudo registrar el abonado. Intenta de nuevo.',
       )
@@ -582,8 +593,12 @@ function Abonados() {
       setTimeout(() => setConfirmacion(null), 3000)
     } catch (err) {
       setConfirmacionCedula(null)
+      setErrores(erroresPorCampo<keyof FormState>(err))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error
           ? err.message
           : 'No se pudo registrar el abonado. Intenta de nuevo.',
       )

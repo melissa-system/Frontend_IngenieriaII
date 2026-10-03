@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
   correo,
   formatearTelefono,
   hayErrores,
@@ -9,7 +13,7 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { Obligatorio, bordeCampo } from '../../components/common/CampoError'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 
 type CampoProveedor = 'nombre' | 'contacto' | 'telefono' | 'correo' | 'direccion'
 import {
@@ -132,6 +136,7 @@ function Proveedores() {
       formProveedor,
     )
     setErrores(nuevos)
+    enfocarPrimerError()
     return !hayErrores(nuevos)
   }
 
@@ -193,7 +198,13 @@ function Proveedores() {
       notificarExito('Proveedor registrado exitosamente.')
       void cargarDatos()
     } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al registrar el proveedor')
+      setErrores(erroresPorCampo<CampoProveedor>(err))
+      enfocarPrimerError()
+      setErrorFormProveedor(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'Error al registrar el proveedor',
+      )
     }
   }
 
@@ -209,7 +220,13 @@ function Proveedores() {
       notificarExito('Proveedor actualizado exitosamente.')
       void cargarDatos()
     } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al actualizar el proveedor')
+      setErrores(erroresPorCampo<CampoProveedor>(err))
+      enfocarPrimerError()
+      setErrorFormProveedor(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'Error al actualizar el proveedor',
+      )
     }
   }
 

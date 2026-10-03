@@ -1,5 +1,9 @@
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
   entero,
   hayErrores,
   maximo,
@@ -7,7 +11,7 @@ import {
   validarCampos,
   type ErroresFormulario,
 } from '../../lib/validaciones'
-import CampoError, { bordeCampo } from '../../components/common/CampoError'
+import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 
 type CampoMovimiento = 'articulo' | 'cantidad' | 'responsable' | 'destino' | 'motivo'
 import {
@@ -167,6 +171,7 @@ function MovimientosStock() {
       },
     )
     setErrores(nuevos)
+    enfocarPrimerError()
     if (hayErrores(nuevos) || !articuloActual) return
 
     const responsableDestinoCombined =
@@ -205,8 +210,12 @@ function MovimientosStock() {
         `Movimiento registrado exitosamente: ${res.articulo.nombre} tiene ahora ${res.articulo.cantidad_disponible} unidades disponibles.`,
       )
     } catch (err) {
+      setErrores(erroresPorCampo<CampoMovimiento>(err, { responsableDestino: 'responsable' }))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error ? err.message : 'Error al registrar el movimiento de inventario.',
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'Error al registrar el movimiento de inventario.',
       )
     } finally {
       setSubmitting(false)

@@ -27,6 +27,7 @@ import {
 import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
+  erroresPorCampo,
 } from '../../components/Services/erroresApi'
 
 const PUESTOS = [
@@ -128,6 +129,14 @@ interface ErroresForm {
 // Checklist común (PBI 511): además de los obligatorios, la cédula, el
 // teléfono, el correo y la fecha se validan con las mismas reglas que el
 // backend (antes solo se revisaba que no estuvieran vacíos).
+// Errores que devuelve la API: si vienen por campo se muestran junto a cada
+// input; si no, el mensaje general queda bajo el nombre (como antes).
+function erroresDelServidor(err: unknown, fallback = 'No se pudieron guardar los cambios.'): ErroresForm {
+  const porCampo = erroresPorCampo<keyof ErroresForm>(err, { email: 'correo' })
+  if (Object.keys(porCampo).length > 0) return porCampo
+  return { nombre: err instanceof Error && err.message ? err.message : fallback }
+}
+
 function validarForm(form: FormState): ErroresForm {
   return validarCampos<keyof ErroresForm>(
     {
@@ -380,7 +389,7 @@ function EmpleadosPage() {
           setTimeout(() => setConfirmacion(null), 3000)
         })
         .catch((err: Error) => {
-          setFormError({ nombre: err.message })
+          setFormError(erroresDelServidor(err))
         })
         .finally(() => setSubmitting(false))
     } else {
@@ -404,12 +413,7 @@ function EmpleadosPage() {
             setConfirmacionCedula({ info: err.info, payload })
             return
           }
-          setFormError({
-            nombre:
-              err instanceof Error
-                ? err.message
-                : 'No se pudo registrar el empleado.',
-          })
+          setFormError(erroresDelServidor(err, 'No se pudo registrar el empleado.'))
         })
         .finally(() => setSubmitting(false))
     }
@@ -732,7 +736,7 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {formError.cedula && (
-                  <p className="mt-1 text-xs text-red-600">{formError.cedula}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.cedula}</p>
                 )}
               </div>
 
@@ -752,7 +756,7 @@ function EmpleadosPage() {
                   className={formError.nombre ? inputErrorClass : inputClass}
                 />
                 {formError.nombre && (
-                  <p className="mt-1 text-xs text-red-600">{formError.nombre}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.nombre}</p>
                 )}
               </div>
 
@@ -779,7 +783,7 @@ function EmpleadosPage() {
                   ))}
                 </select>
                 {formError.puesto && (
-                  <p className="mt-1 text-xs text-red-600">{formError.puesto}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.puesto}</p>
                 )}
               </div>
 
@@ -801,7 +805,7 @@ function EmpleadosPage() {
                     className={formError.telefono ? inputErrorClass : inputClass}
                   />
                   {formError.telefono && (
-                    <p className="mt-1 text-xs text-red-600">{formError.telefono}</p>
+                    <p data-campo-error className="mt-1 text-xs text-red-600">{formError.telefono}</p>
                   )}
                 </div>
                 <div>
@@ -818,7 +822,7 @@ function EmpleadosPage() {
                     className={formError.fecha_ingreso ? inputErrorClass : inputClass}
                   />
                   {formError.fecha_ingreso && (
-                    <p className="mt-1 text-xs text-red-600">{formError.fecha_ingreso}</p>
+                    <p data-campo-error className="mt-1 text-xs text-red-600">{formError.fecha_ingreso}</p>
                   )}
                 </div>
               </div>
@@ -850,7 +854,7 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {formError.correo && (
-                  <p className="mt-1 text-xs text-red-600">{formError.correo}</p>
+                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.correo}</p>
                 )}
               </div>
 
