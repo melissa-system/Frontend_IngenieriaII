@@ -1,3 +1,5 @@
+import { ordenar, siguienteOrden, type OrdenTabla } from '../../lib/tabla'
+import Paginador from '../../components/ui/Paginador'
 import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
@@ -211,6 +213,7 @@ function Inventario() {
   // Filtrado & Paginación
   // ------------------------------------------------------------------
   const q = normalizarBusqueda(search)
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
   const filtered = useMemo(() => {
     return articulos.filter((a) => {
       if (filtroClasificacion !== 'Todas' && a.clasificacion !== filtroClasificacion) {
@@ -232,8 +235,14 @@ function Inventario() {
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / ARTICULOS_POR_PAGINA))
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * ARTICULOS_POR_PAGINA
-  const filasVisibles = filtered.slice(primeraFila, primeraFila + ARTICULOS_POR_PAGINA)
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+  const ordenados = ordenar(filtered, orden, {
+    nombre: (a) => a.nombre,
+    clasificacion: (a) => a.clasificacion,
+    stock: (a) => a.cantidad_disponible,
+    ubicacion: (a) => a.ubicacion,
+    estado: (a) => a.estado,
+  })
+  const filasVisibles = ordenados.slice(primeraFila, primeraFila + ARTICULOS_POR_PAGINA)
 
   function manejarBusqueda(val: string) {
     setSearch(val)
@@ -920,53 +929,9 @@ function Inventario() {
         <ErrorState mensaje={loadError} onReintentar={cargarDatos} />
       ) : (
         /* Tabla de Artículos */
-        <Table cabecera={['Artículo', 'Clasificación', 'Stock Disp.', 'Ubicación', 'Estado', 'Acciones']} pie={<>{/* Barra de Paginación */}
+        <Table orden={orden} onOrdenar={(c) => { setOrden(siguienteOrden(orden, c)); setPagina(1) }} cabecera={[{ etiqueta: 'Artículo', clave: 'nombre' }, { etiqueta: 'Clasificación', clave: 'clasificacion' }, { etiqueta: 'Stock Disp.', clave: 'stock' }, { etiqueta: 'Ubicación', clave: 'ubicacion' }, { etiqueta: 'Estado', clave: 'estado' }, 'Acciones']} pie={<>{/* Barra de Paginación */}
           {!loading && articulos.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-primary-500">
-                Mostrando{' '}
-                {filtered.length === 0
-                  ? 0
-                  : `${primeraFila + 1}–${Math.min(
-                      primeraFila + ARTICULOS_POR_PAGINA,
-                      filtered.length,
-                    )}`}{' '}
-                de {filtered.length} artículos
-                {search ? ` (filtro: "${search}")` : ''}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="secondary" size="sm"
-                  type="button"
-                  onClick={() => setPagina(paginaActual - 1)}
-                  disabled={paginaActual === 1}>
-                  ‹ Anterior
-                </Button>
-                {numerosPagina.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPagina(n)}
-                    disabled={n === paginaActual}
-                    aria-current={n === paginaActual ? 'page' : undefined}
-                    className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                      n === paginaActual
-                        ? 'bg-primary-700 text-white'
-                        : 'text-primary-700 hover:bg-primary-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <Button
-                  variant="secondary" size="sm"
-                  type="button"
-                  onClick={() => setPagina(paginaActual + 1)}
-                  disabled={paginaActual === totalPaginas}>
-                  Siguiente ›
-                </Button>
-              </div>
-            </div>
+            <Paginador total={filtered.length} pagina={paginaActual} porPagina={ARTICULOS_POR_PAGINA} onCambiar={setPagina} etiqueta="artículos" filtro={search} />
           )}</>}>
               {loading ? (
                 <FilasEsqueleto columnas={6} />

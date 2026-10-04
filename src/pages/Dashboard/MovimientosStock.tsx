@@ -1,3 +1,4 @@
+import Paginador from '../../components/ui/Paginador'
 import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
@@ -258,7 +259,6 @@ function MovimientosStock() {
     primeraFila,
     primeraFila + MOVIMIENTOS_POR_PAGINA,
   )
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   function manejarBusqueda(val: string) {
     setSearch(val)
@@ -603,51 +603,7 @@ function MovimientosStock() {
         ) : (
           <Table cabecera={['Fecha y Hora', 'Artículo', 'Tipo', 'Cantidad', 'Destino / Responsable', 'Registrado por', 'Motivo']} pie={<>{/* Paginación */}
             {!loading && movimientos.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-primary-500">
-                  Mostrando{' '}
-                  {filteredMovimientos.length === 0
-                    ? 0
-                    : `${primeraFila + 1}–${Math.min(
-                        primeraFila + MOVIMIENTOS_POR_PAGINA,
-                        filteredMovimientos.length,
-                      )}`}{' '}
-                  de {filteredMovimientos.length} movimientos
-                  {search ? ` (filtro: "${search}")` : ''}
-                </p>
-                <div className="flex items-center gap-1">
-                  <Button
-                    variant="secondary" size="sm"
-                    type="button"
-                    onClick={() => setPagina(paginaActual - 1)}
-                    disabled={paginaActual === 1}>
-                    ‹ Anterior
-                  </Button>
-                  {numerosPagina.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setPagina(n)}
-                      disabled={n === paginaActual}
-                      aria-current={n === paginaActual ? 'page' : undefined}
-                      className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                        n === paginaActual
-                          ? 'bg-primary-700 text-white'
-                          : 'text-primary-700 hover:bg-primary-50'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <Button
-                    variant="secondary" size="sm"
-                    type="button"
-                    onClick={() => setPagina(paginaActual + 1)}
-                    disabled={paginaActual === totalPaginas}>
-                    Siguiente ›
-                  </Button>
-                </div>
-              </div>
+              <Paginador total={filteredMovimientos.length} pagina={paginaActual} porPagina={MOVIMIENTOS_POR_PAGINA} onCambiar={setPagina} etiqueta="movimientos" filtro={search} />
             )}</>}>
                 {loading ? (
                   <FilasEsqueleto columnas={7} />

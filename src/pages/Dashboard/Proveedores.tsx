@@ -1,3 +1,5 @@
+import { ordenar, siguienteOrden, type OrdenTabla } from '../../lib/tabla'
+import Paginador from '../../components/ui/Paginador'
 import Alerta from '../../components/ui/Alerta'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
@@ -262,6 +264,8 @@ function Proveedores() {
     }
   }
 
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
+
   // Búsqueda y paginación client-side: si la lista encoge, paginaActual se
   // autocorrige y nunca queda apuntando a una página vacía.
   const q = normalizarBusqueda(search)
@@ -283,11 +287,15 @@ function Proveedores() {
   )
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * PROVEEDORES_POR_PAGINA
-  const filasVisibles = filtrados.slice(
+  const ordenados = ordenar(filtrados, orden, {
+    nombre: (p) => p.nombre,
+    tipo: (p) => p.tipo,
+    estado: (p) => p.estado,
+  })
+  const filasVisibles = ordenados.slice(
     primeraFila,
     primeraFila + PROVEEDORES_POR_PAGINA,
   )
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   // Buscar siempre regresa a la primera página; navegar páginas NO toca el
   // término de búsqueda, así que el filtro se mantiene entre páginas.
@@ -366,47 +374,8 @@ function Proveedores() {
       </div>
 
       {/* Tabla de Proveedores */}
-      <Table cabecera={['Proveedor', 'Tipo', 'Contacto', 'Teléfono', 'Correo', 'Estado', 'Acciones']} pie={<>{!cargando && filtrados.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {`${primeraFila + 1}–${Math.min(primeraFila + PROVEEDORES_POR_PAGINA, filtrados.length)}`}{' '}
-              de {filtrados.length} proveedores
-              {search ? ` (filtro: "${search}")` : ''}
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="secondary" size="sm"
-                type="button"
-                onClick={() => setPagina(paginaActual - 1)}
-                disabled={paginaActual === 1}>
-                ‹ Anterior
-              </Button>
-              {numerosPagina.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPagina(n)}
-                  disabled={n === paginaActual}
-                  aria-current={n === paginaActual ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                    n === paginaActual
-                      ? 'bg-primary-700 text-white'
-                      : 'text-primary-700 hover:bg-primary-50'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <Button
-                variant="secondary" size="sm"
-                type="button"
-                onClick={() => setPagina(paginaActual + 1)}
-                disabled={paginaActual === totalPaginas}>
-                Siguiente ›
-              </Button>
-            </div>
-          </div>
+      <Table orden={orden} onOrdenar={(c) => { setOrden(siguienteOrden(orden, c)); setPagina(1) }} cabecera={[{ etiqueta: 'Proveedor', clave: 'nombre' }, { etiqueta: 'Tipo', clave: 'tipo' }, 'Contacto', 'Teléfono', 'Correo', { etiqueta: 'Estado', clave: 'estado' }, 'Acciones']} pie={<>{!cargando && filtrados.length > 0 && (
+          <Paginador total={filtrados.length} pagina={paginaActual} porPagina={PROVEEDORES_POR_PAGINA} onCambiar={setPagina} etiqueta="proveedores" filtro={search} />
         )}</>}>
             {cargando ? (
               <FilasEsqueleto columnas={7} />

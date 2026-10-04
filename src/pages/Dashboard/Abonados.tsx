@@ -1,3 +1,5 @@
+import { ordenar, siguienteOrden, type OrdenTabla } from '../../lib/tabla'
+import Paginador from '../../components/ui/Paginador'
 import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
@@ -334,6 +336,7 @@ function Abonados() {
   }
 
   const q = normalizarBusqueda(search)
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
   const filtered =
     q === ''
       ? abonados
@@ -354,11 +357,17 @@ function Abonados() {
   )
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * ABONADOS_POR_PAGINA
-  const filasVisibles = filtered.slice(
+  const ordenados = ordenar(filtered, orden, {
+    cedula: (a) => a.cedula,
+    nombre: (a) => nombreVisible(a),
+    tipo: (a) => a.tipo_abonado,
+    estado: (a) => a.estado,
+    registro: (a) => a.fecha_registro,
+  })
+  const filasVisibles = ordenados.slice(
     primeraFila,
     primeraFila + ABONADOS_POR_PAGINA,
   )
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   // Buscar siempre regresa a la primera página; navegar páginas NO toca el
   // término de búsqueda, así que el filtro se mantiene entre páginas.
@@ -1270,49 +1279,8 @@ function Abonados() {
       {loadError ? (
         <ErrorState mensaje={loadError} onReintentar={cargarAbonados} />
       ) : (
-        <Table cabecera={['Cédula', 'Nombre', 'Tipo', 'Teléfono', 'Estado', 'Registro', 'Acciones']} pie={<>{!loading && abonados.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-primary-500">
-                Mostrando{' '}
-                {filtered.length === 0
-                  ? 0
-                  : `${primeraFila + 1}–${Math.min(primeraFila + ABONADOS_POR_PAGINA, filtered.length)}`}{' '}
-                de {filtered.length} abonados
-                {search ? ` (filtro: "${search}")` : ''}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="secondary" size="sm"
-                  type="button"
-                  onClick={() => setPagina(paginaActual - 1)}
-                  disabled={paginaActual === 1}>
-                  ‹ Anterior
-                </Button>
-                {numerosPagina.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPagina(n)}
-                    disabled={n === paginaActual}
-                    aria-current={n === paginaActual ? 'page' : undefined}
-                    className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                      n === paginaActual
-                        ? 'bg-primary-700 text-white'
-                        : 'text-primary-700 hover:bg-primary-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <Button
-                  variant="secondary" size="sm"
-                  type="button"
-                  onClick={() => setPagina(paginaActual + 1)}
-                  disabled={paginaActual === totalPaginas}>
-                  Siguiente ›
-                </Button>
-              </div>
-            </div>
+        <Table orden={orden} onOrdenar={(c) => { setOrden(siguienteOrden(orden, c)); setPagina(1) }} cabecera={[{ etiqueta: 'Cédula', clave: 'cedula' }, { etiqueta: 'Nombre', clave: 'nombre' }, { etiqueta: 'Tipo', clave: 'tipo' }, 'Teléfono', { etiqueta: 'Estado', clave: 'estado' }, { etiqueta: 'Registro', clave: 'registro' }, 'Acciones']} pie={<>{!loading && abonados.length > 0 && (
+            <Paginador total={filtered.length} pagina={paginaActual} porPagina={ABONADOS_POR_PAGINA} onCambiar={setPagina} etiqueta="abonados" filtro={search} />
           )}</>}>
               {loading ? (
                 <FilasEsqueleto columnas={7} />
