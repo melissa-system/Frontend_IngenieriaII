@@ -17,7 +17,7 @@ import {
   FileDropZone,
   validarDocumento,
 } from '../../components/common/FileDropZone'
-import Toast from '../../components/Dashboard/Toast'
+import Toast from '../../components/ui/Toast'
 import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
 import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
 import {

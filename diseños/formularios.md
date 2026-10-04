@@ -119,14 +119,14 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 <div className="flex justify-end gap-3 pt-2">
   <button
     type="submit"
-    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+    className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
   >
     Guardar cambios
   </button>
   <button
     type="button"
     onClick={cerrarModal}
-    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+    className="rounded-full border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
   >
     Cancelar
   </button>
@@ -193,8 +193,8 @@ Regla estándar para todas las páginas del dashboard que muestran una tabla/lis
 
   {/* Buscar/filtrar/ordenar: fila propia, alineada a la izquierda */}
   <div className="flex flex-wrap items-center gap-2">
-    <input placeholder="Buscar..." className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm sm:w-96" />
-    <select className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700">...</select>
+    <input placeholder="Buscar..." className="h-10 w-full rounded-full border border-primary-200 px-4 text-sm sm:w-96" />
+    <select className="h-10 rounded-full border border-primary-200 px-4 text-sm text-primary-700">...</select>
   </div>
 </div>
 ```
@@ -203,19 +203,19 @@ Si la página no tiene botón de crear (por ejemplo Solicitudes, que solo se gen
 
 ### Botón de orden + select de filtro, misma fila
 
-Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más antiguas / ↓ Más recientes") como un `<select>` de filtro por estado, ambos van en la misma fila de controles, con **la misma altura fija** (`h-10`) para que no se vean descuadrados entre sí. El botón de orden usa el estilo de botón primario (fondo azul), el select mantiene el borde normal:
+Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más antiguas / ↓ Más recientes") como un `<select>` de filtro por estado, ambos van en la misma fila de controles, con **la misma altura fija** (`h-10`) para que no se vean descuadrados entre sí. El botón de orden usa el estilo de botón primario (fondo azul, `rounded-full`), el select mantiene el borde normal:
 
 ```jsx
 <div className="flex flex-wrap items-center gap-2">
   <button
     type="button"
     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-    className="flex h-10 items-center gap-1 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
+    className="flex h-10 items-center gap-1 rounded-full bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
   >
     {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
   </button>
 
-  <select className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+  <select className="h-10 rounded-full border border-primary-200 px-4 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
     ...
   </select>
 </div>

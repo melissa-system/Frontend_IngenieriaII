@@ -45,7 +45,7 @@ import { FileDropZone, validarDocumento } from '../../components/common/FileDrop
 import { FirmaCanvas } from '../../components/common/FirmaCanvas'
 import { extensionDesdeUrl } from '../../lib/descargarArchivo'
 import { descargarPdfConexion, generarPdfConexion } from '../../lib/generarPdfConexion'
-import Toast, { type TipoToast } from '../../components/Dashboard/Toast'
+import Toast, { type TipoToast } from '../../components/ui/Toast'
 import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
 import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
 import {

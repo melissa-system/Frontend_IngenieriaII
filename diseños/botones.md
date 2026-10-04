@@ -56,7 +56,7 @@ Para acciones menores dentro de un flujo, como "Volver al inicio" arriba de un f
 
 ## Reglas generales
 
-- El radio de los botones **siempre** es `rounded-full` en el landing (no `rounded-lg` ni `rounded-md`). Eso solo se usa en el dashboard para botones secundarios tipo "Cancelar" dentro de modales — no lo traigas al landing.
+- El radio de los botones **siempre** es `rounded-full`, en el landing Y en el dashboard (modales, tablas, filtros): nunca `rounded-lg` ni `rounded-md`. Es una decisión única para todo el sistema. En el dashboard usá el componente `Button` (ver `componentes.md`). `rounded-lg` queda solo para inputs y textareas.
 - Tamaño de texto: `text-sm font-semibold` para casi todos. Los enlaces de texto plano usan `font-medium`.
 - Padding estándar: `px-6 py-3` para botones grandes, `px-6 py-2.5` para los de contorno un poco más chicos.
 - Cuando un botón puede quedar deshabilitado (ej. mientras se envía un formulario), agregá `disabled:opacity-60` (o `50`).

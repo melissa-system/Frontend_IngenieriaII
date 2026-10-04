@@ -11,6 +11,8 @@ Esta carpeta es la referencia de diseño del **landing público** (la parte del 
 - `botones.md` — todas las variantes de botón que existen (relleno, contorno, texto) y cuándo usar cada una.
 - `formularios.md` — cómo se ven los labels, inputs, selects, textareas y campos de archivo en los formularios (Solicitud de paja de agua, Reportar avería).
 - `tarjetas-y-secciones.md` — cómo se arman las cards (bordes, sombra, esquinas) y el espaciado/estructura de las secciones del landing.
+- `componentes.md` — los componentes reutilizables de `src/components/ui/` (Button, Modal, campos, Table, Badge, Tabs, PageHeader, EmptyState, Toast) y la **lista de revisión** para comparar cada vista contra la guía.
+- `lista-revision-vistas.md` — estado de revisión de cada vista del sistema contra esa lista.
 - `iconos.md` — el estilo de los íconos SVG que se usan en todo el sitio.
 
 ## Cómo está construido el proyecto (para ubicarse)
@@ -22,6 +24,6 @@ Frontend_IngeII/src/index.css   → paleta de colores y fuentes (bloque @theme)
 Frontend_IngeII/index.html      → import de Google Fonts (Inter y Poppins)
 ```
 
-Todo lo demás (botones, formularios, cards) son clases de Tailwind aplicadas directo en cada componente — no hay un archivo central de componentes de UI todavía, así que la forma de mantener la simetría es **copiar las clases exactas que están documentadas acá**, no improvisar variaciones parecidas.
+Todo lo demás (botones, formularios, cards) son clases de Tailwind aplicadas directo en cada componente — los componentes estándar viven en `src/components/ui/` (ver `componentes.md`): **usalos en vez de escribir clases a mano**. Si algo no está cubierto por un componente, copiá las clases exactas documentadas acá, no improvises variaciones parecidas.
 
 Si cambian los colores o las fuentes en `index.css`/`index.html`, hay que actualizar `colores.md` y `tipografia.md` para que no queden desactualizados.
