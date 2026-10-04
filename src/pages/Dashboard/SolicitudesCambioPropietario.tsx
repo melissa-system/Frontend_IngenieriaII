@@ -29,7 +29,6 @@ import {
   obtenerSolicitudesCambioPropietario,
   MOTIVOS_TRASPASO,
   type SolicitudCambioPropietario,
-  type EstadoSolicitud,
   type MotivoTraspaso,
 } from '../../components/Services/cambioPropietario.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
@@ -45,14 +44,12 @@ import {
   useFiltrosSolicitudes,
   ESTADOS_ABONADO,
 } from '../../lib/useFiltrosSolicitudes'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
-
+import Modal from '../../components/ui/Modal'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
+import Tabs from '../../components/ui/Tabs'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
 
 function formatearCedula(valor: string): string {
   const digitos = valor.replace(/\D/g, '').slice(0, 12)
@@ -77,50 +74,10 @@ function formatearTelefono(valor: string): string {
   return `${digitos.slice(0, 4)}-${digitos.slice(4)}`
 }
 
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-800'
-    case 'aprobado':
-      return 'bg-green-100 text-green-800'
-    case 'rechazado':
-      return 'bg-red-100 text-red-800'
-  }
-}
-
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(
-        estado,
-      )}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
-
-function EmptyState({
-  titulo,
-  descripcion,
-}: {
-  titulo: string
-  descripcion: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -338,30 +295,14 @@ function VistaAbonado() {
         </div>
       )}
 
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Mis solicitudes
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Nueva solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis solicitudes' },
+          { valor: 'crear', etiqueta: 'Nueva solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <>
@@ -386,36 +327,36 @@ function VistaAbonado() {
           </h3>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-primary-500">
                 Nombre del Titular
               </label>
               <input
                 type="text"
                 disabled
                 value={cargandoPerfil ? 'Cargando…' : nombreTitular}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-primary-500">
                 Cédula del Titular
               </label>
               <input
                 type="text"
                 disabled
                 value={cargandoPerfil ? 'Cargando…' : cedulaTitular}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-primary-500">
                 Número de Abonado
               </label>
               <input
                 type="text"
                 disabled
                 value={cargandoPerfil ? 'Cargando…' : numeroAbonadoTitular}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
               />
             </div>
           </div>
@@ -500,7 +441,7 @@ function VistaAbonado() {
                 disabled={tieneAbierta}
                 value={motivoTraspaso}
                 onChange={(e) => setMotivoTraspaso(e.target.value as MotivoTraspaso)}
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               >
                 <option value="">-- Seleccioná un motivo --</option>
                 {MOTIVOS_TRASPASO.map((m) => (
@@ -517,7 +458,7 @@ function VistaAbonado() {
                 <label className="block text-sm font-medium text-primary-700">
                   Justificación del Traspaso *
                 </label>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-primary-400">
                   {justificacion.trim().length} / 255 (mínimo 10)
                 </span>
               </div>
@@ -560,23 +501,21 @@ function VistaAbonado() {
 
         {/* Botones */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={tieneAbierta || enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={tieneAbierta || enviando}>
             {enviando ? 'Enviando solicitud…' : 'Enviar Solicitud de Traspaso'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       </>
@@ -600,19 +539,7 @@ function VistaAbonado() {
             descripcion="Cuando generes una solicitud de cambio de propietario aparecerá en este listado."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="w-full text-left text-sm text-primary-800">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Nuevo Propietario', 'Motivo', 'Documento', 'Fecha', 'Estado']}>
                 {solicitudes.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/40">
                     <td className="px-4 py-3 font-mono font-medium text-primary-900">
@@ -641,12 +568,12 @@ function VistaAbonado() {
                               )}`,
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                          className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
                           Ver documento
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400">Sin archivo</span>
+                        <span className="text-xs text-primary-400">Sin archivo</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-primary-500">
@@ -657,9 +584,7 @@ function VistaAbonado() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       </>
@@ -883,7 +808,7 @@ function VistaAdministrador() {
         mensaje:
           nuevoEstado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada exitosamente. Se traspasaron los datos y se notificó al nuevo propietario.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[nuevoEstado]}".`,
+            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(nuevoEstado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -932,30 +857,14 @@ function VistaAdministrador() {
         </div>
       )}
 
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Solicitudes registradas
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Generar solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Solicitudes registradas' },
+          { valor: 'crear', etiqueta: 'Generar solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <>
@@ -992,7 +901,7 @@ function VistaAdministrador() {
               <button
                 type="button"
                 onClick={() => setAbonadoElegido(null)}
-                className="rounded-md border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                className="rounded-full border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
               >
                 Cambiar
               </button>
@@ -1024,7 +933,7 @@ function VistaAdministrador() {
                           setBusqueda('')
                         }}
                         className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition hover:bg-primary-50 ${
-                          a.estado !== 'Activo' ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''
+                          a.estado !== 'Activo' ? 'opacity-60 bg-primary-50 cursor-not-allowed' : ''
                         }`}
                       >
                         <div>
@@ -1037,7 +946,7 @@ function VistaAdministrador() {
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             a.estado === 'Activo'
                               ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-200 text-gray-700'
+                              : 'bg-primary-200 text-primary-700'
                           }`}
                         >
                           {a.estado}
@@ -1121,7 +1030,7 @@ function VistaAdministrador() {
               required
               value={motivoTraspaso}
               onChange={(e) => setMotivoTraspaso(e.target.value as MotivoTraspaso)}
-              className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             >
               <option value="">-- Seleccioná un motivo --</option>
               {MOTIVOS_TRASPASO.map((m) => (
@@ -1138,7 +1047,7 @@ function VistaAdministrador() {
               <label className="block text-sm font-medium text-primary-700">
                 Justificación del Traspaso *
               </label>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-primary-400">
                 {justificacion.trim().length} / 255 (mínimo 10)
               </span>
             </div>
@@ -1168,24 +1077,22 @@ function VistaAdministrador() {
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={enviando}>
             {enviando ? 'Registrando en ventanilla…' : 'Registrar Solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       </>
@@ -1226,19 +1133,17 @@ function VistaAdministrador() {
                 descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
               />
             ) : (
-              <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-                <table className="w-full text-left text-sm text-primary-800">
-                  <thead className="bg-primary-50">
-                    <tr>
-                      <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                      <th className="px-4 py-3 text-left font-medium text-primary-700">Titular Anterior</th>
-                      <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
-                      <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                      <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                      <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-primary-100">
+              <Table cabecera={['Código', 'Titular Anterior', 'Nuevo Propietario', 'Motivo', 'Estado', 'Acciones']} pie={<><PaginadorSolicitudes
+              total={filtrosLista.filtradas.length}
+              primeraFila={filtrosLista.primeraFila}
+              porPagina={filtrosLista.porPagina}
+              paginaActual={filtrosLista.paginaActual}
+              totalPaginas={filtrosLista.totalPaginas}
+              numerosPagina={filtrosLista.numerosPagina}
+              busca={filtrosLista.busqueda}
+              etiqueta="solicitudes"
+              irPagina={filtrosLista.irPagina}
+            /></>}>
                     {filtrosLista.filasVisibles.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/40">
                     <td className="px-4 py-3 font-mono font-medium text-primary-900">
@@ -1265,35 +1170,20 @@ function VistaAdministrador() {
                       <BadgeEstado estado={s.estado} />
                     </td>
                     <td className="px-4 py-3">
-                      <button
+                      <Button
+                        variant="secondary" size="sm"
                         type="button"
                         onClick={() => {
                           setDetalle(s)
                           setMotivoRechazo(s.motivo_rechazo ?? '')
                           setMostrarMotivo(false)
-                        }}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
+                        }}>
                         Ver / gestionar
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-
-            <PaginadorSolicitudes
-              total={filtrosLista.filtradas.length}
-              primeraFila={filtrosLista.primeraFila}
-              porPagina={filtrosLista.porPagina}
-              paginaActual={filtrosLista.paginaActual}
-              totalPaginas={filtrosLista.totalPaginas}
-              numerosPagina={filtrosLista.numerosPagina}
-              busca={filtrosLista.busqueda}
-              etiqueta="solicitudes"
-              irPagina={filtrosLista.irPagina}
-            />
-            </div>
+              </Table>
           )}
         </div>
       )}
@@ -1303,8 +1193,7 @@ function VistaAdministrador() {
 
       {/* Modal de Detalle y Gestión */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="2xl">
             <div className="flex items-start justify-between">
               <div>
                 <h3 className="text-lg font-semibold text-primary-900">
@@ -1413,13 +1302,12 @@ function VistaAdministrador() {
 
             {detalle.estado === 'aprobado' || detalle.estado === 'rechazado' ? (
               <div className="mt-6 flex justify-end">
-                <button
+                <Button
+                  variant="primary"
                   type="button"
-                  onClick={() => setDetalle(null)}
-                  className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-                >
+                  onClick={() => setDetalle(null)}>
                   Cerrar
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
@@ -1447,43 +1335,38 @@ function VistaAdministrador() {
                 )}
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  <button
+                  <Button
+                    variant="info"
                     type="button"
                     onClick={() => gestionar('en_proceso')}
-                    disabled={gestionando || detalle.estado === 'en_proceso'}
-                    className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-                  >
+                    disabled={gestionando || detalle.estado === 'en_proceso'}>
                     {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="success"
                     type="button"
                     onClick={() => gestionar('aprobado')}
-                    disabled={gestionando}
-                    className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-                  >
+                    disabled={gestionando}>
                     {gestionando ? 'Guardando...' : 'Aprobar'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="danger"
                     type="button"
                     onClick={manejarClicRechazar}
-                    disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                    className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-                  >
+                    disabled={gestionando || (mostrarMotivo && !motivoValido)}>
                     {gestionando ? 'Guardando...' : 'Rechazar'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={() => setDetalle(null)}
-                    disabled={gestionando}
-                    className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    disabled={gestionando}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </div>
-        </div>
+</Modal>
       )}
       {toast && (
         <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />

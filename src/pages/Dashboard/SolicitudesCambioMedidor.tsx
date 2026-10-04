@@ -9,7 +9,6 @@ import {
   obtenerSolicitudesCambioMedidor,
   MOTIVOS_FALLA_MEDIDOR,
   type SolicitudCambioMedidor,
-  type EstadoSolicitud,
   type MotivoFallaMedidor,
 } from '../../components/Services/cambioMedidor.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
@@ -24,56 +23,17 @@ import {
   useFiltrosSolicitudes,
   ESTADOS_ABONADO,
 } from '../../lib/useFiltrosSolicitudes'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
-
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-700'
-    case 'aprobado':
-      return 'bg-green-100 text-green-700'
-    case 'rechazado':
-      return 'bg-red-100 text-red-700'
-  }
-}
+import Modal from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
+import Tabs from '../../components/ui/Tabs'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(estado)}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
-
-function EmptyState({
-  titulo,
-  descripcion,
-}: {
-  titulo: string
-  descripcion: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
 }
 
 function SolicitudesCambioMedidor() {
@@ -223,30 +183,14 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Mis solicitudes
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Nueva solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis solicitudes' },
+          { valor: 'crear', etiqueta: 'Nueva solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -350,24 +294,22 @@ function VistaAbonado() {
         )}
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={tieneAbierta || enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={tieneAbierta || enviando}>
             {enviando ? 'Subiendo solicitud…' : 'Enviar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
           {tieneAbierta && (
             <p className="w-full text-center text-xs font-medium text-yellow-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
@@ -389,19 +331,7 @@ function VistaAbonado() {
             descripcion="Tus solicitudes aparecerán aquí junto con su estado y seguimiento."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Dirección</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Evidencia</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Motivo', 'Dirección', 'Evidencia', 'Estado', 'Fecha']}>
                 {solicitudes.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
@@ -417,7 +347,7 @@ function VistaAbonado() {
                               `evidencia-${s.codigo_solicitud}${extensionDesdeUrl(s.evidencia_url as string)}`,
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                          className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
                           Descargar
                         </button>
@@ -433,9 +363,7 @@ function VistaAbonado() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       )}
@@ -618,7 +546,7 @@ function VistaAdministrador() {
         mensaje:
           estado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al abonado por correo.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
+            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -637,30 +565,14 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Solicitudes registradas
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Generar solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Solicitudes registradas' },
+          { valor: 'crear', etiqueta: 'Generar solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -687,7 +599,7 @@ function VistaAdministrador() {
                     setAbonadoSel('')
                     setBusqueda('')
                   }}
-                  className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                  className="shrink-0 rounded-full border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                 >
                   Quitar
                 </button>
@@ -835,24 +747,22 @@ function VistaAdministrador() {
         )}
 
         <div className="mt-5 flex justify-center gap-3">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={enviando}>
             {enviando ? 'Subiendo solicitud…' : 'Registrar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       )}
@@ -887,19 +797,17 @@ function VistaAdministrador() {
             descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Abonado', 'Motivo', 'Estado', 'Fecha', 'Acciones']} pie={<><PaginadorSolicitudes
+              total={filtrosLista.filtradas.length}
+              primeraFila={filtrosLista.primeraFila}
+              porPagina={filtrosLista.porPagina}
+              paginaActual={filtrosLista.paginaActual}
+              totalPaginas={filtrosLista.totalPaginas}
+              numerosPagina={filtrosLista.numerosPagina}
+              busca={filtrosLista.busqueda}
+              etiqueta="solicitudes"
+              irPagina={filtrosLista.irPagina}
+            /></>}>
                 {filtrosLista.filasVisibles.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
@@ -915,31 +823,16 @@ function VistaAdministrador() {
                       {formatearFecha(s.fecha_creacion)}
                     </td>
                     <td className="px-4 py-3">
-                      <button
+                      <Button
+                        variant="secondary" size="sm"
                         type="button"
-                        onClick={() => abrirDetalle(s)}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
+                        onClick={() => abrirDetalle(s)}>
                         Ver / gestionar
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-
-            <PaginadorSolicitudes
-              total={filtrosLista.filtradas.length}
-              primeraFila={filtrosLista.primeraFila}
-              porPagina={filtrosLista.porPagina}
-              paginaActual={filtrosLista.paginaActual}
-              totalPaginas={filtrosLista.totalPaginas}
-              numerosPagina={filtrosLista.numerosPagina}
-              busca={filtrosLista.busqueda}
-              etiqueta="solicitudes"
-              irPagina={filtrosLista.irPagina}
-            />
-          </div>
+              </Table>
         )}
       </div>
       )}
@@ -999,8 +892,7 @@ function ModalDetalle({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold text-primary-900">
@@ -1054,7 +946,7 @@ function ModalDetalle({
                         `evidencia-${solicitud.codigo_solicitud}${extensionDesdeUrl(solicitud.evidencia_url as string)}`,
                       )
                     }
-                    className="group relative block overflow-hidden rounded-lg border border-primary-200 text-left"
+                    className="group relative block overflow-hidden rounded-full border border-primary-200 text-left"
                   >
                     <img
                       src={solicitud.evidencia_url}
@@ -1092,13 +984,12 @@ function ModalDetalle({
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
@@ -1126,43 +1017,38 @@ function ModalDetalle({
             )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              <Button
+                variant="info"
                 type="button"
                 onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
+                disabled={gestionando || solicitud.estado === 'en_proceso'}>
                 {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="success"
                 type="button"
                 onClick={() => onGestionar('aprobado')}
-                disabled={gestionando}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
                 onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+</Modal>
   )
 }
 

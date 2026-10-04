@@ -37,7 +37,6 @@ import {
   SERVICIO_OPCIONES,
   TIPO_TRAMITE_OPCIONES,
   type AdjuntoConexion,
-  type EstadoSolicitud,
   type SolicitudConexion,
   type SolicitudPajaAguaDisponible,
 } from '../../components/Services/conexionPajaAgua.service'
@@ -52,50 +51,16 @@ import {
   useFiltrosSolicitudes,
   ESTADOS_ABONADO,
 } from '../../lib/useFiltrosSolicitudes'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
-
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-700'
-    case 'aprobado':
-      return 'bg-green-100 text-green-700'
-    case 'rechazado':
-      return 'bg-red-100 text-red-700'
-  }
-}
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(estado)}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
+import Modal from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado from '../../components/ui/BadgeEstado'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function EmptyState({ titulo, descripcion }: { titulo: string; descripcion: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
 }
 
 function SolicitudesConexion() {
@@ -196,13 +161,12 @@ function VistaAbonado() {
               Podés iniciar la Solicitud de conexión de servicio correspondiente.
             </p>
           </div>
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={() => setMostrarFormulario(true)}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
+            onClick={() => setMostrarFormulario(true)}>
             Iniciar solicitud
-          </button>
+          </Button>
         </div>
       )}
 
@@ -214,24 +178,11 @@ function VistaAbonado() {
       )}
 
       {misSolicitudes.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
+        <Table cabecera={['Código', 'Trámite', 'Fecha', 'Estado', 'Documento']}>
               {misSolicitudes.map((s) => (
                 <FilaMiSolicitud key={s.id} solicitud={s} />
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table>
       )}
     </div>
   )
@@ -259,14 +210,13 @@ function FilaMiSolicitud({ solicitud }: { solicitud: SolicitudConexion }) {
         <BadgeEstado estado={solicitud.estado} />
       </td>
       <td className="px-4 py-3">
-        <button
+        <Button
+          variant="secondary" size="sm"
           type="button"
           onClick={descargar}
-          disabled={generando}
-          className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-        >
+          disabled={generando}>
           {generando ? 'Generando…' : 'Descargar PDF'}
-        </button>
+        </Button>
       </td>
     </tr>
   )
@@ -685,21 +635,19 @@ function FormularioConexion({
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-        <button
+        <Button
+          variant="primary"
           type="submit"
-          disabled={enviando}
-          className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-        >
+          disabled={enviando}>
           {enviando ? 'Enviando...' : 'Enviar solicitud'}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
           type="button"
           onClick={onCancelar}
-          disabled={enviando}
-          className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-50"
-        >
+          disabled={enviando}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -823,19 +771,17 @@ function VistaAdministrador() {
               descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
             />
           ) : (
-            <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-              <table className="min-w-full divide-y divide-primary-100 text-sm">
-                <thead className="bg-primary-50">
-                  <tr>
-                    <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                    <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                    <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
-                    <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                    <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                    <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-primary-50">
+            <Table cabecera={['Código', 'Abonado', 'Trámite', 'Fecha', 'Estado', 'Acciones']} pie={<><PaginadorSolicitudes
+                total={filtrosLista.filtradas.length}
+                primeraFila={filtrosLista.primeraFila}
+                porPagina={filtrosLista.porPagina}
+                paginaActual={filtrosLista.paginaActual}
+                totalPaginas={filtrosLista.totalPaginas}
+                numerosPagina={filtrosLista.numerosPagina}
+                busca={filtrosLista.busqueda}
+                etiqueta="solicitudes"
+                irPagina={filtrosLista.irPagina}
+              /></>}>
                   {filtrosLista.filasVisibles.map((s) => (
                     <tr key={s.id}>
                       <td className="px-4 py-3 font-medium text-primary-900">{s.codigo_solicitud}</td>
@@ -846,31 +792,16 @@ function VistaAdministrador() {
                         <BadgeEstado estado={s.estado} />
                       </td>
                       <td className="px-4 py-3">
-                        <button
+                        <Button
+                          variant="secondary" size="sm"
                           type="button"
-                          onClick={() => setDetalle(s)}
-                          className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                        >
+                          onClick={() => setDetalle(s)}>
                           Ver / gestionar
-                        </button>
+                        </Button>
                       </td>
                     </tr>
                   ))}
-                </tbody>
-              </table>
-
-              <PaginadorSolicitudes
-                total={filtrosLista.filtradas.length}
-                primeraFila={filtrosLista.primeraFila}
-                porPagina={filtrosLista.porPagina}
-                paginaActual={filtrosLista.paginaActual}
-                totalPaginas={filtrosLista.totalPaginas}
-                numerosPagina={filtrosLista.numerosPagina}
-                busca={filtrosLista.busqueda}
-                etiqueta="solicitudes"
-                irPagina={filtrosLista.irPagina}
-              />
-            </div>
+                </Table>
           )}
         </div>
       )}
@@ -933,8 +864,7 @@ function ModalDetalle({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl">
         <div className="flex items-start justify-between">
           <div>
             <h3 className="text-lg font-semibold text-primary-900">{solicitud.codigo_solicitud}</h3>
@@ -1028,27 +958,25 @@ function ModalDetalle({
             </div>
 
             <div className="mt-5 border-t border-primary-100 pt-4">
-              <button
+              <Button
+                variant="secondary" size="sm"
                 type="button"
                 onClick={manejarDescargarDocumento}
-                disabled={generando}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-              >
+                disabled={generando}>
                 {generando ? 'Generando…' : 'Descargar documento (PDF)'}
-              </button>
+              </Button>
             </div>
           </>
         )}
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
@@ -1077,43 +1005,38 @@ function ModalDetalle({
               </>
             )}
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              <Button
+                variant="info"
                 type="button"
                 onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
+                disabled={gestionando || solicitud.estado === 'en_proceso'}>
                 {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="success"
                 type="button"
                 onClick={() => onGestionar('aprobado')}
-                disabled={gestionando}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
                 onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+</Modal>
   )
 }
 

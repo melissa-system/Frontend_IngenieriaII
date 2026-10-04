@@ -1,4 +1,5 @@
 import Afiliacion from '../Afiliacion/Afiliacion'
+import PageHeader from '../../components/ui/PageHeader'
 
 // Permite a un Abonado ya registrado solicitar una paja de agua adicional a
 // su propio nombre (por ejemplo, cuando tiene una segunda propiedad). Es
@@ -11,15 +12,10 @@ import Afiliacion from '../Afiliacion/Afiliacion'
 function NuevaPajaAgua() {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Nueva paja de agua</h1>
-        <p className="mt-1 text-sm text-primary-500">
-          Usá este formulario si tenés una propiedad adicional y necesitás tramitar una nueva
-          conexión de paja de agua a tu nombre. Es el mismo proceso que la solicitud pública de
-          disponibilidad de servicio: la administración la revisará y seguirá el flujo normal de
-          aprobación.
-        </p>
-      </div>
+      <PageHeader
+        titulo="Nueva paja de agua"
+        descripcion="Usá este formulario si tenés una propiedad adicional y necesitás tramitar una nueva conexión de paja de agua a tu nombre. Es el mismo proceso que la solicitud pública de disponibilidad de servicio: la administración la revisará y seguirá el flujo normal de aprobación."
+      />
 
       <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm sm:p-8">
         <Afiliacion variante="dashboard" />
