@@ -97,4 +97,34 @@ describe('guía de estilos (diseños/componentes.md)', () => {
     )
     assert.deepEqual(v, [])
   })
+
+  // ── Estados de interfaz estandarizados (carga, vacío, error, confirmación) ──
+  const FUERA_UI = (r: string) => r.endsWith('.tsx') && !r.startsWith('components/ui/')
+
+  it('la carga usa <Cargando> o <FilasEsqueleto> (sin textos "Cargando..." sueltos)', () => {
+    const v = violaciones(
+      FUERA_UI,
+      /^\s*(<(p|span|li|div)\b[^>]*>)?\s*Cargando [a-záéíóú ]+(\.\.\.|…)\s*(<\/\w+>)?\s*$/i,
+    ).filter((x) => !/Cargando (roles|abonados|la verificación)/i.test(x))
+    assert.deepEqual(v, [])
+  })
+
+  it('los errores de carga usan <ErrorState> (sin cajas rojas border-red-200 bg-red-50 p-5/p-6 a mano)', () => {
+    const v = violaciones(FUERA_UI, /border-red-200 bg-red-50 p-[56] text-center/)
+    assert.deepEqual(v, [])
+  })
+
+  it('la confirmación de acciones usa el toast global (sin banners verdes bg-green-50 con mensaje)', () => {
+    const v = violaciones(
+      FUERA_UI,
+      /\b(rounded-lg|rounded-xl) (border border-green-200 )?bg-green-50 (px|p)-[0-9] .*text-green-8/,
+    )
+    assert.deepEqual(v, [])
+  })
+
+  it('existen los componentes de estado', () => {
+    for (const f of ['Cargando', 'ErrorState', 'EmptyState', 'ToastProvider', 'Toast']) {
+      assert.ok(fs.existsSync(path.join(SRC, 'components/ui', `${f}.tsx`)), `falta ${f}.tsx`)
+    }
+  })
 })

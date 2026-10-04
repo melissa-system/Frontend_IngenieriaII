@@ -1,3 +1,4 @@
+import { Notificar } from '../ui/ToastProvider'
 import ErrorState from '../ui/ErrorState'
 import Cargando from '../ui/Cargando'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
@@ -206,11 +207,7 @@ function ContactoAsada() {
       </div>
 
       <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
-        {exito && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Configuración guardada correctamente.
-          </div>
-        )}
+        <Notificar mensaje={exito ? 'Configuración guardada correctamente.' : null} />
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}

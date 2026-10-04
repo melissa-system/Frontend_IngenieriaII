@@ -1,3 +1,4 @@
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, type FormEvent } from 'react'
 import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { useAuth } from '../../contexts/AuthContext'
@@ -100,12 +101,7 @@ function PerfilContrasena() {
       </div>
 
       <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
-        {exito && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Contraseña actualizada correctamente. Cierra sesión e inicia con tu
-            nueva contraseña…
-          </div>
-        )}
+        <Notificar mensaje={exito ? 'Contraseña actualizada correctamente. Cerrá sesión e iniciá con tu nueva contraseña.' : null} />
         {error && (
           <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {error}

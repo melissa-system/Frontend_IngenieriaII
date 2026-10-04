@@ -1,3 +1,4 @@
+import { Notificar } from '../../components/ui/ToastProvider'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
@@ -256,15 +257,17 @@ function PerfilEditar() {
       </div>
 
       <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
-        {(exitoFoto || exitoDatos) && (
-          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            {exitoFoto && exitoDatos
+        <Notificar
+          mensaje={
+            exitoFoto && exitoDatos
               ? 'Foto y datos actualizados correctamente.'
               : exitoFoto
                 ? 'Foto actualizada correctamente.'
-                : 'Datos actualizados correctamente.'}
-          </div>
-        )}
+                : exitoDatos
+                  ? 'Datos actualizados correctamente.'
+                  : null
+          }
+        />
         {(errorFoto || errorDatos) && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
             {errorFoto || errorDatos}

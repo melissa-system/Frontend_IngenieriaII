@@ -59,3 +59,7 @@ La columna "Componentes estándar" lista los de `src/components/ui/` que ya usa 
 - Fila "Perfil" del sidebar: es una fila de menú (no un botón de acción), conserva `rounded-lg` como el resto de filas del menú.
 - Botones con clases dinámicas (iconos, interruptores de estado, pastillas del paginador) siguen como `<button>` con las clases de la guía, porque `Button` solo cubre las variantes estándar.
 - CTA del landing (Hero, Servicios, Navbar): conservan `hover:-translate-y-1` y sombra definidos en `botones.md`.
+
+## Estados de interfaz (carga, vacío, error, confirmación)
+
+Aplicados en todas las vistas con listas, tablas y formularios del dashboard y las páginas públicas (Documentos, Noticias, Login). Verificados por `tests/guiaEstilos.test.ts`.
