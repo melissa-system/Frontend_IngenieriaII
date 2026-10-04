@@ -1,3 +1,4 @@
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useMemo, useState, useEffect } from 'react'
 import {
   BarChart,
@@ -629,11 +630,7 @@ function Reportes() {
         </div>
       </div>
 
-      {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600">
-          {error}
-        </div>
-      )}
+      <Notificar mensaje={error} tipo="error" />
 
       {loading && (
         <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-3 text-center text-xs font-medium text-primary-600">

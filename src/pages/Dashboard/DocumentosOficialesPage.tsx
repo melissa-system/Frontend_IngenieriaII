@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
 import {
@@ -111,16 +112,7 @@ function DocumentosOficialesPage() {
       </div>
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-          <p className="text-sm font-medium text-red-600">{error}</p>
-          <button
-            type="button"
-            onClick={cargar}
-            className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
+        <ErrorState mensaje={error} onReintentar={cargar} />
       ) : loading ? (
         <Cargando texto="Cargando documentos..." />
       ) : documentos.length === 0 ? (

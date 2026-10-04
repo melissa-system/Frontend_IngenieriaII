@@ -1,3 +1,4 @@
+import ErrorState from '../ui/ErrorState'
 import Cargando from '../ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
@@ -121,7 +122,7 @@ function News() {
       {loading ? (
         <Cargando texto="Cargando noticias..." />
       ) : error ? (
-        <p className="mt-10 text-center text-sm text-red-500">{error}</p>
+        <ErrorState mensaje={error} />
       ) : noticias.length === 0 ? (
         <p className="mt-10 text-center text-sm text-primary-400">
           Aún no hay noticias publicadas.

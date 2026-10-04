@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
 import {
@@ -220,11 +221,7 @@ function Bitacora() {
         )}
       </div>
 
-      {error && (
-        <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-          {error}
-        </p>
-      )}
+      {error && <ErrorState mensaje={error} onReintentar={cargar} />}
 
       {/* Tabla */}
       <Table cabecera={['Fecha', 'Módulo', 'Registro', 'Acción', 'Usuario', 'Detalle']} pie={<>{total > 0 && (

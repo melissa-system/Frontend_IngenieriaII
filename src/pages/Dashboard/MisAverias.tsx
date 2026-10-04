@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
 import { obtenerMisAverias, type AveriaBackend } from '../../components/Services/averias.service'
@@ -37,9 +38,7 @@ function MisAverias() {
 
   if (errorCarga) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-      </div>
+      <ErrorState mensaje={errorCarga} onReintentar={() => window.location.reload()} />
     )
   }
 

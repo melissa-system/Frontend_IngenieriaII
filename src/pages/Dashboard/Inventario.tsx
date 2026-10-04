@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
@@ -914,16 +915,7 @@ function Inventario() {
 
       {/* Error de carga */}
       {loadError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-          <p className="text-sm font-medium text-red-600">{loadError}</p>
-          <button
-            type="button"
-            onClick={cargarDatos}
-            className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
+        <ErrorState mensaje={loadError} onReintentar={cargarDatos} />
       ) : (
         /* Tabla de Artículos */
         <Table cabecera={['Artículo', 'Clasificación', 'Stock Disp.', 'Ubicación', 'Estado', 'Acciones']} pie={<>{/* Barra de Paginación */}

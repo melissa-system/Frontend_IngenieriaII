@@ -1,3 +1,4 @@
+import { Notificar } from '../ui/ToastProvider'
 import { FilasEsqueleto } from '../ui/Cargando'
 import React, { useEffect, useState } from 'react';
 import {
@@ -336,30 +337,9 @@ export const Usuarios: React.FC = () => {
       />
 
       {/* Mensajes de Notificación */}
-      {mensajeExito && (
-        <div className="flex items-center gap-3 rounded-lg bg-green-50 border border-green-200 p-4 text-sm font-medium text-green-800">
-          <svg className="h-5 w-5 text-green-600 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span>{mensajeExito}</span>
-        </div>
-      )}
+      <Notificar mensaje={mensajeExito} />
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-lg bg-red-50 border border-red-200 p-4 text-sm font-medium text-red-800">
-          <svg className="h-5 w-5 text-red-600 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="flex-1">{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="text-xs underline hover:text-red-900"
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
+      <Notificar mensaje={error} tipo="error" />
 
       {/* Barra de Filtros y Búsqueda */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">

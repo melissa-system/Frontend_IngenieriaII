@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
 import {
@@ -509,11 +510,7 @@ function EmpleadosPage() {
 
       <Notificar mensaje={confirmacion} />
 
-      {loadError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {loadError}
-        </div>
-      )}
+      {loadError && <ErrorState mensaje={loadError} onReintentar={cargarEmpleados} />}
 
       <div className="relative w-full sm:w-96">
         <svg

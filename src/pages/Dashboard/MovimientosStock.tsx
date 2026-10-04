@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
@@ -596,16 +597,7 @@ function MovimientosStock() {
         </div>
 
         {loadError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-            <p className="text-sm font-medium text-red-600">{loadError}</p>
-            <button
-              type="button"
-              onClick={cargarDatos}
-              className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-            >
-              Reintentar
-            </button>
-          </div>
+          <ErrorState mensaje={loadError} onReintentar={cargarDatos} />
         ) : (
           <Table cabecera={['Fecha y Hora', 'Artículo', 'Tipo', 'Cantidad', 'Destino / Responsable', 'Registrado por', 'Motivo']} pie={<>{/* Paginación */}
             {!loading && movimientos.length > 0 && (

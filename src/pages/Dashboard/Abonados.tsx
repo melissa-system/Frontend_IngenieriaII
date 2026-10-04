@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
@@ -1265,16 +1266,7 @@ function Abonados() {
       </div>
 
       {loadError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-          <p className="text-sm font-medium text-red-600">{loadError}</p>
-          <button
-            type="button"
-            onClick={cargarAbonados}
-            className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
+        <ErrorState mensaje={loadError} onReintentar={cargarAbonados} />
       ) : (
         <Table cabecera={['Cédula', 'Nombre', 'Tipo', 'Teléfono', 'Estado', 'Registro', 'Acciones']} pie={<>{!loading && abonados.length > 0 && (
             <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">

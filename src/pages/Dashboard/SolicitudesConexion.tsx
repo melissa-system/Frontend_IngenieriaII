@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
@@ -124,9 +125,7 @@ function VistaAbonado() {
 
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{error}</p>
-      </div>
+      <ErrorState mensaje={error} onReintentar={cargar} />
     )
   }
 
@@ -733,9 +732,7 @@ function VistaAdministrador() {
 
   if (errorCarga) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-      </div>
+      <ErrorState mensaje={errorCarga} onReintentar={cargar} />
     )
   }
 

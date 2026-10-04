@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useMemo } from 'react'
 import {
@@ -353,13 +354,7 @@ function AveriasAdmin() {
 
   if (errorCarga) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-        <Button variant="primary" type="button" onClick={cargarAverias}
-          className="mt-3">
-          Reintentar
-        </Button>
-      </div>
+      <ErrorState mensaje={errorCarga} onReintentar={cargarAverias} />
     )
   }
 

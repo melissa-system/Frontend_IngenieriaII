@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -701,9 +702,7 @@ function DashboardAbonado() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-red-700">
-          {error}
-        </div>
+        <ErrorState mensaje={error} onReintentar={() => window.location.reload()} />
       </div>
     )
   }
@@ -937,9 +936,7 @@ function DashboardFontanero() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-red-700">
-          {error}
-        </div>
+        <ErrorState mensaje={error} onReintentar={() => window.location.reload()} />
       </div>
     )
   }

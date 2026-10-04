@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback } from 'react'
@@ -324,11 +325,7 @@ function Proveedores() {
 
       {/* Alertas */}
       <Notificar mensaje={mensajeExito} />
-      {errorGeneral && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
-          ✕ {errorGeneral}
-        </div>
-      )}
+      {errorGeneral && <ErrorState mensaje={errorGeneral} onReintentar={cargarDatos} />}
 
       {/* Búsqueda */}
       <div className="relative w-full sm:w-96">

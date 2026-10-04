@@ -1,3 +1,4 @@
+import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
@@ -344,16 +345,7 @@ function DocumentosAdmin() {
         </div>
 
         {docLoadError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-            <p className="text-sm font-medium text-red-600">{docLoadError}</p>
-            <button
-              type="button"
-              onClick={cargarDocumentos}
-              className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-            >
-              Reintentar
-            </button>
-          </div>
+          <ErrorState mensaje={docLoadError} onReintentar={cargarDocumentos} />
         ) : docLoading ? (
           <Cargando texto="Cargando documentos..." />
         ) : documentos.length === 0 ? (
