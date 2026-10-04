@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import {
   erroresPorCampo,
@@ -106,9 +107,7 @@ function PerfilEditar() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-primary-500">Cargando perfil…</p>
-      </div>
+      <Cargando texto="Cargando perfil…" />
     )
   }
 

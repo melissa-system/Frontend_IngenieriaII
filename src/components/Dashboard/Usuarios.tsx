@@ -1,3 +1,4 @@
+import { FilasEsqueleto } from '../ui/Cargando'
 import React, { useEffect, useState } from 'react';
 import {
   erroresPorCampo,
@@ -469,14 +470,7 @@ export const Usuarios: React.FC = () => {
         }
       >
               {cargando ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
-                    <div className="inline-flex items-center gap-2">
-                      <div className="h-4 w-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-                      <span>Cargando usuarios desde el backend...</span>
-                    </div>
-                  </td>
-                </tr>
+                <FilasEsqueleto columnas={7} />
               ) : usuariosFiltrados.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-primary-500">

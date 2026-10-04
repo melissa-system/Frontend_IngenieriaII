@@ -1,3 +1,5 @@
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
   erroresPorCampo,
@@ -709,7 +711,7 @@ function Inventario() {
         <div className="mt-5 border-t border-primary-100 pt-4">
           <h3 className="mb-3 text-sm font-medium text-primary-700">Historial de movimientos</h3>
           {historialLoading ? (
-            <p className="text-xs text-primary-400">Cargando historial...</p>
+            <Cargando compacto texto="Cargando historial..." />
           ) : historialError ? (
             <p className="text-xs font-medium text-red-500">{historialError}</p>
           ) : historialDetalle.length === 0 ? (
@@ -843,11 +845,7 @@ function Inventario() {
       />
 
       {/* Alerta de confirmación */}
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
 
       {/* Búsqueda */}
       <div className="relative w-full sm:w-96">

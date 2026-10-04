@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState } from 'react'
 import {
   obtenerDocumentosPublicos,
@@ -146,9 +147,7 @@ function DocumentosPublicos() {
           </button>
         </div>
       ) : loading ? (
-        <p className="mt-10 py-10 text-center text-sm text-primary-400">
-          Cargando documentos...
-        </p>
+        <Cargando texto="Cargando documentos..." />
       ) : documentosFiltrados.length === 0 ? (
         <p className="mt-10 py-10 text-center text-sm text-primary-400">
           {filtroTipo

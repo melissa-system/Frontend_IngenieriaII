@@ -1,3 +1,5 @@
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   crearAbonado,
@@ -904,11 +906,7 @@ function Abonados() {
                       Si el enlace para definir la contraseña ya venció,
                       podés reenviarlo.
                     </p>
-                    {reenvioMensaje && (
-                      <p className="rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-                        {reenvioMensaje}
-                      </p>
-                    )}
+                    <Notificar mensaje={reenvioMensaje} />
                     {reenvioError && (
                       <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
                         {reenvioError}
@@ -1166,7 +1164,7 @@ function Abonados() {
               Historial de cambios
             </h3>
             {historialLoading ? (
-              <p className="text-xs text-primary-400">Cargando historial...</p>
+              <Cargando compacto texto="Cargando historial..." />
             ) : historialError ? (
               <p className="text-xs font-medium text-red-500">{historialError}</p>
             ) : historialDetalle.length === 0 ? (
@@ -1229,11 +1227,7 @@ function Abonados() {
         }
       />
 
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
 
       <div className="relative w-full sm:w-96">
         <svg

@@ -1,3 +1,4 @@
+import Cargando from '../ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -118,9 +119,7 @@ function News() {
       </div>
 
       {loading ? (
-        <p className="mt-10 text-center text-sm text-primary-400">
-          Cargando noticias...
-        </p>
+        <Cargando texto="Cargando noticias..." />
       ) : error ? (
         <p className="mt-10 text-center text-sm text-red-500">{error}</p>
       ) : noticias.length === 0 ? (

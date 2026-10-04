@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
 import { obtenerMisAverias, type AveriaBackend } from '../../components/Services/averias.service'
 import Modal from '../../components/ui/Modal'
@@ -30,9 +31,7 @@ function MisAverias() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando tus averías…</p>
-      </div>
+      <Cargando texto="Cargando tus averías…" />
     )
   }
 

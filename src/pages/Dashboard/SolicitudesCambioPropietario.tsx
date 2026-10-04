@@ -1,3 +1,5 @@
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import {
   useCallback,
   useEffect,
@@ -530,9 +532,7 @@ function VistaAbonado() {
         </h2>
 
         {cargando ? (
-          <div className="py-12 text-center text-sm text-primary-500">
-            Cargando solicitudes…
-          </div>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Sin solicitudes registradas"
@@ -845,11 +845,7 @@ function VistaAdministrador() {
         />
       )}
 
-      {mensaje && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
-          {mensaje}
-        </div>
-      )}
+      <Notificar mensaje={mensaje} />
 
       {error && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
@@ -1107,9 +1103,7 @@ function VistaAdministrador() {
         </h2>
 
         {cargando ? (
-          <div className="py-12 text-center text-sm text-primary-500">
-            Cargando solicitudes…
-          </div>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Sin solicitudes registradas"

@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
@@ -173,7 +174,7 @@ const gestionar = async (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => {
       )}
 
       {cargando ? (
-        <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+        <Cargando texto="Cargando solicitudes…" />
       ) : solicitudes.length === 0 ? (
         <EmptyState
           titulo="No hay solicitudes registradas de este tipo."

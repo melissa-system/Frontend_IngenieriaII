@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   crearPublicacion,
@@ -206,9 +207,7 @@ function Publicaciones() {
             </button>
           </div>
         ) : loading ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            Cargando publicaciones...
-          </p>
+          <Cargando texto="Cargando publicaciones..." />
         ) : publicaciones.length === 0 ? (
           <p className="py-8 text-center text-sm text-primary-400">
             Todavía no hay publicaciones.

@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   crearDocumento,
@@ -354,9 +355,7 @@ function DocumentosAdmin() {
             </button>
           </div>
         ) : docLoading ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            Cargando documentos...
-          </p>
+          <Cargando texto="Cargando documentos..." />
         ) : documentos.length === 0 ? (
           <p className="py-8 text-center text-sm text-primary-400">
             {filtroTipo || filtroNombre

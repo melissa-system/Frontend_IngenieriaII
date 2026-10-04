@@ -1,3 +1,5 @@
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import {
   useCallback,
   useEffect,
@@ -497,7 +499,7 @@ function VistaAbonado() {
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Aún no tenés solicitudes de cambio de representante"
@@ -938,11 +940,7 @@ function VistaAdministrador() {
             {error}
           </p>
         )}
-        {mensaje && (
-          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-            {mensaje}
-          </p>
-        )}
+        <Notificar mensaje={mensaje} />
 
         <div className="mt-5 flex justify-center gap-3">
           <Button
@@ -970,7 +968,7 @@ function VistaAdministrador() {
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="No hay solicitudes de cambio de representante"

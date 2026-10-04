@@ -1,3 +1,4 @@
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, type FormEvent } from 'react'
 import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
@@ -86,14 +87,7 @@ function Login() {
 
   return (
     <AuthLayout subtitle="Sistema de Información de Abonados Pueblo Nuevo">
-      {mensajeExito && (
-        <div
-          role="status"
-          className="mb-4 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800"
-        >
-          {mensajeExito}
-        </div>
-      )}
+      <Notificar mensaje={mensajeExito} />
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

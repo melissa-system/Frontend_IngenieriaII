@@ -1,3 +1,4 @@
+import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useCallback, useEffect, useState } from 'react'
 import {
   obtenerReportes,
@@ -228,11 +229,7 @@ function ReportesFontanero() {
           </div>
         )}</>}>
             {cargando ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  Cargando reportes...
-                </td>
-              </tr>
+              <FilasEsqueleto columnas={6} />
             ) : reportes.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-primary-500">

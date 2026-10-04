@@ -1,3 +1,4 @@
+import Cargando from '../ui/Cargando'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import {
   obtenerConfiguracion,
@@ -62,9 +63,7 @@ function HorarioAsada() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-primary-500">Cargando configuración…</p>
-      </div>
+      <Cargando texto="Cargando configuración…" />
     )
   }
 

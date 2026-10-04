@@ -1,3 +1,5 @@
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   erroresPorCampo,
@@ -354,11 +356,7 @@ function ReporteActividad() {
               {error}
             </p>
           )}
-          {exito && (
-            <p className="rounded-lg border border-green-300 bg-green-50 p-3 text-sm font-medium text-green-800">
-              {exito}
-            </p>
-          )}
+          <Notificar mensaje={exito} />
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
             <Button
@@ -385,11 +383,7 @@ function ReporteActividad() {
 
           <div className="mt-3"><Table cabecera={['Fecha', 'Actividad', 'Tiempo', 'Materiales']}>
                 {cargando ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-primary-500">
-                      Cargando...
-                    </td>
-                  </tr>
+                  <FilasEsqueleto columnas={4} />
                 ) : misReportes.length === 0 ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-primary-500">

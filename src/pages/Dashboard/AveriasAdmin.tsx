@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useMemo } from 'react'
 import {
   obtenerAverias,
@@ -346,9 +347,7 @@ function AveriasAdmin() {
   // ─── Loading / Error states ────────────────────────────────────
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando averías...</p>
-      </div>
+      <Cargando texto="Cargando averías..." />
     )
   }
 

@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import {
   erroresPorCampo,
@@ -117,9 +118,7 @@ function VistaAbonado() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando...</p>
-      </div>
+      <Cargando texto="Cargando..." />
     )
   }
 
@@ -728,9 +727,7 @@ function VistaAdministrador() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando solicitudes...</p>
-      </div>
+      <Cargando texto="Cargando solicitudes..." />
     )
   }
 

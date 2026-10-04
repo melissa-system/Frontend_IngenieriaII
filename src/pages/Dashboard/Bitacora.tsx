@@ -1,3 +1,4 @@
+import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
 import {
   obtenerBitacora,
@@ -266,11 +267,7 @@ function Bitacora() {
           </div>
         )}</>}>
             {cargando ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  Cargando movimientos...
-                </td>
-              </tr>
+              <FilasEsqueleto columnas={6} />
             ) : registros.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-primary-500">

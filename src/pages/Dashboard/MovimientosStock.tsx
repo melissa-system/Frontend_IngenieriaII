@@ -1,3 +1,4 @@
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
 import {
   erroresPorCampo,
@@ -272,11 +273,7 @@ function MovimientosStock() {
       </div>
 
       {/* Alerta de confirmación */}
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
 
       {/* Pestañas: registrar vs. historial */}
       <div className="flex gap-6 border-b border-primary-100">

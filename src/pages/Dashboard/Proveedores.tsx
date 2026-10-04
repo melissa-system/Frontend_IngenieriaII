@@ -1,3 +1,5 @@
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback } from 'react'
 import {
   erroresPorCampo,
@@ -321,11 +323,7 @@ function Proveedores() {
       />
 
       {/* Alertas */}
-      {mensajeExito && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
-          ✓ {mensajeExito}
-        </div>
-      )}
+      <Notificar mensaje={mensajeExito} />
       {errorGeneral && (
         <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
           ✕ {errorGeneral}
@@ -412,11 +410,7 @@ function Proveedores() {
           </div>
         )}</>}>
             {cargando ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                  Cargando proveedores...
-                </td>
-              </tr>
+              <FilasEsqueleto columnas={7} />
             ) : filtrados.length === 0 ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-primary-400">

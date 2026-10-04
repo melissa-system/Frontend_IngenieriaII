@@ -1,3 +1,4 @@
+import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef } from 'react'
 import { MB } from '../../lib/validaciones'
 
@@ -698,7 +699,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 </p>
 
                 {cargandoPerfil && (
-                  <p className="text-sm text-primary-500">Cargando tus datos...</p>
+                  <Cargando texto="Cargando tus datos..." />
                 )}
 
                 {errorPerfil && (
