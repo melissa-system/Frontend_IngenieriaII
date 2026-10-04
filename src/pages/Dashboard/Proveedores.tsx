@@ -22,6 +22,10 @@ import {
   actualizarProveedor,
   type Proveedor,
 } from '../../components/Services/inventario.service'
+import Modal from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
+import Table from '../../components/ui/Table'
+import PageHeader from '../../components/ui/PageHeader'
 
 function getEstadoColor(estado: string) {
   if (estado === 'Activo') return 'bg-green-100 text-green-700'
@@ -75,7 +79,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+        activo ? 'bg-green-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -293,31 +297,28 @@ function Proveedores() {
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none bg-white'
   const labelCls = 'block text-sm font-medium text-primary-700'
-  const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
-  const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
 
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Proveedores</h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Registro y administración de los proveedores de materiales de la ASADA
-          </p>
-        </div>
-
-        <button
+      <PageHeader
+        titulo="Proveedores"
+        descripcion="Registro y administración de los proveedores de materiales de la ASADA"
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={() => {
             resetFormProveedor()
             setModalNuevoProveedor(true)
           }}
-          className="self-start rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow transition-colors hover:bg-primary-800"
-        >
+          className="self-start shadow">
           + Nuevo Proveedor
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
       {/* Alertas */}
       {mensajeExito && (
@@ -368,20 +369,48 @@ function Proveedores() {
       </div>
 
       {/* Tabla de Proveedores */}
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-primary-100 text-sm">
-          <thead className="bg-primary-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Proveedor</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Contacto</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Teléfono</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Correo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-primary-50">
+      <Table cabecera={['Proveedor', 'Tipo', 'Contacto', 'Teléfono', 'Correo', 'Estado', 'Acciones']} pie={<>{!cargando && filtrados.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-primary-500">
+              Mostrando{' '}
+              {`${primeraFila + 1}–${Math.min(primeraFila + PROVEEDORES_POR_PAGINA, filtrados.length)}`}{' '}
+              de {filtrados.length} proveedores
+              {search ? ` (filtro: "${search}")` : ''}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="secondary" size="sm"
+                type="button"
+                onClick={() => setPagina(paginaActual - 1)}
+                disabled={paginaActual === 1}>
+                ‹ Anterior
+              </Button>
+              {numerosPagina.map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPagina(n)}
+                  disabled={n === paginaActual}
+                  aria-current={n === paginaActual ? 'page' : undefined}
+                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                    n === paginaActual
+                      ? 'bg-primary-700 text-white'
+                      : 'text-primary-700 hover:bg-primary-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <Button
+                variant="secondary" size="sm"
+                type="button"
+                onClick={() => setPagina(paginaActual + 1)}
+                disabled={paginaActual === totalPaginas}>
+                Siguiente ›
+              </Button>
+            </div>
+          </div>
+        )}</>}>
             {cargando ? (
               <tr>
                 <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
@@ -460,61 +489,13 @@ function Proveedores() {
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-
-        {!cargando && filtrados.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {`${primeraFila + 1}–${Math.min(primeraFila + PROVEEDORES_POR_PAGINA, filtrados.length)}`}{' '}
-              de {filtrados.length} proveedores
-              {search ? ` (filtro: "${search}")` : ''}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPagina(paginaActual - 1)}
-                disabled={paginaActual === 1}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ‹ Anterior
-              </button>
-              {numerosPagina.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPagina(n)}
-                  disabled={n === paginaActual}
-                  aria-current={n === paginaActual ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                    n === paginaActual
-                      ? 'bg-primary-700 text-white'
-                      : 'text-primary-700 hover:bg-primary-50'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPagina(paginaActual + 1)}
-                disabled={paginaActual === totalPaginas}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Siguiente ›
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          </Table>
 
       {/* ------------------------------------------------------------------ */}
       {/* MODAL REGISTRAR O EDITAR PROVEEDOR */}
       {/* ------------------------------------------------------------------ */}
       {(modalNuevoProveedor || proveedorAEditar) && (
-        <div className={modalBgCls}>
-          <div className={modalCls}>
+        <Modal size="2xl">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">
                 {proveedorAEditar ? `Editar Proveedor: ${proveedorAEditar.nombre}` : 'Nuevo Proveedor'}
@@ -526,7 +507,7 @@ function Proveedores() {
                   setProveedorAEditar(null)
                   resetFormProveedor()
                 }}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 ✕
               </button>
@@ -622,39 +603,36 @@ function Proveedores() {
               </div>
 
               <div className="mt-6 flex justify-end gap-3 border-t border-primary-100 pt-4">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary-800"
-                >
+                  className="shadow">
                   {proveedorAEditar ? 'Guardar Cambios' : 'Registrar Proveedor'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
                   onClick={() => {
                     setModalNuevoProveedor(false)
                     setProveedorAEditar(null)
                     resetFormProveedor()
-                  }}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
+                  }}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* MODAL DETALLE DEL PROVEEDOR */}
       {proveedorAVer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">Detalle de Proveedor</h2>
               <button
                 type="button"
                 onClick={() => setProveedorAVer(null)}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -691,22 +669,19 @@ function Proveedores() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={() => setProveedorAVer(null)}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                onClick={() => setProveedorAVer(null)}>
                 Cerrar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* Confirmación de cambio de estado (Activo / Inactivo) */}
       {cambioEstado && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md" layer={60} scroll={false}>
             <h2 className="text-lg font-semibold text-primary-900">
               Cambiar estado del proveedor
             </h2>
@@ -740,25 +715,22 @@ function Proveedores() {
               </p>
             )}
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={confirmarCambioEstado}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setCambioEstado(null)}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

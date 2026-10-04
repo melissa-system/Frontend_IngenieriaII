@@ -25,6 +25,10 @@ import {
   type Proveedor,
   type CrearArticuloPayload,
 } from '../../components/Services/inventario.service'
+import Modal from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import PageHeader from '../../components/ui/PageHeader'
 
 const CLASIFICACIONES = [
   { valor: 'articulo', etiqueta: 'Artículo' },
@@ -99,7 +103,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+        activo ? 'bg-green-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -403,8 +407,7 @@ function Inventario() {
 
   // 1. Modal Formulario (Crear / Editar)
   const modalFormEl = !modalOpen ? null : (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
             <h2 className="text-xl font-semibold text-primary-900">
@@ -419,7 +422,7 @@ function Inventario() {
           <button
             type="button"
             onClick={cerrarModal}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -476,7 +479,7 @@ function Inventario() {
                     clasificacion: e.target.value as 'inmueble' | 'articulo',
                   }))
                 }
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
               >
                 {CLASIFICACIONES.map((c) => (
                   <option key={c.valor} value={c.valor}>
@@ -496,7 +499,7 @@ function Inventario() {
                 onChange={(e) =>
                   setForm((p) => ({ ...p, proveedorId: Number(e.target.value) }))
                 }
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
               >
                 {proveedores.map((pr) => (
                   <option key={pr.id} value={pr.id}>
@@ -614,40 +617,36 @@ function Inventario() {
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-            >
+              disabled={submitting}>
               {submitting
                 ? 'Guardando...'
                 : editando
                   ? 'Guardar cambios'
                   : 'Crear artículo'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
-              onClick={() => cerrarModal()}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-            >
+              onClick={() => cerrarModal()}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+</Modal>
   )
 
   // 2. Modal Detalle con Línea de Tiempo de Movimientos
   const detailModalEl = !viewDetail ? null : (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="xl">
         <div className="mb-4 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-primary-900">Detalle del Artículo</h2>
           <button
             type="button"
             onClick={() => setViewDetail(null)}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -753,23 +752,20 @@ function Inventario() {
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={() => setViewDetail(null)}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-          >
+            onClick={() => setViewDetail(null)}>
             Cerrar
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 
   // 3. Modal Cambio de Estado (Task 451)
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+      <Modal size="md" layer={60} scroll={false}>
           <h2 className="text-lg font-semibold text-primary-900">Cambiar estado del artículo</h2>
           <p className="mt-3 text-sm text-primary-600">
             ¿Seguro que deseas cambiar el estado de{' '}
@@ -805,25 +801,22 @@ function Inventario() {
             </p>
           )}
           <div className="mt-6 flex justify-end gap-2">
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={confirmarCambioEstado}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={cambiandoEstadoId !== null}>
               {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => setCambioEstado(null)}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={cambiandoEstadoId !== null}>
               Cancelar
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+</Modal>
     )
 
 
@@ -833,21 +826,21 @@ function Inventario() {
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Catálogo de Artículos</h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {loading ? 'Cargando...' : `${articulos.length} artículos registrados`}
-          </p>
-        </div>
-        <button
+      <PageHeader
+        titulo="Catálogo de Artículos"
+        descripcion={loading ? 'Cargando...' : `${articulos.length} artículos registrados`}
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={openCreate}
-          className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-        >
+          className="self-start">
           + Nuevo artículo
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
       {/* Alerta de confirmación */}
       {confirmacion && (
@@ -928,26 +921,61 @@ function Inventario() {
           <button
             type="button"
             onClick={cargarDatos}
-            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+            className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
           >
             Reintentar
           </button>
         </div>
       ) : (
         /* Tabla de Artículos */
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Clasificación</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Stock Disp.</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
+        <Table cabecera={['Artículo', 'Clasificación', 'Stock Disp.', 'Ubicación', 'Estado', 'Acciones']} pie={<>{/* Barra de Paginación */}
+          {!loading && articulos.length > 0 && (
+            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-xs text-primary-500">
+                Mostrando{' '}
+                {filtered.length === 0
+                  ? 0
+                  : `${primeraFila + 1}–${Math.min(
+                      primeraFila + ARTICULOS_POR_PAGINA,
+                      filtered.length,
+                    )}`}{' '}
+                de {filtered.length} artículos
+                {search ? ` (filtro: "${search}")` : ''}
+              </p>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="secondary" size="sm"
+                  type="button"
+                  onClick={() => setPagina(paginaActual - 1)}
+                  disabled={paginaActual === 1}>
+                  ‹ Anterior
+                </Button>
+                {numerosPagina.map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPagina(n)}
+                    disabled={n === paginaActual}
+                    aria-current={n === paginaActual ? 'page' : undefined}
+                    className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                      n === paginaActual
+                        ? 'bg-primary-700 text-white'
+                        : 'text-primary-700 hover:bg-primary-50'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
+                <Button
+                  variant="secondary" size="sm"
+                  type="button"
+                  onClick={() => setPagina(paginaActual + 1)}
+                  disabled={paginaActual === totalPaginas}>
+                  Siguiente ›
+                </Button>
+              </div>
+            </div>
+          )}</>}>
               {loading ? (
                 Array.from({ length: 5 }).map((_, fila) => (
                   <tr key={`skeleton-${fila}`}>
@@ -986,13 +1014,13 @@ function Inventario() {
                         <p className="mt-1 text-xs text-primary-400">
                           Revisa el término escrito o prueba con otro criterio.
                         </p>
-                        <button
+                        <Button
+                          variant="secondary" size="sm"
                           type="button"
                           onClick={() => manejarBusqueda('')}
-                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                        >
+                          className="mt-4">
                           Limpiar búsqueda
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <p className="mt-3 text-sm font-medium text-primary-600">
@@ -1075,60 +1103,7 @@ function Inventario() {
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
-
-          {/* Barra de Paginación */}
-          {!loading && articulos.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-primary-500">
-                Mostrando{' '}
-                {filtered.length === 0
-                  ? 0
-                  : `${primeraFila + 1}–${Math.min(
-                      primeraFila + ARTICULOS_POR_PAGINA,
-                      filtered.length,
-                    )}`}{' '}
-                de {filtered.length} artículos
-                {search ? ` (filtro: "${search}")` : ''}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPagina(paginaActual - 1)}
-                  disabled={paginaActual === 1}
-                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ‹ Anterior
-                </button>
-                {numerosPagina.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPagina(n)}
-                    disabled={n === paginaActual}
-                    aria-current={n === paginaActual ? 'page' : undefined}
-                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                      n === paginaActual
-                        ? 'bg-primary-700 text-white'
-                        : 'text-primary-700 hover:bg-primary-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setPagina(paginaActual + 1)}
-                  disabled={paginaActual === totalPaginas}
-                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Siguiente ›
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            </Table>
       )}
 
       {/* Modales */}

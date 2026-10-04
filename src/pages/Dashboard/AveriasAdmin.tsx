@@ -6,6 +6,9 @@ import {
 } from '../../components/Services/averias.service'
 import { obtenerEmpleados } from '../../components/Services/empleados.service'
 import { useAuth } from '../../contexts/AuthContext'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 
 const POR_PAGINA = 10
 
@@ -15,8 +18,6 @@ const ESTADO_COLORS: Record<string, string> = {
   Finalizado: 'bg-green-100 text-green-700',
 }
 
-const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
-const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
 
 function normalizarBusqueda(s: string): string {
   return s
@@ -68,8 +69,7 @@ function GestionModal({
   const fontaneroActual = nombreFontanero(a)
 
   return (
-    <div className={modalBgCls}>
-      <div className={modalCls}>
+    <Modal size="2xl">
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
@@ -78,7 +78,7 @@ function GestionModal({
             </span>
           </div>
           <button type="button" onClick={onClose}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -133,7 +133,7 @@ function GestionModal({
                     <div className="flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {h.estado_anterior && (
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[h.estado_anterior] || 'bg-gray-100 text-gray-600'}`}>
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[h.estado_anterior] || 'bg-primary-100 text-primary-600'}`}>
                             {h.estado_anterior}
                           </span>
                         )}
@@ -209,24 +209,20 @@ function GestionModal({
         <div className="mt-6 flex justify-end gap-3">
           {gestionable ? (
             <>
-              <button type="button" onClick={onGuardar} disabled={procesando}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">
+              <Button variant="primary" type="button" onClick={onGuardar} disabled={procesando}>
                 {procesando ? 'Guardando...' : 'Guardar cambios'}
-              </button>
-              <button type="button" onClick={onClose}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
+              </Button>
+              <Button variant="secondary" type="button" onClick={onClose}>
                 Cancelar
-              </button>
+              </Button>
             </>
           ) : (
-            <button type="button" onClick={onClose}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
+            <Button variant="primary" type="button" onClick={onClose}>
               Cerrar
-            </button>
+            </Button>
           )}
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }
 
@@ -360,10 +356,10 @@ function AveriasAdmin() {
     return (
       <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
         <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-        <button type="button" onClick={cargarAverias}
-          className="mt-3 rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
+        <Button variant="primary" type="button" onClick={cargarAverias}
+          className="mt-3">
           Reintentar
-        </button>
+        </Button>
       </div>
     )
   }
@@ -415,21 +411,36 @@ function AveriasAdmin() {
       </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-primary-100 text-sm">
-          <thead className="bg-primary-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Reportado por</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Descripción</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-primary-50">
+      <Table cabecera={['Código', 'Tipo', 'Reportado por', 'Cédula', 'Descripción', 'Fecha', 'Estado', 'Acciones']} pie={<>{/* Paginación */}
+        {averias.length > 0 && (
+          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-primary-500">
+              Mostrando{' '}
+              {filtered.length === 0
+                ? 0
+                : `${primeraFila + 1}–${Math.min(primeraFila + POR_PAGINA, filtered.length)}`}{' '}
+              de {filtered.length} reportes
+              {search ? ` (filtro: "${search}")` : ''}
+            </p>
+            <div className="flex items-center gap-1">
+              <Button variant="secondary" size="sm" type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 1}>
+                ‹ Anterior
+              </Button>
+              {numerosPagina.map((n) => (
+                <button key={n} type="button" onClick={() => setPagina(n)} disabled={n === paginaActual}
+                  aria-current={n === paginaActual ? 'page' : undefined}
+                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                    n === paginaActual ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
+                  }`}>
+                  {n}
+                </button>
+              ))}
+              <Button variant="secondary" size="sm" type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas}>
+                Siguiente ›
+              </Button>
+            </div>
+          </div>
+        )}</>}>
             {filasVisibles.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
@@ -453,53 +464,17 @@ function AveriasAdmin() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <button
+                    <Button
+                      variant="secondary" size="sm"
                       type="button"
-                      onClick={() => setGestionModal(a)}
-                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                    >
+                      onClick={() => setGestionModal(a)}>
                       Ver / gestionar
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-
-        {/* Paginación */}
-        {averias.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {filtered.length === 0
-                ? 0
-                : `${primeraFila + 1}–${Math.min(primeraFila + POR_PAGINA, filtered.length)}`}{' '}
-              de {filtered.length} reportes
-              {search ? ` (filtro: "${search}")` : ''}
-            </p>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 1}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
-                ‹ Anterior
-              </button>
-              {numerosPagina.map((n) => (
-                <button key={n} type="button" onClick={() => setPagina(n)} disabled={n === paginaActual}
-                  aria-current={n === paginaActual ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                    n === paginaActual ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
-                  }`}>
-                  {n}
-                </button>
-              ))}
-              <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
-                Siguiente ›
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          </Table>
 
       {gestionModal && (
         <GestionModal

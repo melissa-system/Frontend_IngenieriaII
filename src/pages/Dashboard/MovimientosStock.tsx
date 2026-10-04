@@ -21,6 +21,8 @@ import {
   type Articulo,
   type MovimientoInventario,
 } from '../../components/Services/inventario.service'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
 
 const MOVIMIENTOS_POR_PAGINA = 10
 
@@ -334,7 +336,7 @@ function MovimientosStock() {
                 <select
                   value={articuloSeleccionadoId}
                   onChange={(e) => setArticuloSeleccionadoId(Number(e.target.value))}
-                  className="w-full sm:w-2/3 rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                  className="w-full sm:w-2/3 rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
                 >
                   {articulosFiltradosSelector.length === 0 ? (
                     <option value="">No hay artículos coincidentes</option>
@@ -359,7 +361,7 @@ function MovimientosStock() {
                 <button
                   type="button"
                   onClick={() => setTipoMovimiento('entrada')}
-                  className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                  className={`rounded-full py-1.5 text-xs font-semibold transition-colors ${
                     tipoMovimiento === 'entrada'
                       ? 'bg-emerald-600 text-white shadow'
                       : 'text-primary-700 hover:text-primary-900'
@@ -370,7 +372,7 @@ function MovimientosStock() {
                 <button
                   type="button"
                   onClick={() => setTipoMovimiento('salida')}
-                  className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                  className={`rounded-full py-1.5 text-xs font-semibold transition-colors ${
                     tipoMovimiento === 'salida'
                       ? 'bg-red-600 text-white shadow'
                       : 'text-primary-700 hover:text-primary-900'
@@ -501,14 +503,14 @@ function MovimientosStock() {
           )}
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              disabled={submitting || esSalidaInvalida || !articuloActual}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={submitting || esSalidaInvalida || !articuloActual}>
               {submitting ? 'Registrando...' : 'Confirmar Movimiento'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => {
                 setCantidad(1)
@@ -517,11 +519,9 @@ function MovimientosStock() {
                 setMotivo('')
                 setFormError(null)
                 setErrores({})
-              }}
-              className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-            >
+              }}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </form>
       </div>
@@ -604,30 +604,60 @@ function MovimientosStock() {
             <button
               type="button"
               onClick={cargarDatos}
-              className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+              className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
             >
               Reintentar
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha y Hora</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Cantidad</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">
-                    Destino / Responsable
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">
-                    Registrado por
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
+          <Table cabecera={['Fecha y Hora', 'Artículo', 'Tipo', 'Cantidad', 'Destino / Responsable', 'Registrado por', 'Motivo']} pie={<>{/* Paginación */}
+            {!loading && movimientos.length > 0 && (
+              <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-xs text-primary-500">
+                  Mostrando{' '}
+                  {filteredMovimientos.length === 0
+                    ? 0
+                    : `${primeraFila + 1}–${Math.min(
+                        primeraFila + MOVIMIENTOS_POR_PAGINA,
+                        filteredMovimientos.length,
+                      )}`}{' '}
+                  de {filteredMovimientos.length} movimientos
+                  {search ? ` (filtro: "${search}")` : ''}
+                </p>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="secondary" size="sm"
+                    type="button"
+                    onClick={() => setPagina(paginaActual - 1)}
+                    disabled={paginaActual === 1}>
+                    ‹ Anterior
+                  </Button>
+                  {numerosPagina.map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => setPagina(n)}
+                      disabled={n === paginaActual}
+                      aria-current={n === paginaActual ? 'page' : undefined}
+                      className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                        n === paginaActual
+                          ? 'bg-primary-700 text-white'
+                          : 'text-primary-700 hover:bg-primary-50'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <Button
+                    variant="secondary" size="sm"
+                    type="button"
+                    onClick={() => setPagina(paginaActual + 1)}
+                    disabled={paginaActual === totalPaginas}>
+                    Siguiente ›
+                  </Button>
+                </div>
+              </div>
+            )}</>}>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, fila) => (
                     <tr key={`skeleton-${fila}`}>
@@ -663,13 +693,13 @@ function MovimientosStock() {
                           <p className="mt-3 text-sm font-medium text-primary-600">
                             No encontramos movimientos para "{search}"
                           </p>
-                          <button
+                          <Button
+                            variant="secondary" size="sm"
                             type="button"
                             onClick={() => manejarBusqueda('')}
-                            className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                          >
+                            className="mt-4">
                             Limpiar búsqueda
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <p className="mt-3 text-sm font-medium text-primary-600">
@@ -711,60 +741,7 @@ function MovimientosStock() {
                     </tr>
                   ))
                 )}
-              </tbody>
-            </table>
-
-            {/* Paginación */}
-            {!loading && movimientos.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-primary-500">
-                  Mostrando{' '}
-                  {filteredMovimientos.length === 0
-                    ? 0
-                    : `${primeraFila + 1}–${Math.min(
-                        primeraFila + MOVIMIENTOS_POR_PAGINA,
-                        filteredMovimientos.length,
-                      )}`}{' '}
-                  de {filteredMovimientos.length} movimientos
-                  {search ? ` (filtro: "${search}")` : ''}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setPagina(paginaActual - 1)}
-                    disabled={paginaActual === 1}
-                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ‹ Anterior
-                  </button>
-                  {numerosPagina.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setPagina(n)}
-                      disabled={n === paginaActual}
-                      aria-current={n === paginaActual ? 'page' : undefined}
-                      className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                        n === paginaActual
-                          ? 'bg-primary-700 text-white'
-                          : 'text-primary-700 hover:bg-primary-50'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setPagina(paginaActual + 1)}
-                    disabled={paginaActual === totalPaginas}
-                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Siguiente ›
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              </Table>
         )}
       </div>
       )}

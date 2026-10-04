@@ -96,6 +96,34 @@ function colores(src, f) {
   })
 }
 
+// Variante con constantes modalBgCls / modalCls (Proveedores, Averías)
+function modalesConstantes(src, f, usados) {
+  if (!/const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black\/40 p-4'/.test(src)) return src
+  let out = src
+  const re = /<div className=\{modalBgCls\}>\s*<div className=\{modalCls\}>/g
+  let m
+  while ((m = re.exec(out))) {
+    const ini = m.index
+    const cierrePanel = cierreDe(out, ini + m[0].indexOf('<div', 5), 'div')
+    const cierreOuter = cierreDe(out, ini, 'div')
+    if (cierrePanel < 0 || cierreOuter < 0) continue
+    if (out.slice(cierrePanel + 6, cierreOuter).trim() !== '') continue
+    out =
+      out.slice(0, ini) +
+      '<Modal size="2xl">' +
+      out.slice(ini + m[0].length, cierrePanel).replace(/\s+$/, '\n') +
+      '</Modal>' +
+      out.slice(cierreOuter + 6)
+    usados.add('Modal')
+    cuenta(f, 'modales')
+    re.lastIndex = 0
+  }
+  if (!/modalBgCls|modalCls/.test(out.replace(/^.*const modal(?:Bg)?Cls.*$/gm, ''))) {
+    out = out.replace(/^[ \t]*const modalBgCls = .*\n/m, '').replace(/^[ \t]*const modalCls = .*\n/m, '')
+  }
+  return out
+}
+
 function modales(src, f, usados) {
   const reOpen =
     /<div className="fixed inset-0 z-(50|\[60\]|\[70\]) flex items-center justify-center bg-black\/40 p-4">\s*<div className="([^"]*)">/g
@@ -141,7 +169,7 @@ function tablas(src, f, usados) {
   let guard = 0
   while ((m = reOpen.exec(out)) && guard++ < 200) {
     const [todo, ths] = m
-    const re = /<th className="px-4 py-3 text-left font-medium text-primary-700">([^<>{}]*)<\/th>/g
+    const re = /<th className="px-4 py-3 (?:text-left )?font-medium text-primary-700">([^<>{}]*)<\/th>/g
     const labels = []
     let t
     let resto = ths
@@ -223,6 +251,32 @@ function componenteBoton(src, f, usados) {
   return out + src.slice(pos)
 }
 
+// Encabezado de página: <div flex...><div><h1/><p/></div> [acción] </div> -> <PageHeader>
+function pageHeader(src, f, usados) {
+  const re =
+    /<div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">\s*<div>\s*<h1 className="text-2xl font-semibold text-primary-900">\s*([^<>{}]+?)\s*<\/h1>\s*<p className="mt-1 text-sm text-primary-500">\s*([\s\S]*?)\s*<\/p>\s*<\/div>/g
+  let out = src
+  let m
+  let n = 0
+  while ((m = re.exec(out))) {
+    const ini = m.index
+    const cierre = cierreDe(out, ini, 'div')
+    if (cierre < 0) continue
+    const accion = out.slice(ini + m[0].length, cierre).trim()
+    const desc = m[2].trim()
+    const descProp = /^\{[\s\S]*\}$/.test(desc) ? `descripcion=${desc}` : `descripcion="${desc.replace(/"/g, '&quot;')}"`
+    const accProp = accion ? `\n        accion={\n          <>\n${accion}\n          </>\n        }` : ''
+    const nuevo = `<PageHeader\n        titulo="${m[1].trim()}"\n        ${descProp}${accProp}\n      />`
+    out = out.slice(0, ini) + nuevo + out.slice(cierre + 6)
+    re.lastIndex = 0
+    n++
+  }
+  if (!n) return src
+  usados.add('PageHeader')
+  cuenta(f, 'pageHeader', n)
+  return out
+}
+
 function tabs(src, f, usados) {
   const re =
     /<div className="flex gap-6 border-b border-primary-100">\s*<button\s+type="button"\s+onClick=\{\(\) => setVista\('lista'\)\}\s+className=\{`[^`]*`\}\s*>\s*([^<>{}]+?)\s*<\/button>\s*<button\s+type="button"\s+onClick=\{\(\) => setVista\('crear'\)\}\s+className=\{`[^`]*`\}\s*>\s*([^<>{}]+?)\s*<\/button>\s*<\/div>/g
@@ -291,9 +345,11 @@ for (const file of files) {
   src = botones(src, file)
   src = colores(src, file)
   src = modales(src, file, usados)
+  src = modalesConstantes(src, file, usados)
   src = tablas(src, file, usados)
   src = componenteBoton(src, file, usados)
   src = tabs(src, file, usados)
+  src = pageHeader(src, file, usados)
   src = emptyState(src, file, usados)
   src = badgeEstado(src, file, usados)
   src = asegurarImports(src, file, usados)
