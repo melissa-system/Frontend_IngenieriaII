@@ -1,3 +1,4 @@
+import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -1313,19 +1314,7 @@ function Abonados() {
             </div>
           )}</>}>
               {loading ? (
-                Array.from({ length: 5 }).map((_, fila) => (
-                  <tr key={`skeleton-${fila}`}>
-                    {Array.from({ length: 7 }).map((__, col) => (
-                      <td key={col} className="px-4 py-3.5">
-                        <div
-                          className={`animate-pulse rounded bg-primary-100 ${
-                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
-                          }`}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                <FilasEsqueleto columnas={7} />
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">

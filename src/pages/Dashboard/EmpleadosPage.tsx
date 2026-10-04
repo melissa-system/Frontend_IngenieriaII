@@ -1,3 +1,5 @@
+import { FilaVacia } from '../../components/ui/EmptyState'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
@@ -579,26 +581,11 @@ function EmpleadosPage() {
         }
       >
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i}>
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <td key={j} className="px-4 py-3">
-                      <div className="h-4 animate-pulse rounded bg-primary-100" />
-                    </td>
-                  ))}
-                </tr>
-              ))
+              <FilasEsqueleto columnas={6} />
             ) : filasVisibles.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-primary-400"
-                >
-                  {search
+              <FilaVacia columnas={6} titulo={search
                     ? 'No se encontraron empleados con ese criterio.'
-                    : 'No hay empleados registrados.'}
-                </td>
-              </tr>
+                    : 'No hay empleados registrados.'} />
             ) : (
               filasVisibles.map((emp) => (
                 <tr
