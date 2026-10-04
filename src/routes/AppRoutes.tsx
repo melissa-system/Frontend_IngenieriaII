@@ -130,7 +130,7 @@ function AppRoutes() {
       <Route
         path="*"
         element={
-          <div className="flex min-h-screen items-center justify-center bg-gray-50">
+          <div className="flex min-h-screen items-center justify-center bg-primary-50">
             <div className="text-center">
               <h1 className="text-6xl font-bold text-primary-700">
                 404

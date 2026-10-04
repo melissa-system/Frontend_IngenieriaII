@@ -5,6 +5,7 @@ import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
 import AuthLayout from '../../components/auth/AuthLayout'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
+import Button from '../../components/ui/Button'
 
 // Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(error: unknown): string {
@@ -172,13 +173,13 @@ function Login() {
           )
         )}
 
-        <button
+        <Button
+          variant="primary"
           type="submit"
           disabled={!puedeEnviar || loading || bloqueoSegundos > 0}
-          className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+          className="w-full">
           {loading ? 'Ingresando...' : 'Iniciar sesión'}
-        </button>
+        </Button>
 
         <Link
           to="/recuperar-password"

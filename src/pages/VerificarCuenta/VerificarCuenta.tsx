@@ -69,7 +69,7 @@ function VerificarCuenta() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-white px-4">
-      <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-gray-50 p-6 text-center">
+      <div className="w-full max-w-sm rounded-2xl border border-primary-200 bg-primary-50 p-6 text-center">
         <img
           src={logo}
           alt="ASADA Pueblo Nuevo"

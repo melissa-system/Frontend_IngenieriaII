@@ -35,6 +35,7 @@ import {
   type DatosDocumentoSolicitud,
 } from '../../lib/generarPdfSolicitud'
 import { obtenerPerfil } from '../../components/Services/perfil.service'
+import Button from '../../components/ui/Button'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
@@ -605,18 +606,17 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
           {documentoBlob && (
             <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() =>
                   descargarPdfSolicitud(
                     documentoBlob,
                     solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
                   )
-                }
-                className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                }>
                 Descargar documento (PDF)
-              </button>
+              </Button>
             </div>
           )}
           {errorDocumento && (
@@ -763,14 +763,14 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       disabled={lookupStatus === 'found'}
                     />
                     {lookupStatus !== 'found' && (
-                      <button
+                      <Button
+                        variant="primary" size="sm"
                         type="button"
                         onClick={buscarIdentificacion}
                         disabled={!tipoDetectado || lookupStatus === 'loading'}
-                        className="flex-none rounded-full bg-primary-700 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
+                        className="flex-none">
                         {lookupStatus === 'loading' ? 'Buscando...' : 'Buscar'}
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {tipoDetectado && (
@@ -840,17 +840,17 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                           placeholder="Ej. 1-2345-6789"
                           className={`${inputCls} mt-0 flex-1`}
                         />
-                        <button
+                        <Button
+                          variant="primary" size="sm"
                           type="button"
                           onClick={buscarRepresentante}
                           disabled={
                             draft.cedulaRepresentante.replace(/\D/g, '').length !== 9 ||
                             lookupRepStatus === 'loading'
                           }
-                          className="flex-none rounded-full bg-primary-700 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
+                          className="flex-none">
                           {lookupRepStatus === 'loading' ? 'Buscando...' : 'Buscar'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div>
@@ -1200,32 +1200,29 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
           {/* Navegación: Atrás / Siguiente (o Enviar en el último paso) */}
           <div className="mt-4 flex items-center justify-between gap-3">
-            <button
+            <Button
+              variant="secondary"
               type="button"
               onClick={irAtras}
-              disabled={paso === 0}
-              className="rounded-full border border-primary-200 px-5 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
+              disabled={paso === 0}>
               Atrás
-            </button>
+            </Button>
             {paso < TOTAL_PASOS - 1 ? (
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={irSiguiente}
-                disabled={!pasoActualValido}
-                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={!pasoActualValido}>
                 Siguiente
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={handleSubmit}
-                disabled={!paso4Valido || enviando || !tokenRecaptcha}
-                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={!paso4Valido || enviando || !tokenRecaptcha}>
                 {enviando ? 'Enviando...' : 'Enviar solicitud'}
-              </button>
+              </Button>
             )}
           </div>
         </div>

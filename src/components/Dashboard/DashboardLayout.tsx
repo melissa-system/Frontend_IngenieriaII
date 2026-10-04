@@ -40,7 +40,7 @@ function DashboardLayout() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-gray-50 lg:h-screen">
+    <div className="flex h-dvh overflow-hidden bg-primary-50 lg:h-screen">
       {mobileOpen && (
         <div
           className="fixed inset-0 z-40 bg-black/40 lg:hidden"

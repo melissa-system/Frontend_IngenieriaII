@@ -94,7 +94,7 @@ export function FileDropZone({
               ? 'border-primary-500 bg-primary-50'
               : errorArchivo
               ? 'border-red-300 bg-red-50/50 hover:bg-red-50'
-              : 'border-primary-200 bg-gray-50/50 hover:bg-primary-50/40'
+              : 'border-primary-200 bg-primary-50/50 hover:bg-primary-50/40'
           }`}
         >
           <svg
@@ -114,7 +114,7 @@ export function FileDropZone({
             Arrastrá y soltá el archivo aquí o{' '}
             <span className="text-primary-600 underline">examiná tus archivos</span>
           </p>
-          <p className="mt-1 text-xs text-gray-400">
+          <p className="mt-1 text-xs text-primary-400">
             PDF, JPG o PNG hasta {MAX_MB} MB
           </p>
           <input

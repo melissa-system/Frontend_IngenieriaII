@@ -21,6 +21,7 @@ import {
   type ErroresFormulario,
 } from '../../lib/validaciones'
 import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+import Button from '../../components/ui/Button'
 
 const TIPOS_AVERIA = [
   'Fuga de agua',
@@ -281,13 +282,13 @@ function ReportarAveria() {
                     className="flex-1 rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50"
                   />
                   {!datosListos && (
-                    <button
+                    <Button
+                      variant="primary"
                       type="submit"
                       disabled={lookupStatus === 'loading'}
-                      className="flex-none rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-60"
-                    >
+                      className="flex-none">
                       {lookupStatus === 'loading' ? 'Buscando...' : 'Buscar'}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 <CampoError mensaje={errorCedula} />
@@ -519,13 +520,13 @@ function ReportarAveria() {
 
               <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
 
-              <button
+              <Button
+                variant="primary"
                 type="submit"
                 disabled={submitting || !tokenRecaptcha}
-                className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:opacity-50 sm:w-auto"
-              >
+                className="w-full sm:w-auto">
                 {submitting ? 'Enviando...' : 'Enviar reporte'}
-              </button>
+              </Button>
             </form>
           )}
         </div>

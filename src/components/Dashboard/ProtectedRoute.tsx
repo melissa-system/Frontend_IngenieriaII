@@ -9,7 +9,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   // el Access Token vive en memoria y tarda un instante en recuperarse.
   if (status === 'restoring') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-primary-50">
         <p className="text-sm font-medium text-primary-600">
           Restaurando sesión...
         </p>

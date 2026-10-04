@@ -12,14 +12,14 @@ function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
   const { user, rolEfectivo } = useAuth()
 
   return (
-    <header className="flex h-16 items-center justify-between border-b border-gray-200 bg-white px-4 sm:px-6">
+    <header className="flex h-16 items-center justify-between border-b border-primary-200 bg-white px-4 sm:px-6">
       {/* En móvil el botón queda a la derecha (más cómodo con una mano);
           en escritorio (lg+) vuelve a la izquierda, donde también contrae
           o expande el sidebar fijo. */}
       <button
         type="button"
         onClick={onToggleSidebar}
-        className="order-2 rounded-lg p-2 text-primary-700 hover:bg-primary-50 lg:order-1"
+        className="order-2 rounded-full p-2 text-primary-700 hover:bg-primary-50 lg:order-1"
         aria-label="Mostrar u ocultar el menú"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">

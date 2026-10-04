@@ -4,6 +4,7 @@ import { esCorreo } from '../../lib/validaciones'
 import { Link } from 'react-router-dom'
 import { solicitarResetPassword } from '../../lib/passwordReset.service'
 import AuthLayout from '../../components/auth/AuthLayout'
+import Button from '../../components/ui/Button'
 
 
 // Lector único de errores de la API (PBI 511 / Task 516).
@@ -91,13 +92,13 @@ function RecuperarPassword() {
             </p>
           )}
 
-          <button
+          <Button
+            variant="primary"
             type="submit"
             disabled={!puedeEnviar}
-            className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-          >
+            className="w-full">
             {loading ? 'Enviando...' : 'Enviar solicitud'}
-          </button>
+          </Button>
         </form>
       )}
 

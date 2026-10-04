@@ -7,6 +7,7 @@ import {
   type TipoDocumento,
 } from '../../components/Services/documentos.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -139,7 +140,7 @@ function DocumentosPublicos() {
           <button
             type="button"
             onClick={cargar}
-            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+            className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
           >
             Reintentar
           </button>
@@ -183,7 +184,8 @@ function DocumentosPublicos() {
                 {doc.version > 1 ? ` · versión ${doc.version}` : ''}
               </p>
 
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() =>
                   descargarArchivo(
@@ -191,11 +193,10 @@ function DocumentosPublicos() {
                     `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
                   )
                 }
-                className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-              >
+                className="mt-4 inline-flex items-center justify-center gap-2">
                 <DownloadIcon />
                 Descargar
-              </button>
+              </Button>
             </div>
           ))}
         </div>

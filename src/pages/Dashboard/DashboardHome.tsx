@@ -839,7 +839,7 @@ function DashboardAbonado() {
                     <p className="text-xs text-primary-500">{s.tipo_solicitud}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[s.estado] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[s.estado] || 'bg-primary-100 text-primary-600'}`}>
                       {s.estado}
                     </span>
                     <span className="text-[11px] text-primary-400">
@@ -868,7 +868,7 @@ function DashboardAbonado() {
                     <p className="text-xs text-primary-500">{a.tipo_averia}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[a.estado] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[a.estado] || 'bg-primary-100 text-primary-600'}`}>
                       {a.estado}
                     </span>
                     <span className="text-[11px] text-primary-400">

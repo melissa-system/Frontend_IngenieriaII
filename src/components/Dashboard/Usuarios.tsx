@@ -44,7 +44,7 @@ function getRoleBadgeColor(roleName: string) {
   if (normalized.includes('fontanero')) {
     return 'bg-amber-100 text-amber-800 border-amber-200';
   }
-  return 'bg-slate-100 text-slate-700 border-slate-200';
+  return 'bg-primary-100 text-primary-700 border-primary-200';
 }
 
 const USUARIOS_POR_PAGINA = 8;
