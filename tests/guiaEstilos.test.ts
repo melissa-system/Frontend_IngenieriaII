@@ -188,4 +188,64 @@ describe('guía de estilos (diseños/componentes.md)', () => {
       assert.ok(css.includes(t), `falta ${t}`)
     }
   })
+
+  // ── Biblioteca de componentes: accesibilidad y estados ──
+  it('Button: foco visible, estado deshabilitado y cargando accesible', () => {
+    const b = leer('components/ui/Button.tsx')
+    assert.match(b, /focus-visible:outline/)
+    assert.match(b, /disabled:cursor-not-allowed disabled:opacity-50/)
+    assert.match(b, /aria-busy/)
+  })
+
+  it('campos: etiqueta ligada (htmlFor/id), aria-invalid y aria-describedby, más Fecha y Archivo', () => {
+    const c = leer('components/ui/campos.tsx')
+    assert.match(c, /htmlFor=/)
+    assert.match(c, /aria-invalid/)
+    assert.match(c, /aria-describedby/)
+    assert.match(c, /export function Fecha/)
+    assert.match(c, /export function Archivo/)
+    assert.match(c, /export function Select/)
+  })
+
+  it('Modal: role dialog, aria-modal, nombre accesible, Escape y retorno de foco', () => {
+    const m = leer('components/ui/Modal.tsx')
+    assert.match(m, /role="dialog"/)
+    assert.match(m, /aria-modal="true"/)
+    assert.match(m, /aria-labelledby/)
+    assert.match(m, /'Escape'/)
+    assert.match(m, /previo\?\.focus/)
+    assert.match(m, /export function ModalConfirmar/)
+    assert.match(m, /export function ModalFormulario/)
+  })
+
+  it('todos los modales de las vistas usan <ModalTitulo> (nombre accesible)', () => {
+    const sin: string[] = []
+    for (const { ruta, texto } of TODOS) {
+      if (!ruta.endsWith('.tsx') || ruta.startsWith('components/ui/')) continue
+      const abiertos = (texto.match(/<Modal\b/g) ?? []).length
+      const titulos = (texto.match(/<ModalTitulo\b|<ModalConfirmar\b|<ModalFormulario\b/g) ?? []).length
+      if (abiertos > 0 && titulos === 0) sin.push(ruta)
+    }
+    assert.deepEqual(sin, [])
+  })
+
+  it('Table: encabezados con scope, ordenamiento con aria-sort y paginación con aria-current', () => {
+    const t = leer('components/ui/Table.tsx')
+    assert.match(t, /scope="col"/)
+    assert.match(t, /aria-sort/)
+    assert.match(leer('components/ui/Paginador.tsx'), /aria-current/)
+    assert.match(leer('components/ui/Paginador.tsx'), /aria-label="Paginación"/)
+  })
+
+  it('alertas y toasts tienen los 4 tipos (éxito, error, advertencia, info) con role', () => {
+    const a = leer('components/ui/Alerta.tsx')
+    for (const t of ['exito', 'error', 'advertencia', 'info']) assert.match(a, new RegExp(`${t}:`))
+    assert.match(leer('components/ui/Toast.tsx'), /TipoToast = 'exito' \| 'error' \| 'advertencia' \| 'info'/)
+    assert.match(a, /role=/)
+  })
+
+  it('la paginación de las tablas usa <Paginador> (sin contadores "Mostrando" a mano)', () => {
+    const v = violaciones((r) => r.endsWith('.tsx') && !r.startsWith('components/ui/'), /Mostrando\{?'? ?\}?\s*$|^\s*Mostrando\{' '\}/)
+    assert.deepEqual(v, [])
+  })
 })

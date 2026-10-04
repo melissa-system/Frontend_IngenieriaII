@@ -34,7 +34,7 @@ import {
   type RequiereConfirmacionInfo,
   erroresPorCampo,
 } from '../../components/Services/erroresApi'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 
@@ -641,9 +641,9 @@ function EmpleadosPage() {
       {/* ── Modal crear/editar ────────────────────────────── */}
       {modalOpen && (
         <Modal size="lg" scroll={false}>
-            <h2 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               {editando ? 'Editar empleado' : 'Nuevo empleado'}
-            </h2>
+            </ModalTitulo>
             <p className="mt-1 text-sm text-primary-500">
               Los campos marcados con * son obligatorios.
             </p>
@@ -952,7 +952,7 @@ function EmpleadosPage() {
       {viewDetail && (
         <Modal size="lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Detalle del Empleado</h2>
+              <ModalTitulo>Detalle del Empleado</ModalTitulo>
               <button
                 type="button"
                 onClick={() => setViewDetail(null)}
@@ -996,9 +996,9 @@ function EmpleadosPage() {
       {/* ── Modal confirmación cédula cruzada ────────────── */}
       {confirmacionCedula && (
         <Modal size="md" layer={70} scroll={false}>
-            <h2 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               Cédula ya registrada
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               {confirmacionCedula.info.message}
             </p>
@@ -1024,9 +1024,9 @@ function EmpleadosPage() {
       {/* ── Modal cambio de estado ───────────────────────── */}
       {cambioEstado && (
         <Modal size="md" layer={60} scroll={false}>
-            <h2 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               Cambiar estado del empleado
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               ¿Seguro que deseas cambiar el estado de{' '}
               <span className="font-semibold text-primary-800">

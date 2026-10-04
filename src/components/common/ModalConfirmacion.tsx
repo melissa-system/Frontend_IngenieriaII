@@ -1,8 +1,12 @@
 import type { ReactNode } from 'react'
+import Button from '../ui/Button'
+import Icono from '../ui/Icono'
+import Modal, { ModalTitulo } from '../ui/Modal'
 
 // Modal de confirmación con código de seguimiento SOL-XXX-YYYY-XXXX. Es el
 // mismo que usa "Cambio de Propietario", compartido para estandarizar el
-// comportamiento de todas las solicitudes.
+// comportamiento de todas las solicitudes. Usa el <Modal> estándar (foco,
+// teclado y lector de pantalla incluidos).
 export default function ModalConfirmacion({
   codigo,
   onCerrar,
@@ -15,50 +19,34 @@ export default function ModalConfirmacion({
   descripcion: ReactNode
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in">
-      <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-center">
+    <Modal size="md" scroll={false} onCerrar={onCerrar}>
+      <div className="text-center">
         <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-exito-100 text-exito-700">
-          <svg
-            className="h-8 w-8"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+          <Icono nombre="check" className="h-8 w-8" />
         </div>
 
-        <h3 className="mt-4 text-xl font-bold text-primary-900">{titulo}</h3>
+        <div className="mt-4 [&>h2]:text-xl [&>h2]:font-bold">
+          <ModalTitulo>{titulo}</ModalTitulo>
+        </div>
         <p className="mt-2 text-sm text-primary-600">{descripcion}</p>
 
-        <div className="mt-4 rounded-xl border border-primary-200 bg-primary-50/60 p-3">
-          <span className="text-xs text-primary-500 uppercase tracking-wider font-semibold">
+        <div className="mt-4 rounded-tarjeta border border-primary-200 bg-primary-50/60 p-3">
+          <span className="text-xs font-semibold tracking-wider text-primary-500 uppercase">
             Número de seguimiento
           </span>
-          <p className="mt-1 font-mono text-lg font-bold text-primary-800">
-            {codigo}
-          </p>
+          <p className="mt-1 font-mono text-lg font-bold text-primary-800">{codigo}</p>
         </div>
 
-        <p className="mt-3 text-xs text-primary-400">
+        <p className="mt-3 text-xs text-primary-500">
           Guardá este código para consultar el estado de tu trámite en ventanilla o desde tu panel.
         </p>
 
         <div className="mt-6">
-          <button
-            type="button"
-            onClick={onCerrar}
-            className="w-full rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800"
-          >
+          <Button className="w-full" onClick={onCerrar}>
             Entendido y continuar
-          </button>
+          </Button>
         </div>
       </div>
-    </div>
+    </Modal>
   )
 }

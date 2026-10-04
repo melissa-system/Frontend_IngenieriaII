@@ -4,10 +4,10 @@ Todos viven en `Frontend_IngeII/src/components/ui/`. **Regla: en cualquier vista
 
 | Componente | Archivo | Para qué | Reemplaza |
 |---|---|---|---|
-| `Button` / `claseBoton()` | `Button.tsx` | Todo botón. `variant`: `primary`, `secondary`, `danger`, `success`, `info` (contorno de color, fondo blanco), `ghost`; `size`: `sm`, `md`. Siempre `rounded-full`. `claseBoton()` da las clases para un `<Link>`. | `<button className="rounded-lg bg-primary-700 …">` |
-| `Modal`, `ModalTitulo`, `ModalAcciones` | `Modal.tsx` | Overlay + panel. `size`: `md`/`lg`/`xl`/`2xl`; `layer`: 50/60/70 para confirmaciones sobre otro modal. `ModalAcciones` = fila de botones a la derecha (primario primero, Cancelar al final). | `fixed inset-0 z-50 …` hecho a mano |
-| `Campo`, `Input`, `Textarea`, `Select` | `campos.tsx` | Etiqueta arriba + campo + ayuda + error (`CampoError`). Inputs/textareas `rounded-lg`, selects `rounded-full`. Constantes `CLASE_INPUT`, `CLASE_SELECT`, `CLASE_SELECT_FILTRO`, `CLASE_BUSCADOR`. | clases sueltas de inputs/selects |
-| `Table`, `Td` | `Table.tsx` | Tabla con contenedor, cabecera `bg-primary-50` y filas separadas. | `<table>` hecha a mano |
+| `Button` / `claseBoton()` | `Button.tsx` | Todo botón. `variant`: `primary`, `secondary`, `danger`, `success`, `info`, `ghost`; `size`: `sm`, `md`; `loading` (spinner + `aria-busy` + deshabilitado). Siempre `rounded-full`. Estados: normal, hover, foco (`focus-visible`), deshabilitado, cargando. | `<button className="rounded-…">` |
+| `Modal`, `ModalTitulo`, `ModalAcciones`, `ModalConfirmar`, `ModalFormulario` | `Modal.tsx` | Overlay + panel accesible (`role="dialog"`, foco atrapado, Escape con `onCerrar`, retorno del foco). `ModalConfirmar` = "¿seguro?" (`variante="danger"`); `ModalFormulario` = formulario con Guardar/Cancelar y error integrado. | `fixed inset-0 …` a mano |
+| `Campo`, `Input`, `Fecha`, `Archivo`, `Textarea`, `Select` | `campos.tsx` | Etiqueta arriba + campo + ayuda + error integrado, con `htmlFor`/`id`, `aria-invalid` y `aria-describedby` automáticos. Estados: normal, foco, deshabilitado, error. | inputs con clases copiadas |
+| `Table`, `Td`, `Paginador` | `Table.tsx`, `Paginador.tsx` | Tabla con cabecera `scope="col"`, scroll horizontal, **ordenamiento** (`cabecera={[{ etiqueta, clave }]}` + `orden`/`onOrdenar`, `aria-sort`) y **paginación** (`pie={<Paginador …/>}`). Lógica pura en `lib/tabla.ts` (`ordenar`, `paginar`, `siguienteOrden`). | `<table>` y paginadores a mano |
 | `Badge` / `claseBadge()` | `Badge.tsx` | Estados: `green`, `yellow`, `red`, `blue`, `indigo`, `gray` (siempre `-100` + `-700`). | `bg-green-100 text-green-700 …` |
 | `PageHeader` | `PageHeader.tsx` | `h1` + descripción + botón de crear a la derecha. | `h1 text-2xl font-semibold` repetido |
 | `Tabs` | `Tabs.tsx` | Pestañas con subrayado `border-b-2` (Lista / Crear). | botones de pestaña a mano |
@@ -15,7 +15,8 @@ Todos viven en `Frontend_IngeII/src/components/ui/`. **Regla: en cualquier vista
 | `EmptyState`, `FilaVacia` | `EmptyState.tsx` | Vacío: ícono + título + descripción (`compacto` dentro de tarjetas; `FilaVacia` dentro de tablas). | cajas punteadas y filas `No hay...` copiadas |
 | `Icono` | `Icono.tsx` | Set estándar de íconos SVG (check, cerrar, alerta, bandeja…). | SVG sueltos |
 | `ErrorState` | `ErrorState.tsx` | Error de carga: mensaje claro + botón "Reintentar". | cajas rojas `border-red-200 bg-red-50` |
-| `Toast`, `ToastProvider`, `useToast`, `Notificar` | `Toast.tsx`, `ToastProvider.tsx` | Confirmación/error de una acción (guardar, editar, inhabilitar). `useToast().notificar(msg, tipo)` o `<Notificar mensaje={...} />` donde estaba el banner. | banners verdes `bg-green-50` |
+| `Toast`, `ToastProvider`, `useToast`, `Notificar` | `Toast.tsx`, `ToastProvider.tsx` | Aviso flotante tras una acción; 4 tipos: `exito`, `error`, `advertencia`, `info`. `useToast().notificar(msg, tipo)` o `<Notificar mensaje={…} />`. | banners verdes/rojos |
+| `Alerta` | `Alerta.tsx` | Alerta en línea (dentro de la página o modal), mismos 4 tipos. | `rounded-lg bg-…-50 p-3` a mano |
 | `CampoError`, `Obligatorio`, `bordeCampo` | `../common/CampoError.tsx` | Errores y asterisco de obligatorio. | — |
 
 Otros de `common/` que se mantienen: `FileDropZone`, `FirmaCanvas`, `ModalConfirmacion`, `Recaptcha`.
@@ -43,3 +44,14 @@ Marcar cada punto al revisar una vista. El estado de cada vista queda en `lista-
 9. [ ] Sin estilos duplicados o contradictorios en el mismo archivo (constantes de clases repetidas, clases que se pisan).
 10. [ ] La funcionalidad no cambió: `npm run build`, `npm run lint` y `npm test` pasan.
 11. [ ] Carga, vacío, error y confirmación usan los componentes de estado (nada de "Cargando..." suelto, cajas rojas/verdes a mano ni pantallas en blanco mientras llegan los datos).
+
+## Biblioteca viva
+
+Con `npm run dev` abrí `/dashboard/componentes` (solo en desarrollo): muestra todos los componentes con sus estados (normal, foco, deshabilitado, error, cargando) para revisarlos contra la guía y probar teclado y celular.
+
+## Accesibilidad (verificada por `tests/guiaEstilos.test.ts`)
+
+- Todo botón es un `<button>` con foco visible; los campos están ligados a su etiqueta y anuncian error/ayuda.
+- Modales: nombre accesible desde `<ModalTitulo>`, foco atrapado, Escape y retorno del foco.
+- Tablas: `scope="col"`, `aria-sort`; paginación con `aria-current` y `aria-label`.
+- Alertas y toasts con `role="alert"` (error, advertencia) o `role="status"`.

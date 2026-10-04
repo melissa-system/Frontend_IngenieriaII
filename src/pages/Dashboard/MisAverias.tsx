@@ -3,7 +3,7 @@ import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
 import { obtenerMisAverias, type AveriaBackend } from '../../components/Services/averias.service'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 
@@ -90,9 +90,9 @@ function DetalleModal({ averia, onClose }: { averia: AveriaBackend; onClose: () 
   const fontanero = nombreFontanero(a)
 
   return (
-    <Modal size="2xl">
+    <Modal size="2xl" onCerrar={onClose}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
+          <ModalTitulo>{a.tipo_averia}</ModalTitulo>
           <button type="button" onClick={onClose}
             className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

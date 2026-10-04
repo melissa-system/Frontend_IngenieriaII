@@ -10,7 +10,7 @@ import {
   LIMITES_PUBLICACION,
   type Publicacion,
 } from '../../components/Services/publicaciones.service'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 
 interface FormState {
@@ -261,11 +261,11 @@ function Publicaciones() {
       </div>
 
       {modalMode && (
-        <Modal size="lg">
+        <Modal size="lg" onCerrar={closeModal}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 {modalMode === 'edit' ? 'Editar publicación' : 'Nueva publicación'}
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={closeModal}

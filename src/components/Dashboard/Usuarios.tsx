@@ -21,7 +21,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { esCorreo, MENSAJES_VALIDACION } from '../../lib/validaciones';
 import { passwordCumpleMinimos } from '../../lib/passwordReset.service';
 import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../common/CampoError';
-import Modal from '../ui/Modal'
+import Modal, { ModalTitulo } from '../ui/Modal'
 import Table from '../ui/Table'
 import Button from '../ui/Button'
 import PageHeader from '../ui/PageHeader'
@@ -567,11 +567,11 @@ export const Usuarios: React.FC = () => {
 
       {/* MODAL PARA CREAR NUEVO USUARIO */}
       {modalCrearAbierto && (
-        <Modal size="md">
+        <Modal size="md" onCerrar={cerrarModalCrear}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 Registrar Nuevo Usuario
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={cerrarModalCrear}
@@ -687,9 +687,9 @@ export const Usuarios: React.FC = () => {
       {modalEditarRol && (
         <Modal size="md">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 Editar Rol de Usuario
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={() => setModalEditarRol(null)}
@@ -760,11 +760,11 @@ export const Usuarios: React.FC = () => {
       {/* MODAL PARA CAMBIO DE ESTADO (ACTIVAR / INHABILITAR) */}
       {modalCambioEstado && (
         <Modal size="md" scroll={false}>
-            <h2 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               {modalCambioEstado.nuevoEstado
                 ? 'Confirmar activación de usuario'
                 : 'Confirmar inhabilitación de usuario'}
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               ¿Estás seguro de que deseas{' '}
               <span className="font-semibold text-primary-800">

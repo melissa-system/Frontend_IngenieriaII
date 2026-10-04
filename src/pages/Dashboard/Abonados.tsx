@@ -42,7 +42,7 @@ import {
   erroresPorCampo,
   tieneErroresDeCampo,
 } from '../../components/Services/erroresApi'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import PageHeader from '../../components/ui/PageHeader'
@@ -685,9 +685,9 @@ function Abonados() {
       <Modal size="2xl">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 {editando ? 'Editar Abonado' : 'Nuevo Abonado'}
-              </h2>
+              </ModalTitulo>
               {editando && (
                 <p className="mt-0.5 text-xs text-primary-500">
                   {editando.numero_abonado} · {editando.tipo_abonado} · Cédula{' '}
@@ -1031,9 +1031,9 @@ function Abonados() {
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
       <Modal size="md" layer={60} scroll={false}>
-          <h2 className="text-lg font-semibold text-primary-900">
+          <ModalTitulo>
             Cambiar estado del abonado
-          </h2>
+          </ModalTitulo>
           <p className="mt-3 text-sm text-primary-600">
             ¿Seguro que deseas cambiar el estado de{' '}
             <span className="font-semibold text-primary-800">
@@ -1087,9 +1087,9 @@ function Abonados() {
   const confirmacionCedulaModalEl =
     confirmacionCedula === null ? null : (
       <Modal size="md" layer={70} scroll={false}>
-          <h2 className="text-lg font-semibold text-primary-900">
+          <ModalTitulo>
             Cédula ya registrada
-          </h2>
+          </ModalTitulo>
           <p className="mt-3 text-sm text-primary-600">
             {confirmacionCedula.info.message}
           </p>
@@ -1117,7 +1117,7 @@ function Abonados() {
   const detailModalEl = !a ? null : (
       <Modal size="lg">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
+            <ModalTitulo>Detalle del Abonado</ModalTitulo>
             <button
               type="button"
               onClick={() => setViewDetail(null)}

@@ -39,6 +39,7 @@ import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
 import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
 import DocumentosOficialesPage from '../pages/Dashboard/DocumentosOficialesPage'
 import Bitacora from '../pages/Dashboard/Bitacora'
+import Componentes from '../pages/Dashboard/Componentes'
 
 function AppRoutes() {
   return (
@@ -125,6 +126,8 @@ function AppRoutes() {
           }
         />
         <Route path="documentos-oficiales" element={<DocumentosOficialesPage />} />
+        {/* Referencia de componentes: solo en desarrollo (npm run dev). */}
+        {import.meta.env.DEV && <Route path="componentes" element={<Componentes />} />}
       </Route>
 
       <Route

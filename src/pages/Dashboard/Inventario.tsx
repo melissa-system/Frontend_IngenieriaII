@@ -32,7 +32,7 @@ import {
   type Proveedor,
   type CrearArticuloPayload,
 } from '../../components/Services/inventario.service'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import PageHeader from '../../components/ui/PageHeader'
@@ -424,9 +424,9 @@ function Inventario() {
     <Modal size="2xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-primary-900">
+            <ModalTitulo>
               {editando ? 'Editar Artículo' : 'Nuevo Artículo'}
-            </h2>
+            </ModalTitulo>
             {editando && (
               <p className="mt-0.5 text-xs text-primary-500">
                 ID #{editando.id} · {editando.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'} · Stock: {editando.cantidad_disponible} uds
@@ -656,7 +656,7 @@ function Inventario() {
   const detailModalEl = !viewDetail ? null : (
     <Modal size="xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">Detalle del Artículo</h2>
+          <ModalTitulo>Detalle del Artículo</ModalTitulo>
           <button
             type="button"
             onClick={() => setViewDetail(null)}
@@ -780,7 +780,7 @@ function Inventario() {
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
       <Modal size="md" layer={60} scroll={false}>
-          <h2 className="text-lg font-semibold text-primary-900">Cambiar estado del artículo</h2>
+          <ModalTitulo>Cambiar estado del artículo</ModalTitulo>
           <p className="mt-3 text-sm text-primary-600">
             ¿Seguro que deseas cambiar el estado de{' '}
             <span className="font-semibold text-primary-800">{cambioEstado.articulo.nombre}</span>?

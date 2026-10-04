@@ -13,7 +13,7 @@ import { obtenerEmpleados } from '../../components/Services/empleados.service'
 import { useAuth } from '../../contexts/AuthContext'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 
 const POR_PAGINA = 10
 
@@ -74,10 +74,10 @@ function GestionModal({
   const fontaneroActual = nombreFontanero(a)
 
   return (
-    <Modal size="2xl">
+    <Modal size="2xl" onCerrar={onClose}>
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
+            <ModalTitulo>{a.tipo_averia}</ModalTitulo>
             <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>
               {a.estado}
             </span>

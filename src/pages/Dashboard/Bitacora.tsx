@@ -1,3 +1,4 @@
+import Paginador from '../../components/ui/Paginador'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
@@ -14,7 +15,6 @@ import {
   type AccionBitacora,
 } from '../../components/Services/bitacora.service'
 import Table from '../../components/ui/Table'
-import Button from '../../components/ui/Button'
 
 const LIMITE_POR_PAGINA = 25
 
@@ -111,8 +111,6 @@ function Bitacora() {
     setHasta('')
     setPagina(1)
   }
-
-  const totalPaginas = Math.max(1, Math.ceil(total / LIMITE_POR_PAGINA))
   const hayFiltros = Boolean(modulo || accion || desde || hasta)
 
   return (
@@ -226,43 +224,7 @@ function Bitacora() {
 
       {/* Tabla */}
       <Table cabecera={['Fecha', 'Módulo', 'Registro', 'Acción', 'Usuario', 'Detalle']} pie={<>{total > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {`${(pagina - 1) * LIMITE_POR_PAGINA + 1}–${Math.min(pagina * LIMITE_POR_PAGINA, total)}`}{' '}
-              de {total} reportes
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="secondary" size="sm"
-                type="button"
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                disabled={pagina === 1 || cargando}>
-                ‹ Anterior
-              </Button>
-              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPagina(n)}
-                  disabled={n === pagina}
-                  aria-current={n === pagina ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                    n === pagina ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <Button
-                variant="secondary" size="sm"
-                type="button"
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                disabled={pagina >= totalPaginas || cargando}>
-                Siguiente ›
-              </Button>
-            </div>
-          </div>
+          <Paginador total={total} pagina={pagina} porPagina={LIMITE_POR_PAGINA} onCambiar={setPagina} etiqueta="movimientos" deshabilitado={cargando} />
         )}</>}>
             {cargando ? (
               <FilasEsqueleto columnas={6} />

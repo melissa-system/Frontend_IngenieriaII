@@ -54,7 +54,7 @@ import {
   useFiltrosSolicitudes,
   ESTADOS_ABONADO,
 } from '../../lib/useFiltrosSolicitudes'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import EmptyState from '../../components/ui/EmptyState'
 import BadgeEstado from '../../components/ui/BadgeEstado'
@@ -857,10 +857,10 @@ function ModalDetalle({
   }
 
   return (
-    <Modal size="2xl">
+    <Modal size="2xl" onCerrar={onCerrar}>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-primary-900">{solicitud.codigo_solicitud}</h3>
+            <ModalTitulo>{solicitud.codigo_solicitud}</ModalTitulo>
             <p className="mt-0.5 text-sm text-primary-500">
               Solicitud de conexión de servicio — {solicitud.solicitud_paja_agua_codigo}
             </p>

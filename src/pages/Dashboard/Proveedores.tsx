@@ -29,7 +29,7 @@ import {
   actualizarProveedor,
   type Proveedor,
 } from '../../components/Services/inventario.service'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Table from '../../components/ui/Table'
 import PageHeader from '../../components/ui/PageHeader'
@@ -455,9 +455,9 @@ function Proveedores() {
       {(modalNuevoProveedor || proveedorAEditar) && (
         <Modal size="2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 {proveedorAEditar ? `Editar Proveedor: ${proveedorAEditar.nombre}` : 'Nuevo Proveedor'}
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={() => {
@@ -586,7 +586,7 @@ function Proveedores() {
       {proveedorAVer && (
         <Modal size="lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Detalle de Proveedor</h2>
+              <ModalTitulo>Detalle de Proveedor</ModalTitulo>
               <button
                 type="button"
                 onClick={() => setProveedorAVer(null)}
@@ -640,9 +640,9 @@ function Proveedores() {
       {/* Confirmación de cambio de estado (Activo / Inactivo) */}
       {cambioEstado && (
         <Modal size="md" layer={60} scroll={false}>
-            <h2 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               Cambiar estado del proveedor
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               ¿Seguro que deseas cambiar el estado de{' '}
               <span className="font-semibold text-primary-800">

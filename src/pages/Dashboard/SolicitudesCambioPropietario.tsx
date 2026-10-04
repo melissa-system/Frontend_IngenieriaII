@@ -47,7 +47,7 @@ import {
   useFiltrosSolicitudes,
   ESTADOS_ABONADO,
 } from '../../lib/useFiltrosSolicitudes'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import EmptyState from '../../components/ui/EmptyState'
 import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
 import Tabs from '../../components/ui/Tabs'
@@ -1191,9 +1191,9 @@ function VistaAdministrador() {
         <Modal size="2xl">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-primary-900">
+                <ModalTitulo>
                   {detalle.codigo_solicitud}
-                </h3>
+                </ModalTitulo>
                 <p className="mt-0.5 text-sm text-primary-500">
                   Solicitud de cambio de propietario
                 </p>

@@ -1,3 +1,4 @@
+import Paginador from '../../components/ui/Paginador'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
@@ -17,7 +18,7 @@ import {
 } from '../../components/Services/empleados.service'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 
 const LIMITE_POR_PAGINA = 25
 
@@ -87,7 +88,6 @@ function ReportesFontanero() {
   }
 
   const hayFiltros = Boolean(empleadoId || tipoActividad || desde || hasta)
-  const totalPaginas = Math.max(1, Math.ceil(total / LIMITE_POR_PAGINA))
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
 
@@ -188,43 +188,7 @@ function ReportesFontanero() {
 
       {/* Tabla */}
       <Table cabecera={['Fontanero', 'Fecha', 'Actividad', 'Tiempo', 'Materiales', 'Acciones']} pie={<>{total > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {`${(pagina - 1) * LIMITE_POR_PAGINA + 1}–${Math.min(pagina * LIMITE_POR_PAGINA, total)}`}{' '}
-              de {total} reportes
-            </p>
-            <div className="flex items-center gap-1">
-              <Button
-                variant="secondary" size="sm"
-                type="button"
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                disabled={pagina === 1 || cargando}>
-                ‹ Anterior
-              </Button>
-              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPagina(n)}
-                  disabled={n === pagina}
-                  aria-current={n === pagina ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                    n === pagina ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <Button
-                variant="secondary" size="sm"
-                type="button"
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                disabled={pagina >= totalPaginas || cargando}>
-                Siguiente ›
-              </Button>
-            </div>
-          </div>
+          <Paginador total={total} pagina={pagina} porPagina={LIMITE_POR_PAGINA} onCambiar={setPagina} etiqueta="reportes" deshabilitado={cargando} />
         )}</>}>
             {cargando ? (
               <FilasEsqueleto columnas={6} />
@@ -277,9 +241,9 @@ function ReportesFontanero() {
       {/* Detalle */}
       {detalle && (
         <Modal size="lg">
-            <h2 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               Reporte #{detalle.id}
-            </h2>
+            </ModalTitulo>
 
             <dl className="mt-4 space-y-2 text-sm">
               <div className="flex gap-2">

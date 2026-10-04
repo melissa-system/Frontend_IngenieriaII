@@ -19,7 +19,7 @@ import {
   type VisibilidadDocumento,
 } from '../../components/Services/documentos.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
-import Modal from '../../components/ui/Modal'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 
 function formatearFecha(fechaIso: string): string {
@@ -450,7 +450,7 @@ function DocumentosAdmin() {
       {uploadModalOpen && (
         <Modal size="lg">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Subir documento</h2>
+              <ModalTitulo>Subir documento</ModalTitulo>
               <button
                 type="button"
                 onClick={closeUploadModal}
@@ -610,7 +610,7 @@ function DocumentosAdmin() {
       {versionDoc && (
         <Modal size="lg">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Actualizar versión</h2>
+              <ModalTitulo>Actualizar versión</ModalTitulo>
               <button
                 type="button"
                 onClick={closeVersionModal}
