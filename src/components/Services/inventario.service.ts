@@ -1,5 +1,5 @@
-import axios from 'axios';
 import { apiClient } from '../../lib/apiClient';
+import { crearErrorApi } from './erroresApi';
 
 export interface Proveedor {
   id: number;
@@ -71,13 +71,6 @@ export interface FiltrosArticulos {
   soloStockBajo?: boolean;
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error) && error.response?.data?.message) {
-    const msg = error.response.data.message;
-    return Array.isArray(msg) ? msg.join(', ') : msg;
-  }
-  return fallback;
-}
 
 // ------------------------------------------------------------------
 // ARTÍCULOS
@@ -104,9 +97,7 @@ export const obtenerArticulos = async (
     });
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al cargar los artículos de inventario'),
-    );
+    throw crearErrorApi(error, 'Error al cargar los artículos de inventario');
   }
 };
 
@@ -115,9 +106,7 @@ export const obtenerArticuloPorId = async (id: number): Promise<Articulo> => {
     const { data } = await apiClient.get<Articulo>(`/api/articulos/${id}`);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al obtener el detalle del artículo'),
-    );
+    throw crearErrorApi(error, 'Error al obtener el detalle del artículo');
   }
 };
 
@@ -128,9 +117,7 @@ export const crearArticulo = async (
     const { data } = await apiClient.post<Articulo>('/api/articulos', payload);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al registrar el artículo en inventario'),
-    );
+    throw crearErrorApi(error, 'Error al registrar el artículo en inventario');
   }
 };
 
@@ -145,9 +132,7 @@ export const actualizarArticulo = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al actualizar el artículo'),
-    );
+    throw crearErrorApi(error, 'Error al actualizar el artículo');
   }
 };
 
@@ -162,9 +147,7 @@ export const registrarMovimientoArticulo = async (
     }>(`/api/articulos/${id}/movimiento`, payload);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al registrar el movimiento de inventario'),
-    );
+    throw crearErrorApi(error, 'Error al registrar el movimiento de inventario');
   }
 };
 
@@ -177,9 +160,7 @@ export const obtenerHistorialArticulo = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al cargar el historial del artículo'),
-    );
+    throw crearErrorApi(error, 'Error al cargar el historial del artículo');
   }
 };
 
@@ -201,9 +182,7 @@ export const obtenerTodosLosMovimientos = async (filtros?: {
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al cargar los movimientos de inventario'),
-    );
+    throw crearErrorApi(error, 'Error al cargar los movimientos de inventario');
   }
 };
 
@@ -218,9 +197,7 @@ export const cambiarEstadoArticulo = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al cambiar el estado del artículo'),
-    );
+    throw crearErrorApi(error, 'Error al cambiar el estado del artículo');
   }
 };
 
@@ -233,9 +210,7 @@ export const obtenerProveedores = async (): Promise<Proveedor[]> => {
     const { data } = await apiClient.get<Proveedor[]>('/api/proveedores');
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al cargar la lista de proveedores'),
-    );
+    throw crearErrorApi(error, 'Error al cargar la lista de proveedores');
   }
 };
 
@@ -249,9 +224,7 @@ export const crearProveedor = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al registrar el proveedor'),
-    );
+    throw crearErrorApi(error, 'Error al registrar el proveedor');
   }
 };
 
@@ -266,9 +239,7 @@ export const actualizarProveedor = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al actualizar el proveedor'),
-    );
+    throw crearErrorApi(error, 'Error al actualizar el proveedor');
   }
 };
 
@@ -276,9 +247,7 @@ export const eliminarProveedor = async (id: number): Promise<void> => {
   try {
     await apiClient.delete(`/api/proveedores/${id}`);
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'Error al eliminar el proveedor'),
-    );
+    throw crearErrorApi(error, 'Error al eliminar el proveedor');
   }
 };
 

@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi';
 
 export const IDENTIFICACION_REGEX =
   /^(\d{1}-\d{4}-\d{4}|\d{1}-\d{3}-\d{6}|\d{11,12})$/;
@@ -146,19 +146,6 @@ export interface ActualizarEstadoSolicitudPajaAguaPayload {
   motivoRechazo?: string
 }
 
-// Traduce errores de axios/backend a un mensaje legible, igual que en el
-// resto de servicios (abonados.service.ts, etc.)
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 // Ruta pública (sin sesión) — se usa apiClient de todas formas para que
 // tome la URL del backend de VITE_API_URL en vez de tener localhost
@@ -214,12 +201,7 @@ export const crearSolicitudPajaAgua = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(
-        error,
-        'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.',
-      ),
-    )
+    throw crearErrorApi(error, 'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.')
   }
 }
 
@@ -230,9 +212,7 @@ export const obtenerSolicitudesPajaAgua = async (): Promise<SolicitudPajaAgua[]>
     const { data } = await apiClient.get<SolicitudPajaAgua[]>('/solicitudes')
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de paja de agua.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes de paja de agua.')
   }
 }
 
@@ -250,9 +230,7 @@ export const cambiarEstadoSolicitudPajaAgua = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
   }
 }
 
@@ -291,8 +269,6 @@ export const obtenerEstadisticasSolicitudes = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de solicitudes.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las estadísticas de solicitudes.')
   }
 }

@@ -1,6 +1,10 @@
 import axios from 'axios';
 import apiClient from '../../lib/apiClient';
-import { RequiereConfirmacionError, extraerRequiereConfirmacion } from './erroresApi';
+import {
+  RequiereConfirmacionError,
+  extraerRequiereConfirmacion,
+  crearErrorApi,
+} from './erroresApi';
 
 const RESOURCE = '/abonados';
 
@@ -58,18 +62,6 @@ export interface AbonadoUpdatePayload {
   estado?: EstadoAbonado; // gestión Activo/Inactivo
 }
 
-// Traduce errores de axios/backend a un mensaje legible, igual que en Login.
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
-    }
-    const msg = error.response?.data?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg)) return msg.join('. ');
-  }
-  return fallback;
-}
 
 // Estas rutas requieren sesión de administrador: se usa apiClient (en vez de
 // fetch directo) porque su interceptor adjunta automáticamente el Access
@@ -87,7 +79,7 @@ export const crearAbonado = async (
   } catch (error) {
     const info = extraerRequiereConfirmacion(error);
     if (info) throw new RequiereConfirmacionError(info);
-    throw new Error(obtenerMensajeError(error, 'No se pudo registrar el abonado.'));
+    throw crearErrorApi(error, 'No se pudo registrar el abonado.');
   }
 };
 
@@ -100,7 +92,7 @@ export const obtenerAbonados = async (
     });
     return data;
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudieron cargar los abonados.'));
+    throw crearErrorApi(error, 'No se pudieron cargar los abonados.');
   }
 };
 
@@ -109,7 +101,7 @@ export const obtenerAbonado = async (id: number | string): Promise<Abonado> => {
     const { data } = await apiClient.get<Abonado>(`${RESOURCE}/${id}`);
     return data;
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudo cargar el abonado.'));
+    throw crearErrorApi(error, 'No se pudo cargar el abonado.');
   }
 };
 
@@ -124,9 +116,7 @@ export const actualizarAbonado = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron guardar los cambios del abonado.'),
-    );
+    throw crearErrorApi(error, 'No se pudieron guardar los cambios del abonado.');
   }
 };
 
@@ -143,9 +133,7 @@ export const cambiarEstadoAbonado = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cambiar el estado del abonado.'),
-    );
+    throw crearErrorApi(error, 'No se pudo cambiar el estado del abonado.');
   }
 };
 
@@ -165,9 +153,7 @@ export const vincularCuentaAbonado = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo vincular la cuenta al abonado.'),
-    );
+    throw crearErrorApi(error, 'No se pudo vincular la cuenta al abonado.');
   }
 };
 
@@ -188,9 +174,7 @@ export const reenviarCorreoAccesoAbonado = async (
     if (axios.isAxiosError(error) && error.response?.status === 429) {
       throw new Error('Esperá unos segundos antes de volver a reenviar el correo.');
     }
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo reenviar el correo de acceso.'),
-    );
+    throw crearErrorApi(error, 'No se pudo reenviar el correo de acceso.');
   }
 };
 
@@ -214,9 +198,7 @@ export const obtenerHistorialAbonado = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar el historial de cambios.'),
-    );
+    throw crearErrorApi(error, 'No se pudo cargar el historial de cambios.');
   }
 };
 
@@ -251,9 +233,7 @@ export const obtenerMiResumen = async (): Promise<MiResumen> => {
     const { data } = await apiClient.get<MiResumen>(`${RESOURCE}/mi-resumen`);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar tu resumen.'),
-    );
+    throw crearErrorApi(error, 'No se pudo cargar tu resumen.');
   }
 };
 
@@ -283,8 +263,6 @@ export const obtenerEstadisticasAbonados = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de abonados.'),
-    );
+    throw crearErrorApi(error, 'No se pudieron cargar las estadísticas de abonados.');
   }
 };

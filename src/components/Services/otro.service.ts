@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/solicitudes/otro'
 
@@ -36,17 +36,6 @@ export interface ActualizarEstadoPayload {
   motivoRechazo?: string
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const crearSolicitudOtro = async (
   payload: CrearSolicitudOtroPayload,
@@ -73,9 +62,7 @@ export const crearSolicitudOtro = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo crear la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo crear la solicitud.')
   }
 }
 
@@ -84,9 +71,7 @@ export const obtenerSolicitudesOtro = async (): Promise<SolicitudOtro[]> => {
     const { data } = await apiClient.get<SolicitudOtro[]>(RESOURCE)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes.')
   }
 }
 
@@ -101,8 +86,6 @@ export const cambiarEstadoSolicitudOtro = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
   }
 }

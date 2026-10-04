@@ -1,5 +1,20 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  fecha as reglaFecha,
+  hayErrores,
+  longitud,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoReporte = 'descripcion' | 'fecha' | 'tiempo'
+import {
   crearReporte,
   obtenerMisReportes,
   formatearTiempo,
@@ -73,13 +88,34 @@ function ReporteActividad() {
     void cargar()
   }, [])
 
+  const [errores, setErrores] = useState<ErroresFormulario<CampoReporte>>({})
   const totalMinutos = (Number(horas) || 0) * 60 + (Number(minutos) || 0)
 
-  const puedeEnviar =
-    descripcion.trim().length >= MINIMO_DESCRIPCION &&
-    fechaTrabajo !== '' &&
-    totalMinutos > 0 &&
-    !guardando
+  // Checklist común (PBI 511): en vez de deshabilitar el botón sin decir
+  // por qué, se valida al guardar y cada error aparece junto a su campo.
+  function validar(): ErroresFormulario<CampoReporte> {
+    const nuevos = validarCampos<CampoReporte>(
+      {
+        descripcion: [
+          requerido('La descripción del trabajo', true),
+          longitud('La descripción', MINIMO_DESCRIPCION, 2000),
+        ],
+        fecha: [requerido('La fecha del trabajo', true), reglaFecha({ noFutura: true })],
+        tiempo: [
+          () => (horas !== '' && !Number.isInteger(Number(horas))) || Number(horas) < 0
+            ? 'Las horas deben ser un número entero.'
+            : null,
+          () => (minutos !== '' && !Number.isInteger(Number(minutos))) || Number(minutos) < 0 || Number(minutos) > 59
+            ? 'Los minutos deben ser un número entero entre 0 y 59.'
+            : null,
+          () => (totalMinutos > 0 ? null : 'Indica cuánto tiempo te tomó el trabajo.'),
+          () => (totalMinutos > 1440 ? 'El tiempo no puede superar las 24 horas.' : null),
+        ],
+      },
+      { descripcion, fecha: fechaTrabajo, tiempo: '' },
+    )
+    return nuevos
+  }
 
   const limpiar = () => {
     setTipoActividad('reparacion')
@@ -89,11 +125,16 @@ function ReporteActividad() {
     setMinutos('')
     setMaterialesTexto('')
     setAveriaSeleccionada('')
+    setErrores({})
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!puedeEnviar) return
+    if (guardando) return
+    const nuevos = validar()
+    setErrores(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
     setGuardando(true)
     setError('')
     setExito('')
@@ -114,7 +155,13 @@ function ReporteActividad() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar el reporte.')
+      setErrores(erroresPorCampo<CampoReporte>(err, { fechaTrabajo: 'fecha', tiempoMinutos: 'tiempo' }))
+      enfocarPrimerError()
+      setError(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'No se pudo guardar el reporte.',
+      )
     } finally {
       setGuardando(false)
     }
@@ -171,12 +218,14 @@ function ReporteActividad() {
       {vista === 'crear' && (
         <form
           onSubmit={handleSubmit}
+          noValidate
           className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label htmlFor="tipo" className={etiquetaCampo}>
                 Tipo de actividad
+                <Obligatorio />
               </label>
               <select
                 id="tipo"
@@ -195,6 +244,7 @@ function ReporteActividad() {
             <div>
               <label htmlFor="fecha" className={etiquetaCampo}>
                 Fecha del trabajo
+                <Obligatorio />
               </label>
               <input
                 id="fecha"
@@ -205,6 +255,7 @@ function ReporteActividad() {
                 onChange={(e) => setFechaTrabajo(e.target.value)}
                 className={inputCls}
               />
+              <CampoError mensaje={errores.fecha} />
             </div>
           </div>
 
@@ -240,15 +291,18 @@ function ReporteActividad() {
           <div>
             <label htmlFor="descripcion" className={etiquetaCampo}>
               ¿Qué trabajo realizaste?
+              <Obligatorio />
             </label>
             <textarea
               id="descripcion"
               rows={3}
               value={descripcion}
+              maxLength={2000}
               onChange={(e) => setDescripcion(e.target.value)}
               placeholder="Ej: Se cambió el tubo roto frente a la escuela y se repuso el relleno."
               className={inputCls}
             />
+            <CampoError mensaje={errores.descripcion} />
             {descripcion.trim().length > 0 &&
               descripcion.trim().length < MINIMO_DESCRIPCION && (
                 <p className="mt-1 text-xs text-amber-600">
@@ -278,7 +332,10 @@ function ReporteActividad() {
           </div>
 
           <div>
-            <span className={etiquetaCampo}>Tiempo empleado</span>
+            <span className={etiquetaCampo}>
+              Tiempo empleado
+              <Obligatorio />
+            </span>
             <div className="mt-1 flex items-center gap-3">
               <input
                 type="number"
@@ -302,6 +359,7 @@ function ReporteActividad() {
               />
               <span className="text-sm text-primary-700">minutos</span>
             </div>
+            <CampoError mensaje={errores.tiempo} />
           </div>
 
           {error && (
@@ -318,7 +376,7 @@ function ReporteActividad() {
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
             <button
               type="submit"
-              disabled={!puedeEnviar}
+              disabled={guardando}
               className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {guardando ? 'Guardando...' : 'Guardar reporte'}

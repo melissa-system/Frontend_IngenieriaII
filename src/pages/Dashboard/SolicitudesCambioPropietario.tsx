@@ -5,6 +5,14 @@ import {
   useState,
   type FormEvent,
 } from 'react'
+import CampoError, { enfocarPrimerError } from '../../components/common/CampoError'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
+import {
+  esCorreo,
+  esIdentificacion,
+  esTelefono,
+  MENSAJES_VALIDACION,
+} from '../../lib/validaciones'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   nombreVisible,
@@ -45,7 +53,6 @@ const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
   rechazado: 'Rechazada',
 }
 
-const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 function formatearCedula(valor: string): string {
   const digitos = valor.replace(/\D/g, '').slice(0, 12)
@@ -167,6 +174,7 @@ function VistaAbonado() {
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   // Alterna entre ver el historial y generar una solicitud nueva, en vez de
@@ -244,41 +252,38 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nombreNuevo, cedulaNueva, telefonoNuevo, correoNuevo, motivoTraspaso, justificacion])
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
 
     const nombre = nombreNuevo.trim()
     const cedula = cedulaNueva.trim()
     const telefono = telefonoNuevo.trim()
     const correo = correoNuevo.trim()
     const just = justificacion.trim()
-    if (nombre.length < 5) {
-      setError('El nombre del nuevo propietario es obligatorio.')
-      return
-    }
-    if (cedula.length < 9) {
-      setError('La cédula del nuevo propietario es obligatoria.')
-      return
-    }
-    if (telefono.length < 8) {
-      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
-      return
-    }
-    if (!CORREO_REGEX.test(correo)) {
-      setError('El correo electrónico del nuevo propietario no es válido.')
-      return
-    }
-    if (motivoTraspaso === '') {
-      setError('Seleccioná el motivo del traspaso.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar el documento legal de respaldo del traspaso.')
+    if (nombre.length < 5) errs.nombre ??= nombre
+          ? 'El nombre del nuevo propietario debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo propietario es obligatorio.'
+    if (!esIdentificacion(cedula)) errs.cedula ??= cedula
+          ? `Cédula del nuevo propietario: ${MENSAJES_VALIDACION.identificacion}`
+          : 'La cédula del nuevo propietario es obligatoria.'
+    if (!esTelefono(telefono)) errs.telefono ??= telefono
+          ? MENSAJES_VALIDACION.telefono
+          : 'El teléfono de contacto del nuevo propietario es obligatorio.'
+    if (!esCorreo(correo)) errs.correo ??= 'El correo electrónico del nuevo propietario no es válido.'
+    if (motivoTraspaso === '') errs.motivo ??= 'Seleccioná el motivo del traspaso.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar el documento legal de respaldo del traspaso.'
+
+    if (Object.keys(errs).length > 0 || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
@@ -298,7 +303,9 @@ function VistaAbonado() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { nombreNuevoPropietario: 'nombre', cedulaNuevoPropietario: 'cedula', telefonoNuevoPropietario: 'telefono', correoNuevoPropietario: 'correo', motivoTraspaso: 'motivo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'Error al registrar la solicitud.')
     } finally {
       setEnviando(false)
     }
@@ -433,9 +440,7 @@ function VistaAbonado() {
                 placeholder="Ej. Roberto Fernández Gómez"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {nombreNuevo.length > 0 && nombreNuevo.trim().length < 5 && (
-                <p className="mt-1 text-xs text-red-500">Mínimo 5 caracteres</p>
-              )}
+              <CampoError mensaje={erroresCampo.nombre} />
             </div>
 
             <div>
@@ -451,9 +456,7 @@ function VistaAbonado() {
                 placeholder="1-2345-6789 o 3-101-123456"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {cedulaNueva.length > 0 && cedulaNueva.trim().length < 9 && (
-                <p className="mt-1 text-xs text-red-500">Ingresá una identificación válida</p>
-              )}
+              <CampoError mensaje={erroresCampo.cedula} />
             </div>
 
             <div>
@@ -469,6 +472,7 @@ function VistaAbonado() {
                 placeholder="8888-8888"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              <CampoError mensaje={erroresCampo.telefono} />
             </div>
 
             <div>
@@ -484,9 +488,7 @@ function VistaAbonado() {
                 placeholder="nuevo.titular@correo.com"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {correoNuevo.length > 0 && !CORREO_REGEX.test(correoNuevo.trim()) && (
-                <p className="mt-1 text-xs text-red-500">Formato de correo no válido</p>
-              )}
+              <CampoError mensaje={erroresCampo.correo} />
             </div>
 
             <div className="sm:col-span-2">
@@ -507,6 +509,7 @@ function VistaAbonado() {
                   </option>
                 ))}
               </select>
+              <CampoError mensaje={erroresCampo.motivo} />
             </div>
 
             <div className="sm:col-span-2">
@@ -528,6 +531,7 @@ function VistaAbonado() {
                 placeholder="Explicá brevemente las razones legales del traspaso..."
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              <CampoError mensaje={erroresCampo.justificacion} />
               {justificacion.length > 0 && justificacion.trim().length < 10 && (
                 <p className="mt-1 text-xs text-red-500">
                   La justificación debe tener al menos 10 caracteres.
@@ -707,6 +711,7 @@ function VistaAdministrador() {
   const [enviando, setEnviando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   // Alterna entre ver el listado y generar una solicitud nueva, en vez de
@@ -794,46 +799,40 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nombreNuevo, cedulaNueva, telefonoNuevo, correoNuevo, motivoTraspaso, justificacion, busqueda])
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
 
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
     const nombre = nombreNuevo.trim()
     const cedula = cedulaNueva.trim()
     const telefono = telefonoNuevo.trim()
     const correo = correoNuevo.trim()
     const just = justificacion.trim()
-    if (nombre.length < 5) {
-      setError('El nombre del nuevo propietario es obligatorio.')
-      return
-    }
-    if (cedula.length < 9) {
-      setError('La cédula del nuevo propietario es obligatoria.')
-      return
-    }
-    if (telefono.length < 8) {
-      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
-      return
-    }
-    if (!CORREO_REGEX.test(correo)) {
-      setError('El correo electrónico del nuevo propietario no es válido.')
-      return
-    }
-    if (motivoTraspaso === '') {
-      setError('Seleccioná el motivo del traspaso.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar el documento legal de respaldo del traspaso.')
+    if (nombre.length < 5) errs.nombre ??= nombre
+          ? 'El nombre del nuevo propietario debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo propietario es obligatorio.'
+    if (!esIdentificacion(cedula)) errs.cedula ??= cedula
+          ? `Cédula del nuevo propietario: ${MENSAJES_VALIDACION.identificacion}`
+          : 'La cédula del nuevo propietario es obligatoria.'
+    if (!esTelefono(telefono)) errs.telefono ??= telefono
+          ? MENSAJES_VALIDACION.telefono
+          : 'El teléfono de contacto del nuevo propietario es obligatorio.'
+    if (!esCorreo(correo)) errs.correo ??= 'El correo electrónico del nuevo propietario no es válido.'
+    if (motivoTraspaso === '') errs.motivo ??= 'Seleccioná el motivo del traspaso.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar el documento legal de respaldo del traspaso.'
+
+    if (Object.keys(errs).length > 0 || !abonadoElegido || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
@@ -855,7 +854,9 @@ function VistaAdministrador() {
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { nombreNuevoPropietario: 'nombre', cedulaNuevoPropietario: 'cedula', telefonoNuevoPropietario: 'telefono', correoNuevoPropietario: 'correo', motivoTraspaso: 'motivo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'Error al registrar la solicitud.')
     } finally {
       setEnviando(false)
     }
@@ -1005,6 +1006,7 @@ function VistaAdministrador() {
                 placeholder="Escribí el nombre, cédula o número de abonado para buscar..."
                 className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              <CampoError mensaje={erroresCampo.abonado} />
               {busqueda.trim() !== '' && (
                 <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-primary-200 bg-white shadow-xl">
                   {cargandoAbonados ? (
@@ -1063,6 +1065,7 @@ function VistaAdministrador() {
               placeholder="Ej. Maria Elena Solano"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.nombre} />
           </div>
 
           <div>
@@ -1077,6 +1080,7 @@ function VistaAdministrador() {
               placeholder="1-2345-6789 o 3-101-123456"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.cedula} />
           </div>
 
           <div>
@@ -1091,6 +1095,7 @@ function VistaAdministrador() {
               placeholder="8888-8888"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.telefono} />
           </div>
 
           <div>
@@ -1105,6 +1110,7 @@ function VistaAdministrador() {
               placeholder="nuevo.titular@correo.com"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.correo} />
           </div>
 
           <div className="sm:col-span-2">
@@ -1124,6 +1130,7 @@ function VistaAdministrador() {
                 </option>
               ))}
             </select>
+            <CampoError mensaje={erroresCampo.motivo} />
           </div>
 
           <div className="sm:col-span-2">
@@ -1144,6 +1151,7 @@ function VistaAdministrador() {
               placeholder="Descripción del documento o trámite de traspaso formal..."
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
         </div>
 

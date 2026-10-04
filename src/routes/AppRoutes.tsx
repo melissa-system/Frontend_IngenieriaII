@@ -33,6 +33,7 @@ import Seguridad from '../pages/Dashboard/Seguridad'
 import PerfilEditar from '../pages/Dashboard/PerfilEditar'
 import PerfilContrasena from '../pages/Dashboard/PerfilContrasena'
 import Reportes from '../pages/Dashboard/Reportes'
+import { ROLES_REPORTES } from '../lib/exportacionReportes'
 import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
 import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
 import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
@@ -92,7 +93,14 @@ function AppRoutes() {
         />
         <Route path="averias/fontanero" element={<ActividadFontanero />} />
         <Route path="mis-averias" element={<MisAverias />} />
-        <Route path="reportes" element={<Reportes />} />
+        <Route
+          path="reportes"
+          element={
+            <RoleRoute role={ROLES_REPORTES}>
+              <Reportes />
+            </RoleRoute>
+          }
+        />
         <Route path="administrativo" element={<Publicaciones />} />
         <Route path="documentos" element={<DocumentosAdmin />} />
         <Route path="seguridad" element={<Seguridad />} />

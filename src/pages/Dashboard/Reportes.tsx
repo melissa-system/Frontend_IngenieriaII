@@ -35,6 +35,14 @@ import {
   descargarPdfReporte,
   type ParametrosReportePdf,
 } from '../../lib/generarPdfReporteEstadistico'
+import {
+  construirCsvReporte,
+  motivoNoExportable,
+  nombreArchivoReporte,
+  puedeVerReportes,
+  validarRangoFechas,
+} from '../../lib/exportacionReportes'
+import { useAuth } from '../../contexts/AuthContext'
 
 const MODULES = ['Averías', 'Abonados', 'Solicitudes'] as const
 type ModuleName = (typeof MODULES)[number]
@@ -155,7 +163,6 @@ interface ReportData {
   evolucionMensual: { mes: string; cantidad: number }[]
   columns: Column[]
   rows: Record<string, string>[]
-  csvHeaders: string[]
   fechaAplica: boolean
 }
 
@@ -188,7 +195,6 @@ function buildReport(mod: ModuleName, stats: StatsBackend): ReportData {
         fecha: a.fecha_reporte ? a.fecha_reporte.slice(0, 10) : '—',
       })),
       evolucionMensual: agruparPorMes(s.registros.map((a) => a.fecha_reporte)),
-      csvHeaders: ['Código', 'Tipo', 'Reportado por', 'Estado', 'Fecha'],
       fechaAplica: true,
     }
   }
@@ -221,7 +227,6 @@ function buildReport(mod: ModuleName, stats: StatsBackend): ReportData {
         fechaRegistro: a.fecha_registro ? a.fecha_registro.slice(0, 10) : '—',
       })),
       evolucionMensual: agruparPorMes(s.registros.map((a) => a.fecha_registro)),
-      csvHeaders: ['Cédula', 'Nombre', 'Tipo', 'Estado', 'Registro'],
       fechaAplica: true,
     }
   }
@@ -254,12 +259,53 @@ function buildReport(mod: ModuleName, stats: StatsBackend): ReportData {
       fecha: sl.fecha,
     })),
     evolucionMensual: agruparPorMes(s.registros.map((sl) => sl.fecha)),
-    csvHeaders: ['Código', 'Tipo', 'Solicitante', 'Estado', 'Fecha'],
     fechaAplica: true,
   }
 }
 
+interface ViewBoxPolar {
+  cx: number
+  cy: number
+  innerRadius: number
+  outerRadius: number
+  startAngle: number
+  endAngle: number
+}
+
+function esViewBoxPolar(viewBox: unknown): viewBox is ViewBoxPolar {
+  return typeof viewBox === 'object' && viewBox !== null && 'innerRadius' in viewBox
+}
+
+// Etiqueta de cada aro del gráfico radial. La etiqueta por defecto de
+// recharts gira junto con el arco y el número queda acostado; esta se ubica
+// al inicio del aro pero se dibuja derecha, como el resto del texto.
+function EtiquetaAroRadial({ value, viewBox }: { value?: unknown; viewBox?: unknown }) {
+  if (!esViewBoxPolar(viewBox) || value === undefined || value === null) return null
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle } = viewBox
+  const radio = (innerRadius + outerRadius) / 2
+  const recorrido = endAngle - startAngle
+  // Se separa ~12 px del extremo del aro (más grados en los aros internos,
+  // que son más cortos) para que el número no se salga del arco.
+  const separacion = ((12 / Math.max(radio, 1)) * 180) / Math.PI
+  const angulo = startAngle + Math.sign(recorrido) * Math.min(Math.abs(recorrido) / 2, separacion)
+  const rad = (-angulo * Math.PI) / 180
+  return (
+    <text
+      x={cx + radio * Math.cos(rad)}
+      y={cy + radio * Math.sin(rad)}
+      fill="#ffffff"
+      fontSize={11}
+      fontWeight={700}
+      textAnchor="middle"
+      dominantBaseline="central"
+    >
+      {String(value)}
+    </text>
+  )
+}
+
 function Reportes() {
+  const { rolEfectivo } = useAuth()
   const [modulo, setModulo] = useState<ModuleName>('Averías')
   const [rango, setRango] = useState<RangeValue>('historico')
   const [desdeCustom, setDesdeCustom] = useState('')
@@ -278,6 +324,14 @@ function Reportes() {
     [rango, desdeCustom, hastaCustom],
   )
 
+  // Un rango personalizado incompleto o invertido no se consulta ni se
+  // exporta: antes caía en silencio al histórico y el documento quedaba
+  // rotulado con un período distinto al de los datos.
+  const errorRango = useMemo(
+    () => validarRangoFechas(rango, desdeCustom, hastaCustom),
+    [rango, desdeCustom, hastaCustom],
+  )
+
   // Al cambiar de módulo se resetean los filtros: cada módulo tiene sus
   // propias opciones de tipo/estado y un valor heredado no existiría.
   useEffect(() => {
@@ -287,8 +341,17 @@ function Reportes() {
 
   useEffect(() => {
     let cancelado = false
-    setLoading(true)
     setError(null)
+
+    if (errorRango) {
+      setLoading(false)
+      if (modulo === 'Averías') setEstadisticasAverias(null)
+      else if (modulo === 'Abonados') setEstadisticasAbonados(null)
+      else setEstadisticasSolicitudes(null)
+      return
+    }
+
+    setLoading(true)
 
     const params: {
       fechaInicio?: string
@@ -335,7 +398,7 @@ function Reportes() {
     return () => {
       cancelado = true
     }
-  }, [modulo, rangoResuelto, filtroTipo, filtroEstado])
+  }, [modulo, rangoResuelto, errorRango, filtroTipo, filtroEstado])
 
   const stats = useMemo<StatsBackend>(
     () => ({
@@ -352,12 +415,16 @@ function Reportes() {
   )
 
   // Datos del gráfico radial: mismos conteos que la dona de estados pero con
-  // color por segmento y escala contra el total.
-  const radialData = reporte.pieData.map((d, i) => ({
-    name: d.name,
-    value: d.cantidad,
-    fill: COLORS[i % COLORS.length],
-  }))
+  // color por segmento y escala contra el total. Cada estado conserva su
+  // color de la dona y los aros se ordenan alfabéticamente (del centro hacia
+  // afuera) para que coincidan con el orden de la leyenda.
+  const radialData = reporte.pieData
+    .map((d, i) => ({
+      name: d.name,
+      value: d.cantidad,
+      fill: COLORS[i % COLORS.length],
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
 
   // Metadatos del reporte que acompañan tanto el PDF como el CSV.
   function metadatosExportacion() {
@@ -402,52 +469,35 @@ function Reportes() {
     }
   }
 
-  function escCSV(valor: string): string {
-    if (/[",\n;]/.test(valor)) return `"${valor.replace(/"/g, '""')}"`
-    return valor
-  }
+  // Se valida antes de generar cualquier documento: rango correcto, datos ya
+  // cargados y al menos un registro que exportar.
+  const motivoBloqueo = motivoNoExportable({
+    total: reporte.total,
+    cargando: loading,
+    errorRango,
+    errorCarga: error,
+  })
+  const puedeExportar = puedeVerReportes(rolEfectivo)
 
   function downloadCSV() {
+    if (!puedeExportar || motivoBloqueo) return
     const { rangoLabel, filtrosResumen, fechaGeneracion } = metadatosExportacion()
-    const lineas: string[] = []
-    lineas.push(`Reporte estadístico de ${modulo}`)
-    lineas.push(
-      `Generado: ${fechaGeneracion}; Rango: ${rangoLabel}; Filtros: ${filtrosResumen}; Total de registros: ${reporte.total}`,
-    )
-    lineas.push('')
-    lineas.push(reporte.barLabel)
-    lineas.push('Categoría,Cantidad')
-    reporte.barData.forEach((d) => lineas.push(`${escCSV(d.name)},${d.cantidad}`))
-    lineas.push('')
-    lineas.push(reporte.pieLabel)
-    lineas.push('Estado,Cantidad')
-    reporte.pieData.forEach((d) => lineas.push(`${escCSV(d.name)},${d.cantidad}`))
-    lineas.push('')
-    lineas.push('Evolución mensual')
-    lineas.push('Mes,Cantidad')
-    reporte.evolucionMensual.forEach((e) => lineas.push(`${escCSV(e.mes)},${e.cantidad}`))
-    lineas.push('')
-    lineas.push('Detalle de registros')
-    lineas.push(reporte.csvHeaders.map((h) => escCSV(h)).join(','))
-    reporte.rows.forEach((fila) =>
-      lineas.push(reporte.columns.map((c) => escCSV(fila[c.key] ?? '')).join(',')),
-    )
-
-    const csv = `\uFEFF${lineas.join('\r\n')}`
+    const csv = construirCsvReporte(reporte, {
+      modulo,
+      rangoLabel,
+      filtrosResumen,
+      fechaGeneracion,
+    })
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${modulo}-reporte.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+    descargarPdfReporte(blob, nombreArchivoReporte(modulo, rangoResuelto, 'csv'))
   }
 
   async function exportPDF() {
+    if (!puedeExportar || motivoBloqueo) return
     setGenerandoPdf(true)
     try {
       const blob = await generarPdfReporteEstadistico(datosParaPdf())
-      descargarPdfReporte(blob, `${modulo}-reporte.pdf`)
+      descargarPdfReporte(blob, nombreArchivoReporte(modulo, rangoResuelto, 'pdf'))
     } catch {
       setError('No se pudo generar el PDF. Inténtelo de nuevo.')
     } finally {
@@ -466,23 +516,33 @@ function Reportes() {
             Datos generados a partir de la información registrada en cada módulo
           </p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={downloadCSV}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
-            Exportar CSV
-          </button>
-          <button
-            type="button"
-            onClick={exportPDF}
-            disabled={generandoPdf}
-            className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-60"
-          >
-            {generandoPdf ? 'Generando PDF...' : 'Exportar PDF'}
-          </button>
-        </div>
+        {puedeExportar && (
+          <div className="flex flex-col items-start gap-1 sm:items-end">
+            <div className="flex flex-wrap gap-2">
+              <button
+                type="button"
+                onClick={downloadCSV}
+                disabled={!!motivoBloqueo}
+                title={motivoBloqueo ?? undefined}
+                className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Exportar CSV
+              </button>
+              <button
+                type="button"
+                onClick={exportPDF}
+                disabled={generandoPdf || !!motivoBloqueo}
+                title={motivoBloqueo ?? undefined}
+                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {generandoPdf ? 'Generando PDF...' : 'Exportar PDF'}
+              </button>
+            </div>
+            {motivoBloqueo && !loading && (
+              <p className="text-xs text-primary-500">{motivoBloqueo}</p>
+            )}
+          </div>
+        )}
       </div>
 
       <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
@@ -518,6 +578,7 @@ function Reportes() {
               <input
                 type="date"
                 value={desdeCustom}
+                max={hastaCustom || undefined}
                 onChange={(e) => setDesdeCustom(e.target.value)}
                 className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
               />
@@ -525,10 +586,15 @@ function Reportes() {
               <input
                 type="date"
                 value={hastaCustom}
+                min={desdeCustom || undefined}
                 onChange={(e) => setHastaCustom(e.target.value)}
                 className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
               />
             </div>
+          )}
+
+          {errorRango && (
+            <p className="w-full text-sm font-medium text-red-600">{errorRango}</p>
           )}
 
           <div>
@@ -628,13 +694,13 @@ function Reportes() {
               </p>
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
+                <PieChart margin={{ top: 16, right: 16, bottom: 0, left: 16 }}>
                   <Pie
                     data={reporte.pieData}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
+                    cy="45%"
+                    innerRadius={48}
+                    outerRadius={78}
                     dataKey="cantidad"
                     nameKey="name"
                     label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
@@ -683,13 +749,21 @@ function Reportes() {
                     dataKey="value"
                     background={{ fill: '#eaeff5' }}
                     cornerRadius={6}
-                    label={{ fill: '#395f82', fontSize: 11 }}
+                    // Número blanco y en negrita al inicio de cada aro: en el
+                    // color por defecto se perdía sobre los aros oscuros.
+                    label={EtiquetaAroRadial}
                   >
                     {radialData.map((d, i) => (
                       <Cell key={`radial-${i}`} fill={d.fill} />
                     ))}
                   </RadialBar>
-                  <Legend iconSize={12} />
+                  <Legend
+                    iconSize={12}
+                    formatter={(value: string) => {
+                      const dato = radialData.find((d) => d.name === value)
+                      return dato ? `${value} (${dato.value})` : value
+                    }}
+                  />
                   <Tooltip />
                 </RadialBarChart>
               </ResponsiveContainer>

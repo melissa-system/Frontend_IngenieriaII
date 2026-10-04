@@ -1,4 +1,26 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  cedula,
+  correo,
+  hayErrores,
+  maximo,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+  type Regla,
+} from '../../lib/validaciones'
+import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoConexion =
+  | 'valorPrincipal'
+  | 'valorSecundario'
+  | 'numeroDisponibilidad'
+  | 'nombreFirmante'
+  | 'identificacionFirmante'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   cambiarEstadoSolicitudConexion,
@@ -284,6 +306,7 @@ function FormularioConexion({
   const [codigoApcCfia, setCodigoApcCfia] = useState('')
   const [formaPago, setFormaPago] = useState('efectivo_previo')
 
+  const [erroresCampo, setErroresCampo] = useState<ErroresFormulario<CampoConexion>>({})
   const [nombreFirmante, setNombreFirmante] = useState(seleccionada?.nombre_solicitante ?? '')
   const [identificacionFirmante, setIdentificacionFirmante] = useState(
     seleccionada?.identificacion ?? '',
@@ -323,6 +346,28 @@ function FormularioConexion({
     setErrorGeneral(null)
 
     if (!seleccionada) return
+
+    // Checklist común (PBI 511): medio de notificación coherente con el
+    // tipo elegido, identificación del firmante con formato válido y
+    // longitudes máximas, igual que en el backend.
+    const reglaValor = (medio: string): Regla[] =>
+      medio === 'correo' ? [correo()] : [maximo('El medio de notificación', 255)]
+    const nuevos = validarCampos<CampoConexion>(
+      {
+        valorPrincipal: [requerido('El medio de notificación principal'), ...reglaValor(medioPrincipal)],
+        valorSecundario: medioSecundario
+          ? [requerido('El medio de notificación secundario'), ...reglaValor(medioSecundario)]
+          : [],
+        numeroDisponibilidad: [requerido('El número de disponibilidad'), maximo('El número de disponibilidad', 50)],
+        nombreFirmante: [requerido('El nombre del firmante'), maximo('El nombre del firmante', 150)],
+        identificacionFirmante: [requerido('La identificación del firmante', true), cedula()],
+      },
+      { valorPrincipal, valorSecundario, numeroDisponibilidad, nombreFirmante, identificacionFirmante },
+    )
+    setErroresCampo(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
+
     if (!firma) {
       setErrorGeneral('Debes firmar la solicitud antes de enviarla.')
       return
@@ -361,7 +406,18 @@ function FormularioConexion({
       })
       onExito()
     } catch (err) {
-      setErrorGeneral(err instanceof Error ? err.message : 'No se pudo enviar la solicitud.')
+      setErroresCampo(
+        erroresPorCampo<CampoConexion>(err, {
+          valorNotificacionPrincipal: 'valorPrincipal',
+          valorNotificacionSecundario: 'valorSecundario',
+        }),
+      )
+      enfocarPrimerError()
+      setErrorGeneral(
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'No se pudo enviar la solicitud.',
+      )
     } finally {
       setEnviando(false)
     }
@@ -370,7 +426,7 @@ function FormularioConexion({
   if (!seleccionada) return null
 
   return (
-    <form onSubmit={manejarEnvio} className="space-y-6">
+    <form onSubmit={manejarEnvio} noValidate className="space-y-6">
       {disponibles.length > 1 && (
         <div>
           <label className="mb-1 block text-sm font-medium text-primary-700">
@@ -443,11 +499,13 @@ function FormularioConexion({
               type="text"
               required
               value={valorPrincipal}
+              maxLength={255}
               onChange={(e) => setValorPrincipal(e.target.value)}
-              placeholder="Medio principal"
-              className="h-10 flex-1 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
+              placeholder="Medio principal *"
+              className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.valorPrincipal)}`}
             />
           </div>
+          <CampoError mensaje={erroresCampo.valorPrincipal} />
           <div className="flex gap-2">
             <select
               value={medioSecundario}
@@ -466,10 +524,12 @@ function FormularioConexion({
               value={valorSecundario}
               onChange={(e) => setValorSecundario(e.target.value)}
               disabled={!medioSecundario}
+              maxLength={255}
               placeholder="Medio secundario (opcional)"
-              className="h-10 flex-1 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none disabled:bg-primary-50"
+              className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none disabled:bg-primary-50 ${bordeCampo(erroresCampo.valorSecundario)}`}
             />
           </div>
+          <CampoError mensaje={erroresCampo.valorSecundario} />
         </div>
       </div>
 
@@ -498,14 +558,17 @@ function FormularioConexion({
             placeholder="Plano de agrimensura"
             className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
           />
-          <input
-            type="text"
-            required
-            value={numeroDisponibilidad}
-            onChange={(e) => setNumeroDisponibilidad(e.target.value)}
-            placeholder="Número de disponibilidad *"
-            className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-          />
+          <div>
+            <input
+              type="text"
+              value={numeroDisponibilidad}
+              maxLength={50}
+              onChange={(e) => setNumeroDisponibilidad(e.target.value)}
+              placeholder="Número de disponibilidad *"
+              className={`h-10 w-full rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.numeroDisponibilidad)}`}
+            />
+            <CampoError mensaje={erroresCampo.numeroDisponibilidad} />
+          </div>
           <input
             type="text"
             value={numeroNis}
@@ -588,22 +651,27 @@ function FormularioConexion({
       <div>
         <p className="mb-2 text-sm font-semibold text-primary-900">Firma del solicitante</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input
-            type="text"
-            required
-            value={nombreFirmante}
-            onChange={(e) => setNombreFirmante(e.target.value)}
-            placeholder="Nombre completo"
-            className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-          />
-          <input
-            type="text"
-            required
-            value={identificacionFirmante}
-            onChange={(e) => setIdentificacionFirmante(e.target.value)}
-            placeholder="Identificación"
-            className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-          />
+          <div>
+            <input
+              type="text"
+              value={nombreFirmante}
+              maxLength={150}
+              onChange={(e) => setNombreFirmante(e.target.value)}
+              placeholder="Nombre completo *"
+              className={`h-10 w-full rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.nombreFirmante)}`}
+            />
+            <CampoError mensaje={erroresCampo.nombreFirmante} />
+          </div>
+          <div>
+            <input
+              type="text"
+              value={identificacionFirmante}
+              onChange={(e) => setIdentificacionFirmante(e.target.value)}
+              placeholder="Identificación * (ej. 1-2345-6789)"
+              className={`h-10 w-full rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.identificacionFirmante)}`}
+            />
+            <CampoError mensaje={erroresCampo.identificacionFirmante} />
+          </div>
         </div>
         <div className="mt-3">
           <FirmaCanvas onChange={setFirma} />

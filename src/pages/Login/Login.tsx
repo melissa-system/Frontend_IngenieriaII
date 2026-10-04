@@ -1,21 +1,14 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { useNavigate, useLocation, Link } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
 import AuthLayout from '../../components/auth/AuthLayout'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
 
-// Traduce errores de red/validación del backend a un mensaje legible.
+// Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return 'Ocurrió un error. Intenta de nuevo.'
+  return mensajeDeError(error, 'Ocurrió un error. Intenta de nuevo.')
 }
 
 // El backend envía Retry-After en segundos (tiempo restante real de bloqueo).

@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/reportes-fontanero'
 
@@ -70,17 +70,6 @@ export interface RespuestaReportes {
   limite: number
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 // Convierte minutos a un texto legible: 105 -> "1 h 45 min".
 export function formatearTiempo(minutos: number): string {
@@ -98,7 +87,7 @@ export const crearReporte = async (
     const { data } = await apiClient.post<ReporteFontanero>(RESOURCE, payload)
     return data
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudo guardar el reporte.'))
+    throw crearErrorApi(error, 'No se pudo guardar el reporte.')
   }
 }
 
@@ -108,7 +97,7 @@ export const obtenerMisReportes = async (): Promise<ReporteFontanero[]> => {
     const { data } = await apiClient.get<ReporteFontanero[]>(`${RESOURCE}/mis-reportes`)
     return data
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudieron cargar tus reportes.'))
+    throw crearErrorApi(error, 'No se pudieron cargar tus reportes.')
   }
 }
 
@@ -128,7 +117,7 @@ export const obtenerReportes = async (
     const { data } = await apiClient.get<RespuestaReportes>(RESOURCE, { params })
     return data
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudieron cargar los reportes.'))
+    throw crearErrorApi(error, 'No se pudieron cargar los reportes.')
   }
 }
 
@@ -137,6 +126,6 @@ export const obtenerReporte = async (id: number): Promise<ReporteFontanero> => {
     const { data } = await apiClient.get<ReporteFontanero>(`${RESOURCE}/${id}`)
     return data
   } catch (error) {
-    throw new Error(obtenerMensajeError(error, 'No se pudo cargar el reporte.'))
+    throw crearErrorApi(error, 'No se pudo cargar el reporte.')
   }
 }

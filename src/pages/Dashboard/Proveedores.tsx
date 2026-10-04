@@ -1,5 +1,22 @@
 import { useState, useEffect, useCallback } from 'react'
 import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  correo,
+  formatearTelefono,
+  hayErrores,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoProveedor = 'nombre' | 'contacto' | 'telefono' | 'correo' | 'direccion'
+import {
   obtenerProveedores,
   crearProveedor,
   actualizarProveedor,
@@ -103,6 +120,30 @@ function Proveedores() {
     direccion: '',
   })
   const [errorFormProveedor, setErrorFormProveedor] = useState('')
+  const [errores, setErrores] = useState<ErroresFormulario<CampoProveedor>>({})
+
+  // Checklist común (PBI 511): nombre obligatorio; teléfono y correo
+  // opcionales, pero con formato válido si se escriben; longitudes máximas.
+  function validarProveedor(): boolean {
+    const nuevos = validarCampos<CampoProveedor>(
+      {
+        nombre: [requerido('El nombre del proveedor'), maximo('El nombre', 200)],
+        contacto: [maximo('El contacto', 150)],
+        telefono: [telefono()],
+        correo: [correo(), maximo('El correo', 150)],
+        direccion: [maximo('La dirección', 255)],
+      },
+      formProveedor,
+    )
+    setErrores(nuevos)
+    enfocarPrimerError()
+    return !hayErrores(nuevos)
+  }
+
+  function cambiarCampo(campo: CampoProveedor, valor: string) {
+    setFormProveedor((p) => ({ ...p, [campo]: valor }))
+    setErrores((prev) => ({ ...prev, [campo]: undefined }))
+  }
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -142,15 +183,13 @@ function Proveedores() {
       direccion: '',
     })
     setErrorFormProveedor('')
+    setErrores({})
   }
 
   async function handleCrearProveedor(e: React.FormEvent) {
     e.preventDefault()
     setErrorFormProveedor('')
-    if (!formProveedor.nombre.trim()) {
-      setErrorFormProveedor('El nombre del proveedor es obligatorio')
-      return
-    }
+    if (!validarProveedor()) return
 
     try {
       await crearProveedor(formProveedor)
@@ -159,7 +198,13 @@ function Proveedores() {
       notificarExito('Proveedor registrado exitosamente.')
       void cargarDatos()
     } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al registrar el proveedor')
+      setErrores(erroresPorCampo<CampoProveedor>(err))
+      enfocarPrimerError()
+      setErrorFormProveedor(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'Error al registrar el proveedor',
+      )
     }
   }
 
@@ -167,10 +212,7 @@ function Proveedores() {
     e.preventDefault()
     if (!proveedorAEditar) return
     setErrorFormProveedor('')
-    if (!formProveedor.nombre.trim()) {
-      setErrorFormProveedor('El nombre del proveedor es obligatorio')
-      return
-    }
+    if (!validarProveedor()) return
 
     try {
       await actualizarProveedor(proveedorAEditar.id, formProveedor)
@@ -178,7 +220,13 @@ function Proveedores() {
       notificarExito('Proveedor actualizado exitosamente.')
       void cargarDatos()
     } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al actualizar el proveedor')
+      setErrores(erroresPorCampo<CampoProveedor>(err))
+      enfocarPrimerError()
+      setErrorFormProveedor(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'Error al actualizar el proveedor',
+      )
     }
   }
 
@@ -240,7 +288,8 @@ function Proveedores() {
   }
 
   // Clases compartidas
-  const inputCls = 'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
+  const inputConError = (error?: string) =>
+    `mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(error)}`
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none bg-white'
   const labelCls = 'block text-sm font-medium text-primary-700'
@@ -489,16 +538,20 @@ function Proveedores() {
               </div>
             )}
 
-            <form onSubmit={proveedorAEditar ? handleEditarProveedor : handleCrearProveedor} className="space-y-4">
+            <form onSubmit={proveedorAEditar ? handleEditarProveedor : handleCrearProveedor} noValidate className="space-y-4">
               <div>
-                <label className={labelCls}>Nombre del proveedor *</label>
+                <label className={labelCls}>
+                  Nombre del proveedor
+                  <Obligatorio />
+                </label>
                 <input
                   type="text"
-                  required
                   value={formProveedor.nombre}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, nombre: e.target.value }))}
-                  className={inputCls}
+                  maxLength={200}
+                  onChange={(e) => cambiarCampo('nombre', e.target.value)}
+                  className={inputConError(errores.nombre)}
                 />
+                <CampoError mensaje={errores.nombre} />
               </div>
 
               <div>
@@ -523,9 +576,11 @@ function Proveedores() {
                 <input
                   type="text"
                   value={formProveedor.contacto}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, contacto: e.target.value }))}
-                  className={inputCls}
+                  maxLength={150}
+                  onChange={(e) => cambiarCampo('contacto', e.target.value)}
+                  className={inputConError(errores.contacto)}
                 />
+                <CampoError mensaje={errores.contacto} />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
@@ -533,19 +588,24 @@ function Proveedores() {
                   <label className={labelCls}>Teléfono</label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    placeholder="8888-8888"
                     value={formProveedor.telefono}
-                    onChange={(e) => setFormProveedor((p) => ({ ...p, telefono: e.target.value }))}
-                    className={inputCls}
+                    onChange={(e) => cambiarCampo('telefono', formatearTelefono(e.target.value))}
+                    className={inputConError(errores.telefono)}
                   />
+                  <CampoError mensaje={errores.telefono} />
                 </div>
                 <div>
                   <label className={labelCls}>Correo electrónico</label>
                   <input
                     type="email"
                     value={formProveedor.correo}
-                    onChange={(e) => setFormProveedor((p) => ({ ...p, correo: e.target.value }))}
-                    className={inputCls}
+                    maxLength={150}
+                    onChange={(e) => cambiarCampo('correo', e.target.value)}
+                    className={inputConError(errores.correo)}
                   />
+                  <CampoError mensaje={errores.correo} />
                 </div>
               </div>
 
@@ -554,9 +614,11 @@ function Proveedores() {
                 <input
                   type="text"
                   value={formProveedor.direccion}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, direccion: e.target.value }))}
-                  className={inputCls}
+                  maxLength={255}
+                  onChange={(e) => cambiarCampo('direccion', e.target.value)}
+                  className={inputConError(errores.direccion)}
                 />
+                <CampoError mensaje={errores.direccion} />
               </div>
 
               <div className="mt-6 flex justify-end gap-3 border-t border-primary-100 pt-4">
