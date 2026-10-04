@@ -13,17 +13,35 @@ function EmptyState({
   titulo,
   descripcion,
   icono,
+  compacto = false,
 }: {
   titulo: string
   descripcion?: string
   icono?: ReactNode
+  /** Sin borde ni fondo, para usarlo dentro de una tarjeta o gráfico. */
+  compacto?: boolean
 }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
+    <div
+      className={`flex flex-col items-center justify-center text-center ${
+        compacto ? 'py-10' : 'rounded-xl border border-dashed border-primary-200 bg-white py-16 shadow-sm'
+      }`}
+    >
       {icono ?? <IconoVacio />}
       <p className="mt-3 text-lg font-medium text-primary-700">{titulo}</p>
       {descripcion && <p className="mt-1 text-sm text-primary-400">{descripcion}</p>}
     </div>
+  )
+}
+
+/** Estado vacío para dentro de un <Table>: una fila con ícono y mensaje. */
+export function FilaVacia({ columnas, titulo, descripcion }: { columnas: number; titulo: string; descripcion?: string }) {
+  return (
+    <tr>
+      <td colSpan={columnas}>
+        <EmptyState compacto titulo={titulo} descripcion={descripcion} />
+      </td>
+    </tr>
   )
 }
 

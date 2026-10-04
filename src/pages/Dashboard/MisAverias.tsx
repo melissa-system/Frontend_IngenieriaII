@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
@@ -52,12 +53,7 @@ function MisAverias() {
       </div>
 
       {averias.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-          <p className="text-lg font-medium text-primary-700">Aún no tenés reportes de averías</p>
-          <p className="mt-1 text-sm text-primary-400">
-            Tus reportes aparecerán aquí junto con su estado.
-          </p>
-        </div>
+        <EmptyState titulo="Aún no tenés reportes de averías" descripcion="Tus reportes aparecerán aquí junto con su estado." />
       ) : (
         <Table cabecera={['Código', 'Tipo', 'Descripción', 'Estado', 'Fontanero', 'Fecha', 'Acciones']}>
               {averias.map((a) => (

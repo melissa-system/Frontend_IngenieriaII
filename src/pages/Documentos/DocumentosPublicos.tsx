@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState } from 'react'
@@ -141,11 +142,9 @@ function DocumentosPublicos() {
       ) : loading ? (
         <Cargando texto="Cargando documentos..." />
       ) : documentosFiltrados.length === 0 ? (
-        <p className="mt-10 py-10 text-center text-sm text-primary-400">
-          {filtroTipo
+        <EmptyState titulo={filtroTipo
             ? 'No hay documentos de ese tipo por ahora.'
-            : 'Todavía no hay documentos públicos disponibles.'}
-        </p>
+            : 'Todavía no hay documentos públicos disponibles.'} />
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {documentosFiltrados.map((doc) => (

@@ -1,3 +1,4 @@
+import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -409,13 +410,9 @@ function Proveedores() {
             {cargando ? (
               <FilasEsqueleto columnas={7} />
             ) : filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                  {search
+              <FilaVacia columnas={7} titulo={search
                     ? `No encontramos proveedores para "${search}"`
-                    : 'No hay proveedores registrados.'}
-                </td>
-              </tr>
+                    : 'No hay proveedores registrados.'} />
             ) : (
               filasVisibles.map((p) => (
                 <tr key={p.id} className="hover:bg-primary-50/50">

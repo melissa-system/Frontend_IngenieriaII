@@ -1,3 +1,4 @@
+import { FilaVacia } from '../ui/EmptyState'
 import { Notificar } from '../ui/ToastProvider'
 import { FilasEsqueleto } from '../ui/Cargando'
 import React, { useEffect, useState } from 'react';
@@ -452,14 +453,7 @@ export const Usuarios: React.FC = () => {
               {cargando ? (
                 <FilasEsqueleto columnas={7} />
               ) : usuariosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
-                    <p className="font-medium">No se encontraron usuarios coincidentes.</p>
-                    <p className="text-xs text-primary-400 mt-1">
-                      Intenta ajustar el término de búsqueda o los filtros seleccionados.
-                    </p>
-                  </td>
-                </tr>
+                <FilaVacia columnas={7} titulo="No se encontraron usuarios." descripcion="Ajustá la búsqueda o los filtros seleccionados." />
               ) : (
                 usuariosPaginados.map((u) => {
                   const nombreUsuario = u.username ?? u.email.split('@')[0];

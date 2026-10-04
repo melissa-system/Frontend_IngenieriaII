@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useMemo, useState, useEffect } from 'react'
 import {
@@ -665,9 +666,7 @@ function Reportes() {
           <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-primary-900">{reporte.barLabel}</h2>
             {reporte.barData.length === 0 ? (
-              <p className="py-10 text-center text-sm text-primary-400">
-                No se encontraron registros para los filtros seleccionados.
-              </p>
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={reporte.barData} layout="vertical">
@@ -684,9 +683,7 @@ function Reportes() {
           <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-primary-900">{reporte.pieLabel}</h2>
             {reporte.pieData.length === 0 ? (
-              <p className="py-10 text-center text-sm text-primary-400">
-                No se encontraron registros para los filtros seleccionados.
-              </p>
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <PieChart margin={{ top: 16, right: 16, bottom: 0, left: 16 }}>
@@ -714,9 +711,7 @@ function Reportes() {
           <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-primary-900">Evolución mensual</h2>
             {reporte.evolucionMensual.length === 0 ? (
-              <p className="py-10 text-center text-sm text-primary-400">
-                No se encontraron registros para los filtros seleccionados.
-              </p>
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <AreaChart data={reporte.evolucionMensual}>
@@ -733,9 +728,7 @@ function Reportes() {
           <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-primary-900">Distribución de estados</h2>
             {radialData.length === 0 ? (
-              <p className="py-10 text-center text-sm text-primary-400">
-                No se encontraron registros para los filtros seleccionados.
-              </p>
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <RadialBarChart data={radialData} innerRadius="20%" outerRadius="90%">

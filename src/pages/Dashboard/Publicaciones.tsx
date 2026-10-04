@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -201,9 +202,7 @@ function Publicaciones() {
         ) : loading ? (
           <Cargando texto="Cargando publicaciones..." />
         ) : publicaciones.length === 0 ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            Todavía no hay publicaciones.
-          </p>
+          <EmptyState titulo="Todavía no hay publicaciones." />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {publicaciones.map((pub) => (

@@ -1,3 +1,4 @@
+import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
@@ -266,13 +267,9 @@ function Bitacora() {
             {cargando ? (
               <FilasEsqueleto columnas={6} />
             ) : registros.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  {hayFiltros
+              <FilaVacia columnas={6} titulo={hayFiltros
                     ? 'No hay movimientos que coincidan con los filtros.'
-                    : 'Todavía no hay movimientos registrados.'}
-                </td>
-              </tr>
+                    : 'Todavía no hay movimientos registrados.'} />
             ) : (
               registros.map((registro) => (
                 <tr key={registro.id} className="hover:bg-primary-50/50">

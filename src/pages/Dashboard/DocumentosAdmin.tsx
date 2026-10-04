@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
@@ -349,11 +350,9 @@ function DocumentosAdmin() {
         ) : docLoading ? (
           <Cargando texto="Cargando documentos..." />
         ) : documentos.length === 0 ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            {filtroTipo || filtroNombre
+          <EmptyState titulo={filtroTipo || filtroNombre
               ? 'No se encontraron documentos con ese filtro.'
-              : 'Todavía no hay documentos cargados.'}
-          </p>
+              : 'Todavía no hay documentos cargados.'} />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {documentos.map((doc) => (

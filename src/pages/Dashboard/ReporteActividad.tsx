@@ -1,3 +1,4 @@
+import { FilaVacia } from '../../components/ui/EmptyState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useEffect, useState, type FormEvent } from 'react'
@@ -385,11 +386,7 @@ function ReporteActividad() {
                 {cargando ? (
                   <FilasEsqueleto columnas={4} />
                 ) : misReportes.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="px-4 py-8 text-center text-primary-500">
-                      Todavía no has registrado ninguna actividad.
-                    </td>
-                  </tr>
+                  <FilaVacia columnas={4} titulo="Todavía no has registrado ninguna actividad." />
                 ) : (
                   misReportes.map((reporte) => (
                     <tr key={reporte.id} className="hover:bg-primary-50">

@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { useState, useMemo, useEffect } from 'react'
 import { Link } from 'react-router-dom'
@@ -627,9 +628,7 @@ function DashboardHomeContenido() {
           <p className="mt-1 text-sm text-primary-400">Averías abiertas, de más antigua a más reciente</p>
 
           {averiasAbiertas.length === 0 ? (
-            <p className="py-16 text-center text-sm text-primary-400">
-              No hay averías pendientes en este momento.
-            </p>
+            <EmptyState compacto titulo="No hay averías pendientes en este momento." />
           ) : (
             <div className="mt-3 divide-y divide-primary-50">
               {averiasAbiertas.slice(0, 6).map((a) => {
@@ -828,7 +827,7 @@ function DashboardAbonado() {
             </Link>
           </div>
           {solicitudesRecientes.length === 0 ? (
-            <p className="mt-4 text-sm text-primary-400">Aún no has realizado solicitudes.</p>
+            <EmptyState compacto titulo="Aún no has realizado solicitudes." />
           ) : (
             <ul className="mt-3 space-y-2">
               {solicitudesRecientes.map((s) => (
@@ -857,7 +856,7 @@ function DashboardAbonado() {
             <h2 className="text-lg font-semibold text-primary-900">Últimos reportes de averías</h2>
           </div>
           {averiasRecientes.length === 0 ? (
-            <p className="mt-4 text-sm text-primary-400">Aún no has reportado averías.</p>
+            <EmptyState compacto titulo="Aún no has reportado averías." />
           ) : (
             <ul className="mt-3 space-y-2">
               {averiasRecientes.map((a) => (
@@ -1038,9 +1037,7 @@ function DashboardFontanero() {
           </Link>
         </div>
         {reportes.length === 0 ? (
-          <p className="mt-4 text-sm text-primary-400">
-            Aún no has registrado ninguna actividad.
-          </p>
+          <EmptyState compacto titulo="Aún no has registrado ninguna actividad." />
         ) : (
           <ul className="mt-3 space-y-2">
             {reportes.slice(0, 5).map((r) => (

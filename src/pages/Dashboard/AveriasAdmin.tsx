@@ -1,3 +1,4 @@
+import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useMemo } from 'react'
@@ -436,11 +437,7 @@ function AveriasAdmin() {
           </div>
         )}</>}>
             {filasVisibles.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
-                  No hay averías con ese filtro.
-                </td>
-              </tr>
+              <FilaVacia columnas={8} titulo="No hay averías con ese filtro." />
             ) : (
               filasVisibles.map((a) => (
                 <tr key={a.id} className="hover:bg-primary-50/50">

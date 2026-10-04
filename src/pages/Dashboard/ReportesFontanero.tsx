@@ -1,3 +1,4 @@
+import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useCallback, useEffect, useState } from 'react'
@@ -228,13 +229,9 @@ function ReportesFontanero() {
             {cargando ? (
               <FilasEsqueleto columnas={6} />
             ) : reportes.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  {hayFiltros
+              <FilaVacia columnas={6} titulo={hayFiltros
                     ? 'No hay reportes que coincidan con los filtros.'
-                    : 'Todavía no hay reportes de actividad registrados.'}
-                </td>
-              </tr>
+                    : 'Todavía no hay reportes de actividad registrados.'} />
             ) : (
               reportes.map((reporte) => (
                 <tr key={reporte.id} className="hover:bg-primary-50/50">

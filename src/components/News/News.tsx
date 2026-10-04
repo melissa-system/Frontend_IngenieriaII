@@ -1,3 +1,4 @@
+import EmptyState from '../ui/EmptyState'
 import ErrorState from '../ui/ErrorState'
 import Cargando from '../ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
@@ -124,9 +125,7 @@ function News() {
       ) : error ? (
         <ErrorState mensaje={error} />
       ) : noticias.length === 0 ? (
-        <p className="mt-10 text-center text-sm text-primary-400">
-          Aún no hay noticias publicadas.
-        </p>
+        <EmptyState titulo="Aún no hay noticias publicadas." />
       ) : (
         <div className="relative mx-auto mt-8 max-w-5xl sm:mt-12">
           <div className="overflow-hidden py-3">

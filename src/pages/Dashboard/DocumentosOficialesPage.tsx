@@ -1,3 +1,4 @@
+import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
@@ -116,11 +117,9 @@ function DocumentosOficialesPage() {
       ) : loading ? (
         <Cargando texto="Cargando documentos..." />
       ) : documentos.length === 0 ? (
-        <p className="py-10 text-center text-sm text-primary-400">
-          {filtroTipo
+        <EmptyState titulo={filtroTipo
             ? 'No hay documentos de ese tipo por ahora.'
-            : 'Todavía no hay documentos oficiales disponibles.'}
-        </p>
+            : 'Todavía no hay documentos oficiales disponibles.'} />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {documentos.map((doc) => (
