@@ -27,6 +27,9 @@ import {
   obtenerMisAveriasFontanero,
   type AveriaBackend,
 } from '../../components/Services/averias.service'
+import Button from '../../components/ui/Button'
+import Tabs from '../../components/ui/Tabs'
+import Table from '../../components/ui/Table'
 
 const MINIMO_DESCRIPCION = 10
 const MAXIMO_LARGO_MATERIALES = 500
@@ -190,36 +193,20 @@ function ReporteActividad() {
       </div>
 
       {/* Pestañas: historial y formulario, como en las solicitudes. */}
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Mis reportes
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Nuevo reporte
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis reportes' },
+          { valor: 'crear', etiqueta: 'Nuevo reporte' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
         <form
           onSubmit={handleSubmit}
           noValidate
-          className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4"
+          className="space-y-4 rounded-2xl border border-primary-200 bg-primary-50 p-4"
         >
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
@@ -374,20 +361,18 @@ function ReporteActividad() {
           )}
 
           <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              disabled={guardando}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={guardando}>
               {guardando ? 'Guardando...' : 'Guardar reporte'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
-              onClick={cancelar}
-              className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-            >
+              onClick={cancelar}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </form>
       )}
@@ -398,17 +383,7 @@ function ReporteActividad() {
             Mis reportes anteriores
           </h2>
 
-          <div className="mt-3 overflow-x-auto rounded-2xl border border-gray-200">
-            <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-semibold text-primary-900">Fecha</th>
-                  <th className="px-4 py-3 text-left font-semibold text-primary-900">Actividad</th>
-                  <th className="px-4 py-3 text-left font-semibold text-primary-900">Tiempo</th>
-                  <th className="px-4 py-3 text-left font-semibold text-primary-900">Materiales</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
+          <div className="mt-3"><Table cabecera={['Fecha', 'Actividad', 'Tiempo', 'Materiales']}>
                 {cargando ? (
                   <tr>
                     <td colSpan={4} className="px-4 py-8 text-center text-primary-500">
@@ -423,7 +398,7 @@ function ReporteActividad() {
                   </tr>
                 ) : (
                   misReportes.map((reporte) => (
-                    <tr key={reporte.id} className="hover:bg-gray-50">
+                    <tr key={reporte.id} className="hover:bg-primary-50">
                       <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                         {reporte.fecha_trabajo}
                       </td>
@@ -447,9 +422,7 @@ function ReporteActividad() {
                     </tr>
                   ))
                 )}
-              </tbody>
-            </table>
-          </div>
+              </Table></div>
         </div>
       )}
     </div>

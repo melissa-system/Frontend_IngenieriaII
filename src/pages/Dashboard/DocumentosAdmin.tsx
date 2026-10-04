@@ -15,6 +15,8 @@ import {
   type VisibilidadDocumento,
 } from '../../components/Services/documentos.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import Modal from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -332,13 +334,12 @@ function DocumentosAdmin() {
               className="w-56 rounded-full border border-primary-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
           </div>
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={openUploadModal}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
+            onClick={openUploadModal}>
             + Subir documento
-          </button>
+          </Button>
         </div>
 
         {docLoadError ? (
@@ -347,7 +348,7 @@ function DocumentosAdmin() {
             <button
               type="button"
               onClick={cargarDocumentos}
-              className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+              className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
             >
               Reintentar
             </button>
@@ -455,15 +456,14 @@ function DocumentosAdmin() {
       </div>
 
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">Subir documento</h2>
               <button
                 type="button"
                 onClick={closeUploadModal}
                 disabled={uploading}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -596,38 +596,34 @@ function DocumentosAdmin() {
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">
-                  <button
+                  <Button
+                    variant="primary"
                     type="submit"
-                    disabled={!uploadValido || uploading}
-                    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-                  >
+                    disabled={!uploadValido || uploading}>
                     {uploading ? 'Subiendo...' : 'Subir documento'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={closeUploadModal}
-                    disabled={uploading}
-                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    disabled={uploading}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
+</Modal>
       )}
 
       {versionDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-2 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">Actualizar versión</h2>
               <button
                 type="button"
                 onClick={closeVersionModal}
                 disabled={versionUploading}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -701,26 +697,23 @@ function DocumentosAdmin() {
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">
-                  <button
+                  <Button
+                    variant="primary"
                     type="submit"
-                    disabled={!versionArchivo || versionUploading}
-                    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-                  >
+                    disabled={!versionArchivo || versionUploading}>
                     {versionUploading ? 'Subiendo...' : 'Guardar nueva versión'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={closeVersionModal}
-                    disabled={versionUploading}
-                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    disabled={versionUploading}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

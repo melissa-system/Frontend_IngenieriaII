@@ -17,6 +17,10 @@ import { useAuth } from '../../contexts/AuthContext';
 import { esCorreo, MENSAJES_VALIDACION } from '../../lib/validaciones';
 import { passwordCumpleMinimos } from '../../lib/passwordReset.service';
 import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../common/CampoError';
+import Modal from '../ui/Modal'
+import Table from '../ui/Table'
+import Button from '../ui/Button'
+import PageHeader from '../ui/PageHeader'
 
 type ErroresUsuario = Partial<Record<'email' | 'password' | 'rol', string>>;
 
@@ -69,7 +73,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+        activo ? 'bg-green-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -314,23 +318,21 @@ export const Usuarios: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado Principal */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Gestión de Usuarios del Sistema
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {usuarios.length} usuarios registrados en la plataforma
-          </p>
-        </div>
-        <button
+      <PageHeader
+        titulo="Gestión de Usuarios del Sistema"
+        descripcion="{usuarios.length} usuarios registrados en la plataforma"
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={abrirModalCrear}
-          className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-        >
+          className="self-start">
           + Nuevo usuario
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
       {/* Mensajes de Notificación */}
       {mensajeExito && (
@@ -433,21 +435,39 @@ export const Usuarios: React.FC = () => {
       </div>
 
       {/* Tabla de Usuarios */}
-      <div className="rounded-xl border border-primary-100 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-primary-100 text-left text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">ID</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Usuario / Correo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Rol Asignado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Vinculado a</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha Registro</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50 text-primary-800">
+      <Table
+        cabecera={['ID', 'Usuario / Correo', 'Rol Asignado', 'Vinculado a', 'Estado', 'Fecha Registro', 'Acciones']}
+        pie={
+          <>
+{/* Paginador */}
+        {totalPaginas > 1 && (
+          <div className="flex items-center justify-between border-t border-primary-100 px-6 py-3.5 text-sm bg-primary-50/50">
+            <span className="text-xs text-primary-600">
+              Página {paginaActual} de {totalPaginas} ({usuariosFiltrados.length} usuarios)
+            </span>
+            <div className="flex items-center gap-1.5">
+              <button
+                type="button"
+                disabled={paginaActual === 1}
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                className="rounded-full border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <button
+                type="button"
+                disabled={paginaActual === totalPaginas}
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                className="rounded-full border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
+          </>
+        }
+      >
               {cargando ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
@@ -574,42 +594,11 @@ export const Usuarios: React.FC = () => {
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Paginador */}
-        {totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-primary-100 px-6 py-3.5 text-sm bg-gray-50/50">
-            <span className="text-xs text-primary-600">
-              Página {paginaActual} de {totalPaginas} ({usuariosFiltrados.length} usuarios)
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={paginaActual === 1}
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                className="rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                disabled={paginaActual === totalPaginas}
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                className="rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+            </Table>
 
       {/* MODAL PARA CREAR NUEVO USUARIO */}
       {modalCrearAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">
                 Registrar Nuevo Usuario
@@ -617,7 +606,7 @@ export const Usuarios: React.FC = () => {
               <button
                 type="button"
                 onClick={cerrarModalCrear}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -708,30 +697,26 @@ export const Usuarios: React.FC = () => {
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={guardandoUsuario}
-                  className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-                >
+                  disabled={guardandoUsuario}>
                   {guardandoUsuario ? 'Guardando...' : 'Registrar Usuario'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
-                  onClick={cerrarModalCrear}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
+                  onClick={cerrarModalCrear}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* MODAL PARA EDITAR ROL */}
       {modalEditarRol && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">
                 Editar Rol de Usuario
@@ -739,7 +724,7 @@ export const Usuarios: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setModalEditarRol(null)}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -785,31 +770,27 @@ export const Usuarios: React.FC = () => {
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={handleConfirmarCambioRol}
-                disabled={guardandoRol}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-              >
+                disabled={guardandoRol}>
                 {guardandoRol ? 'Guardando...' : 'Guardar Cambios'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setModalEditarRol(null)}
-                disabled={guardandoRol}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-              >
+                disabled={guardandoRol}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* MODAL PARA CAMBIO DE ESTADO (ACTIVAR / INHABILITAR) */}
       {modalCambioEstado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md" scroll={false}>
             <h2 className="text-lg font-semibold text-primary-900">
               {modalCambioEstado.nuevoEstado
                 ? 'Confirmar activación de usuario'
@@ -859,29 +840,26 @@ export const Usuarios: React.FC = () => {
             )}
 
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={handleConfirmarCambioEstado}
-                disabled={guardandoEstado}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={guardandoEstado}>
                 {guardandoEstado
                   ? 'Guardando...'
                   : modalCambioEstado.nuevoEstado
                   ? 'Sí, activar'
                   : 'Sí, inhabilitar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setModalCambioEstado(null)}
-                disabled={guardandoEstado}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={guardandoEstado}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   );

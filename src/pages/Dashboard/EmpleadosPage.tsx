@@ -29,6 +29,9 @@ import {
   type RequiereConfirmacionInfo,
   erroresPorCampo,
 } from '../../components/Services/erroresApi'
+import Modal from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
 
 const PUESTOS = [
   'Junta Directiva',
@@ -94,7 +97,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+        activo ? 'bg-green-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -550,22 +553,40 @@ function EmpleadosPage() {
         )}
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-primary-100 bg-primary-50">
-              <th className="px-4 py-3 font-medium text-primary-700">Nombre</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Cédula</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Puesto</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Teléfono</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Table
+        cabecera={['Nombre', 'Cédula', 'Puesto', 'Teléfono', 'Estado', 'Acciones']}
+        pie={
+          <>
+{totalPaginas > 1 && (
+          <div className="flex items-center justify-between border-t border-primary-100 px-4 py-3">
+            <p className="text-xs text-primary-500">
+              Página {paginaActual} de {totalPaginas} ({filtered.length}{' '}
+              resultado{filtered.length !== 1 ? 's' : ''})
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={paginaActual <= 1}
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
+              >
+                Anterior
+              </button>
+              <button
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={paginaActual >= totalPaginas}
+                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
+              >
+                Siguiente
+              </button>
+            </div>
+          </div>
+        )}
+          </>
+        }
+      >
             {loading ? (
               Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-primary-50">
+                <tr key={i}>
                   {Array.from({ length: 6 }).map((_, j) => (
                     <td key={j} className="px-4 py-3">
                       <div className="h-4 animate-pulse rounded bg-primary-100" />
@@ -633,39 +654,11 @@ function EmpleadosPage() {
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-
-        {totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-primary-100 px-4 py-3">
-            <p className="text-xs text-primary-500">
-              Página {paginaActual} de {totalPaginas} ({filtered.length}{' '}
-              resultado{filtered.length !== 1 ? 's' : ''})
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                disabled={paginaActual <= 1}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                disabled={paginaActual >= totalPaginas}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          </Table>
 
       {/* ── Modal crear/editar ────────────────────────────── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg" scroll={false}>
             <h2 className="text-lg font-semibold text-primary-900">
               {editando ? 'Editar empleado' : 'Nuevo empleado'}
             </h2>
@@ -705,14 +698,14 @@ function EmpleadosPage() {
                     className={`${formError.cedula ? inputErrorClass : inputClass} ${editando ? 'cursor-not-allowed bg-primary-50 text-primary-500' : ''}`}
                   />
                   {!editando && (
-                    <button
+                    <Button
+                      variant="secondary"
                       type="button"
                       onClick={buscarPorCedula}
                       disabled={buscandoCedula || !form.cedula.trim()}
-                      className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                    >
+                      className="flex-none">
                       {buscandoCedula ? 'Buscando...' : 'Buscar'}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {cedulaLookupStatus === 'found' && (
@@ -896,16 +889,15 @@ function EmpleadosPage() {
                               vinculación usará el correo guardado.
                             </p>
                           )}
-                          <button
+                          <Button
+                            variant="secondary"
                             type="button"
                             onClick={() => {
                               setErrorVincular(null)
                               setVincularConfirmando(true)
-                            }}
-                            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                          >
+                            }}>
                             Vincular cuenta
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
@@ -924,27 +916,25 @@ function EmpleadosPage() {
                             </p>
                           )}
                           <div className="flex justify-end gap-2">
-                            <button
+                            <Button
+                              variant="primary"
                               type="button"
                               onClick={confirmarVincular}
-                              disabled={vinculandoId !== null}
-                              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
+                              disabled={vinculandoId !== null}>
                               {vinculandoId !== null
                                 ? 'Vinculando...'
                                 : 'Confirmar vinculación'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              variant="secondary"
                               type="button"
                               onClick={() => {
                                 setVincularConfirmando(false)
                                 setErrorVincular(null)
                               }}
-                              disabled={vinculandoId !== null}
-                              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
+                              disabled={vinculandoId !== null}>
                               Cancelar
-                            </button>
+                            </Button>
                           </div>
                         </>
                       )}
@@ -955,17 +945,16 @@ function EmpleadosPage() {
 
               {/* ── Botones ───────────────────────────────── */}
               <div className="flex items-center justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={submitting}
-                  className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                  disabled={submitting}>
                   {submitting
                     ? 'Guardando…'
                     : editando
                       ? 'Guardar cambios'
                       : 'Crear empleado'}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
@@ -976,20 +965,18 @@ function EmpleadosPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ── Modal detalle ────────────────────────────────── */}
       {viewDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">Detalle del Empleado</h2>
               <button
                 type="button"
                 onClick={() => setViewDetail(null)}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1016,22 +1003,19 @@ function EmpleadosPage() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={() => setViewDetail(null)}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                onClick={() => setViewDetail(null)}>
                 Cerrar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ── Modal confirmación cédula cruzada ────────────── */}
       {confirmacionCedula && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md" layer={70} scroll={false}>
             <h2 className="text-lg font-semibold text-primary-900">
               Cédula ya registrada
             </h2>
@@ -1039,31 +1023,27 @@ function EmpleadosPage() {
               {confirmacionCedula.info.message}
             </p>
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={confirmarVinculacionCedula}
-                disabled={confirmandoVinculacion}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={confirmandoVinculacion}>
                 {confirmandoVinculacion ? 'Guardando...' : 'Sí, es la misma persona'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setConfirmacionCedula(null)}
-                disabled={confirmandoVinculacion}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={confirmandoVinculacion}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ── Modal cambio de estado ───────────────────────── */}
       {cambioEstado && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md" layer={60} scroll={false}>
             <h2 className="text-lg font-semibold text-primary-900">
               Cambiar estado del empleado
             </h2>
@@ -1088,25 +1068,22 @@ function EmpleadosPage() {
               </span>
             </p>
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={confirmarCambioEstado}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setCambioEstado(null)}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

@@ -7,6 +7,7 @@ import {
   type TipoDocumento,
 } from '../../components/Services/documentos.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -88,7 +89,7 @@ function DocumentosOficialesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-primary-900">Documentos oficiales</h1>
+          <h1 className="text-2xl font-semibold text-primary-900">Documentos oficiales</h1>
           <p className="mt-1 text-sm text-primary-600">
             Actas, informes, comunicados y demás documentación oficial de ASADA
             Pueblo Nuevo, disponible para consulta y descarga.
@@ -114,7 +115,7 @@ function DocumentosOficialesPage() {
           <button
             type="button"
             onClick={cargar}
-            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+            className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
           >
             Reintentar
           </button>
@@ -155,7 +156,8 @@ function DocumentosOficialesPage() {
                 {doc.version > 1 ? ` · versión ${doc.version}` : ''}
               </p>
 
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() =>
                   descargarArchivo(
@@ -163,11 +165,10 @@ function DocumentosOficialesPage() {
                     `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
                   )
                 }
-                className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-              >
+                className="mt-4 inline-flex items-center justify-center gap-2">
                 <DownloadIcon />
                 Descargar
-              </button>
+              </Button>
             </div>
           ))}
         </div>

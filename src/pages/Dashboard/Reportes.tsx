@@ -43,6 +43,8 @@ import {
   validarRangoFechas,
 } from '../../lib/exportacionReportes'
 import { useAuth } from '../../contexts/AuthContext'
+import Button from '../../components/ui/Button'
+import PageHeader from '../../components/ui/PageHeader'
 
 const MODULES = ['Averías', 'Abonados', 'Solicitudes'] as const
 type ModuleName = (typeof MODULES)[number]
@@ -507,43 +509,39 @@ function Reportes() {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Reportes estadísticos
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Datos generados a partir de la información registrada en cada módulo
-          </p>
-        </div>
-        {puedeExportar && (
+      <PageHeader
+        titulo="Reportes estadísticos"
+        descripcion="Datos generados a partir de la información registrada en cada módulo"
+        accion={
+          <>
+{puedeExportar && (
           <div className="flex flex-col items-start gap-1 sm:items-end">
             <div className="flex flex-wrap gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={downloadCSV}
                 disabled={!!motivoBloqueo}
-                title={motivoBloqueo ?? undefined}
-                className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+                title={motivoBloqueo ?? undefined}>
                 Exportar CSV
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={exportPDF}
                 disabled={generandoPdf || !!motivoBloqueo}
-                title={motivoBloqueo ?? undefined}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+                title={motivoBloqueo ?? undefined}>
                 {generandoPdf ? 'Generando PDF...' : 'Exportar PDF'}
-              </button>
+              </Button>
             </div>
             {motivoBloqueo && !loading && (
               <p className="text-xs text-primary-500">{motivoBloqueo}</p>
             )}
           </div>
         )}
-      </div>
+          </>
+        }
+      />
 
       <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">

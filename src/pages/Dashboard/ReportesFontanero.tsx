@@ -12,6 +12,9 @@ import {
   obtenerEmpleados,
   type Empleado,
 } from '../../components/Services/empleados.service'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import Modal from '../../components/ui/Modal'
 
 const LIMITE_POR_PAGINA = 25
 
@@ -98,7 +101,7 @@ function ReportesFontanero() {
       </div>
 
       {/* Filtros */}
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label htmlFor="f-fontanero" className="block text-sm font-medium text-primary-900">
@@ -185,19 +188,45 @@ function ReportesFontanero() {
       )}
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-primary-100 text-sm">
-          <thead className="bg-primary-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Fontanero</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Actividad</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Tiempo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Materiales</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-primary-50">
+      <Table cabecera={['Fontanero', 'Fecha', 'Actividad', 'Tiempo', 'Materiales', 'Acciones']} pie={<>{total > 0 && (
+          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-xs text-primary-500">
+              Mostrando{' '}
+              {`${(pagina - 1) * LIMITE_POR_PAGINA + 1}–${Math.min(pagina * LIMITE_POR_PAGINA, total)}`}{' '}
+              de {total} reportes
+            </p>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="secondary" size="sm"
+                type="button"
+                onClick={() => setPagina((p) => Math.max(1, p - 1))}
+                disabled={pagina === 1 || cargando}>
+                ‹ Anterior
+              </Button>
+              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setPagina(n)}
+                  disabled={n === pagina}
+                  aria-current={n === pagina ? 'page' : undefined}
+                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
+                    n === pagina ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
+                  }`}
+                >
+                  {n}
+                </button>
+              ))}
+              <Button
+                variant="secondary" size="sm"
+                type="button"
+                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
+                disabled={pagina >= totalPaginas || cargando}>
+                Siguiente ›
+              </Button>
+            </div>
+          </div>
+        )}</>}>
             {cargando ? (
               <tr>
                 <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
@@ -242,67 +271,21 @@ function ReportesFontanero() {
                     )}
                   </td>
                   <td className="px-4 py-3">
-                    <button
+                    <Button
+                      variant="secondary" size="sm"
                       type="button"
-                      onClick={() => setDetalle(reporte)}
-                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                    >
+                      onClick={() => setDetalle(reporte)}>
                       Ver detalle
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-
-        {total > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {`${(pagina - 1) * LIMITE_POR_PAGINA + 1}–${Math.min(pagina * LIMITE_POR_PAGINA, total)}`}{' '}
-              de {total} reportes
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                disabled={pagina === 1 || cargando}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ‹ Anterior
-              </button>
-              {Array.from({ length: totalPaginas }, (_, i) => i + 1).map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPagina(n)}
-                  disabled={n === pagina}
-                  aria-current={n === pagina ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                    n === pagina ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                disabled={pagina >= totalPaginas || cargando}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Siguiente ›
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          </Table>
 
       {/* Detalle */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
+        <Modal size="lg">
             <h2 className="text-lg font-semibold text-primary-900">
               Reporte #{detalle.id}
             </h2>
@@ -346,7 +329,7 @@ function ReportesFontanero() {
               Materiales utilizados
             </h3>
             {detalle.materiales_texto ? (
-              <p className="mt-1 whitespace-pre-line rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-primary-700">
+              <p className="mt-1 whitespace-pre-line rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-700">
                 {detalle.materiales_texto}
               </p>
             ) : detalle.materiales.length === 0 ? (
@@ -354,7 +337,7 @@ function ReportesFontanero() {
                 Este trabajo no registró materiales.
               </p>
             ) : (
-              <ul className="mt-2 divide-y divide-gray-200 rounded-lg border border-gray-200">
+              <ul className="mt-2 divide-y divide-primary-200 rounded-lg border border-primary-200">
                 {detalle.materiales.map((material) => (
                   <li
                     key={material.id}
@@ -368,16 +351,14 @@ function ReportesFontanero() {
             )}
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={() => setDetalle(null)}
-                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                onClick={() => setDetalle(null)}>
                 Cerrar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

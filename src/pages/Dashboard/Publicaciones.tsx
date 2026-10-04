@@ -6,6 +6,8 @@ import {
   LIMITES_PUBLICACION,
   type Publicacion,
 } from '../../components/Services/publicaciones.service'
+import Modal from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 
 interface FormState {
   titulo: string
@@ -184,13 +186,12 @@ function Publicaciones() {
 
       <div className="space-y-4">
         <div className="flex justify-end">
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={openCreate}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
+            onClick={openCreate}>
             + Nueva publicación
-          </button>
+          </Button>
         </div>
 
         {loadError ? (
@@ -199,7 +200,7 @@ function Publicaciones() {
             <button
               type="button"
               onClick={cargarPublicaciones}
-              className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
+              className="mt-3 rounded-full border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
             >
               Reintentar
             </button>
@@ -269,8 +270,7 @@ function Publicaciones() {
       </div>
 
       {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-6 flex items-center justify-between">
               <h2 className="text-xl font-semibold text-primary-900">
                 {modalMode === 'edit' ? 'Editar publicación' : 'Nueva publicación'}
@@ -278,7 +278,7 @@ function Publicaciones() {
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -352,28 +352,25 @@ function Publicaciones() {
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={submitting}
-                  className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-                >
+                  disabled={submitting}>
                   {submitting
                     ? 'Guardando...'
                     : modalMode === 'edit'
                       ? 'Guardar cambios'
                       : 'Crear publicación'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
-                  onClick={closeModal}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
+                  onClick={closeModal}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

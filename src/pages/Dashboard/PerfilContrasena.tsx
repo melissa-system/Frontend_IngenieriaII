@@ -3,6 +3,7 @@ import { obtenerMensajeError as mensajeDeError } from '../../components/Services
 import { useAuth } from '../../contexts/AuthContext'
 import apiClient from '../../lib/apiClient'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
+import Button from '../../components/ui/Button'
 
 // Espejo client-side de las reglas de fortaleza que aplica el backend en
 // CambiarPasswordDto (min 8 caracteres, mayuscula, numero).
@@ -182,13 +183,12 @@ function PerfilContrasena() {
             </div>
           </div>
           <div className="flex items-center justify-end gap-3">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              disabled={enviando || exito}
-              className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+              disabled={enviando || exito}>
               {enviando ? 'Guardando…' : 'Cambiar contraseña'}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={cancelar}

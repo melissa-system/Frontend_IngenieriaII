@@ -25,6 +25,7 @@ import {
   type PerfilCompleto,
 } from '../../components/Services/perfil.service'
 import { resolverUrlArchivo } from '../../lib/urlArchivos'
+import Button from '../../components/ui/Button'
 
 // obtenerPerfil/actualizarPerfil/subirFoto (perfil.service.ts) ya extraen el
 // mensaje del backend y lo relanzan como Error normal (err.message) — acá
@@ -293,15 +294,15 @@ function PerfilEditar() {
                   {inicial}
                 </div>
               )}
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={subiendoFoto}
                 aria-label="Cambiar foto de perfil"
-                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-white ring-2 ring-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center ring-2 ring-white">
                 <IconCamara />
-              </button>
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -320,14 +321,13 @@ function PerfilEditar() {
 
             {previewFoto && (
               <div className="flex items-center gap-2">
-                <button
+                <Button
+                  variant="primary" size="sm"
                   type="button"
                   onClick={guardarFoto}
-                  disabled={subiendoFoto}
-                  className="rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                  disabled={subiendoFoto}>
                   {subiendoFoto ? 'Guardando…' : 'Guardar foto'}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={cancelarFoto}
@@ -432,13 +432,12 @@ function PerfilEditar() {
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <button
+              <Button
+                variant="primary"
                 type="submit"
-                disabled={guardandoDatos}
-                className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+                disabled={guardandoDatos}>
                 {guardandoDatos ? 'Guardando…' : 'Guardar cambios'}
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={cancelarDatos}
