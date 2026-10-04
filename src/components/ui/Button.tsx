@@ -25,8 +25,8 @@ const VARIANTES: Record<VarianteBoton, string> = {
 }
 
 const TAMANOS: Record<TamanoBoton, string> = {
-  sm: 'px-3 py-1.5 text-xs',
-  md: 'px-5 py-2 text-sm',
+  sm: 'px-3 py-1.5 text-xs pointer-coarse:min-h-11',
+  md: 'px-5 py-2 text-sm pointer-coarse:min-h-11',
 }
 
 /** Clases del botón, por si hay que aplicarlas a un <Link> o <a>. */

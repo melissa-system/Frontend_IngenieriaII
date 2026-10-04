@@ -9,10 +9,10 @@ export const CLASE_SELECT =
   'mt-1 w-full rounded-full border bg-white px-4 py-2.5 text-primary-900 focus:ring-1 focus:ring-primary-500 focus:outline-none disabled:bg-primary-50'
 /** Select suelto de una barra de filtros (misma altura que el botón de orden). */
 export const CLASE_SELECT_FILTRO =
-  'h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none'
+  'h-10 pointer-coarse:h-11 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none'
 /** Input de búsqueda de una barra de filtros. */
 export const CLASE_BUSCADOR =
-  'h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
+  'h-10 pointer-coarse:h-11 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
 
 interface CampoProps {
   label?: string

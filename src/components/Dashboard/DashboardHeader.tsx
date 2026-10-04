@@ -19,7 +19,7 @@ function DashboardHeader({ onToggleSidebar }: DashboardHeaderProps) {
       <button
         type="button"
         onClick={onToggleSidebar}
-        className="order-2 rounded-full p-2 text-primary-700 hover:bg-primary-50 lg:order-1"
+        className="order-2 rounded-full p-2.5 text-primary-700 pointer-coarse:min-h-11 pointer-coarse:min-w-11 hover:bg-primary-50 lg:order-1"
         aria-label="Mostrar u ocultar el menú"
       >
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">

@@ -205,7 +205,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <li key={sub.to}>
           <Link
             to={sub.to!}
-            className={`block rounded-2xl pl-3 pr-3 py-2 text-sm transition-colors ${
+            className={`block rounded-2xl pl-3 pr-3 py-2 text-sm pointer-coarse:py-3 transition-colors ${
               active
                 ? '-mr-3 bg-white font-medium text-primary-900 shadow-md'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -228,7 +228,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <button
           type="button"
           onClick={() => toggleExpand(key)}
-          className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm pointer-coarse:py-3 transition-colors ${
             active
               ? '-mr-3 bg-white font-medium text-primary-900 shadow-md'
               : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -265,7 +265,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               type="button"
               title={item.label}
               onClick={() => toggleExpand(item.label)}
-              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium pointer-coarse:py-3 transition-colors ${
                 collapsed ? 'lg:justify-center' : ''
               } ${
                 active
@@ -304,7 +304,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <Link
             to={item.to!}
             title={item.label}
-            className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium pointer-coarse:py-3 transition-colors ${
               collapsed ? 'lg:justify-center' : ''
             } ${
               active

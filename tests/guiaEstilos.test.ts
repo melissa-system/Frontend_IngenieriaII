@@ -127,4 +127,40 @@ describe('guía de estilos (diseños/componentes.md)', () => {
       assert.ok(fs.existsSync(path.join(SRC, 'components/ui', `${f}.tsx`)), `falta ${f}.tsx`)
     }
   })
+
+  // ── Navegación y responsividad ──
+  const leer = (r: string) => TODOS.find((t) => t.ruta === r)?.texto ?? ''
+
+  it('el layout del dashboard muestra breadcrumbs y no permite desbordamiento horizontal', () => {
+    const l = leer('components/Dashboard/DashboardLayout.tsx')
+    assert.match(l, /<Breadcrumbs \/>/)
+    assert.match(l, /overflow-x-hidden/)
+    assert.match(l, /min-w-0/)
+  })
+
+  it('todas las rutas del menú tienen una ruta registrada en AppRoutes', () => {
+    const menu = leer('lib/menuConfig.tsx')
+    const rutas = leer('routes/AppRoutes.tsx')
+    const destinos = [...menu.matchAll(/to: '(\/dashboard[^'?]*)'/g)].map((m) => m[1])
+    assert.ok(destinos.length > 10)
+    for (const d of destinos) {
+      const rel = d.replace('/dashboard/', '').replace('/dashboard', '')
+      const ok = rel === '' ? /<Route index/.test(rutas) : rutas.includes(`path="${rel}"`)
+      assert.ok(ok, `sin ruta para ${d}`)
+    }
+  })
+
+  it('botones, pestañas y filtros tienen área táctil de 44 px (pointer-coarse)', () => {
+    assert.match(leer('components/ui/Button.tsx'), /pointer-coarse:min-h-11/)
+    assert.match(leer('components/ui/Tabs.tsx'), /pointer-coarse:min-h-11/)
+    assert.match(leer('components/ui/campos.tsx'), /pointer-coarse:h-11/)
+    assert.match(leer('components/Dashboard/Sidebar.tsx'), /pointer-coarse:py-3/)
+  })
+
+  it('tablas con scroll horizontal, modales con alto dinámico y formularios de 2 columnas responsivos', () => {
+    assert.match(leer('components/ui/Table.tsx'), /overflow-x-auto/)
+    assert.match(leer('components/ui/Modal.tsx'), /max-h-\[92dvh\]/)
+    const v = violaciones((r) => r.endsWith('.tsx'), /<div className="grid grid-cols-2 gap-4">/)
+    assert.deepEqual(v, [])
+  })
 })

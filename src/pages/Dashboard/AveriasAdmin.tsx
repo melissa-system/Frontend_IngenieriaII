@@ -89,7 +89,7 @@ function GestionModal({
         </div>
 
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-primary-50 p-4 text-sm">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 break-words rounded-lg bg-primary-50 p-4 text-sm">
             <span className="font-medium text-primary-700">Código:</span>
             <span className="font-mono text-primary-900">{a.codigo_averia}</span>
             <span className="font-medium text-primary-700">Tipo:</span>

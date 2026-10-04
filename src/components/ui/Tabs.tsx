@@ -14,13 +14,13 @@ function Tabs<T extends string>({
   onCambiar: (valor: T) => void
 }) {
   return (
-    <div className="flex gap-6 border-b border-primary-100">
+    <div className="flex gap-6 overflow-x-auto border-b border-primary-100">
       {pestanas.map((p) => (
         <button
           key={p.valor}
           type="button"
           onClick={() => onCambiar(p.valor)}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+          className={`whitespace-nowrap border-b-2 pb-2 text-sm pointer-coarse:min-h-11 font-semibold transition-colors ${
             activa === p.valor
               ? 'border-primary-700 text-primary-900'
               : 'border-transparent text-primary-400 hover:text-primary-700'

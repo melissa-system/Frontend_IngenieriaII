@@ -31,14 +31,14 @@ interface ModalProps {
 function Modal({ children, size = '2xl', layer = 50, scroll = true, label }: ModalProps) {
   return (
     <div
-      className={`fixed inset-0 ${CAPA[layer]} flex items-center justify-center bg-black/40 p-4`}
+      className={`fixed inset-0 ${CAPA[layer]} flex items-center justify-center bg-black/40 p-2 sm:p-4`}
       role="dialog"
       aria-modal="true"
       aria-label={label}
     >
       <div
-        className={`w-full ${ANCHO[size]} rounded-xl bg-white p-6 shadow-xl ${
-          scroll ? 'max-h-[90vh] overflow-y-auto' : ''
+        className={`w-full ${ANCHO[size]} rounded-xl bg-white p-4 shadow-xl sm:p-6 ${
+          scroll ? 'max-h-[92dvh] overflow-y-auto' : ''
         }`}
       >
         {children}

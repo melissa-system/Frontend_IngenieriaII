@@ -82,7 +82,7 @@ function EstadoSwitch({
       title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+      className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
         activo ? 'bg-green-500' : 'bg-primary-300'
       }`}
     >
@@ -552,7 +552,7 @@ function Proveedores() {
                 <CampoError mensaje={errores.contacto} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Teléfono</label>
                   <input
@@ -628,7 +628,7 @@ function Proveedores() {
               </button>
             </div>
             <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 break-words">
                 <span className="font-medium text-primary-700">Proveedor:</span>
                 <span className="text-primary-900">{proveedorAVer.nombre}</span>
                 <span className="font-medium text-primary-700">Tipo:</span>

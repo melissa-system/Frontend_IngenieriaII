@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import DashboardHeader from './DashboardHeader'
+import Breadcrumbs from './Breadcrumbs'
 
 const COLLAPSE_KEY = 'siapb:sidebar-colapsado'
 
@@ -56,9 +57,10 @@ function DashboardLayout() {
         onCloseMobile={() => setMobileOpen(false)}
       />
 
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <DashboardHeader onToggleSidebar={handleToggleSidebar} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6">
+        <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
+          <Breadcrumbs />
           <Outlet />
         </main>
       </div>
