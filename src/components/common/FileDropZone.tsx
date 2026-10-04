@@ -158,7 +158,7 @@ export function FileDropZone({
           <button
             type="button"
             onClick={onRemoveFile}
-            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50"
+            className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50"
           >
             Descartar archivo
           </button>
