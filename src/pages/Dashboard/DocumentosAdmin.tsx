@@ -440,14 +440,15 @@ function DocumentosAdmin() {
                         ? 'Deshabilitar'
                         : 'Habilitar'}
                   </button>
-                  <button
+                  <Button
+                    variant="danger"
+                    size="sm"
                     type="button"
                     onClick={() => handleDeleteDoc(doc)}
                     disabled={togglingDocId === doc.id}
-                    className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
                   >
                     Eliminar
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}

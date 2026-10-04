@@ -1335,13 +1335,15 @@ function VistaAdministrador() {
                 )}
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  <Button
-                    variant="info"
-                    type="button"
-                    onClick={() => gestionar('en_proceso')}
-                    disabled={gestionando || detalle.estado === 'en_proceso'}>
-                    {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-                  </Button>
+                  {detalle.estado !== 'en_proceso' && (
+                    <Button
+                      variant="info"
+                      type="button"
+                      onClick={() => gestionar('en_proceso')}
+                      disabled={gestionando}>
+                      {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                    </Button>
+                  )}
                   <Button
                     variant="success"
                     type="button"

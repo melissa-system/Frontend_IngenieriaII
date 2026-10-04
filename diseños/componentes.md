@@ -4,7 +4,7 @@ Todos viven en `Frontend_IngeII/src/components/ui/`. **Regla: en cualquier vista
 
 | Componente | Archivo | Para qué | Reemplaza |
 |---|---|---|---|
-| `Button` / `claseBoton()` | `Button.tsx` | Todo botón. `variant`: `primary`, `secondary`, `danger`, `success`, `info`, `ghost`; `size`: `sm`, `md`. Siempre `rounded-full`. `claseBoton()` da las clases para un `<Link>`. | `<button className="rounded-lg bg-primary-700 …">` |
+| `Button` / `claseBoton()` | `Button.tsx` | Todo botón. `variant`: `primary`, `secondary`, `danger`, `success`, `info` (contorno de color, fondo blanco), `ghost`; `size`: `sm`, `md`. Siempre `rounded-full`. `claseBoton()` da las clases para un `<Link>`. | `<button className="rounded-lg bg-primary-700 …">` |
 | `Modal`, `ModalTitulo`, `ModalAcciones` | `Modal.tsx` | Overlay + panel. `size`: `md`/`lg`/`xl`/`2xl`; `layer`: 50/60/70 para confirmaciones sobre otro modal. `ModalAcciones` = fila de botones a la derecha (primario primero, Cancelar al final). | `fixed inset-0 z-50 …` hecho a mano |
 | `Campo`, `Input`, `Textarea`, `Select` | `campos.tsx` | Etiqueta arriba + campo + ayuda + error (`CampoError`). Inputs/textareas `rounded-lg`, selects `rounded-full`. Constantes `CLASE_INPUT`, `CLASE_SELECT`, `CLASE_SELECT_FILTRO`, `CLASE_BUSCADOR`. | clases sueltas de inputs/selects |
 | `Table`, `Td` | `Table.tsx` | Tabla con contenedor, cabecera `bg-primary-50` y filas separadas. | `<table>` hecha a mano |

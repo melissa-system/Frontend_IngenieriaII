@@ -975,13 +975,15 @@ function ModalDetalle({
             )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              <Button
-                variant="info"
-                type="button"
-                onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}>
-                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </Button>
+              {solicitud.estado !== 'en_proceso' && (
+                <Button
+                  variant="info"
+                  type="button"
+                  onClick={() => onGestionar('en_proceso')}
+                  disabled={gestionando}>
+                  {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                </Button>
+              )}
               <Button
                 variant="success"
                 type="button"

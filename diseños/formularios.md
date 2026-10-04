@@ -141,16 +141,18 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 
 Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila.
 
-Estos botones son **siempre `rounded-full`** (píldora completa, no `rounded-lg`), con fondo sólido y saturado (`bg-color-500`/texto blanco) para las 3 acciones semánticas — no pastel, no color plano tipo `primary-700` para todas:
+Estos botones son **siempre `rounded-full`** y van en estilo **contorno de color**: fondo blanco, borde claro y texto del color de la acción, con sombra suave (`shadow-sm`). Se usan con `<Button variant="info" | "success" | "danger">` (azul = en proceso, verde = aprobar, rojo = rechazar/descartar/eliminar). No usar fondos sólidos saturados.
 
 ```jsx
 <div className="flex flex-wrap justify-end gap-2">
-  <button className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50">Marcar en proceso</button>
-  <button className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50">Aprobar</button>
-  <button className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">Rechazar</button>
-  <button className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50">Cancelar</button>
+  {solicitud.estado !== 'en_proceso' && <Button variant="info" onClick={() => onGestionar('en_proceso')}>Marcar en proceso</Button>}
+  <Button variant="success" onClick={() => onGestionar('aprobado')}>Aprobar</Button>
+  <Button variant="danger" onClick={manejarClicRechazar}>Rechazar</Button>
+  <Button variant="secondary" onClick={onCerrar}>Cancelar</Button>
 </div>
 ```
+
+**"Marcar en proceso" desaparece cuando la solicitud ya está en proceso**: en ese estado solo quedan Aprobar, Rechazar y Cancelar.
 
 El botón "Cerrar" que reemplaza a este bloque cuando la solicitud ya quedó en estado final también es `rounded-full` (fondo sólido `bg-primary-700`, texto blanco).
 

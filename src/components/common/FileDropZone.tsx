@@ -1,4 +1,5 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import Button from '../ui/Button'
 
 export const ACCEPT_DOCUMENTO = '.pdf,.jpg,.jpeg,.png'
 export const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
@@ -155,13 +156,9 @@ export function FileDropZone({
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onRemoveFile}
-            className="rounded-full border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50"
-          >
+          <Button variant="danger" size="sm" type="button" onClick={onRemoveFile}>
             Descartar archivo
-          </button>
+          </Button>
         </div>
       )}
 

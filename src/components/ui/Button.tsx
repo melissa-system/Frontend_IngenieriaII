@@ -5,7 +5,7 @@ import type { ButtonHTMLAttributes } from 'react'
 //  - primary:   acción principal (guardar, enviar, crear)
 //  - secondary: acción secundaria con borde (cancelar, volver)
 //  - danger / success / info: acciones semánticas de gestión (rechazar,
-//    aprobar, marcar en proceso)
+//    aprobar, marcar en proceso, descartar), con borde y texto de color
 //  - ghost:     acción terciaria con fondo suave (ver detalle, descargar)
 export type VarianteBoton = 'primary' | 'secondary' | 'danger' | 'success' | 'info' | 'ghost'
 export type TamanoBoton = 'sm' | 'md'
@@ -16,9 +16,11 @@ const BASE =
 const VARIANTES: Record<VarianteBoton, string> = {
   primary: 'bg-primary-700 text-white hover:bg-primary-800',
   secondary: 'border border-primary-200 bg-white font-medium text-primary-700 hover:bg-primary-50',
-  danger: 'bg-red-500 text-white hover:bg-red-600',
-  success: 'bg-green-500 text-white hover:bg-green-600',
-  info: 'bg-blue-500 text-white hover:bg-blue-600',
+  // Acciones de gestión (rechazar, aprobar, en proceso, descartar): fondo blanco,
+  // borde y texto del color de la acción, sombra suave.
+  danger: 'border border-red-200 bg-white text-red-600 shadow-sm hover:bg-red-50',
+  success: 'border border-green-200 bg-white text-green-600 shadow-sm hover:bg-green-50',
+  info: 'border border-blue-200 bg-white text-blue-600 shadow-sm hover:bg-blue-50',
   ghost: 'bg-primary-50 font-medium text-primary-700 hover:bg-primary-100',
 }
 
