@@ -186,7 +186,7 @@ function ReporteActividad() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Reporte Fontanero
         </h1>
         <p className="mt-1 text-sm text-primary-600">
@@ -295,7 +295,7 @@ function ReporteActividad() {
             <CampoError mensaje={errores.descripcion} />
             {descripcion.trim().length > 0 &&
               descripcion.trim().length < MINIMO_DESCRIPCION && (
-                <p className="mt-1 text-xs text-amber-600">
+                <p className="mt-1 text-xs text-advertencia-700">
                   Escribe al menos {MINIMO_DESCRIPCION} caracteres (llevas{' '}
                   {descripcion.trim().length}).
                 </p>
@@ -353,7 +353,7 @@ function ReporteActividad() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
               {error}
             </p>
           )}

@@ -16,9 +16,9 @@ import Modal from '../../components/ui/Modal'
 const POR_PAGINA = 10
 
 const ESTADO_COLORS: Record<string, string> = {
-  Pendiente: 'bg-yellow-100 text-yellow-700',
-  'En proceso': 'bg-indigo-100 text-indigo-700',
-  Finalizado: 'bg-green-100 text-green-700',
+  Pendiente: 'bg-advertencia-100 text-advertencia-700',
+  'En proceso': 'bg-acento-100 text-acento-700',
+  Finalizado: 'bg-exito-100 text-exito-700',
 }
 
 
@@ -174,7 +174,7 @@ function GestionModal({
                       ))}
                   </select>
                   {!asignarFontanero && !fontaneroActual && (
-                    <p className="mt-1 text-xs text-amber-600">Debe asignar un fontanero antes de cambiar el estado.</p>
+                    <p className="mt-1 text-xs text-advertencia-700">Debe asignar un fontanero antes de cambiar el estado.</p>
                   )}
                 </div>
 
@@ -204,7 +204,7 @@ function GestionModal({
         </div>
 
         {errorGestion && (
-          <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+          <p className="mt-4 rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
             {errorGestion}
           </p>
         )}
@@ -364,7 +364,7 @@ function AveriasAdmin() {
     <div className="space-y-4">
       {/* Encabezado */}
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Averías</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Averías</h1>
         <p className="mt-1 text-sm text-primary-500">
           Reportes de averías registrados desde el sitio público, con estado, fontanero asignado e
           historial de cambios

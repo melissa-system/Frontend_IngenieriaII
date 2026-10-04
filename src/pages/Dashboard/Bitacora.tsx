@@ -20,10 +20,10 @@ const LIMITE_POR_PAGINA = 25
 
 // Color del "chip" de acción, para distinguirlas de un vistazo en la tabla.
 const COLOR_ACCION: Record<AccionBitacora, string> = {
-  creacion: 'bg-green-100 text-green-800',
-  edicion: 'bg-blue-100 text-blue-800',
-  cambio_estado: 'bg-amber-100 text-amber-800',
-  eliminacion: 'bg-red-100 text-red-800',
+  creacion: 'bg-exito-100 text-exito-800',
+  edicion: 'bg-info-100 text-info-800',
+  cambio_estado: 'bg-advertencia-100 text-advertencia-800',
+  eliminacion: 'bg-error-100 text-error-800',
 }
 
 function formatearFecha(iso: string): string {
@@ -118,7 +118,7 @@ function Bitacora() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Auditoría del sistema
         </h1>
         <p className="mt-1 text-sm text-primary-600">

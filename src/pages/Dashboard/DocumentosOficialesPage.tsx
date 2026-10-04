@@ -92,7 +92,7 @@ function DocumentosOficialesPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Documentos oficiales</h1>
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">Documentos oficiales</h1>
           <p className="mt-1 text-sm text-primary-600">
             Actas, informes, comunicados y demás documentación oficial de ASADA
             Pueblo Nuevo, disponible para consulta y descarga.

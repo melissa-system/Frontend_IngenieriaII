@@ -145,7 +145,7 @@ function Login() {
         {bloqueoSegundos > 0 ? (
           <div
             role="alert"
-            className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+            className="rounded-lg border border-advertencia-300 bg-advertencia-50 p-3 text-sm text-advertencia-800"
           >
             <p className="font-semibold">
               Demasiados intentos fallidos de inicio de sesión.
@@ -161,7 +161,7 @@ function Login() {
           </div>
         ) : (
           error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
               {error}
             </p>
           )

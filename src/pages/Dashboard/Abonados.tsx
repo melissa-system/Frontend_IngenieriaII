@@ -72,13 +72,13 @@ const EMPTY_FORM: FormState = {
 const ABONADOS_POR_PAGINA = 10
 
 function getEstadoColor(estado: string) {
-  if (estado === 'Activo') return 'bg-green-100 text-green-700'
-  return 'bg-red-100 text-red-700'
+  if (estado === 'Activo') return 'bg-exito-100 text-exito-700'
+  return 'bg-error-100 text-error-700'
 }
 
 function getTipoBadge(tipo: string) {
-  if (tipo === 'Física') return 'bg-blue-100 text-blue-700'
-  return 'bg-purple-100 text-purple-700'
+  if (tipo === 'Física') return 'bg-info-100 text-info-700'
+  return 'bg-acento-100 text-acento-700'
 }
 
 // Arma el estado del formulario a partir de un abonado (precarga del modal).
@@ -140,7 +140,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-primary-300'
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -751,7 +751,7 @@ function Abonados() {
               </div>
               <CampoError mensaje={errores.cedula} />
               {cedulaLookupStatus === 'found' && (
-                <p className="mt-1.5 text-xs font-medium text-green-600">
+                <p className="mt-1.5 text-xs font-medium text-exito-700">
                   {esJuridica
                     ? 'Nombre encontrado y completado automáticamente.'
                     : 'Nombre encontrado y completado automáticamente.'}
@@ -910,7 +910,7 @@ function Abonados() {
                     </p>
                     <Notificar mensaje={reenvioMensaje} />
                     {reenvioError && (
-                      <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                      <p className="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
                         {reenvioError}
                       </p>
                     )}
@@ -956,7 +956,7 @@ function Abonados() {
                           la contraseña.
                         </p>
                         {errorVincular && (
-                          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                          <p className="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
                             {errorVincular}
                           </p>
                         )}
@@ -989,7 +989,7 @@ function Abonados() {
             )}
 
             {formError && (
-              <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+              <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
                 {formError}
               </p>
             )}
@@ -1048,7 +1048,7 @@ function Abonados() {
             El cambio queda registrado en el historial con tu usuario.
           </p>
           {errorCambioEstado && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+            <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
               {errorCambioEstado}
             </p>
           )}
@@ -1168,7 +1168,7 @@ function Abonados() {
             {historialLoading ? (
               <Cargando compacto texto="Cargando historial..." />
             ) : historialError ? (
-              <p className="text-xs font-medium text-red-500">{historialError}</p>
+              <p className="text-xs font-medium text-error-600">{historialError}</p>
             ) : historialDetalle.length === 0 ? (
               <p className="text-xs text-primary-400">Sin cambios registrados.</p>
             ) : (
@@ -1178,15 +1178,15 @@ function Abonados() {
                     {i < historialDetalle.length - 1 && (
                       <span className="absolute left-[5px] top-4 h-full w-px bg-primary-200" />
                     )}
-                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-blue-500" />
+                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-info-500" />
                     <div className="min-w-0 text-xs">
                       <p className="font-medium text-primary-900">
                         {CAMPO_LABELS[h.campo] ?? h.campo}:{' '}
-                        <span className="text-red-500 line-through">
+                        <span className="text-error-600 line-through">
                           {mostrarValorHistorial(h.valor_anterior)}
                         </span>
                         {' → '}
-                        <span className="text-green-600">
+                        <span className="text-exito-700">
                           {mostrarValorHistorial(h.valor_nuevo)}
                         </span>
                       </p>

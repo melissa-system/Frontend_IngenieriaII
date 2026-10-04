@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import Icono from './Icono'
 
 export type TipoToast = 'exito' | 'error'
 
@@ -37,44 +38,18 @@ function Toast({
 
   const estilos =
     tipo === 'exito'
-      ? 'border-green-300 bg-green-50 text-green-800'
-      : 'border-red-300 bg-red-50 text-red-700'
+      ? 'border-exito-300 bg-exito-50 text-exito-800'
+      : 'border-error-300 bg-error-50 text-error-700'
 
   return (
     <div
       // role alert hace que los lectores de pantalla lo anuncien apenas
       // aparece, sin que la persona tenga que ir a buscarlo.
       role="alert"
-      className={`fixed bottom-6 right-6 z-[60] flex max-w-sm items-start gap-3 rounded-xl border p-4 shadow-lg ${estilos}`}
+      className={`fixed bottom-6 right-6 z-[60] flex max-w-sm items-start gap-3 rounded-tarjeta border p-4 shadow-flotante ${estilos}`}
     >
       <span className="flex-none pt-0.5">
-        {tipo === 'exito' ? (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className="h-5 w-5"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" d="m4.5 12.75 6 6 9-13.5" />
-          </svg>
-        ) : (
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth={2}
-            className="h-5 w-5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"
-            />
-          </svg>
-        )}
+        <Icono nombre={tipo === 'exito' ? 'check' : 'errorCirculo'} />
       </span>
 
       <p className="flex-1 text-sm font-medium">{mensaje}</p>
@@ -85,16 +60,7 @@ function Toast({
         aria-label="Cerrar notificación"
         className="flex-none rounded p-0.5 opacity-60 transition-opacity hover:opacity-100"
       >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth={2}
-          className="h-4 w-4"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
-        </svg>
+        <Icono nombre="cerrar" className="h-4 w-4" />
       </button>
     </div>
   )

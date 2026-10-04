@@ -678,7 +678,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
           )}
 
           {huboDraftExpirado && paso === 0 && (
-            <p className="mt-2 rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs text-yellow-700">
+            <p className="mt-2 rounded-lg bg-advertencia-50 px-3 py-2 text-center text-xs text-advertencia-700">
               Tu solicitud anterior venció (pasaron más de 3 días) y tuvimos que reiniciarla.
               Empezá de nuevo cuando quieras.
             </p>
@@ -703,7 +703,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 )}
 
                 {errorPerfil && (
-                  <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <p className="rounded-lg bg-error-50 px-3 py-2 text-sm text-error-700">
                     {errorPerfil}
                   </p>
                 )}
@@ -887,7 +887,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       className={inputCls}
                     />
                     {draft.telefono.trim() !== '' && !telefonoValido && (
-                      <p className="mt-1 text-xs text-red-500">Formato inválido. Usa 8888-8888</p>
+                      <p className="mt-1 text-xs text-error-600">Formato inválido. Usa 8888-8888</p>
                     )}
                   </div>
                   <div>
@@ -903,7 +903,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       className={inputCls}
                     />
                     {draft.telefonoSecundario.trim() !== '' && !telefonoSecundarioValido && (
-                      <p className="mt-1 text-xs text-red-500">Formato inválido. Usa 8888-8888</p>
+                      <p className="mt-1 text-xs text-error-600">Formato inválido. Usa 8888-8888</p>
                     )}
                   </div>
                 </div>
@@ -919,7 +919,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                     className={inputCls}
                   />
                   {draft.correo.trim() !== '' && !correoValido && (
-                    <p className="mt-1 text-xs text-red-500">El correo no es válido</p>
+                    <p className="mt-1 text-xs text-error-600">El correo no es válido</p>
                   )}
                 </div>
                 <p className="text-xs text-primary-500">
@@ -1113,7 +1113,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoCedulaFrente && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaFrente}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoCedulaFrente}</p>
                     )}
                   </div>
                   <div>
@@ -1133,7 +1133,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoCedulaDorso && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaDorso}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoCedulaDorso}</p>
                     )}
                   </div>
                 </div>
@@ -1150,7 +1150,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoPermisos && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoPermisos}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoPermisos}</p>
                     )}
                   </div>
                   <div>
@@ -1165,7 +1165,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoCarta && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoCarta}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoCarta}</p>
                     )}
                   </div>
                 </div>
@@ -1191,7 +1191,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
 
                 {errorSubmit && (
-                  <p className="rounded-lg bg-red-50 p-2 text-xs font-medium text-red-600">
+                  <p className="rounded-lg bg-error-50 p-2 text-xs font-medium text-error-600">
                     {errorSubmit}
                   </p>
                 )}

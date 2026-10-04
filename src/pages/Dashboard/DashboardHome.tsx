@@ -92,7 +92,7 @@ function StatCard({
         {icon}
       </span>
       <p className="mt-3 truncate text-xs font-medium text-primary-500 sm:mt-4 sm:text-sm">{title}</p>
-      <p className="mt-1 text-2xl font-semibold text-primary-900 sm:text-3xl">{value}</p>
+      <p className="mt-1 text-titulo-pagina font-semibold text-primary-900 sm:text-3xl">{value}</p>
       <p className="mt-1 truncate text-[11px] text-primary-400 sm:text-xs">{subtitle}</p>
     </Link>
   )
@@ -153,9 +153,9 @@ function IconCalendario() {
 // (ámbar), 5+ días es urgente (rojo). Se usa tanto en el calendario como en
 // la lista de seguimientos para que el color signifique lo mismo en los dos.
 function colorSeveridad(diasAbierta: number): { bg: string; text: string; dot: string } {
-  if (diasAbierta >= 5) return { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' }
-  if (diasAbierta >= 2) return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' }
-  return { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' }
+  if (diasAbierta >= 5) return { bg: 'bg-error-100', text: 'text-error-700', dot: 'bg-error-500' }
+  if (diasAbierta >= 2) return { bg: 'bg-advertencia-100', text: 'text-advertencia-700', dot: 'bg-advertencia-500' }
+  return { bg: 'bg-info-100', text: 'text-info-700', dot: 'bg-info-500' }
 }
 
 function IconPublicaciones() {
@@ -331,7 +331,7 @@ function DashboardHomeContenido() {
         {
           key: 'averias',
           icon: <IconAveria />,
-          color: 'bg-red-100 text-red-600',
+          color: 'bg-error-100 text-error-600',
           mensaje: 'Averías sin asignar',
           count: averiasSinAsignar,
           to: '/dashboard/averias',
@@ -339,7 +339,7 @@ function DashboardHomeContenido() {
         {
           key: 'abonados-inactivos',
           icon: <IconAbonado />,
-          color: 'bg-blue-100 text-blue-600',
+          color: 'bg-info-100 text-info-600',
           mensaje: 'Abonados inactivos',
           count: abonadosInactivosTotal,
           to: '/dashboard/abonados',
@@ -347,7 +347,7 @@ function DashboardHomeContenido() {
         {
           key: 'abonados-sin-cuenta',
           icon: <IconAbonado />,
-          color: 'bg-purple-100 text-purple-600',
+          color: 'bg-acento-100 text-acento-700',
           mensaje: 'Abonados sin cuenta vinculada',
           count: abonadosSinCuenta,
           to: '/dashboard/abonados',
@@ -417,7 +417,7 @@ function DashboardHomeContenido() {
           por eso vive junto a ellas y no como una franja aparte. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">
             {primerNombre ? `Hola, ${primerNombre}` : 'Panel de control'}
           </h1>
           <p className="mt-1 text-sm text-primary-500">
@@ -516,13 +516,13 @@ function DashboardHomeContenido() {
           </p>
 
           <div className="relative mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+            <span className="rounded-full bg-advertencia-100 px-3 py-1 text-xs font-semibold text-advertencia-700">
               {averiasPendientes} pendientes
             </span>
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            <span className="rounded-full bg-info-100 px-3 py-1 text-xs font-semibold text-info-700">
               {averiasEnProceso} en proceso
             </span>
-            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+            <span className="rounded-full bg-exito-100 px-3 py-1 text-xs font-semibold text-exito-700">
               {averiasFinalizadas} finalizadas
             </span>
           </div>
@@ -604,13 +604,13 @@ function DashboardHomeContenido() {
 
           <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-primary-500">
             <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> reciente
+              <span className="h-2.5 w-2.5 rounded-full bg-info-500" /> reciente
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> 2-4 días
+              <span className="h-2.5 w-2.5 rounded-full bg-advertencia-500" /> 2-4 días
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> 5+ días
+              <span className="h-2.5 w-2.5 rounded-full bg-error-500" /> 5+ días
             </span>
           </div>
         </div>
@@ -714,13 +714,13 @@ function DashboardAbonado() {
     .join(' ')
 
   const ESTADO_COLORS: Record<string, string> = {
-    pendiente: 'bg-yellow-100 text-yellow-700',
-    en_proceso: 'bg-blue-100 text-blue-700',
-    aprobado: 'bg-green-100 text-green-700',
-    rechazado: 'bg-red-100 text-red-700',
-    Pendiente: 'bg-yellow-100 text-yellow-700',
-    'En proceso': 'bg-blue-100 text-blue-700',
-    Finalizado: 'bg-green-100 text-green-700',
+    pendiente: 'bg-advertencia-100 text-advertencia-700',
+    en_proceso: 'bg-info-100 text-info-700',
+    aprobado: 'bg-exito-100 text-exito-700',
+    rechazado: 'bg-error-100 text-error-700',
+    Pendiente: 'bg-advertencia-100 text-advertencia-700',
+    'En proceso': 'bg-info-100 text-info-700',
+    Finalizado: 'bg-exito-100 text-exito-700',
   }
 
   return (
@@ -730,7 +730,7 @@ function DashboardAbonado() {
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl" />
         <div className="relative">
-          <h1 className="text-2xl font-semibold text-primary-900">
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">
             Bienvenido, {nombreCompleto}
           </h1>
           <p className="mt-1 text-sm text-primary-500">
@@ -790,7 +790,7 @@ function DashboardAbonado() {
           {/* Columna 3 */}
           <div>
             <p className="text-xs font-medium text-primary-500">Tipo de abonado</p>
-            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.tipo_abonado === 'Jurídica' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.tipo_abonado === 'Jurídica' ? 'bg-acento-100 text-acento-700' : 'bg-info-100 text-info-700'}`}>
               {abonado.tipo_abonado}
             </span>
           </div>
@@ -809,7 +809,7 @@ function DashboardAbonado() {
           {/* Columna 3 */}
           <div>
             <p className="text-xs font-medium text-primary-500">Estado</p>
-            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.estado === 'Activo' ? 'bg-exito-100 text-exito-700' : 'bg-error-100 text-error-700'}`}>
               {abonado.estado}
             </span>
           </div>
@@ -947,7 +947,7 @@ function DashboardFontanero() {
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl" />
         <div className="relative">
-          <h1 className="text-2xl font-semibold text-primary-900">
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">
             Bienvenido, {primerNombre}
           </h1>
           <p className="mt-1 text-sm text-primary-500">
@@ -1016,7 +1016,7 @@ function DashboardFontanero() {
                     {averia.descripcion}
                   </p>
                 </div>
-                <span className="flex-none rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-semibold text-amber-700">
+                <span className="flex-none rounded-full bg-advertencia-100 px-2 py-0.5 text-[11px] font-semibold text-advertencia-700">
                   {averia.estado}
                 </span>
               </li>

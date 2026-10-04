@@ -6,12 +6,90 @@
   --color-primary-100: #e6ebef;
   --color-primary-200: #c1cdd8;
   --color-primary-300: #9cafc1;
-  --color-primary-400: #6a87a1;
+  --color-primary-400: #4d6d88; /* AA sobre blanco (5.4:1) para texto secundario */
   --color-primary-500: #395f82;
   --color-primary-600: #13416b;
   --color-primary-700: #073763; /* color base */
   --color-primary-800: #062c4f;
   --color-primary-900: #04213b;
+
+
+  /* ── Colores de estado (semánticos) ──────────────────────────────────────
+     Se usan con las mismas clases de Tailwind: bg-exito-100 text-exito-700,
+     border-error-200, etc. Regla de contraste: texto sobre fondo claro usa
+     el tono 700 (600 en error/info); el tono 100 es el fondo del badge. */
+  /* exito */
+  --color-exito-50: #f0fdf4;
+  --color-exito-100: #dcfce7;
+  --color-exito-200: #bbf7d0;
+  --color-exito-300: #86efac;
+  --color-exito-400: #4ade80;
+  --color-exito-500: #22c55e;
+  --color-exito-600: #16a34a;
+  --color-exito-700: #15803d;
+  --color-exito-800: #166534;
+  --color-exito-900: #14532d;
+  /* advertencia */
+  --color-advertencia-50: #fffbeb;
+  --color-advertencia-100: #fef3c7;
+  --color-advertencia-200: #fde68a;
+  --color-advertencia-300: #fcd34d;
+  --color-advertencia-400: #fbbf24;
+  --color-advertencia-500: #f59e0b;
+  --color-advertencia-600: #d97706;
+  --color-advertencia-700: #b45309;
+  --color-advertencia-800: #92400e;
+  --color-advertencia-900: #78350f;
+  /* error */
+  --color-error-50: #fef2f2;
+  --color-error-100: #fee2e2;
+  --color-error-200: #fecaca;
+  --color-error-300: #fca5a5;
+  --color-error-400: #f87171;
+  --color-error-500: #ef4444;
+  --color-error-600: #dc2626;
+  --color-error-700: #b91c1c;
+  --color-error-800: #991b1b;
+  --color-error-900: #7f1d1d;
+  /* info */
+  --color-info-50: #eff6ff;
+  --color-info-100: #dbeafe;
+  --color-info-200: #bfdbfe;
+  --color-info-300: #93c5fd;
+  --color-info-400: #60a5fa;
+  --color-info-500: #3b82f6;
+  --color-info-600: #2563eb;
+  --color-info-700: #1d4ed8;
+  --color-info-800: #1e40af;
+  --color-info-900: #1e3a8a;
+  /* acento */
+  --color-acento-50: #eef2ff;
+  --color-acento-100: #e0e7ff;
+  --color-acento-200: #c7d2fe;
+  --color-acento-300: #a5b4fc;
+  --color-acento-400: #818cf8;
+  --color-acento-500: #6366f1;
+  --color-acento-600: #4f46e5;
+  --color-acento-700: #4338ca;
+  --color-acento-800: #3730a3;
+  --color-acento-900: #312e81;
+
+  /* ── Forma: esquinas y sombras ────────────────────────────────────────── */
+  --radius-campo: 0.5rem;     /* inputs, textareas, banners en línea */
+  --radius-tarjeta: 0.75rem;  /* tarjetas, tablas, modales, toasts */
+  --radius-panel: 1rem;       /* paneles grandes (perfil, formularios) */
+  --shadow-tarjeta: 0 1px 2px 0 rgb(4 33 59 / 0.06);
+  --shadow-flotante: 0 10px 25px -5px rgb(4 33 59 / 0.25); /* modales y toasts */
+
+  /* ── Tipografía: tamaños semánticos ───────────────────────────────────── */
+  --text-titulo-pagina: 1.5rem;   /* h1 del dashboard */
+  --text-titulo-pagina--line-height: 2rem;
+  --text-subtitulo: 1.125rem;     /* h2/h3 de tarjetas y modales */
+  --text-subtitulo--line-height: 1.75rem;
+  --text-cuerpo: 0.875rem;        /* texto de tablas y formularios */
+  --text-cuerpo--line-height: 1.25rem;
+  --text-etiqueta: 0.75rem;       /* etiquetas, ayudas, badges */
+  --text-etiqueta--line-height: 1rem;
 
   /* Tipografías */
   --font-body: "Inter", system-ui, sans-serif;

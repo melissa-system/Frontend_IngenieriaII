@@ -32,13 +32,13 @@ import Table from '../../components/ui/Table'
 import PageHeader from '../../components/ui/PageHeader'
 
 function getEstadoColor(estado: string) {
-  if (estado === 'Activo') return 'bg-green-100 text-green-700'
-  return 'bg-red-100 text-red-700'
+  if (estado === 'Activo') return 'bg-exito-100 text-exito-700'
+  return 'bg-error-100 text-error-700'
 }
 
 function getTipoBadge(tipo: string) {
-  if (tipo === 'Físico') return 'bg-blue-100 text-blue-700'
-  return 'bg-purple-100 text-purple-700'
+  if (tipo === 'Físico') return 'bg-info-100 text-info-700'
+  return 'bg-acento-100 text-acento-700'
 }
 
 function formatearFecha(fecha?: string) {
@@ -83,7 +83,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-primary-300'
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -502,7 +502,7 @@ function Proveedores() {
             </div>
 
             {errorFormProveedor && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
+              <div className="mb-4 rounded-lg bg-error-50 p-3 text-sm font-medium text-error-700">
                 {errorFormProveedor}
               </div>
             )}
@@ -698,7 +698,7 @@ function Proveedores() {
               proveedores.
             </p>
             {errorCambioEstado && (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
                 {errorCambioEstado}
               </p>
             )}

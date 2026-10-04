@@ -75,8 +75,8 @@ function normalizarBusqueda(valor: string): string {
 
 function getEstadoColor(estado: string): string {
   return estado === 'Activo'
-    ? 'bg-green-100 text-green-800'
-    : 'bg-red-100 text-red-800'
+    ? 'bg-exito-100 text-exito-800'
+    : 'bg-error-100 text-error-800'
 }
 
 // Interruptor para activar/desactivar un empleado. No guarda nada por sí
@@ -101,7 +101,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-primary-300'
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -491,13 +491,13 @@ function EmpleadosPage() {
   const inputClass =
     'mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
   const inputErrorClass =
-    'mt-1 w-full rounded-lg border border-red-300 px-4 py-2.5 text-sm text-primary-900 focus:border-red-500 focus:outline-none'
+    'mt-1 w-full rounded-lg border border-error-300 px-4 py-2.5 text-sm text-primary-900 focus:border-error-500 focus:outline-none'
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Personal</h1>
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">Personal</h1>
           <p className="mt-1 text-sm text-primary-500">
             Gestión de empleados de la ASADA
           </p>
@@ -648,7 +648,7 @@ function EmpleadosPage() {
             </p>
 
             {formError.nombre && formError.nombre.length > 80 && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              <div className="mt-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
                 {formError.nombre}
               </div>
             )}
@@ -690,7 +690,7 @@ function EmpleadosPage() {
                   )}
                 </div>
                 {cedulaLookupStatus === 'found' && (
-                  <p className="mt-1.5 text-xs font-medium text-green-600">
+                  <p className="mt-1.5 text-xs font-medium text-exito-700">
                     Nombre encontrado y completado automáticamente.
                   </p>
                 )}
@@ -705,12 +705,12 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {cedulaLookupStatus === 'dimex' && (
-                  <p className="mt-1.5 text-xs text-amber-600">
+                  <p className="mt-1.5 text-xs text-advertencia-700">
                     DIMEX no se puede verificar con Hacienda. Ingrese los datos manualmente.
                   </p>
                 )}
                 {formError.cedula && (
-                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.cedula}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.cedula}</p>
                 )}
               </div>
 
@@ -730,7 +730,7 @@ function EmpleadosPage() {
                   className={formError.nombre ? inputErrorClass : inputClass}
                 />
                 {formError.nombre && (
-                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.nombre}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.nombre}</p>
                 )}
               </div>
 
@@ -757,7 +757,7 @@ function EmpleadosPage() {
                   ))}
                 </select>
                 {formError.puesto && (
-                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.puesto}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.puesto}</p>
                 )}
               </div>
 
@@ -779,7 +779,7 @@ function EmpleadosPage() {
                     className={formError.telefono ? inputErrorClass : inputClass}
                   />
                   {formError.telefono && (
-                    <p data-campo-error className="mt-1 text-xs text-red-600">{formError.telefono}</p>
+                    <p data-campo-error className="mt-1 text-xs text-error-600">{formError.telefono}</p>
                   )}
                 </div>
                 <div>
@@ -796,7 +796,7 @@ function EmpleadosPage() {
                     className={formError.fecha_ingreso ? inputErrorClass : inputClass}
                   />
                   {formError.fecha_ingreso && (
-                    <p data-campo-error className="mt-1 text-xs text-red-600">{formError.fecha_ingreso}</p>
+                    <p data-campo-error className="mt-1 text-xs text-error-600">{formError.fecha_ingreso}</p>
                   )}
                 </div>
               </div>
@@ -817,7 +817,7 @@ function EmpleadosPage() {
                   className={formError.correo ? inputErrorClass : inputClass}
                 />
                 {correoLookupStatus === 'found' && correoUsuario && (
-                  <p className="mt-1.5 text-xs font-medium text-green-600">
+                  <p className="mt-1.5 text-xs font-medium text-exito-700">
                     El usuario <strong>{correoUsuario}</strong> existe y se asociará
                     a este empleado como su cuenta.
                   </p>
@@ -828,7 +828,7 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {formError.correo && (
-                  <p data-campo-error className="mt-1 text-xs text-red-600">{formError.correo}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.correo}</p>
                 )}
               </div>
 
@@ -865,7 +865,7 @@ function EmpleadosPage() {
                             puesto ({empleadoEdicion.puesto}).
                           </p>
                           {correoDesactualizado && (
-                            <p className="text-xs font-medium text-amber-600">
+                            <p className="text-xs font-medium text-advertencia-700">
                               Modificaste el correo arriba sin guardar: la
                               vinculación usará el correo guardado.
                             </p>
@@ -892,7 +892,7 @@ function EmpleadosPage() {
                             ) y se enviará un correo para definir la contraseña.
                           </p>
                           {errorVincular && (
-                            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                            <p className="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
                               {errorVincular}
                             </p>
                           )}

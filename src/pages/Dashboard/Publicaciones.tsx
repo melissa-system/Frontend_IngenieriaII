@@ -179,7 +179,7 @@ function Publicaciones() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Publicaciones
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -216,7 +216,7 @@ function Publicaciones() {
                   </span>
                   <span
                     className={`text-xs font-medium ${
-                      pub.publicado ? 'text-green-600' : 'text-primary-400'
+                      pub.publicado ? 'text-exito-700' : 'text-primary-400'
                     }`}
                   >
                     {pub.publicado ? 'Publicado' : 'Borrador'}
@@ -336,7 +336,7 @@ function Publicaciones() {
               </div>
 
               {formError && (
-                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
                   {formError}
                 </p>
               )}

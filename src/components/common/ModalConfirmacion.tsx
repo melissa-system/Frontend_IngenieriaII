@@ -17,7 +17,7 @@ export default function ModalConfirmacion({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 animate-fade-in">
       <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl text-center">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-exito-100 text-exito-700">
           <svg
             className="h-8 w-8"
             fill="none"

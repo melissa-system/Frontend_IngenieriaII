@@ -87,7 +87,7 @@ function RecuperarPassword() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
               {error}
             </p>
           )}

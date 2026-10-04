@@ -5,11 +5,11 @@ import type { ReactNode } from 'react'
 export type ColorBadge = 'green' | 'yellow' | 'red' | 'blue' | 'indigo' | 'gray'
 
 const COLORES: Record<ColorBadge, string> = {
-  green: 'bg-green-100 text-green-700',
-  yellow: 'bg-yellow-100 text-yellow-700',
-  red: 'bg-red-100 text-red-700',
-  blue: 'bg-blue-100 text-blue-700',
-  indigo: 'bg-indigo-100 text-indigo-700',
+  green: 'bg-exito-100 text-exito-700',
+  yellow: 'bg-advertencia-100 text-advertencia-700',
+  red: 'bg-error-100 text-error-700',
+  blue: 'bg-info-100 text-info-700',
+  indigo: 'bg-acento-100 text-acento-700',
   gray: 'bg-primary-100 text-primary-700',
 }
 

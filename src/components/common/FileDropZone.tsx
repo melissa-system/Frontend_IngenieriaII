@@ -94,7 +94,7 @@ export function FileDropZone({
             arrastrando
               ? 'border-primary-500 bg-primary-50'
               : errorArchivo
-              ? 'border-red-300 bg-red-50/50 hover:bg-red-50'
+              ? 'border-error-300 bg-error-50/50 hover:bg-error-50'
               : 'border-primary-200 bg-primary-50/50 hover:bg-primary-50/40'
           }`}
         >
@@ -138,7 +138,7 @@ export function FileDropZone({
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 shadow-sm">
                 <svg
-                  className="h-8 w-8 text-red-500"
+                  className="h-8 w-8 text-error-600"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -163,7 +163,7 @@ export function FileDropZone({
       )}
 
       {errorArchivo && (
-        <p data-campo-error className="mt-1.5 text-xs font-medium text-red-600">{errorArchivo}</p>
+        <p data-campo-error className="mt-1.5 text-xs font-medium text-error-600">{errorArchivo}</p>
       )}
     </div>
   )

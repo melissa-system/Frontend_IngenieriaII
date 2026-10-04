@@ -268,7 +268,7 @@ function MovimientosStock() {
     <div className="space-y-6">
       {/* Encabezado Principal */}
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-primary-900">Movimientos de Stock</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Movimientos de Stock</h1>
         <p className="text-sm text-primary-500">
           Control de entradas y salidas de bodega, cálculo reactivo de stock y kardex cronológico
         </p>
@@ -362,7 +362,7 @@ function MovimientosStock() {
                   onClick={() => setTipoMovimiento('entrada')}
                   className={`rounded-full py-1.5 text-xs font-semibold transition-colors ${
                     tipoMovimiento === 'entrada'
-                      ? 'bg-emerald-600 text-white shadow'
+                      ? 'bg-exito-700 text-white shadow'
                       : 'text-primary-700 hover:text-primary-900'
                   }`}
                 >
@@ -373,7 +373,7 @@ function MovimientosStock() {
                   onClick={() => setTipoMovimiento('salida')}
                   className={`rounded-full py-1.5 text-xs font-semibold transition-colors ${
                     tipoMovimiento === 'salida'
-                      ? 'bg-red-600 text-white shadow'
+                      ? 'bg-error-600 text-white shadow'
                       : 'text-primary-700 hover:text-primary-900'
                   }`}
                 >
@@ -399,7 +399,7 @@ function MovimientosStock() {
                   </span>
                   <p
                     className={`font-mono font-bold text-base ${
-                      tipoMovimiento === 'entrada' ? 'text-emerald-700' : 'text-red-700'
+                      tipoMovimiento === 'entrada' ? 'text-exito-700' : 'text-error-700'
                     }`}
                   >
                     {tipoMovimiento === 'entrada' ? '+' : '-'}
@@ -410,7 +410,7 @@ function MovimientosStock() {
                   <span className="text-xs text-primary-500">Stock Proyectado Resultante:</span>
                   <p
                     className={`font-mono font-bold text-base ${
-                      esSalidaInvalida ? 'text-red-600' : 'text-primary-900'
+                      esSalidaInvalida ? 'text-error-600' : 'text-primary-900'
                     }`}
                   >
                     {stockResultante} unidades
@@ -418,7 +418,7 @@ function MovimientosStock() {
                 </div>
               </div>
               {esSalidaInvalida && (
-                <p className="mt-2 text-xs font-semibold text-red-600">
+                <p className="mt-2 text-xs font-semibold text-error-600">
                   ⚠️ No se puede registrar la salida: la cantidad ({cantNum} uds) supera el stock
                   disponible ({stockActual} uds).
                 </p>
@@ -496,7 +496,7 @@ function MovimientosStock() {
           </div>
 
           {formError && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
               {formError}
             </p>
           )}
@@ -699,8 +699,8 @@ function MovimientosStock() {
                         <span
                           className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             m.tipo_movimiento === 'entrada'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-exito-100 text-exito-800'
+                              : 'bg-error-100 text-error-800'
                           }`}
                         >
                           {m.tipo_movimiento === 'entrada' ? '+ Entrada' : '- Salida'}

@@ -8,9 +8,9 @@ import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 
 const ESTADO_COLORS: Record<string, string> = {
-  Pendiente: 'bg-yellow-100 text-yellow-700',
-  'En proceso': 'bg-indigo-100 text-indigo-700',
-  Finalizado: 'bg-green-100 text-green-700',
+  Pendiente: 'bg-advertencia-100 text-advertencia-700',
+  'En proceso': 'bg-acento-100 text-acento-700',
+  Finalizado: 'bg-exito-100 text-exito-700',
 }
 
 function nombreFontanero(a: AveriaBackend) {
@@ -46,7 +46,7 @@ function MisAverias() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Mis reportes de averías</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Mis reportes de averías</h1>
         <p className="mt-1 text-sm text-primary-500">
           Consultá el estado de los reportes de averías que realizaste.
         </p>

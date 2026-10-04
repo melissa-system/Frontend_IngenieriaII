@@ -60,7 +60,7 @@ const RANGE_OPTIONS = [
 ] as const
 type RangeValue = (typeof RANGE_OPTIONS)[number]['value']
 
-const COLORS = ['#073763', '#13416b', '#395f82', '#6a87a1', '#9cafc1']
+const COLORS = ['#073763', '#13416b', '#395f82', '#4d6d88', '#9cafc1']
 
 const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
@@ -594,7 +594,7 @@ function Reportes() {
           )}
 
           {errorRango && (
-            <p className="w-full text-sm font-medium text-red-600">{errorRango}</p>
+            <p className="w-full text-sm font-medium text-error-600">{errorRango}</p>
           )}
 
           <div>

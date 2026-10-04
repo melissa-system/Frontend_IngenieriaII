@@ -39,13 +39,13 @@ const ROLES_VISIBLES = ['super_admin', 'admin', 'fontanero', 'abonado'];
 function getRoleBadgeColor(roleName: string) {
   const normalized = roleName.toLowerCase();
   if (normalized.includes('super') || normalized.includes('junta')) {
-    return 'bg-purple-100 text-purple-800 border-purple-200';
+    return 'bg-acento-100 text-acento-800 border-acento-200';
   }
   if (normalized.includes('admin')) {
-    return 'bg-blue-100 text-blue-800 border-blue-200';
+    return 'bg-info-100 text-info-800 border-info-200';
   }
   if (normalized.includes('fontanero')) {
-    return 'bg-amber-100 text-amber-800 border-amber-200';
+    return 'bg-advertencia-100 text-advertencia-800 border-advertencia-200';
   }
   return 'bg-primary-100 text-primary-700 border-primary-200';
 }
@@ -76,7 +76,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-primary-300'
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -529,7 +529,7 @@ export const Usuarios: React.FC = () => {
                           />
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                              u.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              u.isActive ? 'bg-exito-100 text-exito-800' : 'bg-error-100 text-error-800'
                             }`}
                           >
                             {u.isActive ? 'Activo' : 'Inactivo'}
@@ -584,7 +584,7 @@ export const Usuarios: React.FC = () => {
 
             <form onSubmit={handleCrearUsuario} noValidate className="space-y-5">
               {errorModalCrear && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+                <div className="p-3 bg-error-50 border border-error-200 text-error-700 text-sm rounded-lg">
                   {errorModalCrear}
                 </div>
               )}
@@ -702,7 +702,7 @@ export const Usuarios: React.FC = () => {
 
             <div className="space-y-5">
               {errorModalRol && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+                <div className="p-3 bg-error-50 border border-error-200 text-error-700 text-sm rounded-lg">
                   {errorModalRol}
                 </div>
               )}
@@ -779,8 +779,8 @@ export const Usuarios: React.FC = () => {
               <span
                 className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                   modalCambioEstado.usuario.isActive
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-exito-100 text-exito-800'
+                    : 'bg-error-100 text-error-800'
                 }`}
               >
                 {modalCambioEstado.usuario.isActive ? 'Activo' : 'Inactivo'}
@@ -789,20 +789,20 @@ export const Usuarios: React.FC = () => {
               <span
                 className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                   modalCambioEstado.nuevoEstado
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-exito-100 text-exito-800'
+                    : 'bg-error-100 text-error-800'
                 }`}
               >
                 {modalCambioEstado.nuevoEstado ? 'Activo' : 'Inactivo'}
               </span>
             </p>
             {!modalCambioEstado.nuevoEstado && (
-              <p className="mt-3 text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+              <p className="mt-3 text-xs text-advertencia-700 bg-advertencia-50 p-2.5 rounded-lg border border-advertencia-200">
                 ⚠️ Al inhabilitar al usuario, se cerrarán de inmediato todas sus sesiones activas en cualquier dispositivo.
               </p>
             )}
             {error && (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
                 {error}
               </p>
             )}

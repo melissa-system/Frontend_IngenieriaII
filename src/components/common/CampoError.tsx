@@ -3,7 +3,7 @@
 function CampoError({ mensaje, id }: { mensaje?: string | null; id?: string }) {
   if (!mensaje) return null
   return (
-    <p id={id} role="alert" data-campo-error className="mt-1 text-xs text-red-600">
+    <p id={id} role="alert" data-campo-error className="mt-1 text-xs text-error-600">
       {mensaje}
     </p>
   )
@@ -12,7 +12,7 @@ function CampoError({ mensaje, id }: { mensaje?: string | null; id?: string }) {
 // Asterisco rojo para marcar los campos obligatorios en su etiqueta.
 export function Obligatorio() {
   return (
-    <span className="text-red-500" aria-hidden="true">
+    <span className="text-error-600" aria-hidden="true">
       {' '}
       *
     </span>
@@ -23,7 +23,7 @@ export function Obligatorio() {
 // si no. Reemplaza al 'border-primary-200 ... focus:border-primary-500'.
 export function bordeCampo(error?: string | null): string {
   return error
-    ? 'border-red-300 focus:border-red-500'
+    ? 'border-error-300 focus:border-error-500'
     : 'border-primary-200 focus:border-primary-500'
 }
 

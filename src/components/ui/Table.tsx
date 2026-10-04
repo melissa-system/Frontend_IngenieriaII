@@ -20,7 +20,7 @@ function Table({
   pie?: ReactNode
 }) {
   return (
-    <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-tarjeta border border-primary-100 bg-white shadow-tarjeta">
       <table className="min-w-full divide-y divide-primary-100 text-sm">
         <thead className="bg-primary-50">
           <tr>

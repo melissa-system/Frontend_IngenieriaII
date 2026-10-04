@@ -1,4 +1,6 @@
-# Guía de diseño — SIAPB (ASADA Pueblo Nuevo)
+# Guía de estilos — SIAPB (ASADA Pueblo Nuevo)
+
+> **Referencia única de diseño del sistema** (landing y dashboard). Los tokens (colores, tipografía, esquinas, sombras) viven en **un solo archivo: `Frontend_IngeII/src/index.css`**; esta carpeta los documenta. Un cambio en `index.css` se refleja en todo el sistema, y `npm test` verifica contraste y uso de tokens.
 
 Esta carpeta es la referencia de diseño del **landing público** (la parte del sitio que ve cualquier visitante: inicio, sobre nosotros, servicios, noticias, ubicación, solicitud de paja de agua y reportar avería). Está pensada para que cualquier persona del equipo pueda venir a consultar "¿qué clase le pongo a este botón?" o "¿qué azul es este?" sin tener que andar buscando en el código del frontend.
 
@@ -13,6 +15,8 @@ Esta carpeta es la referencia de diseño del **landing público** (la parte del 
 - `tarjetas-y-secciones.md` — cómo se arman las cards (bordes, sombra, esquinas) y el espaciado/estructura de las secciones del landing.
 - `componentes.md` — los componentes reutilizables de `src/components/ui/` (Button, Modal, campos, Table, Badge, Tabs, PageHeader, EmptyState, Toast) y la **lista de revisión** para comparar cada vista contra la guía.
 - `lista-revision-vistas.md` — estado de revisión de cada vista del sistema contra esa lista.
+- `espaciados-y-formas.md` — espaciados estándar, bordes, sombras, esquinas y tamaños de texto (tokens).
+- `navegacion-responsive.md` — menú, breadcrumbs, celular/tablet y áreas táctiles.
 - `iconos.md` — el estilo de los íconos SVG que se usan en todo el sitio.
 
 ## Cómo está construido el proyecto (para ubicarse)

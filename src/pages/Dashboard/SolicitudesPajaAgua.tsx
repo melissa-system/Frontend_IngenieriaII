@@ -151,7 +151,7 @@ const gestionar = async (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Paja de Agua</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Paja de Agua</h1>
         <p className="mt-1 text-sm text-primary-500">
           Solicitudes de disponibilidad de servicio registradas desde el sitio público
         </p>
@@ -279,7 +279,7 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
             Descargar →
           </button>
         ) : (
-          <span className="text-primary-300">No adjuntado</span>
+          <span className="text-primary-500">No adjuntado</span>
         )}
       </dd>
     </div>
@@ -374,8 +374,8 @@ function ModalDetalle({
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
-              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+              <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
             </div>
           )}
 
@@ -491,7 +491,7 @@ function ModalDetalle({
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 />
                 {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-xs text-advertencia-700">
                     Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar (llevas{' '}
                     {motivoRechazo.trim().length}).
                   </p>

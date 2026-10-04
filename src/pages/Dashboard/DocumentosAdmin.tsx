@@ -306,7 +306,7 @@ function DocumentosAdmin() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Documentos
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -367,8 +367,8 @@ function DocumentosAdmin() {
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${
                       doc.estado === 'Vigente'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-exito-100 text-exito-700'
+                        : 'bg-error-100 text-error-700'
                     }`}
                   >
                     {doc.estado}
@@ -464,7 +464,7 @@ function DocumentosAdmin() {
 
             {uploadSuccess ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-exito-100 text-exito-700">
                   <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
@@ -581,7 +581,7 @@ function DocumentosAdmin() {
                 )}
 
                 {uploadError && (
-                  <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
                     {uploadError}
                   </p>
                 )}
@@ -627,7 +627,7 @@ function DocumentosAdmin() {
 
             {versionSuccess ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-exito-100 text-exito-700">
                   <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
@@ -682,7 +682,7 @@ function DocumentosAdmin() {
                 )}
 
                 {versionError && (
-                  <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
                     {versionError}
                   </p>
                 )}

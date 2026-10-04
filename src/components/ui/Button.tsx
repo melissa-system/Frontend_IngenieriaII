@@ -18,9 +18,9 @@ const VARIANTES: Record<VarianteBoton, string> = {
   secondary: 'border border-primary-200 bg-white font-medium text-primary-700 hover:bg-primary-50',
   // Acciones de gestión (rechazar, aprobar, en proceso, descartar): fondo blanco,
   // borde y texto del color de la acción, sombra suave.
-  danger: 'border border-red-200 bg-white text-red-600 shadow-sm hover:bg-red-50',
-  success: 'border border-green-200 bg-white text-green-600 shadow-sm hover:bg-green-50',
-  info: 'border border-blue-200 bg-white text-blue-600 shadow-sm hover:bg-blue-50',
+  danger: 'border border-error-200 bg-white text-error-600 shadow-sm hover:bg-error-50',
+  success: 'border border-exito-200 bg-white text-exito-700 shadow-sm hover:bg-exito-50',
+  info: 'border border-info-200 bg-white text-info-600 shadow-sm hover:bg-info-50',
   ghost: 'bg-primary-50 font-medium text-primary-700 hover:bg-primary-100',
 }
 

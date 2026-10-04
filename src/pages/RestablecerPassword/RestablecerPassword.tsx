@@ -16,7 +16,7 @@ function obtenerMensajeError(error: unknown): string {
 }
 
 const ETIQUETAS_FORTALEZA = ['', 'Débil', 'Media', 'Fuerte'] as const
-const COLORES_FORTALEZA = ['', 'bg-red-500', 'bg-yellow-500', 'bg-green-500'] as const
+const COLORES_FORTALEZA = ['', 'bg-error-500', 'bg-advertencia-500', 'bg-exito-500'] as const
 
 function RestablecerPassword() {
   const [searchParams] = useSearchParams()
@@ -162,14 +162,14 @@ function RestablecerPassword() {
             </button>
           </div>
           {noCoinciden && (
-            <p className="mt-1 text-xs text-red-600">
+            <p className="mt-1 text-xs text-error-600">
               Las contraseñas no coinciden
             </p>
           )}
         </div>
 
         {error && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+          <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
             {error}
           </p>
         )}

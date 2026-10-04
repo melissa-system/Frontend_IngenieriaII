@@ -218,7 +218,7 @@ function AboutUs() {
           <>
             {/* Valores */}
             <div className="mt-8 sm:mt-12">
-              <h3 className="text-center text-2xl font-semibold text-primary-900">
+              <h3 className="text-center text-titulo-pagina font-semibold text-primary-900">
                 Nuestros valores
               </h3>
               <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

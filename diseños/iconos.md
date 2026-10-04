@@ -1,5 +1,7 @@
 # Íconos
 
+**Set estándar:** `src/components/ui/Icono.tsx` (`<Icono nombre="check" />`) trae los íconos comunes del dashboard: `check`, `cerrar`, `mas`, `menu`, `buscar`, `chevronAbajo`, `editar`, `descargar`, `alerta`, `errorCirculo`, `bandeja`. Un ícono nuevo se agrega ahí (no se dibujan SVG sueltos en las vistas nuevas). Tamaños: `h-5 w-5` en botones y listas, `h-10 w-10` en estados vacío/error, trazo `1.5` en grandes y `2` en pequeños.
+
 No se usa ninguna librería de íconos (nada de `lucide-react`, `heroicons`, etc.) — todos los íconos del landing son SVG dibujados a mano directo en el componente, siguiendo siempre el mismo estilo de línea (outline), nunca rellenos.
 
 ## Plantilla base

@@ -451,7 +451,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                       // landing termine de aplicarse.
                       window.location.href = '/'
                     }}
-                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-300 transition-colors hover:bg-primary-700 hover:text-red-200"
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-error-300 transition-colors hover:bg-primary-700 hover:text-error-200"
                   >
                     <IconCerrarSesion />
                     Cerrar sesión

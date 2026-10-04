@@ -50,7 +50,7 @@ La columna "Componentes estándar" lista los de `src/components/ui/` que ya usa 
 - Botones: `rounded-lg`/`rounded-md` pasaron a `rounded-full`; los de acción usan `Button` (`primary`, `secondary`, `danger`, `success`, `info`).
 - Modales: todos los `fixed inset-0 ...` hechos a mano usan `Modal` (mismo ancho, scroll y capa que antes).
 - Tablas: contenedor, cabecera (`text-left font-medium text-primary-700`) y divisores unificados con `Table`; el paginador se conserva como pie de la tabla.
-- Encabezados: `PageHeader` en las vistas con título + botón de crear; todos los h1 del dashboard son `text-2xl font-semibold text-primary-900` (se corrigió `font-bold` en Documentos oficiales).
+- Encabezados: `PageHeader` en las vistas con título + botón de crear; todos los h1 del dashboard son `text-titulo-pagina font-semibold text-primary-900` (se corrigió `font-bold` en Documentos oficiales).
 - Colores: Más de 60 usos de `gray-*`/`slate-*` pasaron a `primary-*`. Se mantienen los colores semánticos de estado (`green`, `yellow`, `red`, `blue`, `indigo`) y los hex de los gráficos de Reportes y del trazo de la firma.
 - Duplicados eliminados: `EmptyState`, `BadgeEstado`/`estadoColor`/`ESTADO_LABELS` (6 copias), pestañas Lista/Crear repetidas, constantes `modalBgCls`/`modalCls`.
 

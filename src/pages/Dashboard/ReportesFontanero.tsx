@@ -94,7 +94,7 @@ function ReportesFontanero() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Reportes de actividad de fontaneros
         </h1>
         <p className="mt-1 text-sm text-primary-600">

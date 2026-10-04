@@ -94,7 +94,7 @@ function PerfilContrasena() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
           Mínimo 8 caracteres, una letra mayúscula y un número.
         </p>
@@ -103,7 +103,7 @@ function PerfilContrasena() {
       <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
         <Notificar mensaje={exito ? 'Contraseña actualizada correctamente. Cerrá sesión e iniciá con tu nueva contraseña.' : null} />
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
             {error}
           </div>
         )}

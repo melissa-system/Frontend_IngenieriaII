@@ -125,7 +125,7 @@ function VerificarCuenta() {
 
         {estado === 'error' && (
           <>
-            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-red-100 text-red-600">
+            <span className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-error-100 text-error-600">
               <svg
                 xmlns="http://www.w3.org/2000/svg"
                 viewBox="0 0 24 24"
@@ -144,7 +144,7 @@ function VerificarCuenta() {
             <h1 className="mt-4 text-lg font-semibold text-primary-900">
               No se pudo activar tu cuenta
             </h1>
-            <p className="mt-3 text-sm text-red-600">{mensajeError}</p>
+            <p className="mt-3 text-sm text-error-600">{mensajeError}</p>
             <p className="mt-3 text-xs text-primary-500">
               Si el enlace ya venció o ya lo usaste antes, contacta a la
               ASADA para que te reenvíen el correo de activación.

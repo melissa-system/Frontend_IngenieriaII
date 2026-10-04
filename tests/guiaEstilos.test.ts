@@ -82,10 +82,10 @@ describe('guía de estilos (diseños/componentes.md)', () => {
     assert.deepEqual(v, [])
   })
 
-  it('los títulos h1 del dashboard son text-2xl font-semibold text-primary-900', () => {
+  it('los títulos h1 del dashboard son text-titulo-pagina font-semibold text-primary-900', () => {
     const v = violaciones(
       (r) => r.startsWith('pages/Dashboard/') || r.startsWith('components/Dashboard/') || r === 'components/ui/PageHeader.tsx',
-      /<h1\b(?!.*text-2xl font-semibold text-primary-900)/,
+      /<h1\b(?!.*text-titulo-pagina font-semibold text-primary-900)/,
     )
     assert.deepEqual(v, [])
   })
@@ -162,5 +162,30 @@ describe('guía de estilos (diseños/componentes.md)', () => {
     assert.match(leer('components/ui/Modal.tsx'), /max-h-\[92dvh\]/)
     const v = violaciones((r) => r.endsWith('.tsx'), /<div className="grid grid-cols-2 gap-4">/)
     assert.deepEqual(v, [])
+  })
+
+  // ── Tokens centralizados (src/index.css) ──
+  it('los colores de estado usan los tokens (exito, advertencia, error, info, acento), no la paleta cruda de Tailwind', () => {
+    const v = violaciones(
+      (r) => r.endsWith('.tsx'),
+      /(?<![\w-])(?:[a-z-]+:)*(bg|text|border|ring|from|to|via|divide|fill|stroke|placeholder|outline|shadow)-(green|emerald|yellow|amber|red|blue|indigo|purple|orange|sky|teal|pink|rose|lime|cyan)-\d+/,
+    )
+    assert.deepEqual(v, [])
+  })
+
+  it('no hay colores hexadecimales sueltos en componentes (salvo gráficos, firma y PDF)', () => {
+    const permitidos = ['pages/Dashboard/Reportes.tsx', 'components/common/FirmaCanvas.tsx']
+    const v = violaciones(
+      (r) => r.endsWith('.tsx') && !permitidos.includes(r),
+      /['"`]#[0-9a-fA-F]{6}['"`]/,
+    )
+    assert.deepEqual(v, [])
+  })
+
+  it('index.css define los tokens de color, forma y tipografía', () => {
+    const css = fs.readFileSync('src/index.css', 'utf8')
+    for (const t of ['--color-primary-700', '--color-exito-700', '--color-advertencia-700', '--color-error-600', '--color-info-600', '--color-acento-700', '--radius-tarjeta', '--shadow-tarjeta', '--text-titulo-pagina', '--font-title']) {
+      assert.ok(css.includes(t), `falta ${t}`)
+    }
   })
 })

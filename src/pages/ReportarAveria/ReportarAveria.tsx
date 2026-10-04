@@ -366,7 +366,7 @@ function ReportarAveria() {
                   className="mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
                 />
                 {numeroDimex.trim() !== '' && !dimexValido && (
-                  <p className="mt-1 text-xs text-red-600">
+                  <p className="mt-1 text-xs text-error-600">
                     El DIMEX debe tener 11 o 12 dígitos numéricos.
                   </p>
                 )}
@@ -513,7 +513,7 @@ function ReportarAveria() {
               </div>
 
               {errorSubmit && (
-                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
                   {errorSubmit}
                 </p>
               )}

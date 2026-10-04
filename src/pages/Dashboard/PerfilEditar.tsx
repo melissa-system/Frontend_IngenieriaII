@@ -116,7 +116,7 @@ function PerfilEditar() {
   if (errorCarga) {
     return (
       <div className="max-w-5xl space-y-6">
-        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Configuración</h1>
         <ErrorState mensaje={errorCarga} onReintentar={() => window.location.reload()} />
       </div>
     )
@@ -250,7 +250,7 @@ function PerfilEditar() {
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
           Información de tu cuenta en SIAPB
         </p>
@@ -269,7 +269,7 @@ function PerfilEditar() {
           }
         />
         {(errorFoto || errorDatos) && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-6 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
             {errorFoto || errorDatos}
           </div>
         )}

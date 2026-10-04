@@ -186,7 +186,7 @@ const Recaptcha = forwardRef<RecaptchaRef, { onCambio: (token: string | null) =>
         )}
 
         {estado === 'error' && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+          <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
             No se pudo cargar la verificación de seguridad. Revisa tu conexión y
             recarga la página. Si el problema continúa, comunícate con la ASADA
             para hacer tu trámite.
@@ -194,7 +194,7 @@ const Recaptcha = forwardRef<RecaptchaRef, { onCambio: (token: string | null) =>
         )}
 
         {expirado && (
-          <p className="text-sm font-medium text-amber-600">
+          <p className="text-sm font-medium text-advertencia-700">
             La verificación venció. Vuelve a marcar la casilla.
           </p>
         )}

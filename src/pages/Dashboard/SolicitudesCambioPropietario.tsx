@@ -92,7 +92,7 @@ export default function SolicitudesCambioPropietario() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Cambio de Propietario
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -286,13 +286,13 @@ function VistaAbonado() {
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700">
           {error}
         </div>
       )}
 
       {tieneAbierta && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="rounded-xl border border-advertencia-200 bg-advertencia-50 p-4 text-sm text-advertencia-800">
           Actualmente tenés una solicitud de cambio de propietario en proceso. No podés crear otra hasta que sea resuelta.
         </div>
       )}
@@ -476,7 +476,7 @@ function VistaAbonado() {
               />
               <CampoError mensaje={erroresCampo.justificacion} />
               {justificacion.length > 0 && justificacion.trim().length < 10 && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-error-600">
                   La justificación debe tener al menos 10 caracteres.
                 </p>
               )}
@@ -848,7 +848,7 @@ function VistaAdministrador() {
       <Notificar mensaje={mensaje} />
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700">
           {error}
         </div>
       )}
@@ -884,14 +884,14 @@ function VistaAdministrador() {
             Abonado Titular Actual *
           </label>
           {abonadoElegido ? (
-            <div className="mt-1.5 flex items-center justify-between rounded-xl border border-green-200 bg-green-50/60 p-3 shadow-sm">
+            <div className="mt-1.5 flex items-center justify-between rounded-xl border border-exito-200 bg-exito-50/60 p-3 shadow-sm">
               <div>
                 <p className="text-sm font-bold text-primary-900">
                   {nombreVisible(abonadoElegido)}
                 </p>
                 <p className="text-xs text-primary-600">
                   Cédula: {abonadoElegido.cedula} | N° Abonado: {abonadoElegido.numero_abonado} | Estado:{' '}
-                  <span className="font-semibold text-green-700">{abonadoElegido.estado}</span>
+                  <span className="font-semibold text-exito-700">{abonadoElegido.estado}</span>
                 </p>
               </div>
               <button
@@ -941,7 +941,7 @@ function VistaAdministrador() {
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             a.estado === 'Activo'
-                              ? 'bg-green-100 text-green-800'
+                              ? 'bg-exito-100 text-exito-800'
                               : 'bg-primary-200 text-primary-700'
                           }`}
                         >
@@ -1269,10 +1269,10 @@ function VistaAdministrador() {
 
               {detalle.motivo_rechazo && (
                 <div className="sm:col-span-2">
-                  <dt className="text-xs font-medium uppercase text-red-500">
+                  <dt className="text-xs font-medium uppercase text-error-600">
                     Motivo de rechazo
                   </dt>
-                  <dd className="mt-0.5 text-red-700">{detalle.motivo_rechazo}</dd>
+                  <dd className="mt-0.5 text-error-700">{detalle.motivo_rechazo}</dd>
                 </div>
               )}
 
@@ -1320,7 +1320,7 @@ function VistaAdministrador() {
                     />
 
                     {motivoRechazo.trim().length > 0 && !motivoValido && (
-                      <p className="text-xs text-amber-600">
+                      <p className="text-xs text-advertencia-700">
                         Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
                         (llevas {motivoRechazo.trim().length}).
                       </p>

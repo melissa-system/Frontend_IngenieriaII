@@ -45,7 +45,7 @@ function SolicitudesCambioMedidor() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Medidor por Daños</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Cambio de Medidor por Daños</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Solicitá el cambio o revisión técnica del medidor registrado en tu propiedad'
@@ -285,7 +285,7 @@ function VistaAbonado() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+          <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
             {error}
           </p>
         )}
@@ -309,7 +309,7 @@ function VistaAbonado() {
             Cancelar
           </Button>
           {tieneAbierta && (
-            <p className="w-full text-center text-xs font-medium text-yellow-700">
+            <p className="w-full text-center text-xs font-medium text-advertencia-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
             </p>
           )}
@@ -589,7 +589,7 @@ function VistaAdministrador() {
             </label>
 
             {abonadoElegido ? (
-              <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
+              <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-exito-200 bg-exito-50 px-3 py-2.5 text-sm shadow-sm">
                 <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                 <button
                   type="button"
@@ -640,8 +640,8 @@ function VistaAdministrador() {
                               <span
                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                   a.estado === 'Activo'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
+                                    ? 'bg-exito-100 text-exito-700'
+                                    : 'bg-error-100 text-error-700'
                                 }`}
                               >
                                 {a.estado}
@@ -734,7 +734,7 @@ function VistaAdministrador() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+          <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
             {error}
           </p>
         )}
@@ -966,8 +966,8 @@ function ModalDetalle({
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
-              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+              <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
             </div>
           )}
           <div>
@@ -1002,7 +1002,7 @@ function ModalDetalle({
                 />
 
                 {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
+                  <p className="text-xs text-advertencia-700">
                     Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
                     (llevas {motivoRechazo.trim().length}).
                   </p>

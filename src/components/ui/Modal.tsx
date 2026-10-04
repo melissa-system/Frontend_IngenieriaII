@@ -37,7 +37,7 @@ function Modal({ children, size = '2xl', layer = 50, scroll = true, label }: Mod
       aria-label={label}
     >
       <div
-        className={`w-full ${ANCHO[size]} rounded-xl bg-white p-4 shadow-xl sm:p-6 ${
+        className={`w-full ${ANCHO[size]} rounded-tarjeta bg-white p-4 shadow-flotante sm:p-6 ${
           scroll ? 'max-h-[92dvh] overflow-y-auto' : ''
         }`}
       >
@@ -48,7 +48,7 @@ function Modal({ children, size = '2xl', layer = 50, scroll = true, label }: Mod
 }
 
 export function ModalTitulo({ children }: { children: ReactNode }) {
-  return <h2 className="text-lg font-semibold text-primary-900">{children}</h2>
+  return <h2 className="text-subtitulo font-semibold text-primary-900">{children}</h2>
 }
 
 /** Fila de botones del pie del modal: alineados a la derecha. */

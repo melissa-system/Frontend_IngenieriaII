@@ -13,6 +13,7 @@ Todos viven en `Frontend_IngeII/src/components/ui/`. **Regla: en cualquier vista
 | `Tabs` | `Tabs.tsx` | Pestañas con subrayado `border-b-2` (Lista / Crear). | botones de pestaña a mano |
 | `Cargando`, `Spinner`, `FilasEsqueleto` | `Cargando.tsx` | Carga: spinner con texto (páginas, tarjetas, modales) y esqueleto de filas dentro de `Table`. | textos "Cargando...", skeletons propios |
 | `EmptyState`, `FilaVacia` | `EmptyState.tsx` | Vacío: ícono + título + descripción (`compacto` dentro de tarjetas; `FilaVacia` dentro de tablas). | cajas punteadas y filas `No hay...` copiadas |
+| `Icono` | `Icono.tsx` | Set estándar de íconos SVG (check, cerrar, alerta, bandeja…). | SVG sueltos |
 | `ErrorState` | `ErrorState.tsx` | Error de carga: mensaje claro + botón "Reintentar". | cajas rojas `border-red-200 bg-red-50` |
 | `Toast`, `ToastProvider`, `useToast`, `Notificar` | `Toast.tsx`, `ToastProvider.tsx` | Confirmación/error de una acción (guardar, editar, inhabilitar). `useToast().notificar(msg, tipo)` o `<Notificar mensaje={...} />` donde estaba el banner. | banners verdes `bg-green-50` |
 | `CampoError`, `Obligatorio`, `bordeCampo` | `../common/CampoError.tsx` | Errores y asterisco de obligatorio. | — |
@@ -22,8 +23,8 @@ Otros de `common/` que se mantienen: `FileDropZone`, `FirmaCanvas`, `ModalConfir
 ## Decisiones de diseño (únicas para todo el sistema)
 
 - **Botones: siempre `rounded-full`.** Inputs y textareas: `rounded-lg`. Selects, buscadores y filtros: `rounded-full`.
-- **Colores:** solo la escala `primary-*` más los semánticos de estado (`green`, `yellow`, `red`, `blue`, `indigo`). Nada de `gray-*`, `slate-*`, `blue-600` ni hex sueltos (excepto los colores de los gráficos de Reportes y el trazo de la firma).
-- **Títulos del dashboard:** `text-2xl font-semibold text-primary-900` (usar `PageHeader`). Títulos del landing: Poppins (`font-title font-bold uppercase`), ver `tipografia.md`.
+- **Colores:** solo la escala `primary-*` más los semánticos de estado (tokens `exito`, `advertencia`, `error`, `info`, `acento`; ver `colores.md`). Nada de `gray-*`, `green-*`, `red-*` ni hex sueltos (excepto los colores de los gráficos de Reportes y el trazo de la firma).
+- **Títulos del dashboard:** `text-titulo-pagina font-semibold text-primary-900` (usar `PageHeader`). Títulos del landing: Poppins (`font-title font-bold uppercase`), ver `tipografia.md`.
 - **Estados de interfaz:** carga → `Cargando`/`FilasEsqueleto`; vacío → `EmptyState`/`FilaVacia` (con ícono); error de carga → `ErrorState` con "Reintentar"; confirmación de acción → toast global (esquina inferior derecha, se cierra a los 5 s; los errores no se cierran solos). Mensajes en español claro, voseo en el dashboard, sin tecnicismos.
 - **Modales:** orden de botones primario → Cancelar, alineados a la derecha.
 
@@ -37,7 +38,7 @@ Marcar cada punto al revisar una vista. El estado de cada vista queda en `lista-
 4. [ ] Inputs/textareas `rounded-lg`; selects, buscadores y filtros `rounded-full` con `h-10`.
 5. [ ] Etiquetas arriba (`text-sm font-medium text-primary-900`), errores con `CampoError`, obligatorios con `Obligatorio`.
 6. [ ] Estados con `Badge` (color-100 + color-700).
-7. [ ] El título es `text-2xl font-semibold text-primary-900` (dashboard) y el botón de crear va a la derecha del título.
+7. [ ] El título es `text-titulo-pagina font-semibold text-primary-900` (dashboard) y el botón de crear va a la derecha del título.
 8. [ ] Sin colores fuera de la paleta (`gray-*`, `blue-600`, hex).
 9. [ ] Sin estilos duplicados o contradictorios en el mismo archivo (constantes de clases repetidas, clases que se pisan).
 10. [ ] La funcionalidad no cambió: `npm run build`, `npm run lint` y `npm test` pasan.

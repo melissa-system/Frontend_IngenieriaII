@@ -56,13 +56,13 @@ function hoyIso(): string {
 }
 
 function getEstadoColor(estado: string) {
-  if (estado === 'activo') return 'bg-green-100 text-green-700'
-  return 'bg-red-100 text-red-700'
+  if (estado === 'activo') return 'bg-exito-100 text-exito-700'
+  return 'bg-error-100 text-error-700'
 }
 
 function getClasificacionBadge(clasificacion: string) {
-  if (clasificacion === 'articulo') return 'bg-blue-100 text-blue-700'
-  return 'bg-purple-100 text-purple-700'
+  if (clasificacion === 'articulo') return 'bg-info-100 text-info-700'
+  return 'bg-acento-100 text-acento-700'
 }
 
 function formatearFechaHora(fechaIso: string): string {
@@ -107,7 +107,7 @@ function EstadoSwitch({
       disabled={disabled}
       onClick={onChange}
       className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-primary-300'
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -615,7 +615,7 @@ function Inventario() {
           </div>
 
           {formError && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
               {formError}
             </p>
           )}
@@ -715,7 +715,7 @@ function Inventario() {
           {historialLoading ? (
             <Cargando compacto texto="Cargando historial..." />
           ) : historialError ? (
-            <p className="text-xs font-medium text-red-500">{historialError}</p>
+            <p className="text-xs font-medium text-error-600">{historialError}</p>
           ) : historialDetalle.length === 0 ? (
             <p className="text-xs text-primary-400">Sin movimientos registrados aún.</p>
           ) : (
@@ -727,7 +727,7 @@ function Inventario() {
                   )}
                   <span
                     className={`mt-1 h-2.5 w-2.5 flex-none rounded-full ${
-                      m.tipo_movimiento === 'entrada' ? 'bg-emerald-500' : 'bg-red-500'
+                      m.tipo_movimiento === 'entrada' ? 'bg-exito-500' : 'bg-error-500'
                     }`}
                   />
                   <div className="min-w-0 text-xs">
@@ -735,8 +735,8 @@ function Inventario() {
                       <span
                         className={`inline-block rounded-full px-2 py-0.2 text-[11px] font-semibold ${
                           m.tipo_movimiento === 'entrada'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-exito-100 text-exito-800'
+                            : 'bg-error-100 text-error-800'
                         }`}
                       >
                         {m.tipo_movimiento === 'entrada' ? '+ Entrada' : '- Salida'}
@@ -800,7 +800,7 @@ function Inventario() {
               : 'Al reactivar el artículo, volverá a estar disponible para movimientos en bodega.'}
           </p>
           {errorCambioEstado && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+            <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
               {errorCambioEstado}
             </p>
           )}
@@ -1030,8 +1030,8 @@ function Inventario() {
                         <span
                           className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
                             item.cantidad_disponible === 0
-                              ? 'bg-red-100 text-red-700'
-                              : 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-error-100 text-error-700'
+                              : 'bg-exito-100 text-exito-800'
                           }`}
                         >
                           {item.cantidad_disponible} uds
