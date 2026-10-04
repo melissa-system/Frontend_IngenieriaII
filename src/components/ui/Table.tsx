@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 //   <Table cabecera={['Código', 'Estado', 'Acciones']}>
 //     {filas.map((f) => <tr key={f.id}><Td>…</Td></tr>)}
 //   </Table>
-export const CLASE_TH = 'px-4 py-3 text-left font-medium text-primary-700'
+export const CLASE_TH = 'whitespace-nowrap px-4 py-3 text-left font-medium text-primary-700'
 export const CLASE_TD = 'px-4 py-3 text-primary-700'
 
 function Table({
@@ -21,7 +21,7 @@ function Table({
 }) {
   return (
     <div className="overflow-x-auto rounded-tarjeta border border-primary-100 bg-white shadow-tarjeta">
-      <table className="min-w-full divide-y divide-primary-100 text-sm">
+      <table className="min-w-[44rem] w-full divide-y divide-primary-100 text-sm">
         <thead className="bg-primary-50">
           <tr>
             {cabecera.map((c, i) => (
