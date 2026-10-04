@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { useState, type FormEvent, useRef } from 'react'
 import {
   erroresPorCampo,
@@ -513,9 +514,9 @@ function ReportarAveria() {
               </div>
 
               {errorSubmit && (
-                <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+                <Alerta tipo="error">
                   {errorSubmit}
-                </p>
+                </Alerta>
               )}
 
               <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />

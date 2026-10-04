@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
@@ -648,9 +649,7 @@ function EmpleadosPage() {
             </p>
 
             {formError.nombre && formError.nombre.length > 80 && (
-              <div className="mt-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
-                {formError.nombre}
-              </div>
+              <Alerta tipo="error" className="mt-4">{formError.nombre}</Alerta>
             )}
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
@@ -892,9 +891,9 @@ function EmpleadosPage() {
                             ) y se enviará un correo para definir la contraseña.
                           </p>
                           {errorVincular && (
-                            <p className="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+                            <Alerta tipo="error">
                               {errorVincular}
-                            </p>
+                            </Alerta>
                           )}
                           <div className="flex justify-end gap-2">
                             <Button

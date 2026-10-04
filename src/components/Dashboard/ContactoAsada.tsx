@@ -1,3 +1,4 @@
+import Alerta from '../ui/Alerta'
 import { Notificar } from '../ui/ToastProvider'
 import ErrorState from '../ui/ErrorState'
 import Cargando from '../ui/Cargando'
@@ -209,9 +210,7 @@ function ContactoAsada() {
       <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
         <Notificar mensaje={exito ? 'Configuración guardada correctamente.' : null} />
         {error && (
-          <div className="mb-4 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
-            {error}
-          </div>
+          <Alerta tipo="error" className="mb-4">{error}</Alerta>
         )}
 
         <form onSubmit={manejarEnvio} className="space-y-5">

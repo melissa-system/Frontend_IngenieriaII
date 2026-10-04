@@ -1,3 +1,4 @@
+import Alerta from '../ui/Alerta'
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
 
 // Clave de SITIO de reCAPTCHA v2 (la pública; la secreta vive en el backend).
@@ -186,11 +187,11 @@ const Recaptcha = forwardRef<RecaptchaRef, { onCambio: (token: string | null) =>
         )}
 
         {estado === 'error' && (
-          <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+          <Alerta tipo="error">
             No se pudo cargar la verificación de seguridad. Revisa tu conexión y
             recarga la página. Si el problema continúa, comunícate con la ASADA
             para hacer tu trámite.
-          </p>
+          </Alerta>
         )}
 
         {expirado && (

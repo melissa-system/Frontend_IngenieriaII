@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { useState, type FormEvent } from 'react'
 import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { esCorreo } from '../../lib/validaciones'
@@ -87,9 +88,9 @@ function RecuperarPassword() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+            <Alerta tipo="error">
               {error}
-            </p>
+            </Alerta>
           )}
 
           <Button

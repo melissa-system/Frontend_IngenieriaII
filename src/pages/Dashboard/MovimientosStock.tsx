@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -496,9 +497,9 @@ function MovimientosStock() {
           </div>
 
           {formError && (
-            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+            <Alerta tipo="error">
               {formError}
-            </p>
+            </Alerta>
           )}
 
           <div className="mt-5 flex flex-wrap items-center justify-center gap-3">

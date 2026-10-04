@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -204,9 +205,9 @@ function GestionModal({
         </div>
 
         {errorGestion && (
-          <p className="mt-4 rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+          <Alerta tipo="error" className="mt-4">
             {errorGestion}
-          </p>
+          </Alerta>
         )}
 
         <div className="mt-6 flex justify-end gap-3">

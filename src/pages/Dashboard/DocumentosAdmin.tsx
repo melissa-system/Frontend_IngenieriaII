@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -581,9 +582,9 @@ function DocumentosAdmin() {
                 )}
 
                 {uploadError && (
-                  <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+                  <Alerta tipo="error">
                     {uploadError}
-                  </p>
+                  </Alerta>
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">
@@ -682,9 +683,9 @@ function DocumentosAdmin() {
                 )}
 
                 {versionError && (
-                  <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+                  <Alerta tipo="error">
                     {versionError}
-                  </p>
+                  </Alerta>
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">

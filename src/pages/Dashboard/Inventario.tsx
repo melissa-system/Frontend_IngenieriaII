@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -615,9 +616,9 @@ function Inventario() {
           </div>
 
           {formError && (
-            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+            <Alerta tipo="error">
               {formError}
-            </p>
+            </Alerta>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
@@ -800,9 +801,9 @@ function Inventario() {
               : 'Al reactivar el artículo, volverá a estar disponible para movimientos en bodega.'}
           </p>
           {errorCambioEstado && (
-            <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+            <Alerta tipo="error" className="mt-3">
               {errorCambioEstado}
-            </p>
+            </Alerta>
           )}
           <div className="mt-6 flex justify-end gap-2">
             <Button

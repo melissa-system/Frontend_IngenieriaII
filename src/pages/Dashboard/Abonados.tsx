@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -910,9 +911,9 @@ function Abonados() {
                     </p>
                     <Notificar mensaje={reenvioMensaje} />
                     {reenvioError && (
-                      <p className="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+                      <Alerta tipo="error">
                         {reenvioError}
-                      </p>
+                      </Alerta>
                     )}
                     <Button
                       variant="secondary"
@@ -956,9 +957,9 @@ function Abonados() {
                           la contraseña.
                         </p>
                         {errorVincular && (
-                          <p className="rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+                          <Alerta tipo="error">
                             {errorVincular}
-                          </p>
+                          </Alerta>
                         )}
                         <div className="flex justify-end gap-2">
                           <Button
@@ -989,9 +990,9 @@ function Abonados() {
             )}
 
             {formError && (
-              <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+              <Alerta tipo="error">
                 {formError}
-              </p>
+              </Alerta>
             )}
 
             <div className="flex justify-end gap-3 pt-2">
@@ -1048,9 +1049,9 @@ function Abonados() {
             El cambio queda registrado en el historial con tu usuario.
           </p>
           {errorCambioEstado && (
-            <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+            <Alerta tipo="error" className="mt-3">
               {errorCambioEstado}
-            </p>
+            </Alerta>
           )}
           <div className="mt-6 flex justify-end gap-2">
             <Button

@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { Notificar } from '../../components/ui/ToastProvider'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -269,9 +270,7 @@ function PerfilEditar() {
           }
         />
         {(errorFoto || errorDatos) && (
-          <div className="mb-6 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700">
-            {errorFoto || errorDatos}
-          </div>
+          <Alerta tipo="error" className="mb-6">{errorFoto || errorDatos}</Alerta>
         )}
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[13rem_1fr]">

@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
@@ -627,9 +628,7 @@ function FormularioConexion({
       </div>
 
       {errorGeneral && (
-        <p className="rounded-lg border border-error-200 bg-error-50 px-4 py-2 text-sm text-error-700">
-          {errorGeneral}
-        </p>
+        <Alerta tipo="error">{errorGeneral}</Alerta>
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">

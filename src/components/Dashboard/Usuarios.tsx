@@ -1,3 +1,4 @@
+import Alerta from '../ui/Alerta'
 import { FilaVacia } from '../ui/EmptyState'
 import { Notificar } from '../ui/ToastProvider'
 import { FilasEsqueleto } from '../ui/Cargando'
@@ -584,9 +585,9 @@ export const Usuarios: React.FC = () => {
 
             <form onSubmit={handleCrearUsuario} noValidate className="space-y-5">
               {errorModalCrear && (
-                <div className="p-3 bg-error-50 border border-error-200 text-error-700 text-sm rounded-lg">
+                <Alerta tipo="error">
                   {errorModalCrear}
-                </div>
+                </Alerta>
               )}
 
               <div>
@@ -702,9 +703,9 @@ export const Usuarios: React.FC = () => {
 
             <div className="space-y-5">
               {errorModalRol && (
-                <div className="p-3 bg-error-50 border border-error-200 text-error-700 text-sm rounded-lg">
+                <Alerta tipo="error">
                   {errorModalRol}
-                </div>
+                </Alerta>
               )}
 
               <div>
@@ -802,9 +803,9 @@ export const Usuarios: React.FC = () => {
               </p>
             )}
             {error && (
-              <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+              <Alerta tipo="error" className="mt-3">
                 {error}
-              </p>
+              </Alerta>
             )}
 
             <div className="mt-6 flex justify-end gap-2">

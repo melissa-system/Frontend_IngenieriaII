@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import {
@@ -286,9 +287,9 @@ function VistaAbonado() {
       )}
 
       {error && (
-        <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700">
+        <Alerta tipo="error">
           {error}
-        </div>
+        </Alerta>
       )}
 
       {tieneAbierta && (
@@ -848,9 +849,9 @@ function VistaAdministrador() {
       <Notificar mensaje={mensaje} />
 
       {error && (
-        <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700">
+        <Alerta tipo="error">
           {error}
-        </div>
+        </Alerta>
       )}
 
       <Tabs

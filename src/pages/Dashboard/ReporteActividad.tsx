@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -353,9 +354,9 @@ function ReporteActividad() {
           </div>
 
           {error && (
-            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+            <Alerta tipo="error">
               {error}
-            </p>
+            </Alerta>
           )}
           <Notificar mensaje={exito} />
 

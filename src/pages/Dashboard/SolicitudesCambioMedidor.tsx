@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
@@ -285,9 +286,9 @@ function VistaAbonado() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+          <Alerta tipo="error" className="mt-3">
             {error}
-          </p>
+          </Alerta>
         )}
         <Notificar mensaje={mensaje} />
 
@@ -734,9 +735,9 @@ function VistaAdministrador() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+          <Alerta tipo="error" className="mt-3">
             {error}
-          </p>
+          </Alerta>
         )}
         <Notificar mensaje={mensaje} />
 

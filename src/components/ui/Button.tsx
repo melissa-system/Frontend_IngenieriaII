@@ -1,4 +1,5 @@
 import type { ButtonHTMLAttributes } from 'react'
+import { Spinner } from './Cargando'
 
 // Botón estándar del sistema. SIEMPRE rounded-full (decisión de diseño: ver
 // diseños/botones.md). Variantes:
@@ -11,7 +12,7 @@ export type VarianteBoton = 'primary' | 'secondary' | 'danger' | 'success' | 'in
 export type TamanoBoton = 'sm' | 'md'
 
 const BASE =
-  'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50'
+  'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-500 disabled:cursor-not-allowed disabled:opacity-50'
 
 const VARIANTES: Record<VarianteBoton, string> = {
   primary: 'bg-primary-700 text-white hover:bg-primary-800',
@@ -37,6 +38,8 @@ export function claseBoton(variante: VarianteBoton = 'primary', tamano: TamanoBo
 interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: VarianteBoton
   size?: TamanoBoton
+  /** Muestra un spinner, deshabilita el botón y lo marca como ocupado (aria-busy). */
+  loading?: boolean
 }
 
 function Button({
@@ -44,9 +47,23 @@ function Button({
   size = 'md',
   type = 'button',
   className = '',
+  loading = false,
+  disabled,
+  children,
   ...props
 }: ButtonProps) {
-  return <button type={type} className={`${claseBoton(variant, size)} ${className}`.trim()} {...props} />
+  return (
+    <button
+      type={type}
+      className={`${claseBoton(variant, size)} ${className}`.trim()}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...props}
+    >
+      {loading && <Spinner className="h-4 w-4 text-current" />}
+      {children}
+    </button>
+  )
 }
 
 export default Button

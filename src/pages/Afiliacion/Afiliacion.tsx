@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef } from 'react'
 import { MB } from '../../lib/validaciones'
@@ -703,9 +704,9 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 )}
 
                 {errorPerfil && (
-                  <p className="rounded-lg bg-error-50 px-3 py-2 text-sm text-error-700">
+                  <Alerta tipo="error">
                     {errorPerfil}
-                  </p>
+                  </Alerta>
                 )}
 
                 {!cargandoPerfil && !errorPerfil && (
@@ -1191,9 +1192,9 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
 
                 {errorSubmit && (
-                  <p className="rounded-lg bg-error-50 p-2 text-xs font-medium text-error-600">
+                  <Alerta tipo="error">
                     {errorSubmit}
-                  </p>
+                  </Alerta>
                 )}
               </div>
             )}

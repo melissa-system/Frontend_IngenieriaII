@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, type FormEvent } from 'react'
 import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
@@ -161,9 +162,9 @@ function Login() {
           </div>
         ) : (
           error && (
-            <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+            <Alerta tipo="error">
               {error}
-            </p>
+            </Alerta>
           )
         )}
 

@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
@@ -502,9 +503,9 @@ function Proveedores() {
             </div>
 
             {errorFormProveedor && (
-              <div className="mb-4 rounded-lg bg-error-50 p-3 text-sm font-medium text-error-700">
+              <Alerta tipo="error" className="mb-4">
                 {errorFormProveedor}
-              </div>
+              </Alerta>
             )}
 
             <form onSubmit={proveedorAEditar ? handleEditarProveedor : handleCrearProveedor} noValidate className="space-y-4">
@@ -698,9 +699,9 @@ function Proveedores() {
               proveedores.
             </p>
             {errorCambioEstado && (
-              <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+              <Alerta tipo="error" className="mt-3">
                 {errorCambioEstado}
-              </p>
+              </Alerta>
             )}
             <div className="mt-6 flex justify-end gap-2">
               <Button

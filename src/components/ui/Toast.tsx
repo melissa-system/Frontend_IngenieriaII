@@ -1,7 +1,8 @@
 import { useEffect, useRef } from 'react'
 import Icono from './Icono'
+import { estiloAlerta } from './Alerta'
 
-export type TipoToast = 'exito' | 'error'
+export type TipoToast = 'exito' | 'error' | 'advertencia' | 'info'
 
 // Notificación flotante que aparece sobre la pantalla, en la esquina inferior
 // derecha.
@@ -36,20 +37,17 @@ function Toast({
     return () => clearTimeout(t)
   }, [tipo, mensaje])
 
-  const estilos =
-    tipo === 'exito'
-      ? 'border-exito-300 bg-exito-50 text-exito-800'
-      : 'border-error-300 bg-error-50 text-error-700'
+  const { caja: estilos, icono } = estiloAlerta(tipo)
 
   return (
     <div
       // role alert hace que los lectores de pantalla lo anuncien apenas
       // aparece, sin que la persona tenga que ir a buscarlo.
-      role="alert"
+      role={tipo === 'error' || tipo === 'advertencia' ? 'alert' : 'status'}
       className={`fixed bottom-6 right-6 z-[60] flex max-w-sm items-start gap-3 rounded-tarjeta border p-4 shadow-flotante ${estilos}`}
     >
       <span className="flex-none pt-0.5">
-        <Icono nombre={tipo === 'exito' ? 'check' : 'errorCirculo'} />
+        <Icono nombre={icono} />
       </span>
 
       <p className="flex-1 text-sm font-medium">{mensaje}</p>

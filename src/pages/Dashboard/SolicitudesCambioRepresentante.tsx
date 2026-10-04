@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
 import {
@@ -277,9 +278,9 @@ function VistaAbonado() {
       )}
 
       {error && (
-        <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700">
+        <Alerta tipo="error">
           {error}
-        </div>
+        </Alerta>
       )}
 
       {esJuridica && (
@@ -757,9 +758,9 @@ function VistaAdministrador() {
       )}
 
       {error && (
-        <div className="rounded-xl border border-error-200 bg-error-50 p-4 text-sm text-error-700">
+        <Alerta tipo="error">
           {error}
-        </div>
+        </Alerta>
       )}
 
       <Tabs
@@ -936,9 +937,9 @@ function VistaAdministrador() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-error-50 px-3 py-2 text-xs font-medium text-error-600">
+          <Alerta tipo="error" className="mt-3">
             {error}
-          </p>
+          </Alerta>
         )}
         <Notificar mensaje={mensaje} />
 

@@ -1,3 +1,4 @@
+import Alerta from '../../components/ui/Alerta'
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -336,9 +337,9 @@ function Publicaciones() {
               </div>
 
               {formError && (
-                <p className="rounded-lg bg-error-50 p-3 text-sm font-medium text-error-600">
+                <Alerta tipo="error">
                   {formError}
-                </p>
+                </Alerta>
               )}
 
               <div className="flex justify-end gap-3 pt-2">
