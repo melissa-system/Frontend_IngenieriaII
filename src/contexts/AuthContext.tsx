@@ -65,6 +65,12 @@ interface AuthContextType {
   perfilActivo: PerfilActivo
   /** Cambia el perfil visible sin cerrar sesión (llama al backend para re-emitir el token con el rol correspondiente). Solo tiene efecto si el destino es válido para esta cuenta. */
   cambiarPerfil: (perfil: PerfilActivo) => Promise<void>
+  /**
+   * true cuando la sesión se cortó por un refresh fallido (el interceptor
+   * emitió `siapb:sesion-expirada`). Login.tsx lo usa para mostrar el banner
+   * de "Tu sesión ha expirado". Se apaga en login() y en logout().
+   */
+  sesionExpirada: boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -193,6 +199,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] =
     useState<'restoring' | 'authenticated' | 'unauthenticated'>('restoring')
   const [perfilActivo, setPerfilActivo] = useState<PerfilActivo>('base')
+  // Banner de sesión expirada en Login.tsx. Se activa solo por el evento del
+  // interceptor (un logout voluntario o un login nuevo lo apagan).
+  const [sesionExpirada, setSesionExpirada] = useState(false)
 
   // Al recargar la página el Access Token se pierde (memoria volátil);
   // se intenta restaurar la sesión con el Refresh Token de la cookie httpOnly.
@@ -225,11 +234,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // redirige automáticamente al login.
   useEffect(() => {
     return alExpirarSesion(() => {
+      // Solo importa si había sesión: un refresh fallido con la pestaña ya
+      // deslogueada no debe marcar el banner en Login.
+      if (status !== 'authenticated') return
+      setSesionExpirada(true)
       setUser(null)
       setStatus('unauthenticated')
       setPerfilActivo('base')
     })
-  }, [])
+  }, [status])
 
   const login = useCallback(
     async (email: string, password: string): Promise<void> => {
@@ -238,6 +251,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       })
       aplicarSesion(data, setUser)
+      // El banner de sesión expirada ya cumplió: hay sesión nueva.
+      setSesionExpirada(false)
       const userId = String(data.user.id)
       const perfilGuardado = leerPerfilGuardado(userId)
       const aplicado = await sincronizarPerfilActivo(perfilGuardado)
@@ -252,6 +267,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Limpiar siempre el estado local primero para nunca quedar atrapado logueado;
     // la revocación del Refresh Token en el backend va aparte (fire-and-forget).
     tokenStore.clear()
+    // Cerrar la sesión a mano no es "se venció": no debe quedar el banner.
+    setSesionExpirada(false)
     setUser(null)
     setStatus('unauthenticated')
     setPerfilActivo('base')
@@ -305,6 +322,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rolEfectivo,
         perfilActivo,
         cambiarPerfil,
+        sesionExpirada,
       }}
     >
       {children}

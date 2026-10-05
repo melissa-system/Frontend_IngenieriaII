@@ -2,7 +2,7 @@ import Alerta from '../../components/ui/Alerta'
 import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, type FormEvent } from 'react'
 import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { useNavigate, useLocation, Link, type To } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
 import AuthLayout from '../../components/auth/AuthLayout'
@@ -26,12 +26,14 @@ function formatearTiempo(segundos: number): string {
 }
 
 function Login() {
-  const { login } = useAuth()
+  const { login, sesionExpirada } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname ||
-    '/dashboard'
+  // Ruta original a la que regresar al iniciar sesión (la marca ProtectedRoute
+  // con `state={{ from: location }}`). Se conserva COMPLETA como `To`
+  // (pathname + search + hash), no solo el pathname: si no, se pierden los
+  // query params de la sección a la que intentaba volver.
+  const from = (location.state as { from?: To } | null)?.from ?? '/dashboard'
   // Mensaje de éxito opcional que llega al redirigir desde otro flujo (por
   // ejemplo, tras restablecer la contraseña — ver RestablecerPassword.tsx).
   const mensajeExito = (
@@ -89,6 +91,16 @@ function Login() {
   return (
     <AuthLayout subtitle="Sistema de Información de Abonados Pueblo Nuevo">
       <Notificar mensaje={mensajeExito} />
+
+      {/* Señal de que llegó hasta aquí con la sesión cortada (AuthContext la
+          enciende cuando falla el refresh del interceptor). */}
+      {sesionExpirada && (
+        <div className="mb-4">
+          <Alerta tipo="advertencia">
+            Tu sesión ha expirado. Inicia de nuevo para continuar donde ibas.
+          </Alerta>
+        </div>
+      )}
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <div>

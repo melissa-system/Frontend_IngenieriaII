@@ -228,10 +228,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Documentos Oficiales',
     icon: <DocumentosOficialesIcon />,
     to: '/dashboard/documentos-oficiales',
-    // Solo para Abonado y Fontanero: Administrador/Junta Directiva ya
+    // Exclusivo del Abonado (matriz de roles: el Fontanero solo ve su
+    // dashboard y sus averías). Administrador/Junta Directiva ya
     // tienen su propia sección "Documentos" en Edición de página, así que
     // estrictoPorRol evita que la "Regla de Oro" se lo muestre también ahí.
-    roles: ['Abonado', 'Fontanero'],
+    roles: ['Abonado'],
     estrictoPorRol: true,
   },
   {

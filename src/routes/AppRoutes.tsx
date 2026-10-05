@@ -9,6 +9,7 @@ import Afiliacion from '../pages/Afiliacion/Afiliacion'
 import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
 import DocumentosPublicos from '../pages/Documentos/DocumentosPublicos'
 import Login from '../pages/Login/Login'
+import AccesoDenegado from '../pages/AccesoDenegado/AccesoDenegado'
 import RecuperarPassword from '../pages/RecuperarPassword/RecuperarPassword'
 import RestablecerPassword from '../pages/RestablecerPassword/RestablecerPassword'
 import VerificarCuenta from '../pages/VerificarCuenta/VerificarCuenta'
@@ -55,6 +56,10 @@ function AppRoutes() {
       <Route path="/recuperar-password" element={<RecuperarPassword />} />
       <Route path="/restablecer-password" element={<RestablecerPassword />} />
       <Route path="/activar-cuenta" element={<VerificarCuenta />} />
+      {/* Denegación de permisos: queda fuera de /dashboard para no depender de
+          la sesión ni del sidebar (también la sirve RoleRoute y el 403 de
+          apiClient vía GestorAcceso). */}
+      <Route path="/acceso-denegado" element={<AccesoDenegado />} />
 
       <Route
         path="/dashboard"
@@ -65,25 +70,110 @@ function AppRoutes() {
         }
       >
         <Route index element={<DashboardHome />} />
-        <Route path="abonados" element={<Abonados />} />
+        <Route
+          path="abonados"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <Abonados />
+            </RoleRoute>
+          }
+        />
         <Route
           path="solicitudes"
-          element={<RedirectSolicitudes />}
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Abonado']}>
+              <RedirectSolicitudes />
+            </RoleRoute>
+          }
         />
-        <Route path="solicitudes/paja-de-agua" element={<SolicitudesPajaAgua />} />
-        <Route path="solicitudes/nueva-paja-de-agua" element={<NuevaPajaAgua />} />
-        <Route path="solicitudes/cambio-propietario" element={<SolicitudesCambioPropietario />} />
-        <Route path="solicitudes/cambio-representante" element={<SolicitudesCambioRepresentante />} />
-        <Route path="solicitudes/cambio-medidor" element={<SolicitudesCambioMedidor />} />
-        <Route path="solicitudes/otro" element={<SolicitudesOtro />} />
-        <Route path="solicitudes/conexion-servicio" element={<SolicitudesConexion />} />
+        <Route
+          path="solicitudes/paja-de-agua"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <SolicitudesPajaAgua />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="solicitudes/nueva-paja-de-agua"
+          element={
+            <RoleRoute role="Abonado">
+              <NuevaPajaAgua />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="solicitudes/cambio-propietario"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Abonado']}>
+              <SolicitudesCambioPropietario />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="solicitudes/cambio-representante"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Abonado']}>
+              <SolicitudesCambioRepresentante />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="solicitudes/cambio-medidor"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Abonado']}>
+              <SolicitudesCambioMedidor />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="solicitudes/otro"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Abonado']}>
+              <SolicitudesOtro />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="solicitudes/conexion-servicio"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Abonado']}>
+              <SolicitudesConexion />
+            </RoleRoute>
+          }
+        />
         <Route
           path="inventario"
-          element={<Navigate to="/dashboard/inventario/articulos" replace />}
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <Navigate to="/dashboard/inventario/articulos" replace />
+            </RoleRoute>
+          }
         />
-        <Route path="inventario/articulos" element={<Inventario />} />
-        <Route path="inventario/movimientos" element={<MovimientosStock />} />
-        <Route path="inventario/proveedores" element={<Proveedores />} />
+        <Route
+          path="inventario/articulos"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <Inventario />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="inventario/movimientos"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <MovimientosStock />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="inventario/proveedores"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <Proveedores />
+            </RoleRoute>
+          }
+        />
         <Route
           path="averias"
           element={
@@ -92,8 +182,22 @@ function AppRoutes() {
             </RoleRoute>
           }
         />
-        <Route path="averias/fontanero" element={<ActividadFontanero />} />
-        <Route path="mis-averias" element={<MisAverias />} />
+        <Route
+          path="averias/fontanero"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva', 'Fontanero']}>
+              <ActividadFontanero />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="mis-averias"
+          element={
+            <RoleRoute role="Abonado">
+              <MisAverias />
+            </RoleRoute>
+          }
+        />
         <Route
           path="reportes"
           element={
@@ -102,9 +206,30 @@ function AppRoutes() {
             </RoleRoute>
           }
         />
-        <Route path="administrativo" element={<Publicaciones />} />
-        <Route path="documentos" element={<DocumentosAdmin />} />
-        <Route path="seguridad" element={<Seguridad />} />
+        <Route
+          path="administrativo"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <Publicaciones />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="documentos"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <DocumentosAdmin />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="seguridad"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <Seguridad />
+            </RoleRoute>
+          }
+        />
         <Route
           path="auditoria"
           element={
@@ -115,8 +240,22 @@ function AppRoutes() {
         />
         <Route path="perfil" element={<PerfilEditar />} />
         <Route path="perfil/contrasena" element={<PerfilContrasena />} />
-        <Route path="contacto-asada" element={<ContactoAsadaPage />} />
-        <Route path="horario-asada" element={<HorarioAsadaPage />} />
+        <Route
+          path="contacto-asada"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <ContactoAsadaPage />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="horario-asada"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <HorarioAsadaPage />
+            </RoleRoute>
+          }
+        />
         <Route
           path="personal"
           element={
@@ -125,7 +264,14 @@ function AppRoutes() {
             </RoleRoute>
           }
         />
-        <Route path="documentos-oficiales" element={<DocumentosOficialesPage />} />
+        <Route
+          path="documentos-oficiales"
+          element={
+            <RoleRoute role={['Abonado', 'Administrador', 'Junta Directiva']}>
+              <DocumentosOficialesPage />
+            </RoleRoute>
+          }
+        />
         {/* Referencia de componentes: solo en desarrollo (npm run dev). */}
         {import.meta.env.DEV && <Route path="componentes" element={<Componentes />} />}
       </Route>

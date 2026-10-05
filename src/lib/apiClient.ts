@@ -1,6 +1,7 @@
 import axios, { AxiosError } from 'axios'
 import type { InternalAxiosRequestConfig } from 'axios'
 import { tokenStore } from './tokenStore'
+import { esDenegacionDeAutorizacion, notificarAccesoDenegado } from './accesoDenegado'
 
 // Base URL del backend: configurable con VITE_API_URL en .env,
 // con fallback al puerto local por defecto.
@@ -110,12 +111,25 @@ function notificarSesionExpirada(): void {
   window.dispatchEvent(new Event(EVENTO_SESION_EXPIRADA))
 }
 
-// Interceptor de respuestas: ante 401 por token expirado, renueva la sesión
-// en silencio y reintenta la petición original una sola vez.
+// Interceptor de respuestas:
+//  - 403 de autorizacion (marcado por RolesGuard) -> avisa para abrir la
+//    pantalla de acceso denegado. El error igual se rechaza para que la pagina
+//    que lo disparo tambien pueda mostrarlo en linea si sigue montada.
+//  - 401 por token expirado -> renueva la sesion en silencio y reintenta la
+//    peticion original una sola vez.
 apiClient.interceptors.response.use(
   (response) => response,
   async (error: AxiosError) => {
     const original = error.config as InternalAxiosRequestConfig | undefined
+
+    // Los demas 403 (reCAPTCHA, reglas de negocio) no traen la marca y pasan
+    // de largo: se quedan como un error normal para la pagina que los llamo.
+    if (
+      error.response?.status === 403 &&
+      esDenegacionDeAutorizacion(error.response.data)
+    ) {
+      notificarAccesoDenegado()
+    }
 
     if (
       !error.response ||
