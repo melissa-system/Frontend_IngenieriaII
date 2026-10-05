@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Outlet, useLocation } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import DashboardHeader from './DashboardHeader'
 import Breadcrumbs from './Breadcrumbs'
+import RouteLoadingFallback from '../common/RouteLoadingFallback'
 
 const COLLAPSE_KEY = 'siapb:sidebar-colapsado'
 
@@ -61,7 +62,9 @@ function DashboardLayout() {
         <DashboardHeader onToggleSidebar={handleToggleSidebar} />
         <main className="flex-1 overflow-x-hidden overflow-y-auto p-4 sm:p-6">
           <Breadcrumbs />
-          <Outlet />
+          <Suspense fallback={<RouteLoadingFallback mensaje="Cargando panel..." />}>
+            <Outlet />
+          </Suspense>
         </main>
       </div>
     </div>

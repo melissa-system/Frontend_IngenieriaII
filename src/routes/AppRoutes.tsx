@@ -1,10 +1,15 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import MainLayout from '../layouts/MainLayout/MainLayout'
 import DashboardLayout from '../components/Dashboard/DashboardLayout'
 import ProtectedRoute from '../components/Dashboard/ProtectedRoute'
 import RoleRoute from '../components/Dashboard/RoleRoute'
-import Home from '../pages/Home/Home'
 import RedirectSolicitudes from './RedirectSolicitudes'
+import RouteLoadingFallback from '../components/common/RouteLoadingFallback'
+import { ROLES_REPORTES } from '../lib/exportacionReportes'
+
+// Rutas públicas de entrada principal (carga directa)
+import Home from '../pages/Home/Home'
 import Afiliacion from '../pages/Afiliacion/Afiliacion'
 import ReportarAveria from '../pages/ReportarAveria/ReportarAveria'
 import DocumentosPublicos from '../pages/Documentos/DocumentosPublicos'
@@ -13,34 +18,58 @@ import AccesoDenegado from '../pages/AccesoDenegado/AccesoDenegado'
 import RecuperarPassword from '../pages/RecuperarPassword/RecuperarPassword'
 import RestablecerPassword from '../pages/RestablecerPassword/RestablecerPassword'
 import VerificarCuenta from '../pages/VerificarCuenta/VerificarCuenta'
-import DashboardHome from '../pages/Dashboard/DashboardHome'
-import Abonados from '../pages/Dashboard/Abonados'
-import SolicitudesPajaAgua from '../pages/Dashboard/SolicitudesPajaAgua'
-import SolicitudesCambioPropietario from '../pages/Dashboard/SolicitudesCambioPropietario'
-import SolicitudesCambioRepresentante from '../pages/Dashboard/SolicitudesCambioRepresentante'
-import SolicitudesCambioMedidor from '../pages/Dashboard/SolicitudesCambioMedidor'
-import SolicitudesOtro from '../pages/Dashboard/SolicitudesOtro'
-import SolicitudesConexion from '../pages/Dashboard/SolicitudesConexion'
-import NuevaPajaAgua from '../pages/Dashboard/NuevaPajaAgua'
-import Inventario from '../pages/Dashboard/Inventario'
-import MovimientosStock from '../pages/Dashboard/MovimientosStock'
-import Proveedores from '../pages/Dashboard/Proveedores'
-import AveriasAdmin from '../pages/Dashboard/AveriasAdmin'
-import ActividadFontanero from '../pages/Dashboard/ActividadFontanero'
-import MisAverias from '../pages/Dashboard/MisAverias'
-import Publicaciones from '../pages/Dashboard/Publicaciones'
-import DocumentosAdmin from '../pages/Dashboard/DocumentosAdmin'
-import Seguridad from '../pages/Dashboard/Seguridad'
-import PerfilEditar from '../pages/Dashboard/PerfilEditar'
-import PerfilContrasena from '../pages/Dashboard/PerfilContrasena'
-import Reportes from '../pages/Dashboard/Reportes'
-import { ROLES_REPORTES } from '../lib/exportacionReportes'
-import ContactoAsadaPage from '../pages/Dashboard/ContactoAsadaPage'
-import HorarioAsadaPage from '../pages/Dashboard/HorarioAsadaPage'
-import EmpleadosPage from '../pages/Dashboard/EmpleadosPage'
-import DocumentosOficialesPage from '../pages/Dashboard/DocumentosOficialesPage'
-import Bitacora from '../pages/Dashboard/Bitacora'
-import Componentes from '../pages/Dashboard/Componentes'
+
+// Rutas del Dashboard divididas en chunks diferidos (Code Splitting con React.lazy)
+// Esto aísla librerías pesadas como recharts, jspdf, html2canvas y docx del bundle inicial.
+const DashboardHome = lazy(() => import('../pages/Dashboard/DashboardHome'))
+const Abonados = lazy(() => import('../pages/Dashboard/Abonados'))
+const SolicitudesPajaAgua = lazy(
+  () => import('../pages/Dashboard/SolicitudesPajaAgua'),
+)
+const SolicitudesCambioPropietario = lazy(
+  () => import('../pages/Dashboard/SolicitudesCambioPropietario'),
+)
+const SolicitudesCambioRepresentante = lazy(
+  () => import('../pages/Dashboard/SolicitudesCambioRepresentante'),
+)
+const SolicitudesCambioMedidor = lazy(
+  () => import('../pages/Dashboard/SolicitudesCambioMedidor'),
+)
+const SolicitudesOtro = lazy(() => import('../pages/Dashboard/SolicitudesOtro'))
+const SolicitudesConexion = lazy(
+  () => import('../pages/Dashboard/SolicitudesConexion'),
+)
+const NuevaPajaAgua = lazy(() => import('../pages/Dashboard/NuevaPajaAgua'))
+const Inventario = lazy(() => import('../pages/Dashboard/Inventario'))
+const MovimientosStock = lazy(
+  () => import('../pages/Dashboard/MovimientosStock'),
+)
+const Proveedores = lazy(() => import('../pages/Dashboard/Proveedores'))
+const AveriasAdmin = lazy(() => import('../pages/Dashboard/AveriasAdmin'))
+const ActividadFontanero = lazy(
+  () => import('../pages/Dashboard/ActividadFontanero'),
+)
+const MisAverias = lazy(() => import('../pages/Dashboard/MisAverias'))
+const Publicaciones = lazy(() => import('../pages/Dashboard/Publicaciones'))
+const DocumentosAdmin = lazy(() => import('../pages/Dashboard/DocumentosAdmin'))
+const Seguridad = lazy(() => import('../pages/Dashboard/Seguridad'))
+const PerfilEditar = lazy(() => import('../pages/Dashboard/PerfilEditar'))
+const PerfilContrasena = lazy(
+  () => import('../pages/Dashboard/PerfilContrasena'),
+)
+const Reportes = lazy(() => import('../pages/Dashboard/Reportes'))
+const ContactoAsadaPage = lazy(
+  () => import('../pages/Dashboard/ContactoAsadaPage'),
+)
+const HorarioAsadaPage = lazy(
+  () => import('../pages/Dashboard/HorarioAsadaPage'),
+)
+const EmpleadosPage = lazy(() => import('../pages/Dashboard/EmpleadosPage'))
+const DocumentosOficialesPage = lazy(
+  () => import('../pages/Dashboard/DocumentosOficialesPage'),
+)
+const Bitacora = lazy(() => import('../pages/Dashboard/Bitacora'))
+const Componentes = lazy(() => import('../pages/Dashboard/Componentes'))
 
 function AppRoutes() {
   return (
@@ -65,7 +94,9 @@ function AppRoutes() {
         path="/dashboard"
         element={
           <ProtectedRoute>
-            <DashboardLayout />
+            <Suspense fallback={<RouteLoadingFallback mensaje="Cargando panel institucional..." />}>
+              <DashboardLayout />
+            </Suspense>
           </ProtectedRoute>
         }
       >
@@ -273,7 +304,9 @@ function AppRoutes() {
           }
         />
         {/* Referencia de componentes: solo en desarrollo (npm run dev). */}
-        {import.meta.env.DEV && <Route path="componentes" element={<Componentes />} />}
+        {import.meta.env.DEV && (
+          <Route path="componentes" element={<Componentes />} />
+        )}
       </Route>
 
       <Route
@@ -281,9 +314,7 @@ function AppRoutes() {
         element={
           <div className="flex min-h-screen items-center justify-center bg-primary-50">
             <div className="text-center">
-              <h1 className="text-6xl font-bold text-primary-700">
-                404
-              </h1>
+              <h1 className="text-6xl font-bold text-primary-700">404</h1>
               <p className="mt-4 text-lg text-primary-600">
                 Página no encontrada
               </p>
