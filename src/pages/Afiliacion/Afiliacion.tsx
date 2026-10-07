@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { MB } from '../../lib/validaciones'
 
 const MAX_TAMANO_DOCUMENTO = 5 * MB
-import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
+import Recaptcha, { type RecaptchaRef, RECAPTCHA_HABILITADO, tokenInicialRecaptcha } from '../../components/common/Recaptcha'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
@@ -171,7 +171,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const [enviado, setEnviado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   // Token de la casilla "No soy un robot" del último paso.
-  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(null)
+  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(tokenInicialRecaptcha)
   const recaptchaRef = useRef<RecaptchaRef>(null)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
@@ -559,7 +559,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
       // reiniciar la casilla, porque reintentar con el mismo token siempre
       // sería rechazado por el backend.
       recaptchaRef.current?.reiniciar()
-      setTokenRecaptcha(null)
+      setTokenRecaptcha(tokenInicialRecaptcha())
       const mensaje =
         error instanceof Error && error.message
           ? error.message
@@ -1189,7 +1189,9 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
                 {/* Verificación anti-bots: va en el último paso, justo
                     antes de enviar, porque el token dura pocos minutos. */}
+                {RECAPTCHA_HABILITADO && (
                 <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+              )}
 
                 {errorSubmit && (
                   <Alerta tipo="error">
