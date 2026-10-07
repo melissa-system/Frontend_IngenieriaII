@@ -6,7 +6,7 @@ import {
 } from '../../components/Services/erroresApi'
 import { Link } from 'react-router-dom'
 import { crearAveria } from '../../components/Services/averias.service'
-import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
+import Recaptcha, { type RecaptchaRef, RECAPTCHA_HABILITADO, tokenInicialRecaptcha } from '../../components/common/Recaptcha'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 import { partirNombreCompleto } from '../../lib/nombres'
@@ -112,7 +112,7 @@ function ReportarAveria() {
 
   // Token de la casilla "No soy un robot". Sin él no se habilita el envío,
   // y el backend además lo exige (un bot podría saltarse el frontend).
-  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(null)
+  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(tokenInicialRecaptcha)
   const recaptchaRef = useRef<RecaptchaRef>(null)
 
   const nombreFinal =
@@ -172,7 +172,7 @@ function ReportarAveria() {
       // reiniciar la casilla, porque reintentar con el mismo token siempre
       // sería rechazado por el backend.
       recaptchaRef.current?.reiniciar()
-      setTokenRecaptcha(null)
+      setTokenRecaptcha(tokenInicialRecaptcha())
       console.error('Error al enviar la avería:', error)
       setErrores(erroresPorCampo<CampoAveria>(error, { descripcion: 'detalle' }))
       enfocarPrimerError()
@@ -519,7 +519,9 @@ function ReportarAveria() {
                 </Alerta>
               )}
 
-              <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+              {RECAPTCHA_HABILITADO && (
+                <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+              )}
 
               <Button
                 variant="primary"

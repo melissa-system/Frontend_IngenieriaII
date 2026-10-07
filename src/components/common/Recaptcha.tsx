@@ -13,6 +13,19 @@ const CLAVE_SITIO =
   (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined) ??
   (import.meta.env.DEV ? CLAVE_PRUEBA_GOOGLE : undefined)
 
+// Interruptor de reCAPTCHA. Está apagado mientras se revisa por qué la
+// verificación de Google no funciona; para volver a encenderlo basta con
+// VITE_RECAPTCHA_HABILITADO=true en el .env (y RECAPTCHA_HABILITADO=true en
+// el backend). Apagado, los formularios públicos no muestran la casilla y
+// envían este valor fijo, que el backend ignora.
+export const RECAPTCHA_HABILITADO = import.meta.env.VITE_RECAPTCHA_HABILITADO === 'true'
+export const TOKEN_SIN_RECAPTCHA = 'recaptcha-desactivado'
+
+// Valor inicial del token en un formulario: sin reCAPTCHA el envío queda
+// habilitado desde el principio.
+export const tokenInicialRecaptcha = (): string | null =>
+  RECAPTCHA_HABILITADO ? null : TOKEN_SIN_RECAPTCHA
+
 const URL_SCRIPT = 'https://www.google.com/recaptcha/api.js?render=explicit'
 const ID_SCRIPT = 'recaptcha-script'
 
