@@ -27,14 +27,22 @@ export interface MovimientoInventario {
   fecha_movimiento: string;
 }
 
+// Clasificaciones vigentes de artículos. 'inmueble' es un valor legado de
+// datos antiguos que puede seguir llegando desde la base.
+export type ClasificacionArticulo =
+  | 'articulo'
+  | 'materiales'
+  | 'herramientas'
+  | 'seguridad'
+  | 'productos'
+  | 'inmueble';
+
 export interface Articulo {
   id: number;
   nombre: string;
   descripcion: string;
-  clasificacion: 'inmueble' | 'articulo';
+  clasificacion: ClasificacionArticulo;
   cantidad_disponible: number;
-  umbral_minimo?: number;
-  stockBajo?: boolean;
   fecha_ingreso: string;
   ubicacion: string;
   persona_recibe: string;
@@ -48,9 +56,8 @@ export interface Articulo {
 export interface CrearArticuloPayload {
   nombre: string;
   descripcion: string;
-  clasificacion: 'inmueble' | 'articulo';
+  clasificacion: ClasificacionArticulo;
   cantidad: number;
-  umbralMinimo?: number;
   fechaIngreso?: string;
   ubicacion: string;
   proveedorId: number;
@@ -68,7 +75,6 @@ export interface FiltrosArticulos {
   busqueda?: string;
   clasificacion?: string;
   estado?: string;
-  soloStockBajo?: boolean;
 }
 
 
@@ -87,9 +93,6 @@ export const obtenerArticulos = async (
     }
     if (filtros.estado && filtros.estado !== 'Todos') {
       params.estado = filtros.estado;
-    }
-    if (filtros.soloStockBajo) {
-      params.soloStockBajo = 'true';
     }
 
     const { data } = await apiClient.get<Articulo[]>('/api/articulos', {

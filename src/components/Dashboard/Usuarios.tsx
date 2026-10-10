@@ -22,8 +22,10 @@ import { esCorreo, MENSAJES_VALIDACION } from '../../lib/validaciones';
 import { passwordCumpleMinimos } from '../../lib/passwordReset.service';
 import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../common/CampoError';
 import Modal, { ModalTitulo } from '../ui/Modal'
+import { IconoEditar, IconoVer } from '../ui/IconosAccion'
 import Table from '../ui/Table'
 import Button from '../ui/Button'
+import Paginador from '../ui/Paginador'
 import PageHeader from '../ui/PageHeader'
 
 type ErroresUsuario = Partial<Record<'email' | 'password' | 'rol', string>>;
@@ -52,6 +54,16 @@ function getRoleBadgeColor(roleName: string) {
 }
 
 const USUARIOS_POR_PAGINA = 8;
+
+function formatearFechaCorta(fecha: string) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return fecha;
+  return d.toLocaleDateString('es-CR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 // Interruptor para activar/desactivar un usuario. No guarda nada por sí
 // mismo: solo dispara la confirmación que luego llama al backend.
@@ -125,6 +137,9 @@ export const Usuarios: React.FC = () => {
     nuevoEstado: boolean;
   } | null>(null);
   const [guardandoEstado, setGuardandoEstado] = useState(false);
+
+  // Modal Ver Detalle
+  const [usuarioDetalle, setUsuarioDetalle] = useState<Usuario | null>(null);
 
   const cargarDatos = async () => {
     try {
@@ -343,8 +358,9 @@ export const Usuarios: React.FC = () => {
 
       <Notificar mensaje={error} tipo="error" />
 
-      {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      {/* Barra de Filtros y Búsqueda, a la par en una sola fila (unificado
+          con Inventario, Proveedores, Abonados y Empleados) */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-96">
           <svg
             className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
@@ -383,38 +399,36 @@ export const Usuarios: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Selector de Rol */}
-          <select
-            value={filtroRol}
-            onChange={(e) => {
-              setFiltroRol(e.target.value);
-              setPagina(1);
-            }}
-            className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-          >
-            <option value="Todos">Todos los roles</option>
-            {rolesUnicos.map((rol) => (
-              <option key={rol} value={rol}>
-                {ROL_LABELS[rol] || rol}
-              </option>
-            ))}
-          </select>
+        {/* Selector de Rol */}
+        <select
+          value={filtroRol}
+          onChange={(e) => {
+            setFiltroRol(e.target.value);
+            setPagina(1);
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los roles</option>
+          {rolesUnicos.map((rol) => (
+            <option key={rol} value={rol}>
+              {ROL_LABELS[rol] || rol}
+            </option>
+          ))}
+        </select>
 
-          {/* Selector de Estado */}
-          <select
-            value={filtroEstado}
-            onChange={(e) => {
-              setFiltroEstado(e.target.value as any);
-              setPagina(1);
-            }}
-            className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="activos">Solo Activos</option>
-            <option value="inactivos">Solo Inactivos</option>
-          </select>
-        </div>
+        {/* Selector de Estado */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as any);
+            setPagina(1);
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="activos">Solo Activos</option>
+          <option value="inactivos">Solo Inactivos</option>
+        </select>
       </div>
 
       {/* Tabla de Usuarios */}
@@ -422,32 +436,17 @@ export const Usuarios: React.FC = () => {
         cabecera={['ID', 'Usuario / Correo', 'Rol Asignado', 'Vinculado a', 'Estado', 'Fecha Registro', 'Acciones']}
         pie={
           <>
-{/* Paginador */}
-        {totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-primary-100 px-6 py-3.5 text-sm bg-primary-50/50">
-            <span className="text-xs text-primary-600">
-              Página {paginaActual} de {totalPaginas} ({usuariosFiltrados.length} usuarios)
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={paginaActual === 1}
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                className="rounded-full border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                disabled={paginaActual === totalPaginas}
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                className="rounded-full border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
+            {/* Paginador */}
+            {!cargando && usuariosFiltrados.length > 0 && (
+              <Paginador
+                total={usuariosFiltrados.length}
+                pagina={paginaActual}
+                porPagina={USUARIOS_POR_PAGINA}
+                onCambiar={setPagina}
+                etiqueta="usuarios"
+                filtro={busqueda}
+              />
+            )}
           </>
         }
       >
@@ -538,26 +537,25 @@ export const Usuarios: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-primary-500">
-                        {new Date(u.createdAt).toLocaleDateString('es-CR', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatearFechaCorta(u.createdAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalEditarRol({
-                              usuario: u,
+                        <div className="flex items-center gap-1">
+                          <IconoVer
+                            titulo={`Ver detalle de ${u.email}`}
+                            onClick={() => setUsuarioDetalle(u)}
+                          />
+                          <IconoEditar
+                            titulo={`Editar rol de ${u.email}`}
+                            onClick={() => {
+                              setModalEditarRol({
+                                usuario: u,
                                 nuevoRoleId: u.role_id || rolesVisibles[0]?.id || 1,
-                            });
-                            setErrorModalRol(null);
-                          }}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Editar
-                        </button>
+                              });
+                              setErrorModalRol(null);
+                            }}
+                          />
+                        </div>
                       </td>
                     </tr>
                   );
@@ -826,6 +824,128 @@ export const Usuarios: React.FC = () => {
                 onClick={() => setModalCambioEstado(null)}
                 disabled={guardandoEstado}>
                 Cancelar
+              </Button>
+            </div>
+</Modal>
+      )}
+
+      {/* MODAL VER DETALLE DE USUARIO */}
+      {usuarioDetalle && (
+        <Modal size="md">
+            <ModalTitulo>
+              Detalle del usuario
+            </ModalTitulo>
+
+            <div className="mt-4 space-y-4">
+              {/* Datos de la cuenta */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">
+                  Cuenta
+                </p>
+                <dl className="mt-2 space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">ID</dt>
+                    <dd className="font-medium text-primary-900">{usuarioDetalle.id}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Correo</dt>
+                    <dd className="font-medium break-all text-right text-primary-900">
+                      {usuarioDetalle.email}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Usuario</dt>
+                    <dd className="font-medium text-primary-900">
+                      {usuarioDetalle.username || '—'}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Estado</dt>
+                    <dd>
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          usuarioDetalle.isActive
+                            ? 'bg-exito-100 text-exito-800'
+                            : 'bg-error-100 text-error-800'
+                        }`}
+                      >
+                        {usuarioDetalle.isActive ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Fecha de registro</dt>
+                    <dd className="font-medium text-primary-900">
+                      {formatearFechaCorta(usuarioDetalle.createdAt)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Rol asignado */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">
+                  Rol asignado
+                </p>
+                <span
+                  className={`mt-2 inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleBadgeColor(usuarioDetalle.role)}`}
+                >
+                  {ROL_LABELS[usuarioDetalle.role] || usuarioDetalle.role}
+                </span>
+                {(() => {
+                  const rolDisponible = rolesDisponibles.find(
+                    (r) => r.name === usuarioDetalle.role || r.id === usuarioDetalle.role_id,
+                  );
+                  return rolDisponible?.description ? (
+                    <p className="mt-2 text-xs text-primary-500">
+                      {rolDisponible.description}
+                    </p>
+                  ) : null;
+                })()}
+              </div>
+
+              {/* Perfiles asociados (vínculos con abonados / empleados) */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">
+                  Perfiles asociados
+                </p>
+                {usuarioDetalle.vinculos.length === 0 ? (
+                  <p className="mt-2 text-sm text-primary-500">
+                    Esta cuenta no tiene abonados ni empleados asociados.
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {usuarioDetalle.vinculos.map((v) => (
+                      <li
+                        key={`${v.tipo}-${v.id}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-primary-100 bg-white px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-primary-900">{v.nombre}</p>
+                          <p className="text-xs text-primary-500">Cédula: {v.cedula}</p>
+                        </div>
+                        <span
+                          className={`flex-none rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            v.tipo === 'Abonado'
+                              ? 'bg-primary-100 text-primary-700 border border-primary-200'
+                              : 'bg-info-100 text-info-800 border border-info-200'
+                          }`}
+                        >
+                          {v.tipo}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setUsuarioDetalle(null)}>
+                Cerrar
               </Button>
             </div>
 </Modal>

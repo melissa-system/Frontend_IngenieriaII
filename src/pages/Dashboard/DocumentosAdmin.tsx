@@ -47,11 +47,20 @@ function DocumentosAdmin() {
   const [filtroTipo, setFiltroTipo] = useState<TipoDocumento | ''>('')
   const [filtroNombreInput, setFiltroNombreInput] = useState('')
   const [filtroNombre, setFiltroNombre] = useState('')
+  // Visibilidad se filtra en cliente sobre lo que ya devolvió el backend
+  // (tipo y nombre ya van como query params en obtenerDocumentos).
+  const [filtroVisibilidad, setFiltroVisibilidad] = useState<
+    VisibilidadDocumento | ''
+  >('')
 
   useEffect(() => {
     const t = setTimeout(() => setFiltroNombre(filtroNombreInput), 300)
     return () => clearTimeout(t)
   }, [filtroNombreInput])
+
+  const documentosVisibles = filtroVisibilidad
+    ? documentos.filter((doc) => doc.visibilidad === filtroVisibilidad)
+    : documentos
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm, setUploadForm] = useState<{
@@ -317,7 +326,14 @@ function DocumentosAdmin() {
 
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={filtroNombreInput}
+              onChange={(e) => setFiltroNombreInput(e.target.value)}
+              placeholder="Buscar por nombre..."
+              className="w-56 rounded-full border border-primary-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value as TipoDocumento | '')}
@@ -330,13 +346,20 @@ function DocumentosAdmin() {
                 </option>
               ))}
             </select>
-            <input
-              type="search"
-              value={filtroNombreInput}
-              onChange={(e) => setFiltroNombreInput(e.target.value)}
-              placeholder="Buscar por nombre..."
-              className="w-56 rounded-full border border-primary-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
+            <select
+              value={filtroVisibilidad}
+              onChange={(e) =>
+                setFiltroVisibilidad(e.target.value as VisibilidadDocumento | '')
+              }
+              className="rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            >
+              <option value="">Todas las visibilidades</option>
+              {VISIBILIDADES_DOCUMENTO.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
           </div>
           <Button
             variant="primary"
@@ -350,13 +373,13 @@ function DocumentosAdmin() {
           <ErrorState mensaje={docLoadError} onReintentar={cargarDocumentos} />
         ) : docLoading ? (
           <Cargando texto="Cargando documentos..." />
-        ) : documentos.length === 0 ? (
-          <EmptyState titulo={filtroTipo || filtroNombre
+        ) : documentosVisibles.length === 0 ? (
+          <EmptyState titulo={filtroTipo || filtroNombre || filtroVisibilidad
               ? 'No se encontraron documentos con ese filtro.'
               : 'Todavía no hay documentos cargados.'} />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {documentos.map((doc) => (
+            {documentosVisibles.map((doc) => (
               <div
                 key={doc.id}
                 className="flex flex-col rounded-xl border border-primary-100 bg-white p-5 shadow-sm"

@@ -177,12 +177,19 @@ function guardarPerfil(userId: string, perfil: PerfilActivo): void {
 }
 
 // POST /auth/cambiar-perfil: re-emite el Access Token con el rol del
-// vínculo elegido (verificado en el backend, ver AuthService.cambiarPerfilToken).
-// 'base' no necesita llamada — el token que ya se tiene alcanza. Devuelve si
-// se pudo aplicar, para que quien llama decida si de verdad queda en ese
-// perfil o se queda/vuelve a 'base'.
-async function sincronizarPerfilActivo(perfil: PerfilActivo): Promise<boolean> {
-  if (perfil === 'base') return true
+// perfil elegido (verificado en el backend, ver AuthService.cambiarPerfilToken).
+// 'base' también acepta el backend (re-emite con el rol real de la cuenta),
+// así que la llamada se salta SOLO si el token actual ya es de rol base
+// (tokenEsBase): si el usuario venía de ver "como Abonado/Empleado", el
+// token vigente trae ese rol y hay que reemitirlo o las llamadas del
+// dashboard del rol base responderían 403. Devuelve si se pudo aplicar,
+// para que quien llama decida si de verdad queda en ese perfil o se
+// queda/vuelve a 'base'.
+async function sincronizarPerfilActivo(
+  perfil: PerfilActivo,
+  tokenEsBase: boolean,
+): Promise<boolean> {
+  if (perfil === 'base' && tokenEsBase) return true
   try {
     const { data } = await apiClient.post<{ accessToken: string }>('/auth/cambiar-perfil', {
       perfil,
@@ -214,7 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         aplicarSesion(data, setUser)
         const userId = String(data.user.id)
         const perfilGuardado = leerPerfilGuardado(userId)
-        const aplicado = await sincronizarPerfilActivo(perfilGuardado)
+        // El token recién emitido por /auth/refresh siempre es de rol base.
+        const aplicado = await sincronizarPerfilActivo(perfilGuardado, true)
         if (cancelado) return
         setPerfilActivo(aplicado ? perfilGuardado : 'base')
         setStatus('authenticated')
@@ -255,7 +263,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setSesionExpirada(false)
       const userId = String(data.user.id)
       const perfilGuardado = leerPerfilGuardado(userId)
-      const aplicado = await sincronizarPerfilActivo(perfilGuardado)
+      // El token recién emitido por /auth/login siempre es de rol base.
+      const aplicado = await sincronizarPerfilActivo(perfilGuardado, true)
       setPerfilActivo(aplicado ? perfilGuardado : 'base')
       setStatus('authenticated')
       void cargarDatosExtendidos(userId, setUser)
@@ -284,15 +293,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!user) return
       if (perfil === 'abonado' && !user.vinculos.abonado) return
       if (perfil === 'empleado' && !user.vinculos.empleado?.rol) return
+      // El token vigente refleja el perfil ACTUAL (perfilActivo): al volver
+      // a 'base' desde un perfil no-base hay que reemitirlo con el rol real
+      // de la cuenta, o el dashboard del rol base recibiría 403 del backend.
       // Solo queda en el perfil pedido si el backend de verdad re-emitió el
       // token con ese rol (ver sincronizarPerfilActivo) — si no, no tiene
       // sentido mostrar un menú al que las llamadas van a responder 403.
-      const aplicado = await sincronizarPerfilActivo(perfil)
+      const aplicado = await sincronizarPerfilActivo(perfil, perfilActivo === 'base')
       if (!aplicado) return
       setPerfilActivo(perfil)
       guardarPerfil(user.id, perfil)
     },
-    [user],
+    [user, perfilActivo],
   )
 
   // apiClient no es un componente de React: se le avisa por fuera cada vez

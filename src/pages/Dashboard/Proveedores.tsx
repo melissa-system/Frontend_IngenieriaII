@@ -33,6 +33,7 @@ import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Button from '../../components/ui/Button'
 import Table from '../../components/ui/Table'
 import PageHeader from '../../components/ui/PageHeader'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 function getEstadoColor(estado: string) {
   if (estado === 'Activo') return 'bg-exito-100 text-exito-700'
@@ -107,6 +108,11 @@ function Proveedores() {
   // Búsqueda y paginación
   const [search, setSearch] = useState('')
   const [pagina, setPagina] = useState(1)
+  // Filtro de estado: por defecto solo activos, para que los proveedores
+  // desactivados (eliminados) "desaparezcan" de la vista como si se hubieran
+  // borrado; se recuperan cambiando el filtro a "Inactivos"/"Todos".
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Activo')
+  const [filtroTipo, setFiltroTipo] = useState<'Todos' | 'Jurídico' | 'Físico'>('Todos')
 
   // Modales
   const [modalNuevoProveedor, setModalNuevoProveedor] = useState(false)
@@ -269,10 +275,18 @@ function Proveedores() {
   // Búsqueda y paginación client-side: si la lista encoge, paginaActual se
   // autocorrige y nunca queda apuntando a una página vacía.
   const q = normalizarBusqueda(search)
+  const conTipo =
+    filtroTipo === 'Todos'
+      ? proveedores
+      : proveedores.filter((p) => p.tipo === filtroTipo)
+  const conEstado =
+    filtroEstado === 'Todos'
+      ? conTipo
+      : conTipo.filter((p) => p.estado === filtroEstado)
   const filtrados =
     q === ''
-      ? proveedores
-      : proveedores.filter(
+      ? conEstado
+      : conEstado.filter(
           (p) =>
             normalizarBusqueda(p.nombre).includes(q) ||
             normalizarBusqueda(p.contacto ?? '').includes(q) ||
@@ -337,40 +351,69 @@ function Proveedores() {
       <Notificar mensaje={mensajeExito} />
       {errorGeneral && <ErrorState mensaje={errorGeneral} onReintentar={cargarDatos} />}
 
-      {/* Búsqueda */}
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, contacto, teléfono, correo o dirección..."
-          value={search}
-          onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => manejarBusqueda('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+      {/* Búsqueda y filtros a la par, en una sola fila */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, contacto, teléfono, correo o dirección..."
+            value={search}
+            onChange={(e) => manejarBusqueda(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => manejarBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <select
+          value={filtroTipo}
+          onChange={(e) => {
+            setFiltroTipo(e.target.value as 'Todos' | 'Jurídico' | 'Físico')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los tipos</option>
+          <option value="Jurídico">Jurídico</option>
+          <option value="Físico">Físico</option>
+        </select>
+
+        {/* Los desactivados quedan ocultos por defecto (soft delete) */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as 'Todos' | 'Activo' | 'Inactivo')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+          <option value="Todos">Todos los estados</option>
+        </select>
       </div>
 
       {/* Tabla de Proveedores */}
@@ -382,7 +425,11 @@ function Proveedores() {
             ) : filtrados.length === 0 ? (
               <FilaVacia columnas={7} titulo={search
                     ? `No encontramos proveedores para "${search}"`
-                    : 'No hay proveedores registrados.'} />
+                    : filtroTipo !== 'Todos'
+                      ? `No hay proveedores de tipo ${filtroTipo}.`
+                      : filtroEstado === 'Todos'
+                        ? 'No hay proveedores registrados.'
+                        : `No hay proveedores ${filtroEstado === 'Activo' ? 'activos' : 'inactivos'}.`} />
             ) : (
               filasVisibles.map((p) => (
                 <tr key={p.id} className="hover:bg-primary-50/50">
@@ -416,9 +463,9 @@ function Proveedores() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
+                    <div className="flex items-center gap-1">
+                      <IconoEditar
+                        titulo={`Editar ${p.nombre}`}
                         onClick={() => {
                           setProveedorAEditar(p)
                           setFormProveedor({
@@ -431,17 +478,23 @@ function Proveedores() {
                           })
                           setErrorFormProveedor('')
                         }}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <IconoVer
+                        titulo={`Ver detalle de ${p.nombre}`}
                         onClick={() => setProveedorAVer(p)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Ver
-                      </button>
+                      />
+                      {/* Eliminar = desactivar (soft delete), mismo criterio
+                          que en artículos: reutiliza el modal de confirmación
+                          de cambio de estado. Solo aparece en activos. */}
+                      {p.estado === 'Activo' && (
+                        <IconoEliminar
+                          titulo={`Desactivar ${p.nombre}`}
+                          onClick={() => {
+                            setErrorCambioEstado(null)
+                            setCambioEstado({ proveedor: p, nuevo: 'Inactivo' })
+                          }}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

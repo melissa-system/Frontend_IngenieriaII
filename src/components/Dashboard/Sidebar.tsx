@@ -186,13 +186,22 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   }
   const isSubmenuActive = (items: SubMenuItem[]) => rutasDe(items).some(isActive)
 
-  // Cambia el perfil activo (rol base <-> Abonado) y vuelve al home del
-  // dashboard, igual que el switcher del DashboardHeader — evita quedar en
-  // una pantalla que ya no aplica al perfil nuevo (ej. Usuarios).
+  // Cambia el perfil activo (rol base <-> Abonado) y siempre termina en el
+  // home del dashboard del rol elegido.
+  //
+  // IMPORTANTE: el navigate va ANTES de cambiarPerfil, no después. navigate()
+  // de React Router aplica la ubicación de forma síncrona y fuerza un render
+  // antes de que setPerfilActivo (una simple setState) llegue a pintarse; si
+  // se cambiara el rol estando todavía en una pantalla con RoleRoute del rol
+  // anterior, o en un dashboard del rol viejo con el token ya nuevo, alguna
+  // llamada respondería 403 y GestorAcceso nos mandaría a /acceso-denegado.
+  // Navegando primero, el dashboard intermedio que monta es el del rol VIEJO
+  // con el token VIEJO (coherente) y, al aplicarse el cambio, se re-renderiza
+  // el del rol NUEVO con el token NUEVO (también coherente).
   async function seleccionarPerfil(perfil: PerfilActivo) {
-    await cambiarPerfil(perfil)
     setPerfilMenuOpen(false)
     navigate('/dashboard')
+    await cambiarPerfil(perfil)
   }
 
   // Renderiza una opción de submenú: enlace directo (hoja) o, si trae su

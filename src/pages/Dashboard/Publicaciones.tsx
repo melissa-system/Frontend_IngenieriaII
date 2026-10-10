@@ -7,6 +7,7 @@ import {
   crearPublicacion,
   obtenerTodasLasPublicaciones,
   actualizarPublicacion,
+  eliminarPublicacion,
   LIMITES_PUBLICACION,
   type Publicacion,
 } from '../../components/Services/publicaciones.service'
@@ -67,6 +68,7 @@ function Publicaciones() {
   const [submitting, setSubmitting] = useState(false)
 
   const [togglingId, setTogglingId] = useState<string | number | null>(null)
+  const [eliminandoId, setEliminandoId] = useState<string | number | null>(null)
 
   async function cargarPublicaciones() {
     setLoading(true)
@@ -177,6 +179,29 @@ function Publicaciones() {
     }
   }
 
+  // Eliminar es definitivo (mismo criterio que en documentos): se pide
+  // confirmación antes y el backend borra el registro y lo audita.
+  async function handleEliminar(pub: Publicacion) {
+    const confirmado = window.confirm(
+      `¿Eliminar PERMANENTEMENTE "${pub.titulo}"?\n\nEsta acción no se puede deshacer: se borra el registro completo de la publicación.`,
+    )
+    if (!confirmado) return
+
+    setEliminandoId(pub.id)
+    try {
+      await eliminarPublicacion(pub.id)
+      setPublicaciones((prev) => prev.filter((p) => p.id !== pub.id))
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo eliminar la publicación.',
+      )
+    } finally {
+      setEliminandoId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
@@ -253,6 +278,14 @@ function Publicaciones() {
                         ? 'Despublicar'
                         : 'Publicar'}
                   </button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    type="button"
+                    onClick={() => handleEliminar(pub)}
+                    disabled={togglingId === pub.id || eliminandoId === pub.id}>
+                    {eliminandoId === pub.id ? 'Eliminando...' : 'Eliminar'}
+                  </Button>
                 </div>
               </div>
             ))}

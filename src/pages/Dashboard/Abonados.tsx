@@ -46,6 +46,7 @@ import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import PageHeader from '../../components/ui/PageHeader'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 interface FormState {
   tipo_abonado: TipoAbonado
@@ -119,6 +120,22 @@ function formatearFechaHistorial(fecha: string) {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
+}
+
+// Mismo formato que la columna "Fecha Registro" de usuarios. Si viene solo
+// la fecha (YYYY-MM-DD) se arma una Date local para no correrla un día
+// por la zona horaria.
+function formatearFechaRegistro(fecha: string) {
+  const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha)
+  const d = soloFecha
+    ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+    : new Date(fecha)
+  if (Number.isNaN(d.getTime())) return fecha
+  return d.toLocaleDateString('es-CR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
 }
 
 // Interruptor para activar/desactivar un abonado. No guarda nada por sí
@@ -206,6 +223,11 @@ function Abonados() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
+  // Filtro de estado: por defecto solo activos, para que los abonados
+  // desactivados (eliminados) "desaparezcan" de la vista como si se
+  // hubieran borrado; se recuperan cambiando el filtro a "Todos".
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Activo')
+  const [filtroTipo, setFiltroTipo] = useState<'Todos' | TipoAbonado>('Todos')
   const [pagina, setPagina] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
@@ -337,10 +359,18 @@ function Abonados() {
 
   const q = normalizarBusqueda(search)
   const [orden, setOrden] = useState<OrdenTabla | null>(null)
+  const conTipo =
+    filtroTipo === 'Todos'
+      ? abonados
+      : abonados.filter((a) => a.tipo_abonado === filtroTipo)
+  const conEstado =
+    filtroEstado === 'Todos'
+      ? conTipo
+      : conTipo.filter((a) => a.estado === filtroEstado)
   const filtered =
     q === ''
-      ? abonados
-      : abonados.filter(
+      ? conEstado
+      : conEstado.filter(
           (a) =>
             normalizarBusqueda(nombreVisible(a)).includes(q) ||
             normalizarBusqueda(a.cedula).includes(q) ||
@@ -1166,8 +1196,8 @@ function Abonados() {
               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(a.estado)}`}>
                 {a.estado}
               </span>
-              <span className="font-medium text-primary-700">Registro:</span>
-              <span className="text-primary-900">{a.fecha_registro}</span>
+                  <span className="font-medium text-primary-700">Registro:</span>
+                  <span className="text-primary-900">{formatearFechaRegistro(a.fecha_registro)}</span>
             </div>
           </div>
 
@@ -1241,39 +1271,70 @@ function Abonados() {
 
       <Notificar mensaje={confirmacion} />
 
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
-          value={search}
-          onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => manejarBusqueda('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+      {/* Búsqueda y filtro a la par, en una sola fila */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
+            value={search}
+            onChange={(e) => manejarBusqueda(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => manejarBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Filtro por tipo de abonado */}
+        <select
+          value={filtroTipo}
+          onChange={(e) => {
+            setFiltroTipo(e.target.value as 'Todos' | TipoAbonado)
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los tipos</option>
+          <option value="Física">Física</option>
+          <option value="Jurídica">Jurídica</option>
+        </select>
+
+        {/* Los desactivados quedan ocultos por defecto (soft delete) */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as 'Todos' | 'Activo' | 'Inactivo')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+          <option value="Todos">Todos los estados</option>
+        </select>
       </div>
 
       {loadError ? (
@@ -1318,8 +1379,9 @@ function Abonados() {
                       </>
                     ) : (
                       <p className="mt-3 text-sm font-medium text-primary-600">
-                        Aún no hay abonados registrados. Usa el botón "+ Nuevo
-                        abonado" para crear el primero.
+                        {filtroEstado !== 'Todos'
+                          ? 'No hay abonados que coincidan con los filtros actuales.'
+                          : 'Aún no hay abonados registrados. Usa el botón "+ Nuevo abonado" para crear el primero.'}
                       </p>
                     )}
                   </td>
@@ -1358,23 +1420,29 @@ function Abonados() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-primary-500">{abonado.fecha_registro}</td>
+                    <td className="px-4 py-3 text-primary-500">{formatearFechaRegistro(abonado.fecha_registro)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
+                      <div className="flex items-center gap-1">
+                        <IconoEditar
+                          titulo={`Editar ${nombreVisible(abonado)}`}
                           onClick={() => openEditar(abonado)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
+                        />
+                        <IconoVer
+                          titulo={`Ver detalle de ${nombreVisible(abonado)}`}
                           onClick={() => openDetalle(abonado)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Ver
-                        </button>
+                        />
+                        {/* Eliminar = desactivar (soft delete), mismo criterio
+                            que en inventario: reutiliza el modal de
+                            confirmación de cambio de estado. */}
+                        {abonado.estado === 'Activo' && (
+                          <IconoEliminar
+                            titulo={`Desactivar ${nombreVisible(abonado)}`}
+                            onClick={() => {
+                              setErrorCambioEstado(null)
+                              setCambioEstado({ abonado, nuevo: 'Inactivo' })
+                            }}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
