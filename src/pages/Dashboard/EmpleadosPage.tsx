@@ -37,6 +37,8 @@ import {
 import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
+import Paginador from '../../components/ui/Paginador'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 const PUESTOS = [
   'Junta Directiva',
@@ -166,6 +168,11 @@ function EmpleadosPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  // Filtro de estado: por defecto solo activos, para que los empleados
+  // desactivados (eliminados) "desaparezcan" de la vista como si se
+  // hubieran borrado; se recuperan cambiando el filtro a "Todos".
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Activo')
+  const [filtroPuesto, setFiltroPuesto] = useState('Todos')
   const [pagina, setPagina] = useState(1)
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -226,7 +233,18 @@ function EmpleadosPage() {
     cargarEmpleados()
   }, [cargarEmpleados])
 
-  const filtered = empleados.filter((emp) => {
+  // Tipos de puesto presentes en los datos (por si llegan puestos fuera
+  // de la lista PUESTOS).
+  const puestosUnicos = [...new Set(empleados.map((emp) => emp.puesto))].sort()
+  const conPuesto =
+    filtroPuesto === 'Todos'
+      ? empleados
+      : empleados.filter((emp) => emp.puesto === filtroPuesto)
+  const conEstado =
+    filtroEstado === 'Todos'
+      ? conPuesto
+      : conPuesto.filter((emp) => emp.estado === filtroEstado)
+  const filtered = conEstado.filter((emp) => {
     if (!search) return true
     const t = normalizarBusqueda(search)
     return (
@@ -515,69 +533,89 @@ function EmpleadosPage() {
 
       {loadError && <ErrorState mensaje={loadError} onReintentar={cargarEmpleados} />}
 
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, cédula, puesto o teléfono…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => setSearch('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+      {/* Búsqueda y filtro a la par, en una sola fila */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, cédula, puesto o teléfono…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Filtro por tipo de puesto */}
+        <select
+          value={filtroPuesto}
+          onChange={(e) => {
+            setFiltroPuesto(e.target.value)
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los puestos</option>
+          {puestosUnicos.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+
+        {/* Los desactivados quedan ocultos por defecto (soft delete) */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as 'Todos' | 'Activo' | 'Inactivo')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+          <option value="Todos">Todos los estados</option>
+        </select>
       </div>
 
       <Table
         cabecera={['Nombre', 'Cédula', 'Puesto', 'Teléfono', 'Estado', 'Acciones']}
         pie={
           <>
-{totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-primary-100 px-4 py-3">
-            <p className="text-xs text-primary-500">
-              Página {paginaActual} de {totalPaginas} ({filtered.length}{' '}
-              resultado{filtered.length !== 1 ? 's' : ''})
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                disabled={paginaActual <= 1}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                disabled={paginaActual >= totalPaginas}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
+            {!loading && filtered.length > 0 && (
+              <Paginador
+                total={filtered.length}
+                pagina={paginaActual}
+                porPagina={EMPLEADOS_POR_PAGINA}
+                onCambiar={setPagina}
+                etiqueta="empleados"
+                filtro={search}
+              />
+            )}
           </>
         }
       >
@@ -586,7 +624,9 @@ function EmpleadosPage() {
             ) : filasVisibles.length === 0 ? (
               <FilaVacia columnas={6} titulo={search
                     ? 'No se encontraron empleados con ese criterio.'
-                    : 'No hay empleados registrados.'} />
+                    : filtroEstado === 'Todos'
+                      ? 'No hay empleados registrados.'
+                      : 'No hay empleados que coincidan con los filtros actuales.'} />
             ) : (
               filasVisibles.map((emp) => (
                 <tr
@@ -616,21 +656,24 @@ function EmpleadosPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
+                    <div className="flex items-center gap-1">
+                      <IconoEditar
+                        titulo={`Editar ${nombreVisible(emp)}`}
                         onClick={() => openEditar(emp)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <IconoVer
+                        titulo={`Ver detalle de ${nombreVisible(emp)}`}
                         onClick={() => openDetalle(emp)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Ver
-                      </button>
+                      />
+                      {/* Eliminar = desactivar (soft delete), mismo criterio
+                          que en inventario: reutiliza el modal de
+                          confirmación de cambio de estado. */}
+                      {emp.estado === 'Activo' && (
+                        <IconoEliminar
+                          titulo={`Desactivar ${nombreVisible(emp)}`}
+                          onClick={() => setCambioEstado(emp)}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>

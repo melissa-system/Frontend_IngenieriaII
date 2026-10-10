@@ -94,3 +94,15 @@ export const actualizarPublicacion = async (
     throw crearErrorApi(error, 'No se pudieron guardar los cambios.');
   }
 };
+
+// Eliminación definitiva (el backend borra el registro y lo audita en la
+// bitácora). Ruta de administración: va por apiClient con Access Token.
+export const eliminarPublicacion = async (
+  id: string | number,
+): Promise<void> => {
+  try {
+    await apiClient.delete(`${RESOURCE}/${id}`);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo eliminar la publicación.');
+  }
+};
