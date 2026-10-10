@@ -31,16 +31,30 @@ import {
   type MovimientoInventario,
   type Proveedor,
   type CrearArticuloPayload,
+  type ClasificacionArticulo,
 } from '../../components/Services/inventario.service'
 import Modal, { ModalTitulo } from '../../components/ui/Modal'
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import PageHeader from '../../components/ui/PageHeader'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 const CLASIFICACIONES = [
   { valor: 'articulo', etiqueta: 'Artículo' },
-  { valor: 'inmueble', etiqueta: 'Inmueble' },
+  { valor: 'materiales', etiqueta: 'Materiales' },
+  { valor: 'herramientas', etiqueta: 'Herramientas' },
+  { valor: 'seguridad', etiqueta: 'Seguridad' },
+  { valor: 'productos', etiqueta: 'Productos' },
 ] as const
+
+// Etiqueta legible de una clasificación; 'inmueble' es un valor legado de
+// datos antiguos que ya no se puede elegir pero todavía puede existir.
+function etiquetaClasificacion(valor: string) {
+  const encontrada = CLASIFICACIONES.find((c) => c.valor === valor)
+  if (encontrada) return encontrada.etiqueta
+  if (valor === 'inmueble') return 'Inmueble'
+  return valor
+}
 
 const ARTICULOS_POR_PAGINA = 10
 
@@ -52,7 +66,6 @@ type CampoArticulo =
   | 'proveedorId'
   | 'cantidad'
   | 'fechaIngreso'
-  | 'umbralMinimo'
 
 function hoyIso(): string {
   return new Date().toISOString().slice(0, 10)
@@ -64,8 +77,11 @@ function getEstadoColor(estado: string) {
 }
 
 function getClasificacionBadge(clasificacion: string) {
-  if (clasificacion === 'articulo') return 'bg-info-100 text-info-700'
-  return 'bg-acento-100 text-acento-700'
+  if (clasificacion === 'materiales') return 'bg-acento-100 text-acento-700'
+  if (clasificacion === 'herramientas') return 'bg-exito-100 text-exito-700'
+  if (clasificacion === 'seguridad') return 'bg-error-100 text-error-700'
+  if (clasificacion === 'productos') return 'bg-primary-100 text-primary-700'
+  return 'bg-info-100 text-info-700'
 }
 
 function formatearFechaHora(fechaIso: string): string {
@@ -133,7 +149,10 @@ function Inventario() {
   // Filtros & Búsqueda
   const [search, setSearch] = useState('')
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas')
-  const [filtroEstado, setFiltroEstado] = useState('Todos')
+  // Por defecto solo activos: los artículos "eliminados" (inactivos) quedan
+  // fuera de la vista como si se hubieran borrado; se recuperan cambiando
+  // el filtro a "Inactivos" o "Todos los estados".
+  const [filtroEstado, setFiltroEstado] = useState('activo')
   const [pagina, setPagina] = useState(1)
 
   // Modales
@@ -163,7 +182,6 @@ function Inventario() {
     descripcion: '',
     clasificacion: 'articulo',
     cantidad: 0,
-    umbralMinimo: 5,
     fechaIngreso: hoyIso(),
     ubicacion: '',
     proveedorId: 0,
@@ -265,7 +283,6 @@ function Inventario() {
       descripcion: '',
       clasificacion: 'articulo',
       cantidad: 0,
-      umbralMinimo: 5,
       fechaIngreso: hoyIso(),
       ubicacion: '',
       proveedorId: proveedores[0]?.id ?? 0,
@@ -282,7 +299,6 @@ function Inventario() {
       descripcion: articulo.descripcion,
       clasificacion: articulo.clasificacion,
       cantidad: articulo.cantidad_disponible,
-      umbralMinimo: articulo.umbral_minimo ?? 5,
       fechaIngreso: articulo.fecha_ingreso ? articulo.fecha_ingreso.slice(0, 10) : hoyIso(),
       ubicacion: articulo.ubicacion,
       proveedorId: articulo.proveedor?.id ?? proveedores[0]?.id ?? 0,
@@ -326,7 +342,6 @@ function Inventario() {
         proveedorId: [(v) => (Number(v) > 0 ? null : 'Debe seleccionar un proveedor válido.')],
         cantidad: editando ? [] : [requerido('La cantidad', true), entero('La cantidad', 0)],
         fechaIngreso: editando ? [] : [requerido('La fecha de ingreso', true), fecha({ noFutura: true })],
-        umbralMinimo: [requerido('El umbral mínimo'), entero('El umbral mínimo', 1)],
       },
       {
         nombre: form.nombre,
@@ -336,7 +351,6 @@ function Inventario() {
         proveedorId: String(form.proveedorId ?? ''),
         cantidad: String(form.cantidad ?? ''),
         fechaIngreso: form.fechaIngreso ?? '',
-        umbralMinimo: String(form.umbralMinimo ?? ''),
       },
     )
     setErrores(nuevos)
@@ -350,7 +364,6 @@ function Inventario() {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim(),
           clasificacion: form.clasificacion,
-          umbralMinimo: Number(form.umbralMinimo) || 5,
           ubicacion: form.ubicacion.trim(),
           proveedorId: Number(form.proveedorId),
           personaRecibe: form.personaRecibe.trim(),
@@ -368,7 +381,6 @@ function Inventario() {
           ubicacion: form.ubicacion.trim(),
           personaRecibe: form.personaRecibe.trim(),
           cantidad: Number(form.cantidad),
-          umbralMinimo: Number(form.umbralMinimo) || 5,
           proveedorId: Number(form.proveedorId),
         })
         setArticulos((prev) => [creado, ...prev])
@@ -428,9 +440,9 @@ function Inventario() {
               {editando ? 'Editar Artículo' : 'Nuevo Artículo'}
             </ModalTitulo>
             {editando && (
-              <p className="mt-0.5 text-xs text-primary-500">
-                ID #{editando.id} · {editando.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'} · Stock: {editando.cantidad_disponible} uds
-              </p>
+                <p className="mt-0.5 text-xs text-primary-500">
+                  ID #{editando.id} · {etiquetaClasificacion(editando.clasificacion)} · Stock: {editando.cantidad_disponible} uds
+                </p>
             )}
           </div>
           <button
@@ -490,7 +502,7 @@ function Inventario() {
                 onChange={(e) =>
                   setForm((p) => ({
                     ...p,
-                    clasificacion: e.target.value as 'inmueble' | 'articulo',
+                    clasificacion: e.target.value as ClasificacionArticulo,
                   }))
                 }
                 className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
@@ -597,31 +609,6 @@ function Inventario() {
               />
               <CampoError mensaje={errores.personaRecibe} />
             </div>
-
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Umbral mínimo de alerta
-                <Obligatorio />
-              </label>
-              <input
-                type="number"
-                min={1}
-                required
-                value={form.umbralMinimo}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    umbralMinimo: Math.max(1, parseInt(e.target.value, 10) || 1),
-                  }))
-                }
-                placeholder="5"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-primary-400">
-                Alerta cuando el stock disponible sea menor o igual a este valor.
-              </p>
-              <CampoError mensaje={errores.umbralMinimo} />
-            </div>
           </div>
 
           {formError && (
@@ -682,17 +669,12 @@ function Inventario() {
                 viewDetail.clasificacion,
               )}`}
             >
-              {viewDetail.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'}
+              {etiquetaClasificacion(viewDetail.clasificacion)}
             </span>
 
             <span className="font-medium text-primary-700">Stock disponible:</span>
             <span className="font-mono font-bold text-primary-900">
               {viewDetail.cantidad_disponible} unidades
-            </span>
-
-            <span className="font-medium text-primary-700">Umbral de alerta:</span>
-            <span className="text-primary-900">
-              {viewDetail.umbral_minimo ?? 5} unidades
             </span>
 
             <span className="font-medium text-primary-700">Ubicación actual:</span>
@@ -859,44 +841,43 @@ function Inventario() {
       {/* Alerta de confirmación */}
       <Notificar mensaje={confirmacion} />
 
-      {/* Búsqueda */}
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, descripción o ubicación..."
-          value={search}
-          onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => manejarBusqueda('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      {/* Filtros */}
+      {/* Búsqueda y filtros a la par, en una sola fila */}
       <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, descripción o ubicación..."
+            value={search}
+            onChange={(e) => manejarBusqueda(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => manejarBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
         <select
           value={filtroClasificacion}
           onChange={(e) => {
@@ -906,8 +887,11 @@ function Inventario() {
           className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todas">Todas las clasificaciones</option>
-          <option value="articulo">Artículo</option>
-          <option value="inmueble">Inmueble</option>
+          {CLASIFICACIONES.map((c) => (
+            <option key={c.valor} value={c.valor}>
+              {c.etiqueta}
+            </option>
+          ))}
         </select>
 
         <select
@@ -969,8 +953,9 @@ function Inventario() {
                       </>
                     ) : (
                       <p className="mt-3 text-sm font-medium text-primary-600">
-                        Aún no hay artículos registrados. Usa el botón "+ Nuevo artículo" para crear
-                        el primero.
+                        {filtroEstado !== 'activo' || filtroClasificacion !== 'Todas'
+                          ? 'No hay artículos que coincidan con los filtros actuales.'
+                          : 'Aún no hay artículos registrados. Usa el botón "+ Nuevo artículo" para crear el primero.'}
                       </p>
                     )}
                   </td>
@@ -988,7 +973,7 @@ function Inventario() {
                           item.clasificacion,
                         )}`}
                       >
-                        {item.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'}
+                        {etiquetaClasificacion(item.clasificacion)}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono">
@@ -1028,21 +1013,27 @@ function Inventario() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
+                      <div className="flex items-center gap-1">
+                        <IconoEditar
+                          titulo={`Editar ${item.nombre}`}
                           onClick={() => openEditar(item)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
+                        />
+                        <IconoVer
+                          titulo={`Ver detalle de ${item.nombre}`}
                           onClick={() => openDetalle(item)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Ver
-                        </button>
+                        />
+                        {/* Eliminar = desactivar (soft delete): reutiliza el
+                            mismo modal de confirmación de cambio de estado.
+                            Solo aparece en artículos activos. */}
+                        {item.estado === 'activo' && (
+                          <IconoEliminar
+                            titulo={`Desactivar ${item.nombre}`}
+                            onClick={() => {
+                              setErrorCambioEstado(null)
+                              setCambioEstado({ articulo: item, nuevo: 'inactivo' })
+                            }}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
