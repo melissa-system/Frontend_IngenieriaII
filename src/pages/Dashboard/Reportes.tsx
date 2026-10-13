@@ -37,8 +37,8 @@ import {
   descargarPdfReporte,
   type ParametrosReportePdf,
 } from '../../lib/generarPdfReporteEstadistico'
+import { generarExcelReporte } from '../../lib/generarExcelReporte'
 import {
-  construirCsvReporte,
   motivoNoExportable,
   nombreArchivoReporte,
   puedeVerReportes,
@@ -322,6 +322,7 @@ function Reportes() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [generandoPdf, setGenerandoPdf] = useState(false)
+  const [generandoExcel, setGenerandoExcel] = useState(false)
 
   const rangoResuelto = useMemo(
     () => getRange(rango, desdeCustom, hastaCustom),
@@ -430,7 +431,7 @@ function Reportes() {
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))
 
-  // Metadatos del reporte que acompañan tanto el PDF como el CSV.
+  // Metadatos del reporte que acompañan tanto el PDF como el Excel.
   function metadatosExportacion() {
     const rangoLabel =
       rango === 'personalizado'
@@ -483,17 +484,23 @@ function Reportes() {
   })
   const puedeExportar = puedeVerReportes(rolEfectivo)
 
-  function downloadCSV() {
+  async function exportExcel() {
     if (!puedeExportar || motivoBloqueo) return
-    const { rangoLabel, filtrosResumen, fechaGeneracion } = metadatosExportacion()
-    const csv = construirCsvReporte(reporte, {
-      modulo,
-      rangoLabel,
-      filtrosResumen,
-      fechaGeneracion,
-    })
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    descargarPdfReporte(blob, nombreArchivoReporte(modulo, rangoResuelto, 'csv'))
+    setGenerandoExcel(true)
+    try {
+      const { rangoLabel, filtrosResumen, fechaGeneracion } = metadatosExportacion()
+      const blob = await generarExcelReporte(reporte, {
+        modulo,
+        rangoLabel,
+        filtrosResumen,
+        fechaGeneracion,
+      })
+      descargarPdfReporte(blob, nombreArchivoReporte(modulo, rangoResuelto, 'xlsx'))
+    } catch {
+      setError('No se pudo generar el Excel. Inténtelo de nuevo.')
+    } finally {
+      setGenerandoExcel(false)
+    }
   }
 
   async function exportPDF() {
@@ -522,10 +529,10 @@ function Reportes() {
               <Button
                 variant="primary"
                 type="button"
-                onClick={downloadCSV}
-                disabled={!!motivoBloqueo}
+                onClick={exportExcel}
+                disabled={generandoExcel || !!motivoBloqueo}
                 title={motivoBloqueo ?? undefined}>
-                Exportar CSV
+                {generandoExcel ? 'Generando Excel...' : 'Exportar Excel'}
               </Button>
               <Button
                 variant="secondary"

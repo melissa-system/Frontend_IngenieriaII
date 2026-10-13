@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
+import { crearContenedorCaptura } from './aislarEstilosPdf'
 
 // PDF de la Solicitud de disponibilidad de servicios / Paja de Agua
 // (GNU-41-01-F1), fiel al HTML entregado por Meli: mismas 3 páginas, mismo
@@ -283,12 +284,7 @@ function reforzarMarcas(root: HTMLElement) {
 }
 
 export async function generarPdfSolicitud(datos: DatosDocumentoSolicitud): Promise<Blob> {
-  const contenedor = document.createElement('div')
-  contenedor.style.position = 'fixed'
-  contenedor.style.left = '-99999px'
-  contenedor.style.top = '0'
-  contenedor.innerHTML = buildHtml(datos)
-  document.body.appendChild(contenedor)
+  const contenedor = crearContenedorCaptura(buildHtml(datos))
 
   try {
     reforzarMarcas(contenedor)

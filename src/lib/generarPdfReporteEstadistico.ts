@@ -1,6 +1,7 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { ASADA_NOMBRE_LEGAL, ASADA_CEDULA_JURIDICA } from './asadaInfo'
+import { crearContenedorCaptura } from './aislarEstilosPdf'
 
 // PDF del Reporte Estadístico (A4), mismo enfoque que generarPdfConexion.ts:
 // se construye un contenedor oculto con el documento completo en HTML/CSS,
@@ -319,12 +320,7 @@ export async function generarPdfReporteEstadistico(m: ParametrosReportePdf): Pro
   correccion.textContent = CSS_CORRECCION_LINEA_BASE
   document.head.appendChild(correccion)
 
-  const contenedor = document.createElement('div')
-  contenedor.style.position = 'fixed'
-  contenedor.style.left = '-99999px'
-  contenedor.style.top = '0'
-  contenedor.innerHTML = buildHtml(m)
-  document.body.appendChild(contenedor)
+  const contenedor = crearContenedorCaptura(buildHtml(m))
 
   try {
     // Esperar un frame para que el layout (grid/flex) termine de calcularse.

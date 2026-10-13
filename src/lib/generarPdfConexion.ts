@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import type { SolicitudConexion } from '../components/Services/conexionPajaAgua.service'
 import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
+import { crearContenedorCaptura } from './aislarEstilosPdf'
 
 // PDF de la Solicitud de conexión de servicio (GNU-42-01-F1), fiel al HTML
 // entregado por Meli: mismas 5 páginas, mismo layout, sin ningún color
@@ -161,12 +162,7 @@ async function cargarImagenComoDataUrl(url: string): Promise<string | null> {
 }
 
 export async function generarPdfConexion(solicitud: SolicitudConexion): Promise<Blob> {
-  const contenedor = document.createElement('div')
-  contenedor.style.position = 'fixed'
-  contenedor.style.left = '-99999px'
-  contenedor.style.top = '0'
-  contenedor.innerHTML = buildHtml(solicitud)
-  document.body.appendChild(contenedor)
+  const contenedor = crearContenedorCaptura(buildHtml(solicitud))
 
   try {
     // Incrustar la firma como imagen dentro de su recuadro.

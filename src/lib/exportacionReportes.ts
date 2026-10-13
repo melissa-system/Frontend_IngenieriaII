@@ -78,7 +78,7 @@ export function motivoNoExportable(params: {
 export function nombreArchivoReporte(
   modulo: string,
   rango: { desde: string; hasta: string } | null,
-  extension: 'pdf' | 'csv',
+  extension: 'pdf' | 'xlsx',
 ): string {
   const base = modulo
     .normalize('NFD')
@@ -86,41 +86,4 @@ export function nombreArchivoReporte(
     .toLowerCase()
   const periodo = rango ? `${rango.desde}_a_${rango.hasta}` : 'historico'
   return `reporte-${base}-${periodo}.${extension}`
-}
-
-function escCSV(valor: string): string {
-  if (/[",\n;]/.test(valor)) return `"${valor.replace(/"/g, '""')}"`
-  return valor
-}
-
-// Contenido del CSV: encabezado con el período y filtros aplicados en
-// pantalla, las mismas agrupaciones de los gráficos y el detalle de la tabla.
-export function construirCsvReporte(
-  reporte: ReporteExportable,
-  meta: MetadatosExportacion,
-): string {
-  const lineas: string[] = []
-  lineas.push(`Reporte estadístico de ${meta.modulo}`)
-  lineas.push(
-    `Generado: ${meta.fechaGeneracion}; Rango: ${meta.rangoLabel}; Filtros: ${meta.filtrosResumen}; Total de registros: ${reporte.total}`,
-  )
-  lineas.push('')
-  lineas.push(reporte.barLabel)
-  lineas.push('Categoría,Cantidad')
-  reporte.barData.forEach((d) => lineas.push(`${escCSV(d.name)},${d.cantidad}`))
-  lineas.push('')
-  lineas.push(reporte.pieLabel)
-  lineas.push('Estado,Cantidad')
-  reporte.pieData.forEach((d) => lineas.push(`${escCSV(d.name)},${d.cantidad}`))
-  lineas.push('')
-  lineas.push('Evolución mensual')
-  lineas.push('Mes,Cantidad')
-  reporte.evolucionMensual.forEach((e) => lineas.push(`${escCSV(e.mes)},${e.cantidad}`))
-  lineas.push('')
-  lineas.push('Detalle de registros')
-  lineas.push(reporte.columns.map((c) => escCSV(c.label)).join(','))
-  reporte.rows.forEach((fila) =>
-    lineas.push(reporte.columns.map((c) => escCSV(fila[c.key] ?? '')).join(',')),
-  )
-  return `﻿${lineas.join('\r\n')}`
 }
