@@ -1,10 +1,11 @@
 // Pruebas de exportación de los reportes estadísticos (PBI 341 / Task 345).
 // Usan el runner nativo de Node (node --test), que ejecuta TypeScript sin
 // dependencias extra: `npm test`.
-import { describe, it } from 'node:test'
+import { before, describe, it } from 'node:test'
 import assert from 'node:assert/strict'
+import ExcelJS from 'exceljs'
+import { construirExcelReporte } from '../src/lib/generarExcelReporte.ts'
 import {
-  construirCsvReporte,
   motivoNoExportable,
   nombreArchivoReporte,
   puedeVerReportes,
@@ -97,56 +98,59 @@ const REPORTES: Record<string, ReporteExportable> = {
   },
 }
 
-// Interpreta el CSV generado (comillas dobles escapadas incluidas).
-function leerCsv(csv: string): string[][] {
-  return csv
-    .replace(/^﻿/, '')
-    .split('\r\n')
-    .map((linea) => {
-      const celdas: string[] = []
-      let actual = ''
-      let entreComillas = false
-      for (let i = 0; i < linea.length; i++) {
-        const c = linea[i]
-        if (entreComillas) {
-          if (c === '"' && linea[i + 1] === '"') {
-            actual += '"'
-            i++
-          } else if (c === '"') entreComillas = false
-          else actual += c
-        } else if (c === '"') entreComillas = true
-        else if (c === ',') {
-          celdas.push(actual)
-          actual = ''
-        } else actual += c
-      }
-      celdas.push(actual)
-      return celdas
-    })
+// Lee una hoja del Excel generado como matriz de textos (las fechas vuelven a
+// YYYY-MM-DD y las celdas vacías quedan como '').
+function leerHoja(hoja: ExcelJS.Worksheet): string[][] {
+  const filas: string[][] = []
+  hoja.eachRow({ includeEmpty: true }, (fila, n) => {
+    const celdas: string[] = []
+    for (let c = 1; c <= hoja.columnCount; c++) {
+      const valor = fila.getCell(c).value
+      celdas.push(
+        valor instanceof Date
+          ? valor.toISOString().slice(0, 10)
+          : valor === null || valor === undefined
+            ? ''
+            : String(valor),
+      )
+    }
+    filas[n - 1] = celdas
+  })
+  return Array.from(filas, (f) => f ?? [])
 }
 
 for (const [modulo, reporte] of Object.entries(REPORTES)) {
   describe(`Exportación del reporte de ${modulo}`, () => {
-    const csv = construirCsvReporte(reporte, { modulo, ...META })
-    const filas = leerCsv(csv)
+    let resumen: string[][] = []
+    let detalle: string[][] = []
+    let hojaDetalle: ExcelJS.Worksheet
+
+    before(async () => {
+      const libro = new ExcelJS.Workbook()
+      await libro.xlsx.load(await construirExcelReporte(reporte, { modulo, ...META }))
+      resumen = leerHoja(libro.getWorksheet('Resumen')!)
+      hojaDetalle = libro.getWorksheet('Detalle de registros')!
+      detalle = leerHoja(hojaDetalle)
+    })
 
     it('incluye el mismo período y filtros aplicados en pantalla', () => {
-      assert.equal(filas[0][0], `Reporte estadístico de ${modulo}`)
-      const encabezado = filas[1].join(',')
-      assert.match(encabezado, new RegExp(`Rango: ${META.rangoLabel}`))
-      assert.match(encabezado, new RegExp(`Filtros: ${META.filtrosResumen}`))
-      assert.match(encabezado, new RegExp(`Total de registros: ${reporte.total}`))
+      assert.equal(resumen[1][0], `Reporte estadístico de ${modulo}`)
+      const dato = (etiqueta: string) => resumen.find((f) => f[0] === etiqueta)?.[1]
+      assert.equal(dato('Rango'), META.rangoLabel)
+      assert.equal(dato('Filtros'), META.filtrosResumen)
+      assert.equal(dato('Total de registros'), String(reporte.total))
+      assert.match(resumen[2][0], new RegExp(META.fechaGeneracion))
     })
 
     it('las agrupaciones coinciden con los gráficos mostrados', () => {
-      const inicioBar = filas.findIndex((f) => f[0] === reporte.barLabel)
-      const bar = filas.slice(inicioBar + 2, inicioBar + 2 + reporte.barData.length)
+      const inicioBar = resumen.findIndex((f) => f[0] === reporte.barLabel)
+      const bar = resumen.slice(inicioBar + 2, inicioBar + 2 + reporte.barData.length)
       assert.deepEqual(
         bar.map(([name, cantidad]) => ({ name, cantidad: Number(cantidad) })),
         reporte.barData,
       )
-      const inicioPie = filas.findIndex((f) => f[0] === reporte.pieLabel)
-      const pie = filas.slice(inicioPie + 2, inicioPie + 2 + reporte.pieData.length)
+      const inicioPie = resumen.findIndex((f) => f[0] === reporte.pieLabel)
+      const pie = resumen.slice(inicioPie + 2, inicioPie + 2 + reporte.pieData.length)
       assert.deepEqual(
         pie.map(([name, cantidad]) => ({ name, cantidad: Number(cantidad) })),
         reporte.pieData,
@@ -154,14 +158,20 @@ for (const [modulo, reporte] of Object.entries(REPORTES)) {
     })
 
     it('el detalle coincide fila por fila con la tabla de la pantalla', () => {
-      const inicio = filas.findIndex((f) => f[0] === 'Detalle de registros')
-      assert.deepEqual(filas[inicio + 1], reporte.columns.map((c) => c.label))
-      const detalle = filas.slice(inicio + 2)
-      assert.equal(detalle.length, reporte.total)
+      assert.deepEqual(detalle[4], reporte.columns.map((c) => c.label))
+      const filas = detalle.slice(5, 5 + reporte.total)
       assert.deepEqual(
-        detalle,
+        filas,
         reporte.rows.map((fila) => reporte.columns.map((c) => fila[c.key])),
       )
+      assert.equal(detalle[5 + reporte.total][0], 'Total de registros')
+    })
+
+    it('las fechas se guardan como fecha de Excel con formato dd/mm/yyyy', () => {
+      const col = reporte.columns.findIndex((c) => /fecha|registro/i.test(c.label)) + 1
+      const celda = hojaDetalle.getRow(6).getCell(col)
+      assert.ok(celda.value instanceof Date)
+      assert.equal(celda.numFmt, 'dd/mm/yyyy')
     })
 
     it('el archivo lleva el módulo y el período en el nombre', () => {
@@ -169,7 +179,7 @@ for (const [modulo, reporte] of Object.entries(REPORTES)) {
         nombreArchivoReporte(modulo, { desde: '2026-01-01', hasta: '2026-03-31' }, 'pdf'),
         /^reporte-[a-z]+-2026-01-01_a_2026-03-31\.pdf$/,
       )
-      assert.match(nombreArchivoReporte(modulo, null, 'csv'), /^reporte-[a-z]+-historico\.csv$/)
+      assert.match(nombreArchivoReporte(modulo, null, 'xlsx'), /^reporte-[a-z]+-historico\.xlsx$/)
     })
   })
 }
