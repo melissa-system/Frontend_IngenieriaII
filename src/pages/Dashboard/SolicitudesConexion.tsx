@@ -55,6 +55,7 @@ import {
   ESTADOS_ABONADO,
 } from '../../lib/useFiltrosSolicitudes'
 import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
 import Table from '../../components/ui/Table'
 import EmptyState from '../../components/ui/EmptyState'
 import BadgeEstado from '../../components/ui/BadgeEstado'
@@ -96,6 +97,8 @@ function VistaAbonado() {
   const [misSolicitudes, setMisSolicitudes] = useState<SolicitudConexion[]>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [toast, setToast] = useState<{ mensaje: string; tipo: TipoToast } | null>(null)
+  const [solicitudExitosa, setSolicitudExitosa] = useState<SolicitudConexion | null>(null)
+  const [descargandoCopiaModal, setDescargandoCopiaModal] = useState(false)
 
   async function cargar() {
     setCargando(true)
@@ -135,8 +138,9 @@ function VistaAbonado() {
       <FormularioConexion
         disponibles={disponibles}
         onCancelar={() => setMostrarFormulario(false)}
-        onExito={() => {
+        onExito={(creada) => {
           setMostrarFormulario(false)
+          setSolicitudExitosa(creada)
           setToast({ mensaje: 'Solicitud de conexión enviada correctamente.', tipo: 'exito' })
           cargar()
         }}
@@ -146,6 +150,34 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
+      {solicitudExitosa && (
+        <ModalConfirmacion
+          codigo={solicitudExitosa.codigo_solicitud}
+          titulo="¡Solicitud de Conexión Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Conexión de Servicio</strong> ha sido recibido por la
+              administración de la ASADA.
+            </>
+          }
+          onCerrar={() => setSolicitudExitosa(null)}
+          onDescargarCopia={async () => {
+            setDescargandoCopiaModal(true)
+            try {
+              const blob = await generarPdfConexion(solicitudExitosa)
+              descargarPdfConexion(
+                blob,
+                solicitudExitosa.codigo_solicitud,
+                solicitudExitosa.fecha_creacion,
+              )
+            } finally {
+              setDescargandoCopiaModal(false)
+            }
+          }}
+          descargandoCopia={descargandoCopiaModal}
+        />
+      )}
+
       {toast && (
         <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
       )}
@@ -231,13 +263,15 @@ function FormularioConexion({
 }: {
   disponibles: SolicitudPajaAguaDisponible[]
   onCancelar: () => void
-  onExito: () => void
+  onExito: (creada: SolicitudConexion) => void
 }) {
   const [idSeleccionado, setIdSeleccionado] = useState(disponibles[0]?.id ?? 0)
   const seleccionada = useMemo(
     () => disponibles.find((d) => d.id === idSeleccionado) ?? disponibles[0],
     [disponibles, idSeleccionado],
   )
+
+  const [generandoCopia, setGenerandoCopia] = useState(false)
 
   const [medioPrincipal, setMedioPrincipal] = useState('correo')
   const [valorPrincipal, setValorPrincipal] = useState(seleccionada?.correo ?? '')
@@ -290,6 +324,71 @@ function FormularioConexion({
     setPreviews((prev) => ({ ...prev, [tipo]: null }))
   }
 
+  const armarObjetoPrevio = (): SolicitudConexion => ({
+    id: 0,
+    codigo_solicitud: '',
+    id_abonado: 0,
+    numero_abonado: '',
+    nombre_abonado: seleccionada.nombre_solicitante,
+    cedula: seleccionada.identificacion,
+    correo: seleccionada.correo,
+    solicitud_paja_agua_codigo: seleccionada.codigo_solicitud,
+    nombre_solicitante: seleccionada.nombre_solicitante,
+    identificacion_solicitante: seleccionada.identificacion,
+    telefono_solicitante: seleccionada.telefono,
+    tipo_persona: seleccionada.tipo_persona,
+    provincia: seleccionada.provincia ?? '',
+    canton: seleccionada.canton ?? '',
+    distrito: seleccionada.distrito ?? '',
+    direccion_inmueble: seleccionada.direccion ?? '',
+    naturaleza_inmueble: seleccionada.naturaleza_inmueble ?? '',
+    calidad_titular: seleccionada.calidad_titular ?? '',
+    medio_notificacion_principal: medioPrincipal,
+    valor_notificacion_principal: valorPrincipal,
+    medio_notificacion_secundario: medioSecundario || null,
+    valor_notificacion_secundario: valorSecundario || null,
+    folio_real: folioReal || null,
+    plano_catastro: planoCatastro || null,
+    plano_agrimensura: planoAgrimensura || null,
+    numero_disponibilidad: numeroDisponibilidad,
+    numero_nis: numeroNis || null,
+    servicio_solicitado: servicio,
+    tipo_tramite: tipoTramite,
+    codigo_apc_cfia: codigoApcCfia || null,
+    forma_pago: formaPago,
+    nombre_firmante: nombreFirmante,
+    identificacion_firmante: identificacionFirmante,
+    firma_path: '',
+    adjuntos: [],
+    motivo_rechazo: null,
+    id_empleado: null,
+    estado: 'pendiente',
+    fecha_creacion: new Date().toISOString(),
+    fecha_actualizacion: new Date().toISOString(),
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setErrorGeneral(null)
+    try {
+      const solicitudPrevia = armarObjetoPrevio()
+      let firmaUrl: string | undefined = undefined
+      if (firma) {
+        firmaUrl = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve(reader.result as string)
+          reader.readAsDataURL(firma)
+        })
+      }
+      const blob = await generarPdfConexion(solicitudPrevia, firmaUrl)
+      descargarPdfConexion(blob, null, new Date())
+    } catch {
+      setErrorGeneral('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   async function manejarEnvio(e: FormEvent) {
     e.preventDefault()
     setErrorGeneral(null)
@@ -331,7 +430,7 @@ function FormularioConexion({
 
     setEnviando(true)
     try {
-      await crearSolicitudConexion({
+      const creada = await crearSolicitudConexion({
         idSolicitudPajaAgua: seleccionada.id,
         medioNotificacionPrincipal: medioPrincipal,
         valorNotificacionPrincipal: valorPrincipal,
@@ -353,7 +452,7 @@ function FormularioConexion({
           .filter((r) => archivos[r.tipo])
           .map((r) => ({ tipo: r.tipo, etiqueta: r.etiqueta, archivo: archivos[r.tipo]! })),
       })
-      onExito()
+      onExito(creada)
     } catch (err) {
       setErroresCampo(
         erroresPorCampo<CampoConexion>(err, {
@@ -628,10 +727,33 @@ function FormularioConexion({
       </div>
 
       {errorGeneral && (
-        <Alerta tipo="error">{errorGeneral}</Alerta>
+        <Alerta tipo="error">
+          <div className="space-y-2">
+            <p>{errorGeneral}</p>
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={descargarCopiaPrevia}
+                disabled={generandoCopia}
+              >
+                {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+              </Button>
+            </div>
+          </div>
+        </Alerta>
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <Button
+          variant="secondary"
+          type="button"
+          onClick={descargarCopiaPrevia}
+          disabled={generandoCopia || enviando}
+        >
+          {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+        </Button>
         <Button
           variant="primary"
           type="submit"

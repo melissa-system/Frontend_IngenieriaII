@@ -3,20 +3,23 @@ import Button from '../ui/Button'
 import Icono from '../ui/Icono'
 import Modal, { ModalTitulo } from '../ui/Modal'
 
-// Modal de confirmación con código de seguimiento SOL-XXX-YYYY-XXXX. Es el
-// mismo que usa "Cambio de Propietario", compartido para estandarizar el
-// comportamiento de todas las solicitudes. Usa el <Modal> estándar (foco,
-// teclado y lector de pantalla incluidos).
+// Modal de confirmación con código de seguimiento SOL-XXX-YYYY-XXXX.
+// Compartido para estandarizar el comportamiento de todas las solicitudes.
+// Soporta opcionalmente la descarga directa de la copia de respaldo en PDF.
 export default function ModalConfirmacion({
   codigo,
   onCerrar,
   titulo,
   descripcion,
+  onDescargarCopia,
+  descargandoCopia = false,
 }: {
   codigo: string
   onCerrar: () => void
   titulo: string
   descripcion: ReactNode
+  onDescargarCopia?: () => void
+  descargandoCopia?: boolean
 }) {
   return (
     <Modal size="md" scroll={false} onCerrar={onCerrar}>
@@ -41,8 +44,19 @@ export default function ModalConfirmacion({
           Guardá este código para consultar el estado de tu trámite en ventanilla o desde tu panel.
         </p>
 
-        <div className="mt-6">
-          <Button className="w-full" onClick={onCerrar}>
+        <div className="mt-6 flex flex-col gap-2.5">
+          {onDescargarCopia && (
+            <Button
+              variant="secondary"
+              className="w-full"
+              type="button"
+              onClick={onDescargarCopia}
+              disabled={descargandoCopia}
+            >
+              {descargandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+            </Button>
+          )}
+          <Button className="w-full" type="button" onClick={onCerrar}>
             Entendido y continuar
           </Button>
         </div>

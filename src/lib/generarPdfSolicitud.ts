@@ -2,6 +2,10 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
 import { crearContenedorCaptura } from './aislarEstilosPdf'
+import {
+  obtenerFechaArchivoCostaRica,
+  obtenerNombreArchivoCopia,
+} from './formatoFechaCostaRica'
 
 // PDF de la Solicitud de disponibilidad de servicios / Paja de Agua
 // (GNU-41-01-F1), fiel al HTML entregado por Meli: mismas 3 páginas, mismo
@@ -13,7 +17,7 @@ import { crearContenedorCaptura } from './aislarEstilosPdf'
 // del wizard recién enviado (misma sesión, sin volver a pedirle nada al
 // backend) o de la lista que ve un administrador logueado.
 export interface DatosDocumentoSolicitud {
-  codigoSolicitud: string
+  codigoSolicitud?: string | null
   fecha: string | Date
   tipoPersona: 'fisica' | 'juridica'
   nombreSolicitante: string
@@ -51,9 +55,7 @@ function coincide(valor: string | null | undefined, ...posibles: string[]): bool
 }
 
 function fmtFecha(fecha: string | Date): string {
-  const d = typeof fecha === 'string' ? new Date(fecha) : fecha
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
+  return obtenerFechaArchivoCostaRica(fecha)
 }
 
 function chk(condicion: boolean): string {
@@ -82,6 +84,10 @@ function buildHtml(datos: DatosDocumentoSolicitud): string {
     .filter(Boolean)
     .join(' ')
 
+  const valorNumeroSolicitud = datos.codigoSolicitud && datos.codigoSolicitud.trim().length > 0
+    ? esc(datos.codigoSolicitud)
+    : 'Copia de respaldo: solicitud pendiente de registro en el sistema'
+
   return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><style>${STYLE}</style></head><body>
 
@@ -91,10 +97,11 @@ function buildHtml(datos: DatosDocumentoSolicitud): string {
   <div class="title">${nombre}<div class="subtitle">Solicitud de constancia de disponibilidad de servicios</div></div>
   <div class="code">Código: GNU-41-01-F1&nbsp;&nbsp; Versión: 03</div>
 </div>
+${!datos.codigoSolicitud ? `<div style="background:#fffbeb;border-bottom:1px solid #f59e0b;padding:1.5mm 3mm;font-size:7.5pt;color:#92400e;text-align:center;font-weight:bold">Copia de respaldo: solicitud pendiente de registro en el sistema</div>` : ''}
 <div class="exclusive">Uso exclusivo de ${nombre}</div>
 <div class="content">
   <div class="two" style="padding:2mm 14mm 2mm">
-    <div class="field"><label>Número de solicitud</label><input type="text" value="${esc(datos.codigoSolicitud)}" readonly></div>
+    <div class="field"><label>Número de solicitud</label><input type="text" value="${valorNumeroSolicitud}" readonly></div>
     <div class="field"><label>Fecha de ingreso</label><input type="date" value="${fmtFecha(datos.fecha)}" readonly></div>
   </div>
 </div>
@@ -309,11 +316,16 @@ export async function generarPdfSolicitud(datos: DatosDocumentoSolicitud): Promi
   }
 }
 
-export function descargarPdfSolicitud(blob: Blob, codigoSolicitud: string): void {
+export function descargarPdfSolicitud(
+  blob: Blob,
+  _codigoSolicitud?: string | null,
+  fecha?: Date | string | null,
+): void {
+  const nombreArchivo = obtenerNombreArchivoCopia('paja-de-agua', fecha)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${codigoSolicitud}.pdf`
+  a.download = nombreArchivo
   document.body.appendChild(a)
   a.click()
   a.remove()

@@ -3,6 +3,10 @@ import jsPDF from 'jspdf'
 import type { SolicitudConexion } from '../components/Services/conexionPajaAgua.service'
 import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
 import { crearContenedorCaptura } from './aislarEstilosPdf'
+import {
+  obtenerFechaArchivoCostaRica,
+  obtenerNombreArchivoCopia,
+} from './formatoFechaCostaRica'
 
 // PDF de la Solicitud de conexión de servicio (GNU-42-01-F1), fiel al HTML
 // entregado por Meli: mismas 5 páginas, mismo layout, sin ningún color
@@ -29,10 +33,8 @@ function coincide(valor: string | null | undefined, ...posibles: string[]): bool
   return posibles.some((p) => v === p.trim().toLowerCase())
 }
 
-function fmtFecha(fecha: string): string {
-  const d = new Date(fecha)
-  if (Number.isNaN(d.getTime())) return ''
-  return d.toISOString().slice(0, 10)
+function fmtFecha(fecha?: string | Date | null): string {
+  return obtenerFechaArchivoCostaRica(fecha)
 }
 
 function chk(condicion: boolean): string {
@@ -59,7 +61,8 @@ function buildHtml(s: SolicitudConexion): string {
 
 <section class="page">
 <div class="head"><div class="logo">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}</div><div class="title">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}<small>Solicitud de conexión de servicio</small></div><div class="code">Código: GNU-42-01-F1&nbsp;&nbsp; Versión: 03</div></div>
-<div class="exclusive"><h3>Uso exclusivo de AyA</h3><div class="grid2"><div class="field"><label>Número de solicitud</label><input type="text" value="${esc(s.codigo_solicitud)}" readonly></div><div class="field"><label>Fecha de ingreso</label><input type="date" value="${fmtFecha(s.fecha_creacion)}" readonly></div></div></div>
+${!s.codigo_solicitud ? `<div style="background:#fffbeb;border-bottom:1px solid #f59e0b;padding:1.5mm 3mm;font-size:7.5pt;color:#92400e;text-align:center;font-weight:bold">Copia de respaldo: solicitud pendiente de registro en el sistema</div>` : ''}
+<div class="exclusive"><h3>Uso exclusivo de la ASADA</h3><div class="grid2"><div class="field"><label>Número de solicitud</label><input type="text" value="${s.codigo_solicitud && s.codigo_solicitud.trim().length > 0 ? esc(s.codigo_solicitud) : 'Copia de respaldo: solicitud pendiente de registro en el sistema'}" readonly></div><div class="field"><label>Fecha de ingreso</label><input type="date" value="${fmtFecha(s.fecha_creacion)}" readonly></div></div></div>
 <div class="section"><span class="roman">I.</span>Información del titular del inmueble</div><div class="content">
 <div class="checks"><label><input type="radio" name="tipoPersona" ${chk(esFisica)}>Persona Física</label></div><div class="grid2"><div class="field"><label>Nombre completo</label><input type="text" value="${esFisica ? esc(s.nombre_solicitante) : ''}" readonly></div><div class="field"><label>No. de identificación</label><input type="text" value="${esFisica ? esc(s.identificacion_solicitante) : ''}" readonly></div></div>
 <div class="checks"><label><input type="radio" name="tipoPersona" ${chk(esJuridica)}>Persona Jurídica</label></div><div class="grid2"><div class="field"><label>Razón Social</label><input type="text" value="${esJuridica ? esc(s.nombre_solicitante) : ''}" readonly></div><div class="field"><label>No. de Cédula Jurídica</label><input type="text" value="${esJuridica ? esc(s.identificacion_solicitante) : ''}" readonly></div></div><div class="grid2"><div class="field"><label>Teléfono 1</label><input type="text" value="${esc(s.telefono_solicitante)}" readonly></div><div class="field"><label>Teléfono 2</label><input type="text" value="" readonly></div></div></div>
@@ -147,6 +150,7 @@ function reforzarMarcas(root: HTMLElement) {
 }
 
 async function cargarImagenComoDataUrl(url: string): Promise<string | null> {
+  if (url.startsWith('data:')) return url
   try {
     const respuesta = await fetch(url, { mode: 'cors' })
     const blob = await respuesta.blob()
@@ -161,13 +165,17 @@ async function cargarImagenComoDataUrl(url: string): Promise<string | null> {
   }
 }
 
-export async function generarPdfConexion(solicitud: SolicitudConexion): Promise<Blob> {
+export async function generarPdfConexion(
+  solicitud: SolicitudConexion,
+  firmaDataUrl?: string,
+): Promise<Blob> {
   const contenedor = crearContenedorCaptura(buildHtml(solicitud))
 
   try {
     // Incrustar la firma como imagen dentro de su recuadro.
-    if (solicitud.firma_path) {
-      const dataUrl = await cargarImagenComoDataUrl(solicitud.firma_path)
+    const firmaSrc = firmaDataUrl || solicitud.firma_path
+    if (firmaSrc) {
+      const dataUrl = await cargarImagenComoDataUrl(firmaSrc)
       const caja = contenedor.querySelector<HTMLElement>('[data-firma-box]')
       if (dataUrl && caja) {
         const img = document.createElement('img')
@@ -201,11 +209,16 @@ export async function generarPdfConexion(solicitud: SolicitudConexion): Promise<
   }
 }
 
-export function descargarPdfConexion(blob: Blob, codigoSolicitud: string): void {
+export function descargarPdfConexion(
+  blob: Blob,
+  _codigoSolicitud?: string | null,
+  fecha?: Date | string | null,
+): void {
+  const nombreArchivo = obtenerNombreArchivoCopia('conexion-servicio', fecha)
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `${codigoSolicitud}.pdf`
+  a.download = nombreArchivo
   document.body.appendChild(a)
   a.click()
   a.remove()

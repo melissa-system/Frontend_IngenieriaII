@@ -19,6 +19,13 @@ import {
   FileDropZone,
   validarDocumento,
 } from '../../components/common/FileDropZone'
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import {
+  generarPdfSolicitudComun,
+  descargarPdfSolicitudComun,
+  type DatosCopiaComun,
+} from '../../lib/generarPdfSolicitudComun'
+import { obtenerPerfil, type PerfilCompleto } from '../../components/Services/perfil.service'
 import Toast from '../../components/ui/Toast'
 import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
 import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
@@ -64,12 +71,18 @@ function SolicitudesCambioMedidor() {
 // evidencia fotográfica opcional.
 // ---------------------------------------------------------------------------
 function VistaAbonado() {
+  const { user } = useAuth()
+  const [perfil, setPerfil] = useState<PerfilCompleto | null>(null)
   const [motivoFalla, setMotivoFalla] = useState<MotivoFallaMedidor | ''>('')
   const [direccionExacta, setDireccionExacta] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
+
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
 
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
@@ -102,6 +115,7 @@ function VistaAbonado() {
 
   useEffect(() => {
     cargar()
+    obtenerPerfil().then(setPerfil).catch(() => {})
   }, [cargar])
 
   const handleFileSelect = (file: File) => {
@@ -139,6 +153,41 @@ function VistaAbonado() {
   // Al corregir un campo se limpian los errores; se recalculan al enviar.
   useEffect(() => setErroresCampo({}), [motivoFalla, direccionExacta, justificacion])
 
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Medidor por Daños',
+    tipoSlug: 'cambio-medidor',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: perfil?.nombre ?? user?.nombre ?? 'Abonado',
+      identificacion: perfil?.cedula ?? '',
+      telefono: perfil?.telefono ?? '',
+      correo: perfil?.email ?? user?.email ?? '',
+      numeroAbonado: '',
+      direccion: direccionExacta || perfil?.direccion || '',
+    },
+    detalles: [
+      { etiqueta: 'Motivo de la falla', valor: motivoFalla || 'No especificado' },
+      { etiqueta: 'Dirección exacta / Señas escritas', valor: direccionExacta },
+      { etiqueta: 'Detalle técnico o justificación', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-medidor', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -164,12 +213,14 @@ function VistaAbonado() {
 
     setEnviando(true)
     try {
-      await crearSolicitudCambioMedidor({
+      const resp = await crearSolicitudCambioMedidor({
         motivoFalla,
         direccionExacta: direccionLimpia,
         justificacion: justificacionLimpia,
         evidencia: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
+      setCodigoGenerado(resp.codigo_solicitud)
       setMensaje('Solicitud de cambio de medidor registrada correctamente. Te notificaremos por correo el resultado.')
       limpiarFormulario()
       await cargar()
@@ -186,6 +237,24 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Medidor por Daños</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
+        />
+      )}
       <Tabs
         pestanas={[
           { valor: 'lista', etiqueta: 'Mis solicitudes' },
@@ -287,12 +356,33 @@ function VistaAbonado() {
 
         {error && (
           <Alerta tipo="error" className="mt-3">
-            {error}
+            <div className="space-y-2">
+              <p>{error}</p>
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={descargarCopiaPrevia}
+                  disabled={generandoCopia}
+                >
+                  {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+                </Button>
+              </div>
+            </div>
           </Alerta>
         )}
         <Notificar mensaje={mensaje} />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={descargarCopiaPrevia}
+            disabled={tieneAbierta || generandoCopia || enviando}
+          >
+            {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+          </Button>
           <Button
             variant="primary"
             type="submit"
@@ -477,6 +567,45 @@ function VistaAdministrador() {
   // Al corregir un campo se limpian los errores; se recalculan al enviar.
   useEffect(() => setErroresCampo({}), [motivoFalla, direccionExacta, justificacion, busqueda])
 
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Medidor por Daños',
+    tipoSlug: 'cambio-medidor',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: abonadoElegido ? nombreVisible(abonadoElegido) : 'Abonado no seleccionado',
+      identificacion: abonadoElegido?.cedula ?? '',
+      telefono: abonadoElegido?.telefono ?? '',
+      correo: abonadoElegido?.correo ?? '',
+      numeroAbonado: abonadoElegido?.numero_abonado ?? '',
+      direccion: direccionExacta || abonadoElegido?.direccion || '',
+    },
+    detalles: [
+      { etiqueta: 'Motivo de la falla', valor: motivoFalla || 'No especificado' },
+      { etiqueta: 'Dirección exacta / Señas escritas', valor: direccionExacta },
+      { etiqueta: 'Detalle técnico o justificación', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-medidor', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -504,13 +633,15 @@ function VistaAdministrador() {
 
     setEnviando(true)
     try {
-      await crearSolicitudCambioMedidor({
+      const resp = await crearSolicitudCambioMedidor({
         idAbonado: Number(abonadoElegido.id),
         motivoFalla,
         direccionExacta: direccionLimpia,
         justificacion: justificacionLimpia,
         evidencia: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
+      setCodigoGenerado(resp.codigo_solicitud)
       setMensaje('Solicitud de cambio de medidor registrada correctamente.')
       limpiarFormulario()
       await cargar()
@@ -564,6 +695,24 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Medidor por Daños</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
+        />
+      )}
       <Tabs
         pestanas={[
           { valor: 'lista', etiqueta: 'Solicitudes registradas' },
@@ -736,12 +885,33 @@ function VistaAdministrador() {
 
         {error && (
           <Alerta tipo="error" className="mt-3">
-            {error}
+            <div className="space-y-2">
+              <p>{error}</p>
+              <div>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  type="button"
+                  onClick={descargarCopiaPrevia}
+                  disabled={generandoCopia}
+                >
+                  {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+                </Button>
+              </div>
+            </div>
           </Alerta>
         )}
         <Notificar mensaje={mensaje} />
 
-        <div className="mt-5 flex justify-center gap-3">
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={descargarCopiaPrevia}
+            disabled={generandoCopia || enviando}
+          >
+            {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+          </Button>
           <Button
             variant="primary"
             type="submit"

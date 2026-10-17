@@ -40,6 +40,11 @@ import {
   validarDocumento,
 } from '../../components/common/FileDropZone'
 import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import {
+  generarPdfSolicitudComun,
+  descargarPdfSolicitudComun,
+  type DatosCopiaComun,
+} from '../../lib/generarPdfSolicitudComun'
 import Toast from '../../components/ui/Toast'
 import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
 import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
@@ -215,6 +220,46 @@ function VistaAbonado() {
   // Al corregir un campo se limpian los errores; se recalculan al enviar.
   useEffect(() => setErroresCampo({}), [nombreNuevo, cedulaNueva, telefonoNuevo, correoNuevo, motivoTraspaso, justificacion])
 
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Propietario',
+    tipoSlug: 'cambio-propietario',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: perfil?.nombre ?? 'Abonado',
+      identificacion: perfil?.cedula ?? '',
+      telefono: perfil?.telefono ?? '',
+      correo: perfil?.email ?? '',
+      numeroAbonado: '',
+    },
+    detalles: [
+      { etiqueta: 'Nombre del nuevo propietario', valor: nombreNuevo },
+      { etiqueta: 'Cédula del nuevo propietario', valor: cedulaNueva },
+      { etiqueta: 'Teléfono del nuevo propietario', valor: telefonoNuevo },
+      { etiqueta: 'Correo del nuevo propietario', valor: correoNuevo },
+      { etiqueta: 'Motivo del traspaso', valor: motivoTraspaso },
+      { etiqueta: 'Justificación / Detalle legal', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-propietario', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -258,6 +303,7 @@ function VistaAbonado() {
         justificacion: just,
         documentoSoporte: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
       setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
@@ -276,19 +322,37 @@ function VistaAbonado() {
       {codigoGenerado && (
         <ModalConfirmacion
           codigo={codigoGenerado}
-          onCerrar={() => setCodigoGenerado(null)}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
           titulo="¡Solicitud Registrada con Éxito!"
           descripcion={
             <>
               Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
             </>
           }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
         />
       )}
 
       {error && (
         <Alerta tipo="error">
-          {error}
+          <div className="space-y-2">
+            <p>{error}</p>
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={descargarCopiaPrevia}
+                disabled={generandoCopia}
+              >
+                {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+              </Button>
+            </div>
+          </div>
         </Alerta>
       )}
 
@@ -504,6 +568,14 @@ function VistaAbonado() {
 
         {/* Botones */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={descargarCopiaPrevia}
+            disabled={tieneAbierta || generandoCopia || enviando}
+          >
+            {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+          </Button>
           <Button
             variant="primary"
             type="submit"
@@ -728,6 +800,50 @@ function VistaAdministrador() {
   // Al corregir un campo se limpian los errores; se recalculan al enviar.
   useEffect(() => setErroresCampo({}), [nombreNuevo, cedulaNueva, telefonoNuevo, correoNuevo, motivoTraspaso, justificacion, busqueda])
 
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Propietario',
+    tipoSlug: 'cambio-propietario',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: abonadoElegido ? nombreVisible(abonadoElegido) : 'Abonado',
+      identificacion: abonadoElegido?.cedula ?? '',
+      telefono: abonadoElegido?.telefono ?? '',
+      correo: abonadoElegido?.correo ?? '',
+      numeroAbonado: abonadoElegido?.numero_abonado ?? '',
+    },
+    detalles: [
+      {
+        etiqueta: 'Abonado cedente',
+        valor: abonadoElegido ? `${abonadoElegido.numero_abonado} - ${nombreVisible(abonadoElegido)}` : '',
+      },
+      { etiqueta: 'Nombre del nuevo propietario', valor: nombreNuevo },
+      { etiqueta: 'Cédula del nuevo propietario', valor: cedulaNueva },
+      { etiqueta: 'Teléfono del nuevo propietario', valor: telefonoNuevo },
+      { etiqueta: 'Correo del nuevo propietario', valor: correoNuevo },
+      { etiqueta: 'Motivo del traspaso', valor: motivoTraspaso },
+      { etiqueta: 'Justificación / Detalle legal', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-propietario', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
@@ -774,6 +890,7 @@ function VistaAdministrador() {
         justificacion: just,
         documentoSoporte: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
       setCodigoGenerado(resp.codigo_solicitud)
       setMensaje(`Solicitud ${resp.codigo_solicitud} registrada correctamente en ventanilla.`)
       limpiarFormulario()
@@ -836,13 +953,18 @@ function VistaAdministrador() {
       {codigoGenerado && (
         <ModalConfirmacion
           codigo={codigoGenerado}
-          onCerrar={() => setCodigoGenerado(null)}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
           titulo="¡Solicitud Registrada con Éxito!"
           descripcion={
             <>
               Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
             </>
           }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
         />
       )}
 
@@ -850,7 +972,20 @@ function VistaAdministrador() {
 
       {error && (
         <Alerta tipo="error">
-          {error}
+          <div className="space-y-2">
+            <p>{error}</p>
+            <div>
+              <Button
+                variant="secondary"
+                size="sm"
+                type="button"
+                onClick={descargarCopiaPrevia}
+                disabled={generandoCopia}
+              >
+                {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+              </Button>
+            </div>
+          </div>
         </Alerta>
       )}
 
@@ -1074,6 +1209,14 @@ function VistaAdministrador() {
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={descargarCopiaPrevia}
+            disabled={generandoCopia || enviando}
+          >
+            {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+          </Button>
           <Button
             variant="primary"
             type="submit"
