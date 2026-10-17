@@ -8,7 +8,7 @@ export interface AveriaBackend {
   codigo_averia: string
   tipo_averia: string
   descripcion: string
-  estado: 'Pendiente' | 'En proceso' | 'Finalizado'
+  estado: 'Pendiente' | 'En proceso' | 'En revisión' | 'Finalizado'
   cedula_reportante: string
   nombre_reportante: string
   apellido1_reportante: string | null
@@ -16,6 +16,14 @@ export interface AveriaBackend {
   ubicacion: string | null
   imagen_url: string | null
   fecha_reporte: string
+  /** Inicio de la gestión del fontanero (cronómetro); null si no ha empezado. */
+  gestion_iniciada_en: string | null
+  /** Fin de la gestión del fontanero; null mientras siga abierta. */
+  gestion_finalizada_en: string | null
+  /** true si la administración devolvió la resolución; el fontanero debe rehacerla. */
+  devuelta_revision: boolean
+  /** Motivo de la devolución, para mostrárselo al fontanero. */
+  motivo_revision: string | null
   empleado: {
     id: number
     nombre: string
@@ -125,6 +133,40 @@ export const actualizarAveria = async (
     return data
   } catch (error) {
     throw crearErrorApi(error, 'No se pudo actualizar la avería.')
+  }
+}
+
+// Respuesta de terminarGestionAveria: la avería más los minutos reales que
+// duró la gestión, para prellenar el reporte de actividad.
+export type AveriaFinalizada = AveriaBackend & { duracion_minutos: number }
+
+// El fontanero asignado arranca el cronómetro de su avería (estado En proceso).
+export const iniciarGestionAveria = async (
+  id: number,
+): Promise<AveriaBackend> => {
+  try {
+    const { data } = await apiClient.patch<AveriaBackend>(
+      `${RESOURCE}/${id}/iniciar-gestion`,
+    )
+    return data
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo iniciar la gestión de la avería.')
+  }
+}
+
+// El fontanero asignado detiene el cronómetro al terminar el trabajo. NO
+// finaliza la avería: la resolución la decide la administración tras revisar
+// el reporte.
+export const terminarGestionAveria = async (
+  id: number,
+): Promise<AveriaFinalizada> => {
+  try {
+    const { data } = await apiClient.patch<AveriaFinalizada>(
+      `${RESOURCE}/${id}/terminar-gestion`,
+    )
+    return data
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo terminar la gestión de la avería.')
   }
 }
 

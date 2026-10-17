@@ -2,10 +2,12 @@ import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
 import Button from '../ui/Button'
 
 export const ACCEPT_DOCUMENTO = '.pdf,.jpg,.jpeg,.png'
+export const ACCEPT_IMAGEN = '.jpg,.jpeg,.png,.webp,.gif'
 export const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 export const MAX_MB = 5
 
 const EXTENSIONES_VALIDAS = ['pdf', 'jpg', 'jpeg', 'png']
+const EXTENSIONES_IMAGEN = ['jpg', 'jpeg', 'png', 'webp', 'gif']
 
 // Valida tamaño y extensión de un documento de respaldo (la misma regla para
 // todas las solicitudes). Devuelve un mensaje de error o null si es válido.
@@ -16,6 +18,18 @@ export function validarDocumento(file: File): string | null {
   const ext = file.name.split('.').pop()?.toLowerCase() || ''
   if (!EXTENSIONES_VALIDAS.includes(ext)) {
     return `Formato inválido. Solo se admiten archivos .pdf, .jpg, .jpeg o .png.`
+  }
+  return null
+}
+
+// Valida tamaño y extensión de una imagen de evidencia (JPG, PNG, WEBP o GIF).
+export function validarImagen(file: File): string | null {
+  if (file.size > MAX_BYTES) {
+    return `La imagen no puede superar los ${MAX_MB} MB.`
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  if (!EXTENSIONES_IMAGEN.includes(ext)) {
+    return 'Formato inválido. Solo se admiten imágenes .jpg, .jpeg, .png, .webp o .gif.'
   }
   return null
 }
@@ -32,6 +46,8 @@ export function FileDropZone({
   label,
   ayuda,
   obligatorio = true,
+  accept = ACCEPT_DOCUMENTO,
+  textoFormatos = `PDF, JPG o PNG hasta ${MAX_MB} MB`,
 }: {
   archivo: File | null
   archivoPreview: string | null
@@ -41,6 +57,10 @@ export function FileDropZone({
   label: string
   ayuda?: string
   obligatorio?: boolean
+  /** Tipos aceptados por el <input type="file"> (por defecto, documentos). */
+  accept?: string
+  /** Texto de ayuda bajo el ícono con los formatos admitidos. */
+  textoFormatos?: string
 }) {
   const [arrastrando, setArrastrando] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -115,13 +135,11 @@ export function FileDropZone({
             Arrastrá y soltá el archivo aquí o{' '}
             <span className="text-primary-600 underline">examiná tus archivos</span>
           </p>
-          <p className="mt-1 text-xs text-primary-400">
-            PDF, JPG o PNG hasta {MAX_MB} MB
-          </p>
+          <p className="mt-1 text-xs text-primary-400">{textoFormatos}</p>
           <input
             ref={inputRef}
             type="file"
-            accept={ACCEPT_DOCUMENTO}
+            accept={accept}
             onChange={handleInputChange}
             className="hidden"
           />

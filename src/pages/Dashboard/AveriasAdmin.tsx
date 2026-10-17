@@ -20,6 +20,7 @@ const POR_PAGINA = 10
 const ESTADO_COLORS: Record<string, string> = {
   Pendiente: 'bg-advertencia-100 text-advertencia-700',
   'En proceso': 'bg-acento-100 text-acento-700',
+  'En revisión': 'bg-info-100 text-info-700',
   Finalizado: 'bg-exito-100 text-exito-700',
 }
 
@@ -402,6 +403,7 @@ function AveriasAdmin() {
           <option value="Todas">Todos los estados</option>
           <option value="Pendiente">Pendiente</option>
           <option value="En proceso">En proceso</option>
+          <option value="En revisión">En revisión</option>
           <option value="Finalizado">Finalizado</option>
         </select>
       </div>

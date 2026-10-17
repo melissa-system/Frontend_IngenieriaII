@@ -1,16 +1,21 @@
 import Paginador from '../../components/ui/Paginador'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import Alerta from '../../components/ui/Alerta'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useCallback, useEffect, useState } from 'react'
 import {
   obtenerReportes,
+  revisarReporte,
   formatearTiempo,
   TIPOS_ACTIVIDAD,
   ETIQUETA_ACTIVIDAD,
+  ESTADOS_REVISION,
+  ETIQUETA_REVISION,
   type ReporteFontanero,
   type FiltrosReportes,
   type TipoActividad,
+  type EstadoRevision,
 } from '../../components/Services/reportesFontanero.service'
 import {
   obtenerEmpleados,
@@ -19,8 +24,17 @@ import {
 import Table from '../../components/ui/Table'
 import Button from '../../components/ui/Button'
 import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import DetalleReporteFontanero from '../../components/Reportes/DetalleReporteFontanero'
 
 const LIMITE_POR_PAGINA = 25
+
+// Colores del sello de revisión. Pendiente = por atender; aprobado = resuelto;
+// rechazado = la avería vuelve al fontanero.
+const CLASE_REVISION: Record<EstadoRevision, string> = {
+  Pendiente: 'bg-advertencia-100 text-advertencia-700',
+  Aprobado: 'bg-exito-100 text-exito-700',
+  Rechazado: 'bg-error-100 text-error-700',
+}
 
 function ReportesFontanero() {
   const [reportes, setReportes] = useState<ReporteFontanero[]>([])
@@ -30,9 +44,18 @@ function ReportesFontanero() {
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<ReporteFontanero | null>(null)
 
+  // Revisión de la resolución: solo para reportes vinculados a una avería.
+  const [revisando, setRevisando] = useState(false)
+  const [errorRevision, setErrorRevision] = useState('')
+  // Motivo que verá el fontanero si se rechaza la resolución y si el admin ya
+  // pidió rechazar (el campo solo aparece en ese momento).
+  const [motivoRevision, setMotivoRevision] = useState('')
+  const [rechazando, setRechazando] = useState(false)
+
   const [fontaneros, setFontaneros] = useState<Empleado[]>([])
   const [empleadoId, setEmpleadoId] = useState('')
   const [tipoActividad, setTipoActividad] = useState<TipoActividad | ''>('')
+  const [estadoRevision, setEstadoRevision] = useState<EstadoRevision | ''>('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
 
@@ -53,6 +76,7 @@ function ReportesFontanero() {
       const filtros: FiltrosReportes = { pagina, limite: LIMITE_POR_PAGINA }
       if (empleadoId) filtros.empleadoId = Number(empleadoId)
       if (tipoActividad) filtros.tipoActividad = tipoActividad
+      if (estadoRevision) filtros.estadoRevision = estadoRevision
       if (desde) filtros.desde = desde
       if (hasta) filtros.hasta = hasta
 
@@ -66,7 +90,7 @@ function ReportesFontanero() {
     } finally {
       setCargando(false)
     }
-  }, [pagina, empleadoId, tipoActividad, desde, hasta])
+  }, [pagina, empleadoId, tipoActividad, estadoRevision, desde, hasta])
 
   useEffect(() => {
     void cargar()
@@ -82,12 +106,40 @@ function ReportesFontanero() {
   const limpiarFiltros = () => {
     setEmpleadoId('')
     setTipoActividad('')
+    setEstadoRevision('')
     setDesde('')
     setHasta('')
     setPagina(1)
   }
 
-  const hayFiltros = Boolean(empleadoId || tipoActividad || desde || hasta)
+  // La administración aprueba o rechaza la resolución de la avería del
+  // reporte. Al aprobar, la avería queda finalizada; al rechazar, vuelve al
+  // fontanero.
+  const handleRevisar = async (
+    reporte: ReporteFontanero,
+    aprobado: boolean,
+  ) => {
+    setRevisando(true)
+    setErrorRevision('')
+    try {
+      await revisarReporte(reporte.id, aprobado, motivoRevision.trim() || undefined)
+      setDetalle(null)
+      setRechazando(false)
+      await cargar()
+    } catch (err) {
+      setErrorRevision(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar la revisión del reporte.',
+      )
+    } finally {
+      setRevisando(false)
+    }
+  }
+
+  const hayFiltros = Boolean(
+    empleadoId || tipoActividad || estadoRevision || desde || hasta,
+  )
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
 
@@ -105,7 +157,7 @@ function ReportesFontanero() {
 
       {/* Filtros */}
       <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
           <div>
             <label htmlFor="f-fontanero" className="block text-sm font-medium text-primary-900">
               Fontanero
@@ -141,6 +193,29 @@ function ReportesFontanero() {
               {TIPOS_ACTIVIDAD.map((tipo) => (
                 <option key={tipo} value={tipo}>
                   {ETIQUETA_ACTIVIDAD[tipo]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="f-revision" className="block text-sm font-medium text-primary-900">
+              Revisión
+            </label>
+            <select
+              id="f-revision"
+              value={estadoRevision}
+              onChange={(e) =>
+                aplicarFiltro(setEstadoRevision)(
+                  e.target.value as EstadoRevision | '',
+                )
+              }
+              className={selectCls}
+            >
+              <option value="">Todas</option>
+              {ESTADOS_REVISION.map((estado) => (
+                <option key={estado} value={estado}>
+                  {ETIQUETA_REVISION[estado]}
                 </option>
               ))}
             </select>
@@ -187,13 +262,13 @@ function ReportesFontanero() {
       {error && <ErrorState mensaje={error} onReintentar={cargar} />}
 
       {/* Tabla */}
-      <Table cabecera={['Fontanero', 'Fecha', 'Actividad', 'Tiempo', 'Materiales', 'Acciones']} pie={<>{total > 0 && (
+      <Table cabecera={['Fontanero', 'Fecha', 'Actividad', 'Tiempo', 'Materiales', 'Revisión', 'Acciones']} pie={<>{total > 0 && (
           <Paginador total={total} pagina={pagina} porPagina={LIMITE_POR_PAGINA} onCambiar={setPagina} etiqueta="reportes" deshabilitado={cargando} />
         )}</>}>
             {cargando ? (
-              <FilasEsqueleto columnas={6} />
+              <FilasEsqueleto columnas={7} />
             ) : reportes.length === 0 ? (
-              <FilaVacia columnas={6} titulo={hayFiltros
+              <FilaVacia columnas={7} titulo={hayFiltros
                     ? 'No hay reportes que coincidan con los filtros.'
                     : 'Todavía no hay reportes de actividad registrados.'} />
             ) : (
@@ -226,10 +301,22 @@ function ReportesFontanero() {
                     )}
                   </td>
                   <td className="px-4 py-3">
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${CLASE_REVISION[reporte.estado_revision]}`}
+                    >
+                      {ETIQUETA_REVISION[reporte.estado_revision]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
                     <Button
                       variant="secondary" size="sm"
                       type="button"
-                      onClick={() => setDetalle(reporte)}>
+                      onClick={() => {
+                        setErrorRevision('')
+                        setMotivoRevision('')
+                        setRechazando(false)
+                        setDetalle(reporte)
+                      }}>
                       Ver detalle
                     </Button>
                   </td>
@@ -240,70 +327,111 @@ function ReportesFontanero() {
 
       {/* Detalle */}
       {detalle && (
-        <Modal size="lg">
+        <Modal size="xl" onCerrar={() => setDetalle(null)}>
             <ModalTitulo>
-              Reporte #{detalle.id}
+              Detalle del reporte
             </ModalTitulo>
 
-            <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Fontanero:</dt>
-                <dd className="text-primary-700">{detalle.empleado?.nombre ?? '—'}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Fecha del trabajo:</dt>
-                <dd className="text-primary-700">{detalle.fecha_trabajo}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Tipo de actividad:</dt>
-                <dd className="text-primary-700">
-                  {ETIQUETA_ACTIVIDAD[detalle.tipo_actividad]}
-                </dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Tiempo empleado:</dt>
-                <dd className="text-primary-700">
-                  {formatearTiempo(detalle.tiempo_minutos)}
-                </dd>
-              </div>
-              {detalle.averia?.codigo_averia && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-primary-900">Avería relacionada:</dt>
-                  <dd className="text-primary-700">{detalle.averia.codigo_averia}</dd>
-                </div>
-              )}
-              <div>
-                <dt className="font-medium text-primary-900">Trabajo realizado:</dt>
-                <dd className="mt-1 whitespace-pre-line text-primary-700">
-                  {detalle.descripcion}
-                </dd>
-              </div>
-            </dl>
+            <div className="mt-4">
+              <DetalleReporteFontanero reporte={detalle} mostrarFontanero />
+            </div>
 
-            <h3 className="mt-5 text-sm font-semibold text-primary-900">
-              Materiales utilizados
-            </h3>
-            {detalle.materiales_texto ? (
-              <p className="mt-1 whitespace-pre-line rounded-lg border border-primary-200 bg-primary-50 px-3 py-2 text-sm text-primary-700">
-                {detalle.materiales_texto}
-              </p>
-            ) : detalle.materiales.length === 0 ? (
-              <p className="mt-1 text-sm text-primary-500">
-                Este trabajo no registró materiales.
-              </p>
-            ) : (
-              <ul className="mt-2 divide-y divide-primary-200 rounded-lg border border-primary-200">
-                {detalle.materiales.map((material) => (
-                  <li
-                    key={material.id}
-                    className="flex justify-between px-3 py-2 text-sm text-primary-700"
-                  >
-                    <span>{material.nombre_articulo}</span>
-                    <span className="font-medium">{material.cantidad}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+            <div className="mt-5 rounded-xl border border-primary-200 bg-primary-50 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-primary-900">
+                    {detalle.averia_id
+                      ? 'Resolución de la avería'
+                      : detalle.labor_id
+                        ? 'Resolución de la labor'
+                        : 'Revisión del reporte'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-primary-500">
+                    {detalle.averia_id || detalle.labor_id
+                      ? 'Aprueba para dar el trabajo por resuelto; rechaza para devolvérselo al fontanero.'
+                      : 'Aprueba o rechaza este reporte de actividad.'}
+                  </p>
+                </div>
+                <span
+                  className={`flex-none rounded-full px-2.5 py-1 text-[11px] font-semibold ${CLASE_REVISION[detalle.estado_revision]}`}
+                >
+                  {ETIQUETA_REVISION[detalle.estado_revision]}
+                </span>
+              </div>
+
+                {errorRevision && (
+                  <div className="mt-3">
+                    <Alerta tipo="error">{errorRevision}</Alerta>
+                  </div>
+                )}
+
+                {rechazando ? (
+                  <>
+                    <div className="mt-3">
+                      <label
+                        htmlFor="motivo-revision"
+                        className="block text-xs font-medium text-primary-700"
+                      >
+                        Motivo del rechazo (se le mostrará al fontanero)
+                      </label>
+                      <textarea
+                        id="motivo-revision"
+                        rows={2}
+                        value={motivoRevision}
+                        maxLength={1000}
+                        onChange={(e) => setMotivoRevision(e.target.value)}
+                        placeholder="Ej: Falta reponer el relleno y adjuntar foto del arreglo."
+                        className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        type="button"
+                        loading={revisando}
+                        onClick={() => handleRevisar(detalle, false)}
+                      >
+                        Confirmar rechazo
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        disabled={revisando}
+                        onClick={() => {
+                          setRechazando(false)
+                          setMotivoRevision('')
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      type="button"
+                      loading={revisando}
+                      disabled={detalle.estado_revision === 'Aprobado'}
+                      onClick={() => handleRevisar(detalle, true)}
+                    >
+                      Aprobar resolución
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      type="button"
+                      disabled={detalle.estado_revision === 'Rechazado'}
+                      onClick={() => setRechazando(true)}
+                    >
+                      Rechazar
+                    </Button>
+                  </div>
+                )}
+              </div>
 
             <div className="mt-6 flex justify-end">
               <Button

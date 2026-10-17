@@ -46,6 +46,7 @@ const MovimientosStock = lazy(
 )
 const Proveedores = lazy(() => import('../pages/Dashboard/Proveedores'))
 const AveriasAdmin = lazy(() => import('../pages/Dashboard/AveriasAdmin'))
+const LaboresAdmin = lazy(() => import('../pages/Dashboard/LaboresAdmin'))
 const ActividadFontanero = lazy(
   () => import('../pages/Dashboard/ActividadFontanero'),
 )
@@ -218,6 +219,14 @@ function AppRoutes() {
           element={
             <RoleRoute role={['Administrador', 'Junta Directiva', 'Fontanero']}>
               <ActividadFontanero />
+            </RoleRoute>
+          }
+        />
+        <Route
+          path="labores"
+          element={
+            <RoleRoute role={['Administrador', 'Junta Directiva']}>
+              <LaboresAdmin />
             </RoleRoute>
           }
         />
