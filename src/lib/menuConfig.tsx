@@ -176,6 +176,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
         to: '/dashboard/averias/fontanero',
         roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
       },
+      {
+        label: 'Labores adicionales',
+        to: '/dashboard/labores',
+        roles: ['Administrador', 'Junta Directiva'],
+      },
     ],
   },
   {

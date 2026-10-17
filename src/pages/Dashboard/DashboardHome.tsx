@@ -1,13 +1,28 @@
 import EmptyState from '../../components/ui/EmptyState'
 import ErrorState from '../../components/ui/ErrorState'
+import Alerta from '../../components/ui/Alerta'
+import Button from '../../components/ui/Button'
 import { useState, useMemo, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerMiResumen, type MiResumen } from '../../components/Services/abonados.service'
-import { obtenerAverias, obtenerMisAveriasFontanero, type AveriaBackend } from '../../components/Services/averias.service'
+import {
+  obtenerAverias,
+  obtenerMisAveriasFontanero,
+  iniciarGestionAveria,
+  terminarGestionAveria,
+  type AveriaBackend,
+} from '../../components/Services/averias.service'
+import {
+  obtenerMisLabores,
+  iniciarGestionLabor,
+  terminarGestionLabor,
+  type LaborBackend,
+} from '../../components/Services/labores.service'
 import {
   obtenerMisReportes,
+  obtenerReportes,
   formatearTiempo,
   ETIQUETA_ACTIVIDAD,
   type ReporteFontanero,
@@ -174,54 +189,34 @@ function IconDocumento() {
   )
 }
 
-// Fila compacta de alerta (no la tarjeta grande de antes): pensada para
-// vivir varias juntas dentro de una sola tarjeta contenedora, como una
-// mini-lista de pendientes en vez de un bloque de KPIs por separado.
-function AlertRow({
-  icon,
-  color,
-  mensaje,
-  count,
-  to,
-}: {
-  icon: React.ReactNode
-  color: string
-  mensaje: string
-  count: number
-  to: string
-}) {
-  return (
-    <Link
-      to={to}
-      className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-primary-50"
-    >
-      <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-full ${color}`}>
-        {icon}
-      </span>
-      <p className="min-w-0 flex-1 truncate text-sm font-medium text-primary-800">{mensaje}</p>
-      <span className="flex h-6 min-w-6 flex-none items-center justify-center rounded-full bg-primary-100 px-1.5 text-xs font-bold text-primary-700 group-hover:bg-primary-700 group-hover:text-white">
-        {count}
-      </span>
-    </Link>
-  )
-}
-
 // Tile de navegación rápida hacia otra sección del dashboard — para que el
 // panel principal también sirva como punto de partida, no solo de lectura.
+// El `badge` muestra, como una notificación, cuántos pendientes hay en esa
+// sección; solo aparece cuando hay algo que atender.
 function QuickLink({
   icon,
   label,
   to,
+  badge = 0,
+  badgeTitulo,
 }: {
   icon: React.ReactNode
   label: string
   to: string
+  badge?: number
+  badgeTitulo?: string
 }) {
   return (
     <Link
       to={to}
-      className="group flex flex-col items-center gap-2 rounded-2xl border border-primary-100 bg-white px-3 py-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+      title={badge > 0 && badgeTitulo ? badgeTitulo : undefined}
+      className="group relative flex flex-col items-center gap-2 rounded-2xl border border-primary-100 bg-white px-3 py-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
     >
+      {badge > 0 && (
+        <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-error-500 px-1 text-[10px] font-bold text-white">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary-700 transition-colors group-hover:bg-primary-700 group-hover:text-white">
         {icon}
       </span>
@@ -283,6 +278,23 @@ function DashboardHomeContenido() {
     }
   }, [])
 
+  // Reportes de fontanero pendientes de revisión: la administración decide si
+  // la resolución de la avería se aprueba o no. Se cuenta desde el backend
+  // (endpoint administrativo); si falla, simplemente no se muestra la
+  // notificación.
+  const [reportesPorRevisar, setReportesPorRevisar] = useState(0)
+  useEffect(() => {
+    let cancelado = false
+    obtenerReportes({ estadoRevision: 'Pendiente', limite: 1 })
+      .then((r) => {
+        if (!cancelado) setReportesPorRevisar(r.total)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
   const { desde, hasta } = useMemo(() => {
     if (rango === 'personalizado' && desdeCustom && hastaCustom) {
       return { desde: desdeCustom, hasta: hastaCustom }
@@ -308,53 +320,20 @@ function DashboardHomeContenido() {
   const totalAverias = averiasFiltradas.length
   const averiasPendientes = averiasFiltradas.filter((a) => a.estado === 'Pendiente').length
   const averiasEnProceso = averiasFiltradas.filter((a) => a.estado === 'En proceso').length
+  const averiasEnRevision = averiasFiltradas.filter((a) => a.estado === 'En revisión').length
   const averiasFinalizadas = averiasFiltradas.filter((a) => a.estado === 'Finalizado').length
-  const averiasActivas = averiasPendientes + averiasEnProceso
+  const averiasActivas = averiasPendientes + averiasEnProceso + averiasEnRevision
 
   const averiasSinAsignar = averiasReales.filter(
     (a) => a.estado === 'Pendiente' && !a.empleado,
   ).length
 
-  // Estas dos vienen directo de abonadosReales (no del filtro de rango):
-  // "inactivos" refleja el estado del abonado, y "sin cuenta" detecta
-  // abonados con correo registrado pero sin usuario vinculado todavía (ej.
-  // si el correo de bienvenida falló o nadie lo vinculó a mano después).
+  // Viene directo de abonadosReales (no del filtro de rango): refleja el
+  // estado del abonado, no cuándo se registró.
   const abonadosInactivosTotal = abonadosReales.filter((a) => a.estado === 'Inactivo').length
-  const abonadosSinCuenta = abonadosReales.filter((a) => !a.usuario_id).length
 
-  // Solo alertas basadas en datos reales — nada de mock. Si algún día se
-  // agrega otra alerta acá, que sea sobre un dato que de verdad viene del
-  // backend, no una aproximación.
-  const alertasActivas = useMemo(
-    () =>
-      [
-        {
-          key: 'averias',
-          icon: <IconAveria />,
-          color: 'bg-error-100 text-error-600',
-          mensaje: 'Averías sin asignar',
-          count: averiasSinAsignar,
-          to: '/dashboard/averias',
-        },
-        {
-          key: 'abonados-inactivos',
-          icon: <IconAbonado />,
-          color: 'bg-info-100 text-info-600',
-          mensaje: 'Abonados inactivos',
-          count: abonadosInactivosTotal,
-          to: '/dashboard/abonados',
-        },
-        {
-          key: 'abonados-sin-cuenta',
-          icon: <IconAbonado />,
-          color: 'bg-acento-100 text-acento-700',
-          mensaje: 'Abonados sin cuenta vinculada',
-          count: abonadosSinCuenta,
-          to: '/dashboard/abonados',
-        },
-      ].filter((a) => a.count > 0),
-    [averiasSinAsignar, abonadosInactivosTotal, abonadosSinCuenta],
-  )
+  // Los pendientes ya no se listan como "alertas" aparte: se muestran como
+  // notificaciones (badge) sobre los accesos rápidos de abajo.
 
   // Averías todavía sin resolver (Pendiente o En proceso), con sus días de
   // antigüedad desde que se reportaron — es el dato real que alimenta tanto
@@ -522,6 +501,11 @@ function DashboardHomeContenido() {
             <span className="rounded-full bg-info-100 px-3 py-1 text-xs font-semibold text-info-700">
               {averiasEnProceso} en proceso
             </span>
+            {averiasEnRevision > 0 && (
+              <span className="rounded-full bg-acento-100 px-3 py-1 text-xs font-semibold text-acento-700">
+                {averiasEnRevision} en revisión
+              </span>
+            )}
             <span className="rounded-full bg-exito-100 px-3 py-1 text-xs font-semibold text-exito-700">
               {averiasFinalizadas} finalizadas
             </span>
@@ -529,29 +513,35 @@ function DashboardHomeContenido() {
         </Link>
       </div>
 
-      {/* Alertas: lista compacta, solo si hay algo real que atender. */}
-      {alertasActivas.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-3 shadow-sm sm:p-4">
-          <p className="px-2 pt-1 text-xs font-semibold tracking-wide text-primary-400 uppercase">
-            Por revisar
-          </p>
-          <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-3">
-            {alertasActivas.map((a) => (
-              <AlertRow key={a.key} icon={a.icon} color={a.color} mensaje={a.mensaje} count={a.count} to={a.to} />
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Accesos rápidos: el panel también es punto de partida, no solo
-          lectura de números. */}
+          lectura de números. Los pendientes se muestran como una notificación
+          (badge) sobre cada sección, en vez de una lista de alertas aparte. */}
       <div>
         <p className="mb-3 text-xs font-semibold tracking-wide text-primary-400 uppercase">
           Accesos rápidos
         </p>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          <QuickLink icon={<IconAbonado />} label="Abonados" to="/dashboard/abonados" />
-          <QuickLink icon={<IconAveria />} label="Averías" to="/dashboard/averias" />
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          <QuickLink
+            icon={<IconAbonado />}
+            label="Abonados"
+            to="/dashboard/abonados"
+            badge={abonadosInactivosTotal}
+            badgeTitulo="Abonados inactivos"
+          />
+          <QuickLink
+            icon={<IconAveria />}
+            label="Averías"
+            to="/dashboard/averias"
+            badge={averiasSinAsignar}
+            badgeTitulo="Averías sin asignar"
+          />
+          <QuickLink
+            icon={<IconDocumento />}
+            label="Reportes"
+            to="/dashboard/averias/fontanero"
+            badge={reportesPorRevisar}
+            badgeTitulo="Reportes de fontanero por revisar"
+          />
           <QuickLink icon={<IconSolicitud />} label="Solicitudes" to="/dashboard/solicitudes" />
           <QuickLink icon={<IconStock />} label="Inventario" to="/dashboard/inventario/articulos" />
           <QuickLink icon={<IconUsuarios />} label="Usuarios" to="/dashboard/seguridad" />
@@ -720,6 +710,7 @@ function DashboardAbonado() {
     rechazado: 'bg-error-100 text-error-700',
     Pendiente: 'bg-advertencia-100 text-advertencia-700',
     'En proceso': 'bg-info-100 text-info-700',
+    'En revisión': 'bg-info-100 text-info-700',
     Finalizado: 'bg-exito-100 text-exito-700',
   }
 
@@ -883,23 +874,68 @@ function DashboardAbonado() {
   )
 }
 
+// Cronómetro en vivo de la gestión de una avería. Se calcula contra la hora
+// de inicio que guardó el servidor, así que recargar la página no lo altera.
+function Cronometro({ inicio }: { inicio: string | null }) {
+  const [ahora, setAhora] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const inicioMs = inicio ? new Date(inicio).getTime() : NaN
+  const segundos = Number.isNaN(inicioMs)
+    ? 0
+    : Math.max(0, Math.floor((ahora - inicioMs) / 1000))
+  const horas = Math.floor(segundos / 3600)
+  const minutos = Math.floor((segundos % 3600) / 60)
+  const restoSegundos = segundos % 60
+  const texto =
+    horas > 0
+      ? `${horas}:${String(minutos).padStart(2, '0')}:${String(restoSegundos).padStart(2, '0')}`
+      : `${String(minutos).padStart(2, '0')}:${String(restoSegundos).padStart(2, '0')}`
+
+  return (
+    <span
+      className="rounded-full bg-info-100 px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-info-700"
+      title="Tiempo transcurrido desde que iniciaste la gestión"
+    >
+      {texto}
+    </span>
+  )
+}
+
 // Dashboard personalizado para fontaneros: muestra su resumen de actividad
 // (reportes registrados y horas acumuladas) y accesos rápidos a su sección
 // y a los documentos oficiales. Mismo patrón que DashboardAbonado.
 function DashboardFontanero() {
   const { user } = useAuth()
+  const navigate = useNavigate()
   const [reportes, setReportes] = useState<ReporteFontanero[]>([])
   const [averiasPendientes, setAveriasPendientes] = useState<AveriaBackend[]>([])
+  const [laboresPendientes, setLaboresPendientes] = useState<LaborBackend[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  // Error de una acción puntual (iniciar/finalizar) que se muestra dentro de la
+  // tarjeta, sin reemplazar todo el dashboard como hace el error de carga.
+  const [aviso, setAviso] = useState('')
+  // Clave del trabajo en curso ("averia-3" / "labor-5") para deshabilitar su
+  // botón mientras se procesa.
+  const [accionandoClave, setAccionandoClave] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelado = false
-    Promise.all([obtenerMisReportes(), obtenerMisAveriasFontanero()])
-      .then(([reportesData, averiasData]) => {
+    Promise.all([
+      obtenerMisReportes(),
+      obtenerMisAveriasFontanero(),
+      obtenerMisLabores(),
+    ])
+      .then(([reportesData, averiasData, laboresData]) => {
         if (!cancelado) {
           setReportes(reportesData)
           setAveriasPendientes(averiasData)
+          setLaboresPendientes(laboresData)
         }
       })
       .catch((err) => {
@@ -912,6 +948,143 @@ function DashboardFontanero() {
       cancelado = true
     }
   }, [])
+
+  // Un "trabajo" es una avería o una labor adicional asignada al fontanero.
+  // Ambas se unifican para mostrarlas en una sola lista.
+  type TrabajoAsignado = {
+    origen: 'averia' | 'labor'
+    id: number
+    clave: string
+    codigo: string
+    tipo: string
+    tipoEtiqueta: string
+    descripcion: string
+    estado: string
+    gestion_iniciada_en: string | null
+    gestion_finalizada_en: string | null
+    devuelta_revision: boolean
+    motivo_revision: string | null
+  }
+
+  const trabajos: TrabajoAsignado[] = [
+    ...averiasPendientes.map((a) => ({
+      origen: 'averia' as const,
+      id: a.id,
+      clave: `averia-${a.id}`,
+      codigo: a.codigo_averia,
+      tipo: a.tipo_averia,
+      tipoEtiqueta: a.tipo_averia,
+      descripcion: a.descripcion,
+      estado: a.estado,
+      gestion_iniciada_en: a.gestion_iniciada_en,
+      gestion_finalizada_en: a.gestion_finalizada_en,
+      devuelta_revision: a.devuelta_revision,
+      motivo_revision: a.motivo_revision,
+    })),
+    ...laboresPendientes.map((l) => ({
+      origen: 'labor' as const,
+      id: l.id,
+      clave: `labor-${l.id}`,
+      codigo: l.codigo_labor,
+      tipo: l.tipo_actividad,
+      tipoEtiqueta: ETIQUETA_ACTIVIDAD[l.tipo_actividad],
+      descripcion: l.descripcion,
+      estado: l.estado,
+      gestion_iniciada_en: l.gestion_iniciada_en,
+      gestion_finalizada_en: l.gestion_finalizada_en,
+      devuelta_revision: l.devuelta_revision,
+      motivo_revision: l.motivo_revision,
+    })),
+  ].sort((a, b) => Number(b.devuelta_revision) - Number(a.devuelta_revision))
+
+  // Minutos reales de una gestión ya terminada (con inicio y fin), para que el
+  // reporte salga prellenado aunque el fontanero lo llene más tarde.
+  const minutosDeGestion = (t: TrabajoAsignado): number | null => {
+    if (!t.gestion_iniciada_en || !t.gestion_finalizada_en) return null
+    const ms =
+      new Date(t.gestion_finalizada_en).getTime() -
+      new Date(t.gestion_iniciada_en).getTime()
+    if (!Number.isFinite(ms) || ms <= 0) return null
+    return Math.min(1440, Math.max(1, Math.round(ms / 60000)))
+  }
+
+  // Fecha local (YYYY-MM-DD) en que inició la gestión, para que el reporte
+  // quede con el día en que se trabajó aunque se llene después.
+  const fechaDeGestion = (t: TrabajoAsignado): string | null => {
+    if (!t.gestion_iniciada_en) return null
+    const d = new Date(t.gestion_iniciada_en)
+    if (Number.isNaN(d.getTime())) return null
+    const mes = String(d.getMonth() + 1).padStart(2, '0')
+    const dia = String(d.getDate()).padStart(2, '0')
+    return `${d.getFullYear()}-${mes}-${dia}`
+  }
+
+  // Arma los parámetros del formulario de reporte para un trabajo.
+  const parametrosReporte = (t: TrabajoAsignado): URLSearchParams => {
+    const params = new URLSearchParams({
+      [t.origen]: String(t.id),
+      nuevo: '1',
+      codigo: t.codigo,
+    })
+    // En labores el tipo lo define la labor; en averías el formulario usa
+    // "atención de avería".
+    if (t.origen === 'labor') params.set('tipo', t.tipo)
+    const minutos = minutosDeGestion(t)
+    if (minutos !== null) params.set('minutos', String(minutos))
+    const fecha = fechaDeGestion(t)
+    if (fecha) params.set('fecha', fecha)
+    return params
+  }
+
+  const irAlReporte = (t: TrabajoAsignado) => {
+    navigate(`/dashboard/averias/fontanero?${parametrosReporte(t).toString()}`)
+  }
+
+  const handleIniciar = async (t: TrabajoAsignado) => {
+    setAccionandoClave(t.clave)
+    setAviso('')
+    try {
+      if (t.origen === 'averia') {
+        const actualizada = await iniciarGestionAveria(t.id)
+        setAveriasPendientes((prev) =>
+          prev.map((a) => (a.id === t.id ? actualizada : a)),
+        )
+      } else {
+        const actualizada = await iniciarGestionLabor(t.id)
+        setLaboresPendientes((prev) =>
+          prev.map((l) => (l.id === t.id ? actualizada : l)),
+        )
+      }
+    } catch (err) {
+      setAviso(
+        err instanceof Error ? err.message : 'No se pudo iniciar la gestión.',
+      )
+    } finally {
+      setAccionandoClave(null)
+    }
+  }
+
+  // Al terminar, el backend detiene el cronómetro y devuelve la duración real;
+  // se redirige al reporte ya prellenado. El trabajo queda "En proceso" hasta
+  // que la administración apruebe la resolución.
+  const handleTerminar = async (t: TrabajoAsignado) => {
+    setAccionandoClave(t.clave)
+    setAviso('')
+    try {
+      const result =
+        t.origen === 'averia'
+          ? await terminarGestionAveria(t.id)
+          : await terminarGestionLabor(t.id)
+      const params = parametrosReporte(t)
+      params.set('minutos', String(result.duracion_minutos))
+      navigate(`/dashboard/averias/fontanero?${params.toString()}`)
+    } catch (err) {
+      setAviso(
+        err instanceof Error ? err.message : 'No se pudo terminar la gestión.',
+      )
+      setAccionandoClave(null)
+    }
+  }
 
   const minutosTotales = reportes.reduce((suma, r) => suma + r.tiempo_minutos, 0)
   const primerNombre = user?.nombre?.split(' ')[0] ?? ''
@@ -959,9 +1132,9 @@ function DashboardFontanero() {
           <StatCard
             variant="dark"
             icon={<IconAveria />}
-            title="Averías asignadas"
-            value={String(averiasPendientes.length)}
-            subtitle="Por atender"
+            title="Trabajos asignados"
+            value={String(trabajos.length)}
+            subtitle={`${averiasPendientes.length} averías · ${laboresPendientes.length} labores`}
             to="/dashboard/averias/fontanero"
           />
           <StatCard
@@ -983,11 +1156,11 @@ function DashboardFontanero() {
         </div>
       </div>
 
-      {/* Averías pendientes asignadas por la administración */}
+      {/* Trabajos pendientes asignados por la administración (averías + labores) */}
       <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-primary-900">
-            Averías asignadas por atender
+            Trabajos asignados por atender
           </h2>
           <Link
             to="/dashboard/averias/fontanero"
@@ -996,32 +1169,128 @@ function DashboardFontanero() {
             Registrar actividad
           </Link>
         </div>
-        {averiasPendientes.length === 0 ? (
+        {trabajos.length === 0 ? (
           <p className="mt-4 text-sm text-primary-400">
-            No tienes averías asignadas pendientes.
+            No tienes trabajos asignados pendientes.
           </p>
         ) : (
-          <ul className="mt-3 space-y-2">
-            {averiasPendientes.slice(0, 5).map((averia) => (
-              <li
-                key={averia.id}
-                className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5"
-              >
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-primary-900">
-                    <span className="text-primary-500">{averia.codigo_averia}</span>{' '}
-                    — {averia.tipo_averia}
-                  </p>
-                  <p className="truncate text-xs text-primary-500">
-                    {averia.descripcion}
-                  </p>
-                </div>
-                <span className="flex-none rounded-full bg-advertencia-100 px-2 py-0.5 text-[11px] font-semibold text-advertencia-700">
-                  {averia.estado}
-                </span>
-              </li>
-            ))}
-          </ul>
+          <>
+            {aviso && (
+              <div className="mt-3">
+                <Alerta tipo="error">{aviso}</Alerta>
+              </div>
+            )}
+            <ul className="mt-3 space-y-2">
+              {trabajos.slice(0, 5).map((t) => {
+                const esEnProceso = t.estado === 'En proceso'
+                const devuelta = t.devuelta_revision
+                const timerActivo =
+                  esEnProceso &&
+                  Boolean(t.gestion_iniciada_en) &&
+                  !t.gestion_finalizada_en
+                const listoParaReportar =
+                  esEnProceso && Boolean(t.gestion_finalizada_en)
+                const ocupada = accionandoClave === t.clave
+                const etiqueta = devuelta
+                  ? 'Devuelta'
+                  : listoParaReportar
+                    ? 'Listo para reportar'
+                    : t.estado
+                const claseBadge = devuelta
+                  ? 'bg-error-100 text-error-700'
+                  : listoParaReportar
+                    ? 'bg-exito-100 text-exito-700'
+                    : esEnProceso
+                      ? 'bg-info-100 text-info-700'
+                      : 'bg-advertencia-100 text-advertencia-700'
+                const esAveria = t.origen === 'averia'
+                return (
+                  <li
+                    key={t.clave}
+                    className="flex items-center justify-between gap-3 rounded-xl bg-primary-50/50 px-3 py-2.5"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => irAlReporte(t)}
+                      className="min-w-0 flex-1 rounded-lg text-left"
+                      title="Registrar el reporte de este trabajo"
+                    >
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            esAveria
+                              ? 'bg-acento-100 text-acento-700'
+                              : 'bg-info-100 text-info-700'
+                          }`}
+                        >
+                          {esAveria ? 'Avería' : 'Labor'}
+                        </span>
+                        <p className="truncate text-sm font-medium text-primary-900">
+                          <span className="text-primary-500">{t.codigo}</span>{' '}
+                          — {t.tipoEtiqueta}
+                        </p>
+                      </div>
+                      <p className="truncate text-xs text-primary-500">
+                        {t.descripcion}
+                      </p>
+                      {devuelta && t.motivo_revision && (
+                        <p
+                          className="mt-0.5 truncate text-xs font-medium text-error-600"
+                          title={t.motivo_revision}
+                        >
+                          Devuelta: {t.motivo_revision}
+                        </p>
+                      )}
+                    </button>
+                    <div className="flex flex-none items-center gap-2">
+                      {timerActivo && (
+                        <Cronometro inicio={t.gestion_iniciada_en} />
+                      )}
+                      <span
+                        className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-semibold ${claseBadge}`}
+                      >
+                        {etiqueta}
+                      </span>
+                      {timerActivo ? (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          type="button"
+                          disabled={ocupada}
+                          onClick={() => handleTerminar(t)}
+                        >
+                          {ocupada ? 'Terminando…' : 'Terminar y reportar'}
+                        </Button>
+                      ) : listoParaReportar ? (
+                        <Button
+                          variant="primary"
+                          size="sm"
+                          type="button"
+                          onClick={() => irAlReporte(t)}
+                        >
+                          Hacer reporte
+                        </Button>
+                      ) : (
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          type="button"
+                          disabled={ocupada}
+                          onClick={() => handleIniciar(t)}
+                        >
+                          {ocupada
+                            ? 'Iniciando…'
+                            : esAveria
+                              ? 'Atender avería'
+                              : 'Atender labor'}
+                        </Button>
+                      )}
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
         )}
       </div>
 
