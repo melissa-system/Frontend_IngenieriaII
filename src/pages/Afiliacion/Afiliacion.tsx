@@ -177,6 +177,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
   const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
 
   // --- Modo dashboard + rol Abonado: identidad quemada desde el perfil ---
   // Un Abonado ya autenticado no puede escribir cualquier cédula/nombre en
@@ -481,6 +482,55 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
   const nombreFinal = draft.nombreSolicitante || 'vecino/a'
 
+  const armarDatosDocumento = (
+    codigo?: string | null,
+    fecha?: Date | string | null,
+  ): DatosDocumentoSolicitud => ({
+    codigoSolicitud: codigo ?? null,
+    fecha: fecha ?? new Date(),
+    tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
+    nombreSolicitante: draft.nombreSolicitante,
+    identificacion: normalizarIdentificacion(draft.identificacion),
+    nombreRepresentante: esJuridica ? draft.nombreRepresentante : null,
+    cedulaRepresentante: esJuridica
+      ? normalizarIdentificacion(draft.cedulaRepresentante)
+      : null,
+    telefono: draft.telefono,
+    telefonoSecundario: draft.telefonoSecundario || null,
+    correo: draft.correo,
+    provincia: draft.provincia,
+    canton: draft.canton,
+    distrito: draft.distrito,
+    direccion: draft.direccion,
+    numeroPlano: draft.numeroPlano,
+    naturalezaInmueble: draft.naturalezaInmueble,
+    calidadTitular: draft.calidadTitular,
+    tipoServicio: draft.tipoServicio,
+    tipoConexion: draft.tipoConexion,
+    observaciones: draft.observaciones || null,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setErrorDocumento(null)
+    try {
+      const datosDocumento = armarDatosDocumento(
+        solicitudCreada?.codigo_solicitud ?? null,
+        solicitudCreada?.fecha_solicitud ?? new Date(),
+      )
+      const blob = await generarPdfSolicitud(datosDocumento)
+      descargarPdfSolicitud(
+        blob,
+        solicitudCreada?.codigo_solicitud ?? null,
+        solicitudCreada?.fecha_solicitud ?? new Date(),
+      )
+    } catch {
+      setErrorDocumento('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const handleSubmit = async () => {
     if (!paso4Valido || !permisosMunicipales || !cartaSolicitud || !cedulaFrente || !cedulaDorso)
       return
@@ -519,33 +569,8 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
       setEnviado(true)
 
       // Generar el documento lleno para poder verlo/descargarlo de una vez.
-      // Se arma con los datos que la persona ACABA de escribir (no hace
-      // falta volver a pedirle nada al backend).
       try {
-        const datosDocumento: DatosDocumentoSolicitud = {
-          codigoSolicitud: creada.codigo_solicitud,
-          fecha: creada.fecha_solicitud,
-          tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
-          nombreSolicitante: draft.nombreSolicitante,
-          identificacion: normalizarIdentificacion(draft.identificacion),
-          nombreRepresentante: esJuridica ? draft.nombreRepresentante : null,
-          cedulaRepresentante: esJuridica
-            ? normalizarIdentificacion(draft.cedulaRepresentante)
-            : null,
-          telefono: draft.telefono,
-          telefonoSecundario: draft.telefonoSecundario || null,
-          correo: draft.correo,
-          provincia: draft.provincia,
-          canton: draft.canton,
-          distrito: draft.distrito,
-          direccion: draft.direccion,
-          numeroPlano: draft.numeroPlano,
-          naturalezaInmueble: draft.naturalezaInmueble,
-          calidadTitular: draft.calidadTitular,
-          tipoServicio: draft.tipoServicio,
-          tipoConexion: draft.tipoConexion,
-          observaciones: draft.observaciones || null,
-        }
+        const datosDocumento = armarDatosDocumento(creada.codigo_solicitud, creada.fecha_solicitud)
         setDocumentoBlob(await generarPdfSolicitud(datosDocumento))
       } catch {
         // No es crítico: la solicitud YA se guardó. Solo no se podrá
@@ -614,10 +639,11 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 onClick={() =>
                   descargarPdfSolicitud(
                     documentoBlob,
-                    solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
+                    solicitudCreada?.codigo_solicitud ?? null,
+                    solicitudCreada?.fecha_solicitud ?? new Date(),
                   )
                 }>
-                Descargar documento (PDF)
+                Descargar copia (PDF)
               </Button>
             </div>
           )}
@@ -1195,7 +1221,20 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
                 {errorSubmit && (
                   <Alerta tipo="error">
-                    {errorSubmit}
+                    <div className="space-y-2">
+                      <p>{errorSubmit}</p>
+                      <div>
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          type="button"
+                          onClick={descargarCopiaPrevia}
+                          disabled={generandoCopia}
+                        >
+                          {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+                        </Button>
+                      </div>
+                    </div>
                   </Alerta>
                 )}
               </div>
@@ -1203,7 +1242,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
           </div>
 
           {/* Navegación: Atrás / Siguiente (o Enviar en el último paso) */}
-          <div className="mt-4 flex items-center justify-between gap-3">
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
             <Button
               variant="secondary"
               type="button"
@@ -1220,13 +1259,22 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 Siguiente
               </Button>
             ) : (
-              <Button
-                variant="primary"
-                type="button"
-                onClick={handleSubmit}
-                disabled={!paso4Valido || enviando || !tokenRecaptcha}>
-                {enviando ? 'Enviando...' : 'Enviar solicitud'}
-              </Button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="secondary"
+                  type="button"
+                  onClick={descargarCopiaPrevia}
+                  disabled={!paso4Valido || generandoCopia || enviando}>
+                  {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
+                </Button>
+                <Button
+                  variant="primary"
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!paso4Valido || enviando || !tokenRecaptcha}>
+                  {enviando ? 'Enviando...' : 'Enviar solicitud'}
+                </Button>
+              </div>
             )}
           </div>
         </div>
