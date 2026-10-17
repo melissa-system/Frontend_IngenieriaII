@@ -157,15 +157,20 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     ],
   },
   {
-    label: 'Averías',
+    label: 'Gestión operativa',
     icon: <AveriasIcon />,
     // Junta Directiva no se lista acá porque el guard le da acceso total al
     // sistema; se agrega igual para que el ítem le aparezca en el menú.
     roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
     submenu: [
       {
-        label: 'Reporte de Averías',
+        label: 'Averías',
         to: '/dashboard/averias',
+        roles: ['Administrador', 'Junta Directiva'],
+      },
+      {
+        label: 'Otros mantenimientos',
+        to: '/dashboard/labores',
         roles: ['Administrador', 'Junta Directiva'],
       },
       {
@@ -175,11 +180,6 @@ export const MENU_CONFIG: MenuItemConfig[] = [
         label: 'Reporte fontanero',
         to: '/dashboard/averias/fontanero',
         roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
-      },
-      {
-        label: 'Labores adicionales',
-        to: '/dashboard/labores',
-        roles: ['Administrador', 'Junta Directiva'],
       },
     ],
   },

@@ -429,7 +429,7 @@ function LaboresAdmin() {
   return (
     <div className="space-y-6">
       <PageHeader
-        titulo="Labores adicionales"
+        titulo="Otros mantenimientos"
         descripcion={
           cargando
             ? 'Cargando...'
