@@ -1,7 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import Alerta from '../ui/Alerta'
 import Button from '../ui/Button'
-import { Textarea } from '../ui/campos'
+import { Archivo, Textarea } from '../ui/campos'
 import Modal, { ModalAcciones, ModalTitulo } from '../ui/Modal'
 
 // Mínimo de caracteres del motivo. Debe coincidir con MIN_MOTIVO_RECHAZO del
@@ -25,6 +25,7 @@ function ModalGestionEstado({
   etiquetaMotivo,
   ayudaMotivo,
   aviso,
+  documento,
   cargando = false,
   onConfirmar,
   onCancelar,
@@ -41,6 +42,17 @@ function ModalGestionEstado({
   ayudaMotivo?: string
   /** Texto de la notificación; por defecto un aviso genérico de correo. */
   aviso?: string
+  /**
+   * Pide adjuntar un documento (ej. la solicitud aprobada firmada por la
+   * ASADA). Obligatorio: no se puede confirmar sin archivo.
+   */
+  documento?: {
+    archivo: File | null
+    onChange: (archivo: File | null) => void
+    etiqueta: string
+    ayuda?: string
+    accept?: string
+  }
   cargando?: boolean
   onConfirmar: () => void
   onCancelar: () => void
@@ -49,6 +61,7 @@ function ModalGestionEstado({
   const largo = motivo.trim().length
   const invalido = motivoObligatorio && largo < MIN_MOTIVO
   const esRechazo = accion === 'rechazar'
+  const faltaDocumento = !!documento && !documento.archivo
 
   const error = intento && invalido
     ? largo === 0
@@ -59,7 +72,7 @@ function ModalGestionEstado({
   function enviar(e: FormEvent) {
     e.preventDefault()
     setIntento(true)
-    if (invalido) return
+    if (invalido || faltaDocumento) return
     onConfirmar()
   }
 
@@ -86,6 +99,18 @@ function ModalGestionEstado({
             placeholder={esRechazo ? 'Ej: Documentación incompleta o ilegible…' : 'Ej: Se gestionó y entregó la constancia solicitada'}
             error={error}
             ayuda={ayudaMotivo ?? `Mínimo ${MIN_MOTIVO} caracteres. Es el texto que recibirá el solicitante.`}
+            disabled={cargando}
+          />
+        )}
+
+        {documento && (
+          <Archivo
+            label={documento.etiqueta}
+            obligatorio
+            accept={documento.accept}
+            ayuda={documento.ayuda}
+            error={intento && faltaDocumento ? 'Debes adjuntar el documento.' : null}
+            onChange={(e) => documento.onChange(e.target.files?.[0] ?? null)}
             disabled={cargando}
           />
         )}

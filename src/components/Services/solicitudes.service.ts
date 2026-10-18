@@ -144,6 +144,8 @@ export interface SolicitudPajaAgua {
 export interface ActualizarEstadoSolicitudPajaAguaPayload {
   estado: 'En proceso' | 'Aprobada' | 'Rechazada'
   motivoRechazo?: string
+  /** Obligatorio al aprobar: documento firmado por la ASADA (PDF o Word). */
+  documentoAprobacion?: File
 }
 
 
@@ -224,9 +226,16 @@ export const cambiarEstadoSolicitudPajaAgua = async (
   payload: ActualizarEstadoSolicitudPajaAguaPayload,
 ): Promise<SolicitudPajaAgua> => {
   try {
+    // Multipart: al aprobar viaja el documento firmado por la ASADA.
+    const formData = new FormData()
+    formData.append('estado', payload.estado)
+    if (payload.motivoRechazo) formData.append('motivoRechazo', payload.motivoRechazo)
+    if (payload.documentoAprobacion) {
+      formData.append('documentoAprobacion', payload.documentoAprobacion)
+    }
     const { data } = await apiClient.patch<SolicitudPajaAgua>(
       `/solicitudes/${id}/estado`,
-      payload,
+      formData,
     )
     return data
   } catch (error) {
