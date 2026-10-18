@@ -271,8 +271,6 @@ function FormularioConexion({
     [disponibles, idSeleccionado],
   )
 
-  const [generandoCopia, setGenerandoCopia] = useState(false)
-
   const [medioPrincipal, setMedioPrincipal] = useState('correo')
   const [valorPrincipal, setValorPrincipal] = useState(seleccionada?.correo ?? '')
   const [medioSecundario, setMedioSecundario] = useState('')
@@ -321,71 +319,6 @@ function FormularioConexion({
   function quitarArchivo(tipo: string) {
     setArchivos((prev) => ({ ...prev, [tipo]: null }))
     setPreviews((prev) => ({ ...prev, [tipo]: null }))
-  }
-
-  const armarObjetoPrevio = (): SolicitudConexion => ({
-    id: 0,
-    codigo_solicitud: '',
-    id_abonado: 0,
-    numero_abonado: '',
-    nombre_abonado: seleccionada.nombre_solicitante,
-    cedula: seleccionada.identificacion,
-    correo: seleccionada.correo,
-    solicitud_paja_agua_codigo: seleccionada.codigo_solicitud,
-    nombre_solicitante: seleccionada.nombre_solicitante,
-    identificacion_solicitante: seleccionada.identificacion,
-    telefono_solicitante: seleccionada.telefono,
-    tipo_persona: seleccionada.tipo_persona,
-    provincia: seleccionada.provincia ?? '',
-    canton: seleccionada.canton ?? '',
-    distrito: seleccionada.distrito ?? '',
-    direccion_inmueble: seleccionada.direccion ?? '',
-    naturaleza_inmueble: seleccionada.naturaleza_inmueble ?? '',
-    calidad_titular: seleccionada.calidad_titular ?? '',
-    medio_notificacion_principal: medioPrincipal,
-    valor_notificacion_principal: valorPrincipal,
-    medio_notificacion_secundario: medioSecundario || null,
-    valor_notificacion_secundario: valorSecundario || null,
-    folio_real: folioReal || null,
-    plano_catastro: planoCatastro || null,
-    plano_agrimensura: planoAgrimensura || null,
-    numero_disponibilidad: null,
-    numero_nis: numeroNis || null,
-    servicio_solicitado: servicio,
-    tipo_tramite: tipoTramite,
-    codigo_apc_cfia: codigoApcCfia || null,
-    forma_pago: formaPago,
-    nombre_firmante: nombreFirmante,
-    identificacion_firmante: identificacionFirmante,
-    firma_path: '',
-    adjuntos: [],
-    motivo_rechazo: null,
-    id_empleado: null,
-    estado: 'pendiente',
-    fecha_creacion: new Date().toISOString(),
-    fecha_actualizacion: new Date().toISOString(),
-  })
-
-  const descargarCopiaPrevia = async () => {
-    setGenerandoCopia(true)
-    setErrorGeneral(null)
-    try {
-      const solicitudPrevia = armarObjetoPrevio()
-      let firmaUrl: string | undefined = undefined
-      if (firma) {
-        firmaUrl = await new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onload = () => resolve(reader.result as string)
-          reader.readAsDataURL(firma)
-        })
-      }
-      const blob = await generarPdfConexion(solicitudPrevia, firmaUrl)
-      descargarPdfConexion(blob, null, new Date())
-    } catch {
-      setErrorGeneral('No se pudo generar la copia de respaldo en este momento.')
-    } finally {
-      setGenerandoCopia(false)
-    }
   }
 
   async function manejarEnvio(e: FormEvent) {
@@ -714,32 +647,11 @@ function FormularioConexion({
 
       {errorGeneral && (
         <Alerta tipo="error">
-          <div className="space-y-2">
-            <p>{errorGeneral}</p>
-            <div>
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={descargarCopiaPrevia}
-                disabled={generandoCopia}
-              >
-                {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-              </Button>
-            </div>
-          </div>
+          <p>{errorGeneral}</p>
         </Alerta>
       )}
 
       <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-        <Button
-          variant="secondary"
-          type="button"
-          onClick={descargarCopiaPrevia}
-          disabled={generandoCopia || enviando}
-        >
-          {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-        </Button>
         <Button
           variant="primary"
           type="submit"

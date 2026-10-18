@@ -340,20 +340,7 @@ function VistaAbonado() {
 
       {error && (
         <Alerta tipo="error">
-          <div className="space-y-2">
-            <p>{error}</p>
-            <div>
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={descargarCopiaPrevia}
-                disabled={generandoCopia}
-              >
-                {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-              </Button>
-            </div>
-          </div>
+          {error}
         </Alerta>
       )}
 
@@ -569,14 +556,6 @@ function VistaAbonado() {
 
         {/* Botones */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
-          <Button
-            variant="secondary"
-            type="button"
-            onClick={descargarCopiaPrevia}
-            disabled={tieneAbierta || generandoCopia || enviando}
-          >
-            {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-          </Button>
           <Button
             variant="primary"
             type="submit"
@@ -973,20 +952,7 @@ function VistaAdministrador() {
 
       {error && (
         <Alerta tipo="error">
-          <div className="space-y-2">
-            <p>{error}</p>
-            <div>
-              <Button
-                variant="secondary"
-                size="sm"
-                type="button"
-                onClick={descargarCopiaPrevia}
-                disabled={generandoCopia}
-              >
-                {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-              </Button>
-            </div>
-          </div>
+          {error}
         </Alerta>
       )}
 
@@ -1210,14 +1176,6 @@ function VistaAdministrador() {
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
-          <Button
-            variant="secondary"
-            type="button"
-            onClick={descargarCopiaPrevia}
-            disabled={generandoCopia || enviando}
-          >
-            {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-          </Button>
           <Button
             variant="primary"
             type="submit"
