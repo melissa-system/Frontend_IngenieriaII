@@ -63,7 +63,92 @@ function chk(condicion: boolean): string {
 }
 
 const STYLE = `
-*{box-sizing:border-box}@page{size:A4;margin:0}body{margin:0;padding:20px;background:#eee;font-family:Arial,Helvetica,sans-serif;color:#222;font-size:9.5pt}.page{width:210mm;min-height:297mm;margin:0 auto 20px;background:#fff;border:1.2px solid #222;border-radius:4mm;overflow:hidden;position:relative;page-break-after:always}.page:last-child{page-break-after:auto}.header{height:22mm;border-bottom:1px solid #222;display:grid;grid-template-columns:28mm 1fr 38mm;align-items:center;padding:2mm 5mm}.logo{font-weight:800;font-size:15pt;text-align:center;line-height:1}.title{text-align:center;font-weight:700;font-size:13pt}.subtitle{font-size:10pt;margin-top:1px}.code{text-align:right;font-size:7pt;align-self:end}.simple-header{height:16mm;border-bottom:1px solid #222;display:flex;align-items:center;padding:2mm 5mm}.simple-header .logo{width:28mm;font-size:12pt}.simple-header .title{flex:1;font-size:12.5pt}.exclusive{text-align:center;font-weight:700;font-style:italic;font-size:11pt;padding:2mm;border-bottom:1px solid #222}.two{display:grid;grid-template-columns:1fr 1fr;gap:5mm}.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm}.four{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:3mm}.field{text-align:center}.field label{display:block;margin-bottom:1mm}input[type=text],input[type=date],input[type=email]{width:100%;height:7.2mm;border:1px solid #222;background:#fff;font:inherit;padding:1mm 2mm}textarea{width:100%;border:1px solid #222;resize:none;font:inherit;padding:1mm 2mm}.section-title{display:flex;align-items:center;gap:3mm;font-weight:700;font-size:11.5pt;margin:2.5mm 5mm 1.5mm}.roman{border:2px solid #222;border-radius:50%;min-width:11mm;height:9mm;display:inline-flex;align-items:center;justify-content:center;font-size:10.5pt}.small{font-size:7.5pt}.content{padding:0 3.5mm}.radio-row{display:flex;gap:1mm 7mm;flex-wrap:wrap;margin-bottom:1.5mm}input[type=radio],input[type=checkbox]{width:3.6mm;height:3.6mm;vertical-align:middle;margin:0 1mm 0 0}.notification{border-top:1px solid #222;border-bottom:1px solid #222;margin-top:1mm}.notification-head,.notification-body{display:grid;grid-template-columns:1fr 1fr}.notification-head>div{text-align:center;font-weight:700;padding:1.5mm;border-right:1px solid #222}.notification-head>div:last-child,.notification-body>div:last-child{border-right:0}.notification-body>div{padding:1.5mm 3mm;border-right:1px solid #222}.inline{display:grid;grid-template-columns:34mm 1fr;align-items:center;margin-bottom:1.5mm}.inline label{text-align:left}.inmueble{border-bottom:1px solid #222;padding:0 3.5mm 3mm}.inmueble .three{margin-bottom:2mm}.inmueble .folio{display:grid;grid-template-columns:1.7fr .75fr .85fr .75fr;gap:2.5mm}.inmueble .extra{display:grid;grid-template-columns:1.7fr .75fr .85fr .75fr;gap:2.5mm;margin-top:1mm}.naturaleza{display:grid;grid-template-columns:1fr 1fr;border-bottom:1px solid #222}.nat-col{padding:1.5mm 3mm;border-right:1px solid #222}.nat-col:last-child{border-right:0}.nat-title{text-align:center;margin-bottom:1mm}.choices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1mm 3mm;font-size:7.5pt}.note{font-size:6.5pt;margin-top:1.5mm}.purpose{padding:0 3.5mm}.purpose-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm 6mm;margin-bottom:2mm}.purpose-item{display:flex;align-items:flex-start;gap:1mm}.purpose-item input{flex:none}.purpose-line{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:5mm;align-items:center;margin-bottom:2mm}.purpose-box{display:grid;grid-template-columns:1fr 1fr;gap:4mm;margin-bottom:2mm}.signature{padding:0 3mm}.signature-box{height:12mm;border:1px solid #222}.signature-label{text-align:center;margin-bottom:1mm}.requirements{padding:0 4mm 8mm;font-size:8.7pt;line-height:1.08}.requirements ol{margin:1mm 0 0 7mm;padding-left:5mm}.requirements li{margin-bottom:1mm}.footer{position:absolute;left:0;right:0;bottom:0;height:8.5mm;border-top:1px solid #222;display:flex;align-items:center;justify-content:center;font-size:8.5pt}.page-no{position:absolute;right:5mm}.page3{padding:4mm 8mm 10mm;font-size:8.5pt;line-height:1.05}.page3 p{margin:0 0 2mm}.page3 .head{text-decoration:underline;font-weight:700;margin-top:1mm}.bullet{margin:0 0 1mm 0;padding-left:4mm;text-indent:-3mm}
+*{box-sizing:border-box}
+@page{size:A4;margin:0}
+body{margin:0;padding:20px;background:#eee;font-family:Arial,Helvetica,sans-serif;color:#222;font-size:9.5px}
+.page{width:210mm;min-height:297mm;max-height:297mm;margin:0 auto 20px;background:#fff;border:1.2px solid #222;border-radius:4mm;overflow:hidden;box-sizing:border-box;padding:8mm 10mm 6mm 10mm;position:relative;page-break-after:always}
+.page:last-child{page-break-after:auto}
+
+.header{height:14mm;border:1px solid #222;display:grid;grid-template-columns:26mm 1fr 36mm;align-items:center;padding:2px 4px;margin-bottom:2px}
+.header>div{padding:2px 4px}
+.logo{font-weight:800;font-size:10.5pt;text-align:center;line-height:1}
+.title{text-align:center;font-weight:700;font-size:10pt;line-height:1.15}
+.subtitle{font-size:7.5pt;margin-top:1px}
+.code{text-align:right;font-size:6.5pt;align-self:end}
+
+.banner-backup{background:#fffbeb;border:1px solid #f59e0b;padding:2.5px 4px;margin:2px 0 3px 0;font-size:9px;color:#92400e;text-align:center;font-weight:bold;line-height:1.2;border-radius:2px}
+
+.exclusive{text-align:center;font-weight:700;font-style:italic;font-size:9px;padding:2px 4px;border:1px solid #222;margin-bottom:2px}
+
+.two{display:grid;grid-template-columns:1fr 1fr;gap:2.5mm}
+.three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm}
+.four{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:2mm}
+
+.field{text-align:center;margin-bottom:1px}
+.field label{display:block;margin-bottom:1px;font-size:8.5px;color:#222;font-weight:600}
+input[type=text],input[type=date],input[type=email]{width:100%;height:5.8mm;border:1px solid #222;background:#fff;font-family:inherit;font-size:9.5px;padding:2px 5px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+textarea{width:100%;border:1px solid #222;resize:none;font-family:inherit;font-size:9.5px;padding:2px 5px;box-sizing:border-box}
+
+.section-title{display:flex;align-items:center;gap:2mm;font-weight:700;font-size:10px;margin:3px 0 2px 0}
+.roman{border:1.5px solid #222;border-radius:50%;min-width:6.5mm;height:5.5mm;display:inline-flex;align-items:center;justify-content:center;font-size:8.5px}
+.small{font-size:7.5px;font-weight:normal}
+.content{padding:0 2px}
+
+.radio-row{display:flex;gap:1mm 6mm;flex-wrap:wrap;margin-bottom:1px;font-size:9px}
+.radio-row label{font-size:9px;display:flex;align-items:center}
+input[type=radio],input[type=checkbox]{width:3.2mm;height:3.2mm;vertical-align:middle;margin:0 1mm 0 0}
+
+.notification{border:1px solid #222;margin-top:1px;margin-bottom:2px}
+.notification-head,.notification-body{display:grid;grid-template-columns:1fr 1fr}
+.notification-head>div{text-align:center;font-weight:700;padding:2px 5px;border-right:1px solid #222;font-size:8.5px;background:#f8fafc}
+.notification-head>div:last-child,.notification-body>div:last-child{border-right:0}
+.notification-body>div{padding:2px 5px;border-right:1px solid #222}
+
+.inline{display:grid;grid-template-columns:28mm 1fr;align-items:center;margin-bottom:1px}
+.inline label{text-align:left;font-size:8.5px;margin-bottom:0}
+.inline input{height:5.2mm;font-size:9.5px;padding:1px 4px}
+.inline textarea{height:9mm;font-size:9px;padding:1px 4px}
+
+.inmueble{border:1px solid #222;padding:2px 5px;margin-top:1px}
+.inmueble .three{margin-bottom:1.5px}
+.inmueble .folio{display:grid;grid-template-columns:1.6fr .8fr .8fr .8fr;gap:2mm;margin-top:1.5px}
+.inmueble .folio input{height:5.8mm;font-size:9.5px;padding:2px 5px}
+
+.box-text{min-height:5.8mm;max-height:11mm;border:1px solid #222;background:#fff;padding:2px 5px;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:9.5px;line-height:1.2;box-sizing:border-box}
+
+.simple-header{height:12mm;border:1px solid #222;display:flex;align-items:center;padding:2px 5px;margin-bottom:2px}
+.simple-header .logo{width:26mm;font-size:10pt}
+.simple-header .title{flex:1;font-size:10.5pt}
+
+.naturaleza{display:grid;grid-template-columns:1fr 1fr;border:1px solid #222;margin-bottom:2px}
+.nat-col{padding:2px 5px;border-right:1px solid #222}
+.nat-col:last-child{border-right:0}
+.nat-title{text-align:center;margin-bottom:1mm;font-size:9px;font-weight:700}
+.choices{display:grid;grid-template-columns:1fr 1fr 1fr;gap:1mm 2.5mm;font-size:7.5pt}
+.note{font-size:6.5pt;margin-top:1mm}
+
+.purpose{padding:0 2px}
+.purpose-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:2mm 5mm;margin-bottom:2mm}
+.purpose-item{display:flex;align-items:flex-start;gap:1mm}
+.purpose-item input{flex:none}
+.purpose-line{display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:4mm;align-items:center;margin-bottom:2mm}
+.purpose-box{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2mm}
+
+.signature{padding:0 2px}
+.signature-box{height:11mm;border:1px solid #222}
+.signature-label{text-align:center;margin-bottom:1px;font-size:8.5px}
+
+.requirements{padding:0 3mm 4mm;font-size:8pt;line-height:1.15}
+.requirements ol{margin:1mm 0 0 5mm;padding-left:4mm}
+.requirements li{margin-bottom:1mm}
+
+.footer{position:absolute;left:0;right:0;bottom:0;height:6.5mm;border-top:1px solid #222;display:flex;align-items:center;justify-content:center;font-size:7.5pt;background:#fff}
+.page-no{position:absolute;right:8mm}
+
+.page3{padding:2mm 4mm 6mm;font-size:8pt;line-height:1.15}
+.page3 p{margin:0 0 1.5mm}
+.page3 .head{text-decoration:underline;font-weight:700;margin-top:1mm}
+.bullet{margin:0 0 1mm 0;padding-left:3mm;text-indent:-2.5mm}
 `
 
 function buildHtml(datos: DatosDocumentoSolicitud): string {
@@ -86,7 +171,7 @@ function buildHtml(datos: DatosDocumentoSolicitud): string {
 
   const valorNumeroSolicitud = datos.codigoSolicitud && datos.codigoSolicitud.trim().length > 0
     ? esc(datos.codigoSolicitud)
-    : 'Copia de respaldo: solicitud pendiente de registro en el sistema'
+    : 'Pendiente de registro'
 
   return `<!DOCTYPE html>
 <html lang="es"><head><meta charset="UTF-8"><style>${STYLE}</style></head><body>
@@ -97,10 +182,10 @@ function buildHtml(datos: DatosDocumentoSolicitud): string {
   <div class="title">${nombre}<div class="subtitle">Solicitud de constancia de disponibilidad de servicios</div></div>
   <div class="code">Código: GNU-41-01-F1&nbsp;&nbsp; Versión: 03</div>
 </div>
-${!datos.codigoSolicitud ? `<div style="background:#fffbeb;border-bottom:1px solid #f59e0b;padding:1.5mm 3mm;font-size:7.5pt;color:#92400e;text-align:center;font-weight:bold">Copia de respaldo: solicitud pendiente de registro en el sistema</div>` : ''}
+${!datos.codigoSolicitud ? `<div class="banner-backup">Copia de respaldo: solicitud pendiente de registro en el sistema</div>` : ''}
 <div class="exclusive">Uso exclusivo de ${nombre}</div>
 <div class="content">
-  <div class="two" style="padding:2mm 14mm 2mm">
+  <div class="two" style="padding:1px 12mm 2px">
     <div class="field"><label>Número de solicitud</label><input type="text" value="${valorNumeroSolicitud}" readonly></div>
     <div class="field"><label>Fecha de ingreso</label><input type="date" value="${fmtFecha(datos.fecha)}" readonly></div>
   </div>
@@ -113,42 +198,42 @@ ${!datos.codigoSolicitud ? `<div style="background:#fffbeb;border-bottom:1px sol
     <div class="field"><label>Nombre completo</label><input type="text" value="${esFisica ? esc(datos.nombreSolicitante) : ''}" readonly></div>
     <div class="field"><label>No. de identificación</label><input type="text" value="${esFisica ? esc(datos.identificacion) : ''}" readonly></div>
   </div>
-  <div class="radio-row" style="margin-top:1.5mm"><label><input type="radio" ${chk(esJuridica)}>Persona Jurídica</label></div>
+  <div class="radio-row" style="margin-top:1.5px"><label><input type="radio" ${chk(esJuridica)}>Persona Jurídica</label></div>
   <div class="two">
     <div class="field"><label>Razón Social</label><input type="text" value="${esJuridica ? esc(datos.nombreSolicitante) : ''}" readonly></div>
     <div class="field"><label>No. de Cédula Jurídica</label><input type="text" value="${esJuridica ? esc(datos.identificacion) : ''}" readonly></div>
   </div>
-  <div class="two" style="margin-top:2mm">
+  <div class="two" style="margin-top:1.5px">
     <div class="field"><label>Teléfono 1</label><input type="text" value="${esc(datos.telefono)}" readonly></div>
     <div class="field"><label>Teléfono 2</label><input type="text" value="${esc(datos.telefonoSecundario)}" readonly></div>
   </div>
 </div>
 
-<div class="section-title" style="margin-top:3mm"><span class="roman">II.</span> Medio para notificación <span class="small">(Seleccione el medio de notificación principal y secundario de su preferencia)</span></div>
+<div class="section-title" style="margin-top:2px"><span class="roman">II.</span> Medio para notificación <span class="small">(Seleccione el medio de notificación principal y secundario de su preferencia)</span></div>
 <div class="notification">
   <div class="notification-head"><div>Medio principal</div><div>Medio secundario</div></div>
   <div class="notification-body">
     <div>
       <div class="inline"><label>Fax:</label><input type="text" value="" readonly></div>
       <div class="inline"><label>Correo electrónico:</label><input type="email" value="${esc(datos.correo)}" readonly></div>
-      <div class="inline"><label>Dirección física:</label><textarea rows="3" readonly></textarea></div>
+      <div class="inline"><label>Dirección física:</label><textarea rows="2" readonly></textarea></div>
     </div>
     <div>
       <div class="inline"><label>Fax:</label><input type="text" value="" readonly></div>
       <div class="inline"><label>Correo electrónico:</label><input type="email" value="" readonly></div>
-      <div class="inline"><label>Dirección física:</label><textarea rows="3" readonly></textarea></div>
+      <div class="inline"><label>Dirección física:</label><textarea rows="2" readonly></textarea></div>
     </div>
   </div>
 </div>
 
-<div class="section-title"><span class="roman">III.</span> Información del Inmueble</div>
+<div class="section-title" style="margin-top:2px"><span class="roman">III.</span> Información del Inmueble</div>
 <div class="inmueble">
   <div class="three">
     <div class="field"><label>Provincia</label><input type="text" value="${esc(datos.provincia)}" readonly></div>
     <div class="field"><label>Cantón</label><input type="text" value="${esc(datos.canton)}" readonly></div>
     <div class="field"><label>Distrito</label><input type="text" value="${esc(datos.distrito)}" readonly></div>
   </div>
-  <div class="field" style="margin-bottom:2mm"><label>Dirección exacta del inmueble</label><textarea rows="2" readonly>${esc(datos.direccion)}</textarea></div>
+  <div class="field" style="margin-bottom:1.5px;text-align:left"><label style="text-align:left">Dirección exacta del inmueble</label><div class="box-text">${esc(datos.direccion)}</div></div>
   <div class="folio">
     <div class="field"><label>Folio real/Concesión/Arriendo/Asignación</label><input type="text" value="" readonly></div>
     <div class="field"><label>Plano Catastro</label><input type="text" value="${esc(datos.numeroPlano)}" readonly></div>
@@ -158,6 +243,7 @@ ${!datos.codigoSolicitud ? `<div style="background:#fffbeb;border-bottom:1px sol
 </div>
 <div class="footer">El agua es vida ... ¡Cuidémosla! <span class="page-no">1</span></div>
 </section>
+
 
 <section class="page">
 <div class="simple-header"><div class="logo">${nombre}</div><div class="title">Solicitud de constancia de disponibilidad de servicios</div></div>
@@ -190,7 +276,7 @@ ${!datos.codigoSolicitud ? `<div style="background:#fffbeb;border-bottom:1px sol
 
 <div class="section-title"><span class="roman">IV.</span> Propósito de la solicitud</div>
 <div class="purpose">
-  <div class="field" style="text-align:left;margin-bottom:2mm"><label style="text-align:left">Descripción detallada del proyecto por desarrollar (espacio obligatorio)</label><textarea rows="4" readonly>${esc(descripcionProyecto)}</textarea></div>
+  <div class="field" style="text-align:left;margin-bottom:2mm"><label style="text-align:left">Descripción detallada del proyecto por desarrollar (espacio obligatorio)</label><div style="min-height:12mm;border:1px solid #222;background:#fff;padding:1.5mm 2mm;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:8.5pt;line-height:1.2;box-sizing:border-box;">${esc(descripcionProyecto)}</div></div>
 </div>
 
 <div class="section-title"><span class="roman">V.</span> Datos del propietario registral, poseedor, representante Legal o autorizado legal.</div>
