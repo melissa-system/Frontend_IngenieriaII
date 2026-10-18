@@ -85,7 +85,7 @@ body{margin:0;padding:20px;background:#eee;font-family:Arial,Helvetica,sans-seri
 .four{display:grid;grid-template-columns:1.3fr 1fr 1fr 1fr;gap:2mm}
 
 .field{text-align:center;margin-bottom:1px}
-.field label{display:block;margin-bottom:1px;font-size:8.5px;color:#222;font-weight:600}
+.field label{display:block;margin-bottom:.8mm;font-size:8.5px;line-height:1.2;color:#222;font-weight:600}
 input[type=text],input[type=date],input[type=email]{width:100%;height:5.8mm;border:1px solid #222;background:#fff;font-family:inherit;font-size:9.5px;padding:2px 5px;box-sizing:border-box;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 textarea{width:100%;border:1px solid #222;resize:none;font-family:inherit;font-size:9.5px;padding:2px 5px;box-sizing:border-box}
 
@@ -114,7 +114,7 @@ input[type=radio],input[type=checkbox]{width:3.2mm;height:3.2mm;vertical-align:m
 .inmueble .folio{display:grid;grid-template-columns:1.6fr .8fr .8fr .8fr;gap:2mm;margin-top:1.5px}
 .inmueble .folio input{height:5.8mm;font-size:9.5px;padding:2px 5px}
 
-.box-text{min-height:5.8mm;max-height:11mm;border:1px solid #222;background:#fff;padding:2px 5px;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:9.5px;line-height:1.2;box-sizing:border-box}
+.box-text{min-height:5.8mm;max-height:11mm;border:1px solid #222;background:#fff;padding:0 5px;display:flex;align-items:center;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:9.5px;line-height:1.2;box-sizing:border-box}
 
 .simple-header{height:12mm;border:1px solid #222;display:flex;align-items:center;padding:2px 5px;margin-bottom:2px}
 .simple-header .logo{width:26mm;font-size:10pt}
@@ -135,8 +135,8 @@ input[type=radio],input[type=checkbox]{width:3.2mm;height:3.2mm;vertical-align:m
 .purpose-box{display:grid;grid-template-columns:1fr 1fr;gap:3mm;margin-bottom:2mm}
 
 .signature{padding:0 2px}
-.signature-box{height:11mm;border:1px solid #222}
-.signature-label{text-align:center;margin-bottom:1px;font-size:8.5px}
+.signature-box{height:11mm;border:1px solid #222;display:flex;align-items:stretch}
+.signature-label{text-align:center;margin-bottom:.8mm;font-size:8.5px;line-height:1.2}
 
 .requirements{padding:0 3mm 4mm;font-size:8pt;line-height:1.15}
 .requirements ol{margin:1mm 0 0 5mm;padding-left:4mm}
@@ -276,7 +276,7 @@ ${!datos.codigoSolicitud ? `<div class="banner-backup">Copia de respaldo: solici
 
 <div class="section-title"><span class="roman">IV.</span> Propósito de la solicitud</div>
 <div class="purpose">
-  <div class="field" style="text-align:left;margin-bottom:2mm"><label style="text-align:left">Descripción detallada del proyecto por desarrollar (espacio obligatorio)</label><div style="min-height:12mm;border:1px solid #222;background:#fff;padding:1.5mm 2mm;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:8.5pt;line-height:1.2;box-sizing:border-box;">${esc(descripcionProyecto)}</div></div>
+  <div class="field" style="text-align:left;margin-bottom:2mm"><label style="text-align:left">Descripción detallada del proyecto por desarrollar (espacio obligatorio)</label><div style="min-height:12mm;border:1px solid #222;background:#fff;padding:0 2mm;display:flex;align-items:center;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:8.5pt;line-height:1.2;box-sizing:border-box;">${esc(descripcionProyecto)}</div></div>
 </div>
 
 <div class="section-title"><span class="roman">V.</span> Datos del propietario registral, poseedor, representante Legal o autorizado legal.</div>
