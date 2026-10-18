@@ -16,6 +16,7 @@ Todos viven en `Frontend_IngeII/src/components/ui/`. **Regla: en cualquier vista
 | `Icono` | `Icono.tsx` | Set estándar de íconos SVG (check, cerrar, alerta, bandeja…). | SVG sueltos |
 | `ErrorState` | `ErrorState.tsx` | Error de carga: mensaje claro + botón "Reintentar". | cajas rojas `border-red-200 bg-red-50` |
 | `Toast`, `ToastProvider`, `useToast`, `Notificar` | `Toast.tsx`, `ToastProvider.tsx` | Aviso flotante tras una acción; 4 tipos: `exito`, `error`, `advertencia`, `info`. `useToast().notificar(msg, tipo)` o `<Notificar mensaje={…} />`. | banners verdes/rojos |
+| `ModalGestionEstado` | `../Dashboard/ModalGestionEstado.tsx` | Confirmación de aprobar/rechazar solicitudes: motivo obligatorio al rechazar y aviso de correo al solicitante. | motivo en línea con doble clic |
 | `Alerta` | `Alerta.tsx` | Alerta en línea (dentro de la página o modal), mismos 4 tipos. | `rounded-lg bg-…-50 p-3` a mano |
 | `CampoError`, `Obligatorio`, `bordeCampo` | `../common/CampoError.tsx` | Errores y asterisco de obligatorio. | — |
 

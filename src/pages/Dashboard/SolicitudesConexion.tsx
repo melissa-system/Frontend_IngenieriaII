@@ -1,3 +1,4 @@
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import Alerta from '../../components/ui/Alerta'
 import ErrorState from '../../components/ui/ErrorState'
 import Cargando from '../../components/ui/Cargando'
@@ -775,7 +776,6 @@ function FormularioConexion({
 // ---------------------------------------------------------------------------
 // Vista del ADMINISTRADOR
 // ---------------------------------------------------------------------------
-const MIN_MOTIVO = 10
 
 function VistaAdministrador() {
   const [solicitudes, setSolicitudes] = useState<SolicitudConexion[]>([])
@@ -826,9 +826,9 @@ function VistaAdministrador() {
       setToast({
         mensaje:
           estado === 'aprobado'
-            ? 'Solicitud aprobada.'
+            ? 'Solicitud aprobada. Se notificó al solicitante por correo.'
             : estado === 'rechazado'
-              ? 'Solicitud rechazada.'
+              ? 'Solicitud rechazada. Se notificó al solicitante por correo con el motivo.'
               : 'Solicitud marcada en proceso.',
         tipo: 'exito',
       })
@@ -951,21 +951,22 @@ function ModalDetalle({
   setMotivoRechazo: (valor: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
 }) {
   const [expandido, setExpandido] = useState(false)
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
   const [generando, setGenerando] = useState(false)
 
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar('rechazado')
   }
 
   async function manejarDescargarDocumento() {
@@ -1095,30 +1096,6 @@ function ModalDetalle({
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label
-                  htmlFor="motivoRechazoConexion"
-                  className="block text-sm font-medium text-primary-700"
-                >
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivoRechazoConexion"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: Documentación incompleta o ilegible..."
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-advertencia-700">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar (llevas{' '}
-                    {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
             <div className="flex flex-wrap justify-end gap-2">
               {solicitud.estado !== 'en_proceso' && (
                 <Button
@@ -1132,15 +1109,15 @@ function ModalDetalle({
               <Button
                 variant="success"
                 type="button"
-                onClick={() => onGestionar('aprobado')}
+                onClick={() => setConfirmar('aprobar')}
                 disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </Button>
               <Button
                 variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </Button>
               <Button
@@ -1152,6 +1129,18 @@ function ModalDetalle({
               </Button>
             </div>
           </div>
+        )}
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
         )}
 </Modal>
   )

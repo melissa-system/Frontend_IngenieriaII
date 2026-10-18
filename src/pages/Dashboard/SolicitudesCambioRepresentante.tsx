@@ -1,3 +1,4 @@
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -833,7 +834,9 @@ function VistaAdministrador() {
         mensaje:
           estado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada. El representante del abonado se actualizó y se notificó por correo.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
+            : estado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -1217,25 +1220,25 @@ function ModalDetalle({
   setMotivoRechazo: (v: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
  
   // Mínimo de caracteres del motivo al rechazar. Un "no" o un "." no le
   // sirven al abonado, que recibe este texto por correo como única
   // explicación del rechazo.
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
   // (ya con motivo válido) confirma el rechazo.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar('rechazado')
   }
 
   return (
@@ -1327,28 +1330,6 @@ function ModalDetalle({
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivo"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: la cédula adjunta no coincide con la identificación del nuevo representante"
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-advertencia-700">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                    (llevas {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
 
             <div className="flex flex-wrap justify-end gap-2">
               {solicitud.estado !== 'en_proceso' && (
@@ -1363,15 +1344,15 @@ function ModalDetalle({
               <Button
                 variant="success"
                 type="button"
-                onClick={() => onGestionar('aprobado')}
+                onClick={() => setConfirmar('aprobar')}
                 disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </Button>
               <Button
                 variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </Button>
               <Button
@@ -1383,6 +1364,18 @@ function ModalDetalle({
               </Button>
             </div>
           </div>
+        )}
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
         )}
 </Modal>
   )

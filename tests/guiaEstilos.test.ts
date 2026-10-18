@@ -248,4 +248,31 @@ describe('guía de estilos (diseños/componentes.md)', () => {
     const v = violaciones((r) => r.endsWith('.tsx') && !r.startsWith('components/ui/'), /Mostrando\{?'? ?\}?\s*$|^\s*Mostrando\{' '\}/)
     assert.deepEqual(v, [])
   })
+
+  // ── Gestión de solicitudes: confirmación y motivo ──
+  const VISTAS_GESTION = [
+    'SolicitudesPajaAgua', 'SolicitudesConexion', 'SolicitudesCambioPropietario',
+    'SolicitudesCambioRepresentante', 'SolicitudesCambioMedidor', 'SolicitudesOtro',
+  ]
+
+  it('las 6 vistas de gestión confirman aprobar/rechazar con <ModalGestionEstado> (sin campo de motivo en línea)', () => {
+    for (const v of VISTAS_GESTION) {
+      const t = leer(`pages/Dashboard/${v}.tsx`)
+      assert.match(t, /<ModalGestionEstado/, `${v}: falta el modal de confirmación`)
+      assert.match(t, /setConfirmar\('aprobar'\)/, `${v}: Aprobar debe abrir el modal`)
+      assert.match(t, /setConfirmar\('rechazar'\)/, `${v}: Rechazar debe abrir el modal`)
+      assert.doesNotMatch(t, /mostrarMotivo &&/, `${v}: quedó el campo de motivo en línea`)
+      assert.match(t, /notificó al solicitante por correo/, `${v}: falta el aviso de correo al confirmar`)
+    }
+  })
+
+  it('ModalGestionEstado: motivo obligatorio al rechazar (mín. 10), aviso de correo y confirmación explícita', () => {
+    const m = leer('components/Dashboard/ModalGestionEstado.tsx')
+    assert.match(m, /MIN_MOTIVO = 10/)
+    assert.match(m, /motivoObligatorio = accion === 'rechazar'/)
+    assert.match(m, /if \(invalido\) return/)
+    assert.match(m, /recibirá un correo/)
+    assert.match(m, /Confirmar rechazo/)
+    assert.match(m, /Confirmar aprobación/)
+  })
 })

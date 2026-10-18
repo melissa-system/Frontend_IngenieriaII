@@ -15,6 +15,7 @@ import {
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 import Toast from '../../components/ui/Toast'
 import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
 import {
   useFiltrosSolicitudes,
@@ -54,10 +55,6 @@ function aDatosDocumento(s: SolicitudPajaAgua): DatosDocumentoSolicitud {
   }
 }
 
-
-// Mínimo de caracteres del motivo al rechazar — debe coincidir con
-// MIN_MOTIVO_RECHAZO_PAJA_AGUA del backend.
-const MIN_MOTIVO = 10
 
 // Estados disponibles en el filtro de la barra de herramientas.
 const ESTADOS_FILTRO: FiltroEstado[] = [
@@ -133,7 +130,9 @@ const gestionar = async (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => {
         mensaje:
           estado === 'Aprobada'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al solicitante por correo con los próximos pasos.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${estado}".`,
+            : estado === 'Rechazada'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${estado}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -303,17 +302,16 @@ function ModalDetalle({
   setMotivoRechazo: (valor: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => void
+  onGestionar: (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => void | Promise<void>
 }) {
   const [generandoDocumento, setGenerandoDocumento] = useState(false)
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
   const [expandido, setExpandido] = useState(false)
 
   const esFinal =
     solicitud.estado === 'Aprobada' ||
     solicitud.estado === 'Rechazada' ||
     solicitud.estado === 'Completada'
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   async function manejarDescargarDocumento() {
     setGenerandoDocumento(true)
@@ -325,14 +323,14 @@ function ModalDetalle({
     }
   }
 
-  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
-  // (ya con motivo válido) confirma el rechazo.
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'Aprobada' : 'Rechazada')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar('Rechazada')
   }
 
   return (
@@ -474,30 +472,6 @@ function ModalDetalle({
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label
-                  htmlFor="motivoRechazoPajaAgua"
-                  className="block text-sm font-medium text-primary-700"
-                >
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivoRechazoPajaAgua"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: Documentación incompleta o ilegible..."
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-advertencia-700">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar (llevas{' '}
-                    {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
             <div className="flex flex-wrap justify-end gap-2">
               {solicitud.estado !== 'En proceso' && (
                 <Button
@@ -511,15 +485,15 @@ function ModalDetalle({
               <Button
                 variant="success"
                 type="button"
-                onClick={() => onGestionar('Aprobada')}
+                onClick={() => setConfirmar('aprobar')}
                 disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </Button>
               <Button
                 variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </Button>
               <Button
@@ -531,6 +505,22 @@ function ModalDetalle({
               </Button>
             </div>
           </div>
+        )}
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            aviso={
+              confirmar === 'aprobar'
+                ? 'Al confirmar, se creará o vinculará al abonado y el solicitante recibirá un correo con los próximos pasos.'
+                : undefined
+            }
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
         )}
 </Modal>
   )

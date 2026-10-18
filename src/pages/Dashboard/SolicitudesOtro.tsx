@@ -1,3 +1,4 @@
+import ModalGestionEstado, { type AccionGestion, MIN_MOTIVO } from '../../components/Dashboard/ModalGestionEstado'
 import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -648,7 +649,9 @@ function VistaAdministrador() {
         mensaje:
           estado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada. Resolución documentada y notificada por correo.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
+            : estado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -990,26 +993,26 @@ function ModalDetalle({
   setMotivoRechazo: (v: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
  
   // Mínimo de caracteres del comentario de resolución. En este tipo de
   // trámite es obligatorio tanto al aprobar como al rechazar: es la única
   // constancia de qué se resolvió.
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   // Acá el comentario es obligatorio tanto al aprobar como al rechazar, así
   // que el primer clic en cualquiera de los dos solo despliega el campo; el
   // segundo clic (ya con el comentario válido) confirma esa misma acción.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
-  function manejarClic(estado: 'aprobado' | 'rechazado') {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar(estado)
   }
 
   return (
@@ -1102,32 +1105,6 @@ function ModalDetalle({
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <p className="text-xs text-primary-500">
-                  Este trámite no actualiza ningún dato del abonado: dejá un comentario que documente
-                  cómo se resolvió. Se enviará por correo al solicitante.
-                </p>
-                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                  Comentario de la resolución (obligatorio al aprobar o rechazar)
-                </label>
-                <textarea
-                  id="motivo"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: se gestionó la constancia solicitada y se entregó al abonado"
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-advertencia-700">
-                    Escribe al menos {MIN_MOTIVO} caracteres para resolver la
-                    solicitud (llevas {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
 
             <div className="flex flex-wrap justify-end gap-2">
               {solicitud.estado !== 'en_proceso' && (
@@ -1142,15 +1119,15 @@ function ModalDetalle({
               <Button
                 variant="success"
                 type="button"
-                onClick={() => manejarClic('aprobado')}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
+                onClick={() => setConfirmar('aprobar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
               </Button>
               <Button
                 variant="danger"
                 type="button"
-                onClick={() => manejarClic('rechazado')}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}>
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
               </Button>
               <Button
@@ -1162,6 +1139,22 @@ function ModalDetalle({
               </Button>
             </div>
           </div>
+        )}
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            mostrarMotivo
+            motivoObligatorio
+            etiquetaMotivo="Comentario de la resolución"
+            ayudaMotivo={`Mínimo ${MIN_MOTIVO} caracteres. Este trámite no actualiza datos del abonado: documentá cómo se resolvió. Se enviará por correo al solicitante.`}
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
         )}
 </Modal>
   )

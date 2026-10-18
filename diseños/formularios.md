@@ -269,3 +269,11 @@ Aplica a: SolicitudesCambioMedidor, SolicitudesCambioPropietario, SolicitudesCam
   </Link>
 </div>
 ```
+
+## Aprobar / rechazar solicitudes (vistas de gestión)
+
+- **Aprobar** y **Rechazar** en el detalle de la solicitud no cambian el estado directamente: abren `ModalGestionEstado` (`components/Dashboard/ModalGestionEstado.tsx`) y el estado solo se envía al backend al confirmar ahí. "Marcar en proceso" sigue siendo directo y desaparece cuando la solicitud ya está en proceso.
+- **Rechazar:** el modal pide el **motivo (obligatorio, mínimo 10 caracteres)**, con contador/error integrado, y no deja confirmar sin él. El backend lo vuelve a validar (`MIN_MOTIVO_RECHAZO`) y lo incluye en el correo al solicitante.
+- **Aprobar:** confirmación sin motivo (en "Otro" el comentario de la resolución sí es obligatorio, porque ese trámite no actualiza datos).
+- Ambos modales avisan antes de confirmar que **el solicitante recibirá un correo**, y al terminar el toast de éxito lo confirma ("Se notificó al solicitante por correo…").
+- Una vista nueva de gestión debe usar este mismo modal (un test lo verifica en las 6 vistas actuales).

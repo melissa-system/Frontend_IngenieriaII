@@ -1,3 +1,4 @@
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
@@ -698,12 +699,10 @@ function VistaAdministrador() {
   // sirven al abonado, que recibe este texto por correo como única
   // explicación del rechazo.
   const [motivoRechazo, setMotivoRechazo] = useState('')
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
   const [gestionando, setGestionando] = useState(false)
   // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
   // (ya con motivo válido) confirma el rechazo.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
 
   // Notificaciones
   const [enviando, setEnviando] = useState(false)
@@ -926,7 +925,9 @@ function VistaAdministrador() {
         mensaje:
           nuevoEstado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada exitosamente. Se traspasaron los datos y se notificó al nuevo propietario.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(nuevoEstado)}".`,
+            : nuevoEstado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(nuevoEstado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -938,14 +939,14 @@ function VistaAdministrador() {
     }
   }
 
-  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
-  // (ya con motivo válido) confirma el rechazo.
-  const manejarClicRechazar = () => {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  // Aprobar y Rechazar abren el modal de confirmación (con el motivo al
+  // rechazar); el estado solo cambia cuando se confirma ahí.
+  const confirmarAccion = async () => {
+    try {
+      await gestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) gestionar('rechazado')
   }
 
   return (
@@ -1314,7 +1315,7 @@ function VistaAdministrador() {
                         onClick={() => {
                           setDetalle(s)
                           setMotivoRechazo(s.motivo_rechazo ?? '')
-                          setMostrarMotivo(false)
+                          setConfirmar(null)
                         }}>
                         Ver / gestionar
                       </Button>
@@ -1449,28 +1450,6 @@ function VistaAdministrador() {
               </div>
             ) : (
               <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-                {mostrarMotivo && (
-                  <>
-                    <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                      Motivo (obligatorio al rechazar)
-                    </label>
-                    <textarea
-                      id="motivo"
-                      value={motivoRechazo}
-                      onChange={(e) => setMotivoRechazo(e.target.value)}
-                      rows={3}
-                      placeholder="Ej: la documentación de respaldo no acredita la cesión de derechos de la paja de agua"
-                      className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    />
-
-                    {motivoRechazo.trim().length > 0 && !motivoValido && (
-                      <p className="text-xs text-advertencia-700">
-                        Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                        (llevas {motivoRechazo.trim().length}).
-                      </p>
-                    )}
-                  </>
-                )}
 
                 <div className="flex flex-wrap justify-end gap-2">
                   {detalle.estado !== 'en_proceso' && (
@@ -1485,15 +1464,15 @@ function VistaAdministrador() {
                   <Button
                     variant="success"
                     type="button"
-                    onClick={() => gestionar('aprobado')}
+                    onClick={() => setConfirmar('aprobar')}
                     disabled={gestionando}>
                     {gestionando ? 'Guardando...' : 'Aprobar'}
                   </Button>
                   <Button
                     variant="danger"
                     type="button"
-                    onClick={manejarClicRechazar}
-                    disabled={gestionando || (mostrarMotivo && !motivoValido)}>
+                    onClick={() => setConfirmar('rechazar')}
+                    disabled={gestionando}>
                     {gestionando ? 'Guardando...' : 'Rechazar'}
                   </Button>
                   <Button
@@ -1507,6 +1486,22 @@ function VistaAdministrador() {
               </div>
             )}
 </Modal>
+      )}
+      {detalle && confirmar && (
+        <ModalGestionEstado
+          accion={confirmar}
+          codigo={detalle.codigo_solicitud}
+          motivo={motivoRechazo}
+          onMotivoChange={setMotivoRechazo}
+          aviso={
+            confirmar === 'aprobar'
+              ? 'Al confirmar, se traspasan los datos al nuevo propietario y se le notifica por correo.'
+              : 'Al confirmar, el solicitante recibirá un correo con el resultado y el motivo del rechazo.'
+          }
+          cargando={gestionando}
+          onConfirmar={confirmarAccion}
+          onCancelar={() => setConfirmar(null)}
+        />
       )}
       {toast && (
         <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
