@@ -178,7 +178,6 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
   const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
-  const [generandoCopia, setGenerandoCopia] = useState(false)
 
   // --- Modo dashboard + rol Abonado: identidad quemada desde el perfil ---
   // Un Abonado ya autenticado no puede escribir cualquier cédula/nombre en
@@ -507,27 +506,6 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
     tipoConexion: draft.tipoConexion,
     observaciones: draft.observaciones || null,
   })
-
-  const descargarCopiaPrevia = async () => {
-    setGenerandoCopia(true)
-    setErrorDocumento(null)
-    try {
-      const datosDocumento = armarDatosDocumento(
-        solicitudCreada?.codigo_solicitud ?? null,
-        solicitudCreada?.fecha_solicitud ?? new Date(),
-      )
-      const blob = await generarPdfSolicitud(datosDocumento)
-      descargarPdfSolicitud(
-        blob,
-        solicitudCreada?.codigo_solicitud ?? null,
-        solicitudCreada?.fecha_solicitud ?? new Date(),
-      )
-    } catch {
-      setErrorDocumento('No se pudo generar la copia de respaldo en este momento.')
-    } finally {
-      setGenerandoCopia(false)
-    }
-  }
 
   const handleSubmit = async () => {
     if (!paso4Valido || !permisosMunicipales || !cartaSolicitud || !cedulaFrente || !cedulaDorso)
@@ -1176,24 +1154,7 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                 <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
               )}
 
-                {errorSubmit && (
-                  <Alerta tipo="error">
-                    <div className="space-y-2">
-                      <p>{errorSubmit}</p>
-                      <div>
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          type="button"
-                          onClick={descargarCopiaPrevia}
-                          disabled={generandoCopia}
-                        >
-                          {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-                        </Button>
-                      </div>
-                    </div>
-                  </Alerta>
-                )}
+                {errorSubmit && <Alerta tipo="error">{errorSubmit}</Alerta>}
               </div>
             )}
           </div>
@@ -1217,13 +1178,6 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
               </Button>
             ) : (
               <div className="flex flex-wrap items-center gap-3">
-                <Button
-                  variant="secondary"
-                  type="button"
-                  onClick={descargarCopiaPrevia}
-                  disabled={!paso4Valido || generandoCopia || enviando}>
-                  {generandoCopia ? 'Generando copia...' : 'Descargar copia (PDF)'}
-                </Button>
                 <Button
                   variant="primary"
                   type="button"
