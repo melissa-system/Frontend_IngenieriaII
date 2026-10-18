@@ -2,6 +2,7 @@ import Alerta from '../../components/ui/Alerta'
 import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef } from 'react'
 import { MB } from '../../lib/validaciones'
+import { UBICACION_ASADA } from '../../lib/asadaInfo'
 
 const MAX_TAMANO_DOCUMENTO = 5 * MB
 import Recaptcha, { type RecaptchaRef, RECAPTCHA_HABILITADO, tokenInicialRecaptcha } from '../../components/common/Recaptcha'
@@ -423,9 +424,6 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
   // ---------- Paso 2: ubicación ----------
   const paso2Valido =
-    draft.provincia !== '' &&
-    draft.canton !== '' &&
-    draft.distrito !== '' &&
     draft.direccion.trim() !== '' &&
     draft.numeroPlano.trim() !== ''
 
@@ -498,9 +496,9 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
     telefono: draft.telefono,
     telefonoSecundario: draft.telefonoSecundario || null,
     correo: draft.correo,
-    provincia: draft.provincia,
-    canton: draft.canton,
-    distrito: draft.distrito,
+    provincia: UBICACION_ASADA.provincia,
+    canton: UBICACION_ASADA.canton,
+    distrito: UBICACION_ASADA.distrito,
     direccion: draft.direccion,
     numeroPlano: draft.numeroPlano,
     naturalezaInmueble: draft.naturalezaInmueble,
@@ -549,9 +547,9 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
         telefono: draft.telefono,
         telefonoSecundario: draft.telefonoSecundario || undefined,
         correo: draft.correo,
-        provincia: draft.provincia,
-        canton: draft.canton,
-        distrito: draft.distrito,
+        provincia: UBICACION_ASADA.provincia,
+        canton: UBICACION_ASADA.canton,
+        distrito: UBICACION_ASADA.distrito,
         direccion: draft.direccion,
         numeroPlano: draft.numeroPlano,
         naturalezaInmueble: draft.naturalezaInmueble,
@@ -957,47 +955,6 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
 
             {paso === 2 && (
               <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <label htmlFor="provincia" className={labelCls}>
-                      Provincia
-                    </label>
-                    <input
-                      id="provincia"
-                      type="text"
-                      value={draft.provincia}
-                      onChange={(e) => actualizar('provincia', e.target.value)}
-                      placeholder="Ej. Puntarenas"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="canton" className={labelCls}>
-                      Cantón
-                    </label>
-                    <input
-                      id="canton"
-                      type="text"
-                      value={draft.canton}
-                      onChange={(e) => actualizar('canton', e.target.value)}
-                      placeholder="Ej. Puntarenas"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="distrito" className={labelCls}>
-                      Distrito
-                    </label>
-                    <input
-                      id="distrito"
-                      type="text"
-                      value={draft.distrito}
-                      onChange={(e) => actualizar('distrito', e.target.value)}
-                      placeholder="Ej. Paquera"
-                      className={inputCls}
-                    />
-                  </div>
-                </div>
                 <div>
                   <label htmlFor="direccion" className={labelCls}>
                     Dirección exacta del inmueble

@@ -1,6 +1,6 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
-import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
+import { ASADA_NOMBRE_LEGAL, UBICACION_ASADA } from './asadaInfo'
 import { crearContenedorCaptura } from './aislarEstilosPdf'
 import {
   obtenerFechaArchivoCostaRica,
@@ -229,9 +229,9 @@ ${!datos.codigoSolicitud ? `<div class="banner-backup">Copia de respaldo: solici
 <div class="section-title" style="margin-top:2px"><span class="roman">III.</span> Información del Inmueble</div>
 <div class="inmueble">
   <div class="three">
-    <div class="field"><label>Provincia</label><input type="text" value="${esc(datos.provincia)}" readonly></div>
-    <div class="field"><label>Cantón</label><input type="text" value="${esc(datos.canton)}" readonly></div>
-    <div class="field"><label>Distrito</label><input type="text" value="${esc(datos.distrito)}" readonly></div>
+    <div class="field"><label>Provincia</label><input type="text" value="${UBICACION_ASADA.provincia}" readonly></div>
+    <div class="field"><label>Cantón</label><input type="text" value="${UBICACION_ASADA.canton}" readonly></div>
+    <div class="field"><label>Distrito</label><input type="text" value="${UBICACION_ASADA.distrito}" readonly></div>
   </div>
   <div class="field" style="margin-bottom:1.5px;text-align:left"><label style="text-align:left">Dirección exacta del inmueble</label><div class="box-text">${esc(datos.direccion)}</div></div>
   <div class="folio">

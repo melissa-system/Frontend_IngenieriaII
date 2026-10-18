@@ -4,3 +4,11 @@
 // documentos (Solicitud de Paja de Agua, Solicitud de Conexión de Servicio).
 export const ASADA_NOMBRE_LEGAL = 'ASADA Pueblo Nuevo'
 export const ASADA_CEDULA_JURIDICA = '3-002-458332'
+
+// Las solicitudes solo se atienden en esta ubicación, por eso no se pide en el
+// formulario público y va fija en el documento exportable.
+export const UBICACION_ASADA = {
+  provincia: 'Puntarenas',
+  canton: 'Puntarenas',
+  distrito: 'Paquera',
+} as const
