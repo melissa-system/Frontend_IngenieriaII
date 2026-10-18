@@ -1,12 +1,19 @@
 import Alerta from '../../components/ui/Alerta'
-import { useState, type FormEvent, useRef } from 'react'
+import { useState, type FormEvent, useRef, useLayoutEffect } from 'react'
 import {
   erroresPorCampo,
   tieneErroresDeCampo,
 } from '../../components/Services/erroresApi'
 import { Link } from 'react-router-dom'
-import { crearAveria } from '../../components/Services/averias.service'
-import Recaptcha, { type RecaptchaRef, RECAPTCHA_HABILITADO, tokenInicialRecaptcha } from '../../components/common/Recaptcha'
+import {
+  crearAveria,
+  type AveriaBackend,
+} from '../../components/Services/averias.service'
+import Recaptcha, {
+  type RecaptchaRef,
+  RECAPTCHA_HABILITADO,
+  tokenInicialRecaptcha,
+} from '../../components/common/Recaptcha'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import { useCedulaLookup } from '../../hooks/useCedulaLookup'
 import { partirNombreCompleto } from '../../lib/nombres'
@@ -25,11 +32,10 @@ import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../c
 import Button from '../../components/ui/Button'
 
 const TIPOS_AVERIA = [
-  'Fuga de agua',
-  'Tubería rota',
+  'Fuga en vía pública',
+  'Fuga en domicilio',
   'Falta de presión / sin agua',
-  'Contador dañado',
-  'Fuga en la vía pública',
+  'Medidor dañado',
   'Otro',
 ]
 
@@ -72,7 +78,35 @@ function ReportarAveria() {
   const [detalle, setDetalle] = useState('')
   const [imagenPreview, setImagenPreview] = useState<string | null>(null)
   const [sinFoto, setSinFoto] = useState(false)
-  const [submitted, setSubmitted] = useState(false)
+  const [averiaExitosa, setAveriaExitosa] = useState<AveriaBackend | null>(null)
+
+  useLayoutEffect(() => {
+    if (averiaExitosa) {
+      window.scrollTo(0, 0)
+      document.documentElement.scrollTop = 0
+      document.body.scrollTop = 0
+    }
+  }, [averiaExitosa])
+
+  const reiniciarFormulario = () => {
+    setAveriaExitosa(null)
+    setTipoId('')
+    setCedula('')
+    setLookupStatus('idle')
+    setManualNombre('')
+    setNumeroDimex('')
+    setNombreDimex('')
+    setTipoAveria('')
+    setOtroDescripcion('')
+    setDetalle('')
+    setImagenPreview(null)
+    setSinFoto(false)
+    setErrorSubmit(null)
+    setErrores({})
+    recaptchaRef.current?.reiniciar()
+    setTokenRecaptcha(tokenInicialRecaptcha())
+    window.scrollTo(0, 0)
+  }
 
   // Estados para controlar el envío al backend
   const [submitting, setSubmitting] = useState(false)
@@ -158,7 +192,7 @@ function ReportarAveria() {
     const { nombre, apellido1, apellido2 } = partirNombreCompleto(nombreFinal)
 
     try {
-      await crearAveria({
+      const creada = await crearAveria({
         tipo_averia: tipoFinal,
         descripcion: descripcionFinal,
         cedula_reportante: identificacionReportante,
@@ -166,7 +200,7 @@ function ReportarAveria() {
         apellido1_reportante: apellido1 || undefined,
         apellido2_reportante: apellido2 || undefined,
       }, tokenRecaptcha)
-      setSubmitted(true)
+      setAveriaExitosa(creada)
     } catch (error) {
       // El token de reCAPTCHA es de un solo uso: si el envío falla hay que
       // reiniciar la casilla, porque reintentar con el mismo token siempre
@@ -188,6 +222,69 @@ function ReportarAveria() {
     }
   }
 
+  if (averiaExitosa) {
+    return (
+      <section className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-4 py-12 text-center sm:px-6 lg:px-8">
+        <div className="w-full rounded-2xl bg-primary-50 p-8 text-center shadow-sm sm:p-10">
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-exito-100 text-exito-700">
+            <svg
+              className="h-9 w-9"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2.5}
+                d="M5 13l4 4L19 7"
+              />
+            </svg>
+          </div>
+
+          <h1 className="mt-5 text-2xl font-bold text-primary-900 sm:text-3xl">
+            ¡Reporte enviado exitosamente!
+          </h1>
+
+          <p className="mt-3 text-base text-primary-700">
+            Gracias, <strong className="font-semibold text-primary-900">{nombreFinal || 'vecino/a'}</strong>.
+            Recibimos tu reporte de avería y nuestro equipo técnico lo atenderá lo antes posible.
+          </p>
+
+          <div className="mt-6 rounded-tarjeta border border-primary-200 bg-white p-4">
+            <span className="text-xs font-semibold tracking-wider text-primary-500 uppercase">
+              Número de reporte
+            </span>
+            <p className="mt-1 font-mono text-2xl font-bold text-primary-800">
+              {averiaExitosa.codigo_averia}
+            </p>
+          </div>
+
+          <p className="mt-3 text-xs text-primary-500">
+            Guardá este número para consultar el estado de tu reporte en ventanilla o en el sistema.
+          </p>
+
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              to="/"
+              className="inline-flex items-center justify-center rounded-full bg-primary-700 px-8 py-3 text-sm font-semibold text-white shadow-sm hover:bg-primary-800 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:outline-none"
+            >
+              Volver al inicio
+            </Link>
+            <button
+              type="button"
+              onClick={reiniciarFormulario}
+              className="inline-flex items-center justify-center rounded-full border border-primary-300 bg-white px-8 py-3 text-sm font-semibold text-primary-700 shadow-sm hover:bg-primary-50 focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 focus:outline-none"
+            >
+              Reportar otra avería
+            </button>
+          </div>
+        </div>
+      </section>
+    )
+  }
+
   return (
     <section className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-16 lg:px-8">
       <Link
@@ -205,24 +302,7 @@ function ReportarAveria() {
         cuentas qué está pasando.
       </p>
 
-      {submitted ? (
-        <div className="mt-10 rounded-2xl bg-primary-50 p-8 text-center">
-          <h2 className="text-xl font-semibold text-primary-900">
-            ¡Reporte enviado!
-          </h2>
-          <p className="mt-3 text-primary-700">
-            Gracias, {nombreFinal || 'vecino/a'}. Recibimos tu reporte de
-            avería y lo atenderemos lo antes posible.
-          </p>
-          <Link
-            to="/"
-            className="mt-6 inline-block rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-800"
-          >
-            Volver al inicio
-          </Link>
-        </div>
-      ) : (
-        <div className="mt-10 space-y-8">
+      <div className="mt-10 space-y-8">
           {/* Paso 0: tipo de identificación */}
           <div>
             <label
@@ -533,7 +613,6 @@ function ReportarAveria() {
             </form>
           )}
         </div>
-      )}
     </section>
   )
 }

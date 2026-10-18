@@ -117,11 +117,10 @@ const FILTROS_MODULO: Record<ModuleName, FiltroModulo> = {
   Averías: {
     tipoLabel: 'Tipo de avería',
     tipoOpciones: [
-      'Fuga de agua',
-      'Tubería rota',
+      'Fuga en vía pública',
+      'Fuga en domicilio',
       'Falta de presión / sin agua',
-      'Contador dañado',
-      'Fuga en la vía pública',
+      'Medidor dañado',
       'Otro',
     ],
     estadoLabel: 'Estado',

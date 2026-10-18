@@ -1212,7 +1212,7 @@ function DashboardFontanero() {
                     <button
                       type="button"
                       onClick={() => irAlReporte(t)}
-                      className="min-w-0 flex-1 rounded-lg text-left"
+                      className="min-w-0 flex-1 rounded-full text-left"
                       title="Registrar el reporte de este trabajo"
                     >
                       <div className="flex items-center gap-2">
