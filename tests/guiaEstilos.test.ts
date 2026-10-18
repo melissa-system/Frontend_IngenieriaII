@@ -270,7 +270,7 @@ describe('guía de estilos (diseños/componentes.md)', () => {
     const m = leer('components/Dashboard/ModalGestionEstado.tsx')
     assert.match(m, /MIN_MOTIVO = 10/)
     assert.match(m, /motivoObligatorio = accion === 'rechazar'/)
-    assert.match(m, /if \(invalido\) return/)
+    assert.match(m, /if \(invalido \|\| faltaDocumento\) return/)
     assert.match(m, /recibirá un correo/)
     assert.match(m, /Confirmar rechazo/)
     assert.match(m, /Confirmar aprobación/)
