@@ -1,4 +1,4 @@
-import { useRef, useState, type PointerEvent } from 'react'
+import { useEffect, useRef, useState, type PointerEvent } from 'react'
 
 // Lienzo de firma digital: el solicitante dibuja con mouse/dedo y al enviar
 // se exporta como PNG (Blob) para adjuntarlo igual que cualquier otro
@@ -13,13 +13,32 @@ export function FirmaCanvas({
   const dibujando = useRef(false)
   const [tieneTrazo, setTieneTrazo] = useState(false)
 
+  // El bitmap toma el tamaño real en pantalla para que el trazo no se
+  // deforme ni se desplace al estirarse el canvas.
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const rect = canvas.getBoundingClientRect()
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = Math.round(rect.width)
+      canvas.height = Math.round(rect.height)
+    }
+  }, [])
+
   function contexto() {
     return canvasRef.current?.getContext('2d') ?? null
   }
 
   function posicion(e: PointerEvent<HTMLCanvasElement>) {
-    const rect = canvasRef.current!.getBoundingClientRect()
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top }
+    const canvas = canvasRef.current!
+    const rect = canvas.getBoundingClientRect()
+    // El canvas se muestra a un tamaño CSS distinto al de su bitmap interno
+    // (w-full), así que se escala la posición del puntero; sin esto el trazo
+    // aparecía desplazado respecto de donde se presionaba.
+    return {
+      x: ((e.clientX - rect.left) * canvas.width) / rect.width,
+      y: ((e.clientY - rect.top) * canvas.height) / rect.height,
+    }
   }
 
   function iniciar(e: PointerEvent<HTMLCanvasElement>) {
@@ -27,6 +46,7 @@ export function FirmaCanvas({
     const ctx = contexto()
     if (!ctx) return
     dibujando.current = true
+    e.currentTarget.setPointerCapture(e.pointerId)
     const { x, y } = posicion(e)
     ctx.beginPath()
     ctx.moveTo(x, y)
@@ -80,7 +100,7 @@ export function FirmaCanvas({
           onPointerDown={iniciar}
           onPointerMove={dibujar}
           onPointerUp={terminar}
-          onPointerLeave={terminar}
+          onPointerCancel={terminar}
         />
       </div>
       <div className="mt-2 flex items-center justify-between">
