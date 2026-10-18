@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { ASADA_NOMBRE_LEGAL, UBICACION_ASADA } from './asadaInfo'
 import { crearContenedorCaptura } from './aislarEstilosPdf'
+import { dibujarCampos, extraerCamposTexto } from './camposPdf'
 import {
   obtenerFechaArchivoCostaRica,
   obtenerNombreArchivoCopia,
@@ -71,7 +72,7 @@ body{margin:0;padding:20px;background:#eee;font-family:Arial,Helvetica,sans-seri
 
 .header{height:14mm;border:1px solid #222;display:grid;grid-template-columns:26mm 1fr 36mm;align-items:center;padding:2px 4px;margin-bottom:2px}
 .header>div{padding:2px 4px}
-.logo{font-weight:800;font-size:10.5pt;text-align:center;line-height:1}
+.logo{font-weight:800;font-size:10.5pt;text-align:center;line-height:1.15}
 .title{text-align:center;font-weight:700;font-size:10pt;line-height:1.15}
 .subtitle{font-size:7.5pt;margin-top:1px}
 .code{text-align:right;font-size:6.5pt;align-self:end}
@@ -151,7 +152,7 @@ input[type=radio],input[type=checkbox]{width:3.2mm;height:3.2mm;vertical-align:m
 .bullet{margin:0 0 1mm 0;padding-left:3mm;text-indent:-2.5mm}
 `
 
-function buildHtml(datos: DatosDocumentoSolicitud): string {
+export function buildHtml(datos: DatosDocumentoSolicitud): string {
   const esFisica = datos.tipoPersona === 'fisica'
   const esJuridica = datos.tipoPersona === 'juridica'
   const nombre = esc(ASADA_NOMBRE_LEGAL).toUpperCase()
@@ -233,7 +234,7 @@ ${!datos.codigoSolicitud ? `<div class="banner-backup">Copia de respaldo: solici
     <div class="field"><label>Cantón</label><input type="text" value="${UBICACION_ASADA.canton}" readonly></div>
     <div class="field"><label>Distrito</label><input type="text" value="${UBICACION_ASADA.distrito}" readonly></div>
   </div>
-  <div class="field" style="margin-bottom:1.5px;text-align:left"><label style="text-align:left">Dirección exacta del inmueble</label><div class="box-text">${esc(datos.direccion)}</div></div>
+  <div class="field" style="margin-bottom:1.5px;text-align:left"><label style="text-align:left">Dirección exacta del inmueble</label><div class="box-text" data-campo-valor>${esc(datos.direccion)}</div></div>
   <div class="folio">
     <div class="field"><label>Folio real/Concesión/Arriendo/Asignación</label><input type="text" value="" readonly></div>
     <div class="field"><label>Plano Catastro</label><input type="text" value="${esc(datos.numeroPlano)}" readonly></div>
@@ -276,7 +277,7 @@ ${!datos.codigoSolicitud ? `<div class="banner-backup">Copia de respaldo: solici
 
 <div class="section-title"><span class="roman">IV.</span> Propósito de la solicitud</div>
 <div class="purpose">
-  <div class="field" style="text-align:left;margin-bottom:2mm"><label style="text-align:left">Descripción detallada del proyecto por desarrollar (espacio obligatorio)</label><div style="min-height:12mm;border:1px solid #222;background:#fff;padding:0 2mm;display:flex;align-items:center;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:8.5pt;line-height:1.2;box-sizing:border-box;">${esc(descripcionProyecto)}</div></div>
+  <div class="field" style="text-align:left;margin-bottom:2mm"><label style="text-align:left">Descripción detallada del proyecto por desarrollar (espacio obligatorio)</label><div data-campo-valor style="min-height:12mm;border:1px solid #222;background:#fff;padding:0 2mm;display:flex;align-items:center;text-align:left;white-space:pre-wrap;word-break:break-word;font-size:8.5pt;line-height:1.2;box-sizing:border-box;">${esc(descripcionProyecto)}</div></div>
 </div>
 
 <div class="section-title"><span class="roman">V.</span> Datos del propietario registral, poseedor, representante Legal o autorizado legal.</div>
@@ -386,6 +387,10 @@ export async function generarPdfSolicitud(datos: DatosDocumentoSolicitud): Promi
     // antes de medir offsetLeft/offsetTop de los checkboxes.
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
 
+    // Los valores se escriben luego como texto del PDF, centrados en su caja
+    // (ver camposPdf.ts); en la imagen solo queda el cuadro vacío.
+    const campos = extraerCamposTexto(contenedor)
+
     const paginas = Array.from(contenedor.querySelectorAll<HTMLElement>('.page'))
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
 
@@ -394,6 +399,7 @@ export async function generarPdfSolicitud(datos: DatosDocumentoSolicitud): Promi
       const imgData = canvas.toDataURL('image/png')
       if (i > 0) pdf.addPage()
       pdf.addImage(imgData, 'PNG', 0, 0, 210, 297)
+      dibujarCampos(pdf, campos, i)
     }
 
     return pdf.output('blob')

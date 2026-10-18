@@ -33,15 +33,3 @@ input[type=text],input[type=date]{width:100%}`
     assert.ok(resultado.includes('<section class="page">Hola</section>'))
   })
 })
-
-describe('Centrado vertical de campos en los PDF', () => {
-  it('el contenedor de captura convierte inputs/textarea en cajas flex centradas', async () => {
-    const fuente = await import('node:fs').then((fs) =>
-      fs.readFileSync(new URL('../src/lib/aislarEstilosPdf.ts', import.meta.url), 'utf8'),
-    )
-    assert.match(fuente, /convertirCamposEnTexto\(contenedor\)/)
-    assert.match(fuente, /alignItems: 'center'/)
-    assert.match(fuente, /paddingTop: '0'/)
-    assert.match(fuente, /contenedor\.style\.width = '210mm'/)
-  })
-})
