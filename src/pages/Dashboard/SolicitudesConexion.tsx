@@ -22,7 +22,6 @@ import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/com
 type CampoConexion =
   | 'valorPrincipal'
   | 'valorSecundario'
-  | 'numeroDisponibilidad'
   | 'nombreFirmante'
   | 'identificacionFirmante'
 import { useAuth } from '../../contexts/AuthContext'
@@ -282,7 +281,6 @@ function FormularioConexion({
   const [folioReal, setFolioReal] = useState('')
   const [planoCatastro, setPlanoCatastro] = useState('')
   const [planoAgrimensura, setPlanoAgrimensura] = useState('')
-  const [numeroDisponibilidad, setNumeroDisponibilidad] = useState('')
   const [numeroNis, setNumeroNis] = useState('')
 
   const [servicio, setServicio] = useState('agua_potable')
@@ -351,7 +349,7 @@ function FormularioConexion({
     folio_real: folioReal || null,
     plano_catastro: planoCatastro || null,
     plano_agrimensura: planoAgrimensura || null,
-    numero_disponibilidad: numeroDisponibilidad,
+    numero_disponibilidad: null,
     numero_nis: numeroNis || null,
     servicio_solicitado: servicio,
     tipo_tramite: tipoTramite,
@@ -407,11 +405,10 @@ function FormularioConexion({
         valorSecundario: medioSecundario
           ? [requerido('El medio de notificación secundario'), ...reglaValor(medioSecundario)]
           : [],
-        numeroDisponibilidad: [requerido('El número de disponibilidad'), maximo('El número de disponibilidad', 50)],
         nombreFirmante: [requerido('El nombre del firmante'), maximo('El nombre del firmante', 150)],
         identificacionFirmante: [requerido('La identificación del firmante', true), cedula()],
       },
-      { valorPrincipal, valorSecundario, numeroDisponibilidad, nombreFirmante, identificacionFirmante },
+      { valorPrincipal, valorSecundario, nombreFirmante, identificacionFirmante },
     )
     setErroresCampo(nuevos)
     enfocarPrimerError()
@@ -440,7 +437,6 @@ function FormularioConexion({
         folioReal: folioReal || undefined,
         planoCatastro: planoCatastro || undefined,
         planoAgrimensura: planoAgrimensura || undefined,
-        numeroDisponibilidad,
         numeroNis: numeroNis || undefined,
         servicioSolicitado: servicio,
         tipoTramite,
@@ -607,17 +603,6 @@ function FormularioConexion({
             placeholder="Plano de agrimensura"
             className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
           />
-          <div>
-            <input
-              type="text"
-              value={numeroDisponibilidad}
-              maxLength={50}
-              onChange={(e) => setNumeroDisponibilidad(e.target.value)}
-              placeholder="Número de disponibilidad *"
-              className={`h-10 w-full rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.numeroDisponibilidad)}`}
-            />
-            <CampoError mensaje={erroresCampo.numeroDisponibilidad} />
-          </div>
           <input
             type="text"
             value={numeroNis}
@@ -996,7 +981,7 @@ function ModalDetalle({
           <Campo etiqueta="Cédula" valor={solicitud.cedula} />
           <Campo etiqueta="Trámite" valor={etiquetaTipoTramite(solicitud.tipo_tramite)} />
           <Campo etiqueta="Servicio solicitado" valor={etiquetaServicioSolicitado(solicitud.servicio_solicitado)} />
-          <Campo etiqueta="Número de disponibilidad" valor={solicitud.numero_disponibilidad} />
+          <Campo etiqueta="Número de disponibilidad" valor={solicitud.numero_disponibilidad ?? '—'} />
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">

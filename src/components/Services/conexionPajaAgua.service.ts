@@ -194,7 +194,7 @@ export interface SolicitudConexion {
   folio_real: string | null
   plano_catastro: string | null
   plano_agrimensura: string | null
-  numero_disponibilidad: string
+  numero_disponibilidad: string | null
   numero_nis: string | null
   servicio_solicitado: string
   tipo_tramite: string
@@ -219,7 +219,7 @@ export interface CrearSolicitudConexionPayload {
   folioReal?: string
   planoCatastro?: string
   planoAgrimensura?: string
-  numeroDisponibilidad: string
+  numeroDisponibilidad?: string
   numeroNis?: string
   servicioSolicitado: string
   tipoTramite: string
@@ -272,7 +272,7 @@ export const crearSolicitudConexion = async (
   if (payload.folioReal) formData.append('folioReal', payload.folioReal)
   if (payload.planoCatastro) formData.append('planoCatastro', payload.planoCatastro)
   if (payload.planoAgrimensura) formData.append('planoAgrimensura', payload.planoAgrimensura)
-  formData.append('numeroDisponibilidad', payload.numeroDisponibilidad)
+  if (payload.numeroDisponibilidad) formData.append('numeroDisponibilidad', payload.numeroDisponibilidad)
   if (payload.numeroNis) formData.append('numeroNis', payload.numeroNis)
   formData.append('servicioSolicitado', payload.servicioSolicitado)
   formData.append('tipoTramite', payload.tipoTramite)
