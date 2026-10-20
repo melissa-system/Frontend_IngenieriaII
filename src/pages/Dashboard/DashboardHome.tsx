@@ -959,6 +959,9 @@ function DashboardFontanero() {
     tipo: string
     tipoEtiqueta: string
     descripcion: string
+    // Abonado, dirección y NIS cuando la labor viene de una solicitud
+    // aprobada; null en averías y en labores creadas a mano.
+    contexto: string | null
     estado: string
     gestion_iniciada_en: string | null
     gestion_finalizada_en: string | null
@@ -975,6 +978,7 @@ function DashboardFontanero() {
       tipo: a.tipo_averia,
       tipoEtiqueta: a.tipo_averia,
       descripcion: a.descripcion,
+      contexto: null,
       estado: a.estado,
       gestion_iniciada_en: a.gestion_iniciada_en,
       gestion_finalizada_en: a.gestion_finalizada_en,
@@ -989,6 +993,17 @@ function DashboardFontanero() {
       tipo: l.tipo_actividad,
       tipoEtiqueta: ETIQUETA_ACTIVIDAD[l.tipo_actividad],
       descripcion: l.descripcion,
+      contexto: l.datos_solicitud
+        ? [
+            `${l.datos_solicitud.abonado.nombre} (${l.datos_solicitud.abonado.numero_abonado})`,
+            l.datos_solicitud.direccion,
+            l.datos_solicitud.numero_nis
+              ? `NIS ${l.datos_solicitud.numero_nis}`
+              : null,
+          ]
+            .filter(Boolean)
+            .join(' · ')
+        : null,
       estado: l.estado,
       gestion_iniciada_en: l.gestion_iniciada_en,
       gestion_finalizada_en: l.gestion_finalizada_en,
@@ -1233,6 +1248,11 @@ function DashboardFontanero() {
                       <p className="truncate text-xs text-primary-500">
                         {t.descripcion}
                       </p>
+                      {t.contexto && (
+                        <p className="truncate text-xs text-primary-400" title={t.contexto}>
+                          {t.contexto}
+                        </p>
+                      )}
                       {devuelta && t.motivo_revision && (
                         <p
                           className="mt-0.5 truncate text-xs font-medium text-error-600"

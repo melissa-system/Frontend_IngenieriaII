@@ -716,14 +716,19 @@ function VistaAdministrador() {
     if (!detalle) return
     setGestionando(true)
     try {
-      await cambiarEstadoSolicitudConexion(detalle.id, {
+      const respuesta = await cambiarEstadoSolicitudConexion(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
       })
+      const labor = respuesta.labor
       setToast({
         mensaje:
           estado === 'aprobado'
-            ? 'Solicitud aprobada. Se notificó al solicitante por correo.'
+            ? `Solicitud aprobada.${
+                labor
+                  ? ` Se creó la labor ${labor.codigo_labor} en "Otros mantenimientos" para asignarle un fontanero.`
+                  : ''
+              } Se notificó al solicitante por correo.`
             : estado === 'rechazado'
               ? 'Solicitud rechazada. Se notificó al solicitante por correo con el motivo.'
               : 'Solicitud marcada en proceso.',
@@ -894,6 +899,17 @@ function ModalDetalle({
           <Campo etiqueta="Trámite" valor={etiquetaTipoTramite(solicitud.tipo_tramite)} />
           <Campo etiqueta="Servicio solicitado" valor={etiquetaServicioSolicitado(solicitud.servicio_solicitado)} />
           <Campo etiqueta="Número de disponibilidad" valor={solicitud.numero_disponibilidad ?? '—'} />
+
+          {solicitud.labor && (
+            <div className="sm:col-span-2 rounded-lg border border-info-200 bg-info-50 px-3 py-2">
+              <dt className="text-xs font-medium uppercase text-primary-400">Trabajo operativo</dt>
+              <dd className="mt-0.5 text-primary-800">
+                Labor <span className="font-mono">{solicitud.labor.codigo_labor}</span> —{' '}
+                {solicitud.labor.estado}
+                <span className="ml-1 text-xs text-primary-500">(Otros mantenimientos)</span>
+              </dd>
+            </div>
+          )}
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">

@@ -290,7 +290,9 @@ function ReporteActividad() {
     ...laboresPendientes.map((l) => ({
       valor: `labor:${l.id}`,
       etiqueta: 'Labor',
-      texto: `${l.codigo_labor} — ${ETIQUETA_ACTIVIDAD[l.tipo_actividad]}`,
+      texto: `${l.codigo_labor} - ${ETIQUETA_ACTIVIDAD[l.tipo_actividad]}${
+        l.datos_solicitud ? ` · ${l.datos_solicitud.abonado.nombre}` : ''
+      }`,
     })),
   ]
 

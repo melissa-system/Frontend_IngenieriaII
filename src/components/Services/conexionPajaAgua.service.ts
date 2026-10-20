@@ -167,6 +167,13 @@ export interface AdjuntoConexion {
   publicId: string
 }
 
+// Labor generada en "Otros mantenimientos" al aprobar la solicitud.
+export interface LaborDeSolicitud {
+  id: number
+  codigo_labor: string
+  estado: string
+}
+
 export interface SolicitudConexion {
   id: number
   codigo_solicitud: string
@@ -206,6 +213,7 @@ export interface SolicitudConexion {
   adjuntos: AdjuntoConexion[]
   motivo_rechazo: string | null
   id_empleado: number | null
+  labor: LaborDeSolicitud | null
   fecha_creacion: string
   fecha_actualizacion: string
 }
