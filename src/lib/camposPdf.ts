@@ -23,6 +23,7 @@ export interface CampoSuperpuesto {
   margen: number
   multilinea: boolean
   negrita: boolean
+  alineacion?: 'left' | 'center' | 'right'
 }
 
 const SELECTOR_CAMPOS =
@@ -62,6 +63,7 @@ export function extraerCamposTexto(raiz: HTMLElement): CampoSuperpuesto[] {
         margen: (parseFloat(cs.paddingLeft) || 0) * mmPorPx,
         multilinea: campo instanceof HTMLTextAreaElement || !esFormulario,
         negrita: Number(cs.fontWeight) >= 600,
+        alineacion: cs.textAlign === 'center' ? 'center' : 'left',
       })
     }
 
@@ -109,7 +111,11 @@ export function dibujarCampos(pdf: jsPDF, campos: CampoSuperpuesto[], pagina: nu
       }
       if (texto !== c.texto) texto = `${texto.slice(0, -1)}…`
       const base = c.y + c.alto / 2 + (ALTURA_MAYUSCULA * fontPt * MM_POR_PT) / 2
-      pdf.text(texto, c.x + c.margen, base)
+      if (c.alineacion === 'center') {
+        pdf.text(texto, c.x + c.ancho / 2, base, { align: 'center' } as never)
+      } else {
+        pdf.text(texto, c.x + c.margen, base)
+      }
       continue
     }
 

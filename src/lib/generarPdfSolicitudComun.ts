@@ -46,30 +46,30 @@ body{margin:0;padding:12px;background:#eee;font-family:Arial,Helvetica,sans-seri
 .page{width:210mm;min-height:297mm;margin:0 auto;background:#fff;border:1.2px solid #334155;border-radius:3mm;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;padding:8mm 12mm 6mm;position:relative;page-break-after:always}
 .page-content{flex:1 1 auto}
 .header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:3mm;margin-bottom:3.5mm}
-.brand-name{font-size:13.5pt;font-weight:800;color:#0f172a;letter-spacing:-0.5px;margin:0}
-.brand-sub{font-size:7.5pt;color:#475569;margin-top:1mm}
+.brand-name{font-size:13.5pt;font-weight:800;color:#0f172a;letter-spacing:-0.5px;margin:0;line-height:1.15}
+.brand-sub{font-size:7.5pt;color:#475569;margin-top:1mm;line-height:1.2}
 .doc-badge{text-align:right}
-.doc-title{font-size:11pt;font-weight:700;color:#0f172a;text-transform:uppercase;margin:0}
-.doc-subtitle{font-size:7.5pt;font-weight:600;color:#64748b;margin-top:0.5mm;letter-spacing:0.5px}
-.status-box{margin-bottom:3mm;padding:2.5mm 3.5mm;border-radius:2mm}
+.doc-title{font-size:11pt;font-weight:700;color:#0f172a;text-transform:uppercase;margin:0;line-height:1.15}
+.doc-subtitle{font-size:7.5pt;font-weight:600;color:#64748b;margin-top:0.5mm;letter-spacing:0.5px;line-height:1.2}
+.status-box{margin-bottom:3mm;padding:2.2mm 3.5mm;border-radius:2mm;text-align:center}
 .status-registrado{background:#f0fdf4;border:1.5px solid #22c55e;color:#166534}
 .status-pendiente{background:#fffbeb;border:1.5px solid #f59e0b;color:#92400e}
-.status-title{font-size:9.5pt;font-weight:700;margin:0 0 0.5mm}
-.status-desc{font-size:8pt;margin:0}
+.status-title{font-size:9.5pt;font-weight:700;margin:0 0 0.5mm;line-height:1.15;text-align:center}
+.status-desc{font-size:8pt;margin:0;line-height:1.15;text-align:center}
 .code-value{font-family:monospace;font-size:10.5pt;font-weight:800;letter-spacing:0.5px}
-.meta-strip{display:flex;justify-content:space-between;background:#f8fafc;border:1px solid #e2e8f0;padding:2mm 3.5mm;border-radius:1.5mm;font-size:8pt;color:#334155;margin-bottom:3.5mm}
+.meta-strip{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;padding:1.4mm 3.5mm 1.8mm;border-radius:1.5mm;font-size:8pt;line-height:1.15;color:#334155;margin-bottom:3.5mm}
 .section{margin-bottom:3.5mm}
 .section-head{font-size:8.5pt;font-weight:700;color:#0f172a;text-transform:uppercase;border-bottom:1px solid #cbd5e1;padding-bottom:1mm;margin-bottom:2mm;display:flex;align-items:center;gap:2mm}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:2mm 3.5mm}
-.field-box{background:#fcfcfd;border:1px solid #e2e8f0;border-radius:1.5mm;padding:1.5mm 2.5mm}
-.field-label{font-size:7pt;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin-bottom:0.5mm}
-.field-val{font-size:8.5pt;font-weight:500;color:#0f172a;word-break:break-word}
+.field-box{background:#fcfcfd;border:1px solid #cbd5e1;border-radius:1.5mm;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:11.5mm;box-sizing:border-box}
+.field-label{font-size:6.8pt;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin:0 0 0.6mm 0;line-height:1.0;text-align:center;width:100%}
+.field-val{font-size:8.8pt;font-weight:600;color:#0f172a;word-break:break-word;line-height:1.15;text-align:center;width:100%}
 .table-data{width:100%;border-collapse:collapse;margin-top:1.5mm;font-size:8.5pt}
-.table-data th{background:#f1f5f9;border:1px solid #cbd5e1;padding:1.5mm 2.5mm;text-align:left;font-weight:600;color:#334155;font-size:7.5pt;text-transform:uppercase}
-.table-data td{border:1px solid #e2e8f0;padding:1.5mm 2.5mm;color:#0f172a;word-break:break-word}
+.table-data th{background:#f1f5f9;border:1px solid #cbd5e1;padding:2.2mm 3mm;text-align:center;font-weight:600;color:#334155;font-size:7.5pt;text-transform:uppercase;vertical-align:middle;line-height:1.15}
+.table-data td{border:1px solid #cbd5e1;padding:2.2mm 3mm;color:#0f172a;word-break:break-word;text-align:center;vertical-align:middle;line-height:1.25}
 .table-data tr:nth-child(even){background:#fafafa}
-.attachments-list{margin:0;padding-left:4mm;font-size:8pt;color:#1e293b}
-.attachments-list li{margin-bottom:1mm}
+.attachments-list{margin:0;padding:0;list-style:none;font-size:8pt;line-height:1.25;color:#1e293b;text-align:center}
+.attachments-list li{margin:0.5mm 0;text-align:center}
 .footer{flex-shrink:0;margin-top:4mm;border-top:1px solid #cbd5e1;padding-top:2mm;text-align:center;font-size:7pt;color:#64748b;line-height:1.25}
 `
 
@@ -82,8 +82,8 @@ export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
     .map(
       (d) => `
       <tr>
-        <td style="width: 38%; font-weight: 600; color: #334155;">${esc(d.etiqueta)}</td>
-        <td>${esc(d.valor)}</td>
+        <td style="width: 40%; font-weight: 600; color: #334155; text-align: center; vertical-align: middle;">${esc(d.etiqueta)}</td>
+        <td style="text-align: center; vertical-align: middle;">${esc(d.valor)}</td>
       </tr>`,
     )
     .join('')
@@ -93,13 +93,13 @@ export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
       ? `<ul class="attachments-list">
           ${datos.adjuntos.map((a) => `<li><strong>Documento:</strong> ${esc(a)}</li>`).join('')}
         </ul>`
-      : '<p style="font-size: 8pt; color: #64748b; margin: 0;">No se adjuntaron archivos adicionales.</p>'
+      : '<p style="font-size: 8pt; color: #64748b; margin: 0; line-height: 1.25; text-align: center;">No se adjuntaron archivos adicionales.</p>'
 
   const obsHtml = datos.observaciones?.trim()
     ? `<div class="section">
         <div class="section-head">Observaciones adicionales</div>
         <div class="field-box">
-          <div class="field-val" style="white-space: pre-wrap;">${esc(datos.observaciones)}</div>
+          <div class="field-val" style="white-space: pre-wrap; text-align: center;">${esc(datos.observaciones)}</div>
         </div>
       </div>`
     : ''
