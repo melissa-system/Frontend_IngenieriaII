@@ -22,6 +22,21 @@ export const TIPOS_LABOR = [
 ] as const
 export type TipoLabor = (typeof TIPOS_LABOR)[number]
 
+// Copia de los datos operativos de la solicitud que originó la labor. La arma
+// el backend al aprobar una solicitud de conexión o de cambio de medidor.
+export interface DatosSolicitudLabor {
+  codigo_solicitud: string
+  tipo_solicitud: string
+  abonado: {
+    nombre: string
+    numero_abonado: string
+    cedula: string
+    telefono: string
+  }
+  direccion: string
+  numero_nis: string | null
+}
+
 export interface LaborBackend {
   id: number
   codigo_labor: string
@@ -33,6 +48,11 @@ export interface LaborBackend {
   gestion_finalizada_en: string | null
   devuelta_revision: boolean
   motivo_revision: string | null
+  // 'solicitud' cuando se generó al aprobar una solicitud (conexión o cambio
+  // de medidor); 'manual' cuando la creó la administración.
+  origen: 'manual' | 'solicitud'
+  id_solicitud: number | null
+  datos_solicitud: DatosSolicitudLabor | null
   fecha_creacion: string
 }
 

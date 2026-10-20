@@ -123,7 +123,56 @@ function GestionLaborModal({
               <span className="text-primary-400">Sin asignar</span>
             )}
           </span>
+          <span className="font-medium text-primary-700">Origen:</span>
+          <span className="text-primary-900">
+            {labor.origen === 'solicitud' ? (
+              <span className="inline-flex items-center gap-1.5">
+                Solicitud aprobada
+                {labor.datos_solicitud && (
+                  <span className="rounded-full bg-acento-100 px-2 py-0.5 font-mono text-[11px] font-semibold text-acento-700">
+                    {labor.datos_solicitud.codigo_solicitud}
+                  </span>
+                )}
+              </span>
+            ) : (
+              'Creación manual'
+            )}
+          </span>
         </div>
+
+        {/* Datos con los que se generó la labor: abonado, dirección y NIS.
+            Van como copia para que el fontanero no dependa del módulo de
+            solicitudes. */}
+        {labor.origen === 'solicitud' && labor.datos_solicitud && (
+          <div className="rounded-xl border border-acento-200 bg-acento-50/40 p-4">
+            <h3 className="mb-2 text-sm font-semibold text-primary-900">
+              Datos de la solicitud
+            </h3>
+            <div className="grid grid-cols-1 gap-x-6 gap-y-2 break-words text-sm sm:grid-cols-2">
+              <span className="font-medium text-primary-700">Abonado:</span>
+              <span className="text-primary-900">
+                {labor.datos_solicitud.abonado.nombre} (
+                {labor.datos_solicitud.abonado.numero_abonado})
+              </span>
+              <span className="font-medium text-primary-700">Cédula:</span>
+              <span className="text-primary-900">
+                {labor.datos_solicitud.abonado.cedula || '—'}
+              </span>
+              <span className="font-medium text-primary-700">Teléfono:</span>
+              <span className="text-primary-900">
+                {labor.datos_solicitud.abonado.telefono || '—'}
+              </span>
+              <span className="font-medium text-primary-700">Dirección:</span>
+              <span className="text-primary-900">
+                {labor.datos_solicitud.direccion || '—'}
+              </span>
+              <span className="font-medium text-primary-700">NIS:</span>
+              <span className="text-primary-900">
+                {labor.datos_solicitud.numero_nis ?? '—'}
+              </span>
+            </div>
+          </div>
+        )}
 
         {labor.devuelta_revision && labor.motivo_revision && (
           <Alerta tipo="advertencia">
@@ -554,7 +603,17 @@ function LaboresAdmin() {
           filasVisibles.map((labor) => (
             <tr key={labor.id} className="hover:bg-primary-50/50">
               <td className="whitespace-nowrap px-4 py-3 font-mono text-xs text-primary-500">
-                {labor.codigo_labor}
+                <span className="flex items-center gap-2">
+                  {labor.codigo_labor}
+                  {labor.origen === 'solicitud' && (
+                    <span
+                      className="rounded-full bg-acento-100 px-1.5 py-0.5 text-[10px] font-semibold text-acento-700"
+                      title="Generada al aprobar una solicitud"
+                    >
+                      Solicitud
+                    </span>
+                  )}
+                </span>
               </td>
               <td className="whitespace-nowrap px-4 py-3 font-medium text-primary-900">
                 {ETIQUETA_ACTIVIDAD[labor.tipo_actividad]}

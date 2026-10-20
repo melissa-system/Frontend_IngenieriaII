@@ -32,6 +32,7 @@ export interface SolicitudCambioMedidor {
   evidencia_url: string | null
   motivo_rechazo: string | null
   id_empleado: number | null
+  labor: LaborDeSolicitud | null
   fecha_creacion: string
   fecha_actualizacion: string
 }
@@ -47,6 +48,13 @@ export interface CrearSolicitudCambioMedidorPayload {
 export interface ActualizarEstadoPayload {
   estado: 'en_proceso' | 'aprobado' | 'rechazado'
   motivoRechazo?: string
+}
+
+// Labor generada en "Otros mantenimientos" al aprobar la solicitud.
+export interface LaborDeSolicitud {
+  id: number
+  codigo_labor: string
+  estado: string
 }
 
 
