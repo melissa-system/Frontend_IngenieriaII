@@ -49,3 +49,18 @@ export function crearContenedorCaptura(html: string): HTMLDivElement {
   document.body.appendChild(contenedor)
   return contenedor
 }
+
+// html2canvas calcula la línea base del texto midiendo un <img> 1x1 que
+// inserta en el <body> real. El preflight de Tailwind (img{display:block})
+// rompe esa medición y todo el texto del PDF sale corrido hacia abajo, casi
+// sobre el borde inferior de cada cuadro. Mientras se captura, se devuelve
+// ese <img> puntual a display:inline. Devuelve la función que lo retira.
+const IMAGEN_METRICAS_HTML2CANVAS =
+  'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'
+
+export function corregirLineaBaseTexto(): () => void {
+  const estilo = document.createElement('style')
+  estilo.textContent = `img[src="${IMAGEN_METRICAS_HTML2CANVAS}"]{display:inline !important}`
+  document.head.appendChild(estilo)
+  return () => estilo.remove()
+}

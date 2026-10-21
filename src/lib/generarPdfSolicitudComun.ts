@@ -1,7 +1,7 @@
 import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { ASADA_NOMBRE_LEGAL, ASADA_CEDULA_JURIDICA } from './asadaInfo.ts'
-import { crearContenedorCaptura } from './aislarEstilosPdf.ts'
+import { corregirLineaBaseTexto, crearContenedorCaptura } from './aislarEstilosPdf.ts'
 import {
   obtenerFechaHoraCostaRica,
   obtenerNombreArchivoCopia,
@@ -57,7 +57,7 @@ body{margin:0;padding:12px;background:#eee;font-family:Arial,Helvetica,sans-seri
 .status-title{font-size:9.5pt;font-weight:700;margin:0 0 0.5mm;line-height:1.15;text-align:center}
 .status-desc{font-size:8pt;margin:0;line-height:1.15;text-align:center}
 .code-value{font-family:monospace;font-size:10.5pt;font-weight:800;letter-spacing:0.5px}
-.meta-strip{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;padding:1.4mm 3.5mm 1.8mm;border-radius:1.5mm;font-size:8pt;line-height:1.15;color:#334155;margin-bottom:3.5mm}
+.meta-strip{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;padding:1.6mm 3.5mm;border-radius:1.5mm;font-size:8pt;line-height:1.15;color:#334155;margin-bottom:3.5mm}
 .section{margin-bottom:3.5mm}
 .section-head{font-size:8.5pt;font-weight:700;color:#0f172a;text-transform:uppercase;border-bottom:1px solid #cbd5e1;padding-bottom:1mm;margin-bottom:2mm;display:flex;align-items:center;gap:2mm}
 .grid-2{display:grid;grid-template-columns:1fr 1fr;gap:2mm 3.5mm}
@@ -213,6 +213,7 @@ export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
 export async function generarPdfSolicitudComun(datos: DatosCopiaComun): Promise<Blob> {
   const html = buildHtmlCopiaComun(datos)
   const contenedor = crearContenedorCaptura(html)
+  const quitarCorreccionTexto = corregirLineaBaseTexto()
 
   try {
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
@@ -267,6 +268,7 @@ export async function generarPdfSolicitudComun(datos: DatosCopiaComun): Promise<
 
     return pdf.output('blob')
   } finally {
+    quitarCorreccionTexto()
     if (contenedor.parentNode) {
       document.body.removeChild(contenedor)
     }

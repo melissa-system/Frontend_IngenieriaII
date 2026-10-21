@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { obtenerConfiguracion, type Configuracion } from '../Services/configuracion.service'
+import { useConfiguracion } from '../../hooks/useConfiguracion'
 
 // Valores por defecto (actuales hardcodeados) — se usan si la API falla
 const DEFAULTS = {
@@ -13,15 +12,8 @@ const DEFAULTS = {
 }
 
 function Location() {
-  const [config, setConfig] = useState<Configuracion | null>(null)
-
-  useEffect(() => {
-    obtenerConfiguracion()
-      .then(setConfig)
-      .catch(() => {
-        /* fallback a DEFAULTS */
-      })
-  }, [])
+  // null mientras carga o si la API falla -> se usan los DEFAULTS
+  const config = useConfiguracion()
 
   const direccion = config?.direccion || DEFAULTS.direccion
   const telefono = config?.telefono || DEFAULTS.telefono
