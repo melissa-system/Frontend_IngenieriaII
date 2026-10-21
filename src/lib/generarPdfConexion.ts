@@ -1,32 +1,19 @@
-import html2canvas from 'html2canvas'
-import jsPDF from 'jspdf'
 import type { SolicitudConexion } from '../components/Services/conexionPajaAgua.service'
 import { ASADA_NOMBRE_LEGAL } from './asadaInfo'
-import { crearContenedorCaptura } from './aislarEstilosPdf'
-import { dibujarCampos, extraerCamposTexto } from './camposPdf'
 import {
   obtenerFechaArchivoCostaRica,
   obtenerNombreArchivoCopia,
 } from './formatoFechaCostaRica'
+import { ANCHO, Formulario, X0, X1 } from './pdfFormulario'
+import { REQUISITOS_CONEXION } from './textosConexion'
 
-// PDF de la Solicitud de conexión de servicio (GNU-42-01-F1), fiel al HTML
-// entregado por Meli: mismas 5 páginas, mismo layout, sin ningún color
-// azul — solo se reemplaza la identidad institucional de AyA por la de la
-// ASADA y se llenan los campos con los datos reales de la solicitud.
+// PDF de la Solicitud de conexión de servicio (GNU-42-01-F1), con las mismas
+// secciones del machote, sin ningún color azul — solo se reemplaza la identidad
+// institucional de AyA por la de la ASADA y se llenan los campos con los datos
+// reales de la solicitud.
 //
-// Los <input>/<textarea> se llenan con su .value (html2canvas sí captura el
-// texto de un input), pero los checkbox/radio marcados se refuerzan con una
-// marca (✓ / ●) superpuesta por JS — html2canvas no siempre logra capturar
-// el estado "checked" nativo del navegador de forma confiable.
-
-function esc(valor: string | null | undefined): string {
-  if (!valor) return ''
-  return valor
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-}
+// El texto se dibuja de forma vectorial (ver pdfFormulario.ts): cada valor queda
+// centrado en su caja sin depender del navegador ni de la pantalla.
 
 function coincide(valor: string | null | undefined, ...posibles: string[]): boolean {
   if (!valor) return false
@@ -34,121 +21,7 @@ function coincide(valor: string | null | undefined, ...posibles: string[]): bool
   return posibles.some((p) => v === p.trim().toLowerCase())
 }
 
-function fmtFecha(fecha?: string | Date | null): string {
-  return obtenerFechaArchivoCostaRica(fecha)
-}
-
-function chk(condicion: boolean): string {
-  return condicion ? 'checked' : ''
-}
-
-const STYLE = `
-*{box-sizing:border-box} @page{size:A4;margin:0} body{margin:0;padding:18px;background:#eee;font-family:Arial,Helvetica,sans-serif;color:#222;font-size:11px}.page{width:210mm;min-height:297mm;margin:0 auto 18px;background:#fff;border:1px solid #222;border-radius:5mm;overflow:hidden;position:relative;page-break-after:always}.page:last-child{page-break-after:auto}.head{height:22mm;border-bottom:1px solid #222;display:grid;grid-template-columns:27mm 1fr 42mm;align-items:center;padding:2mm 5mm}.logo{font-weight:bold;text-align:center;font-size:15px}.title{text-align:center;font-weight:bold;font-size:14px}.title small{display:block;font-size:11px;margin-top:2px}.code{font-size:8px;text-align:right;align-self:end}.simple{height:13mm;border-bottom:1px solid #222;display:flex;align-items:center;padding:2mm 5mm}.simple .logo{width:27mm}.simple .title{flex:1;font-size:13px}.section{display:flex;align-items:center;gap:3mm;font-weight:bold;font-size:12px;margin:2mm 5mm 1.5mm}.roman{border:2px solid #222;border-radius:50%;min-width:12mm;height:9mm;display:inline-flex;align-items:center;justify-content:center}.content{padding:0 3.5mm 3mm}.exclusive{border-bottom:1px solid #222;padding:1.5mm 5mm 2mm}.exclusive h3{text-align:center;font-style:italic;margin:0 0 1.5mm}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:4mm}.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:3mm}.grid4{display:grid;grid-template-columns:repeat(4,1fr);gap:3mm}.field{margin-bottom:1.5mm}.field label{display:block;text-align:center;margin-bottom:1.2mm;line-height:1.2}input[type=text],input[type=date],input[type=email]{width:100%;height:7.5mm;border:1px solid #222;padding:1mm;font:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}textarea{width:100%;border:1px solid #222;padding:1mm;resize:none;font:inherit}.checks{display:flex;flex-wrap:wrap;gap:3mm 6mm;align-items:center}.checks label{white-space:nowrap;position:relative}input[type=checkbox],input[type=radio]{width:4mm;height:4mm;margin:0 1mm 0 0;vertical-align:middle}.notif{border-top:1px solid #222;border-bottom:1px solid #222;margin:1mm -3.5mm 0}.notif-head,.notif-body{display:grid;grid-template-columns:1fr 1fr}.notif-head>div{text-align:center;font-weight:bold;padding:1.5mm;border-right:1px solid #222}.notif-head>div:last-child,.notif-body>div:last-child{border-right:0}.notif-head{border-bottom:1px solid #222}.notif-body>div{padding:1.5mm 6mm;border-right:1px solid #222}.inline{display:grid;grid-template-columns:35mm 1fr;align-items:center;margin-bottom:1mm}.inline label{text-align:left}.inline input{height:7mm}.footer{position:absolute;left:0;right:0;bottom:0;height:9mm;border-top:1px solid #222;display:flex;align-items:center;justify-content:center;font-size:9px}.pageno{position:absolute;right:5mm}.purpose{border-bottom:1px solid #222;padding:2mm 3mm}.purposegrid{display:grid;grid-template-columns:repeat(3,1fr);gap:2mm}.purposegrid4{display:grid;grid-template-columns:1fr 1fr 1fr 1.5fr;gap:2mm}.purposegrid2{display:grid;grid-template-columns:1fr 1fr;gap:2mm}.signature{display:grid;grid-template-columns:1.8fr .8fr .8fr;gap:3mm;padding:0 2mm 2mm}.sigbox{height:14mm;border:1px solid #222;display:flex;align-items:stretch;justify-content:center}.siglabel{text-align:center;margin-bottom:1mm}.req{padding:0 9mm 9mm;font-size:9.7px;line-height:1.48}.req ol{margin:1mm 0 0 7mm;padding-left:6mm}.req li{padding-left:1mm;margin-bottom:1.5mm}.rtitle{font-weight:bold;text-decoration:underline;margin:2mm 0 1mm}.bullet{margin:0 0 1mm;padding-left:4mm;text-indent:-3mm}.vtitle{display:flex;align-items:center;gap:3mm;font-weight:bold;font-size:13px;margin:3mm 0}.small{font-size:8px}
-`
-
-function buildHtml(s: SolicitudConexion): string {
-  const esFisica = s.tipo_persona === 'fisica'
-  const esJuridica = s.tipo_persona === 'juridica'
-
-  const medioPrincipalFax = s.medio_notificacion_principal === 'fax' ? esc(s.valor_notificacion_principal) : ''
-  const medioPrincipalCorreo = s.medio_notificacion_principal === 'correo' ? esc(s.valor_notificacion_principal) : ''
-  const medioPrincipalDireccion = s.medio_notificacion_principal === 'direccion' ? esc(s.valor_notificacion_principal) : ''
-  const medioSecundarioFax = s.medio_notificacion_secundario === 'fax' ? esc(s.valor_notificacion_secundario) : ''
-  const medioSecundarioCorreo = s.medio_notificacion_secundario === 'correo' ? esc(s.valor_notificacion_secundario) : ''
-  const medioSecundarioDireccion = s.medio_notificacion_secundario === 'direccion' ? esc(s.valor_notificacion_secundario) : ''
-
-  return `<!DOCTYPE html>
-<html lang="es"><head><meta charset="UTF-8"><style>${STYLE}</style></head><body>
-
-<section class="page">
-<div class="head"><div class="logo">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}</div><div class="title">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}<small>Solicitud de conexión de servicio</small></div><div class="code">Código: GNU-42-01-F1&nbsp;&nbsp; Versión: 03</div></div>
-${!s.codigo_solicitud ? `<div style="background:#fffbeb;border-bottom:1px solid #f59e0b;padding:1.5mm 3mm;font-size:7.5pt;color:#92400e;text-align:center;font-weight:bold">Copia de respaldo: solicitud pendiente de registro en el sistema</div>` : ''}
-<div class="exclusive"><h3>Uso exclusivo de la ASADA</h3><div class="grid2"><div class="field"><label>Número de solicitud</label><input type="text" value="${s.codigo_solicitud && s.codigo_solicitud.trim().length > 0 ? esc(s.codigo_solicitud) : 'Pendiente de registro'}" readonly></div><div class="field"><label>Fecha de ingreso</label><input type="date" value="${fmtFecha(s.fecha_creacion)}" readonly></div></div></div>
-<div class="section"><span class="roman">I.</span>Información del titular del inmueble</div><div class="content">
-<div class="checks"><label><input type="radio" name="tipoPersona" ${chk(esFisica)}>Persona Física</label></div><div class="grid2"><div class="field"><label>Nombre completo</label><input type="text" value="${esFisica ? esc(s.nombre_solicitante) : ''}" readonly></div><div class="field"><label>No. de identificación</label><input type="text" value="${esFisica ? esc(s.identificacion_solicitante) : ''}" readonly></div></div>
-<div class="checks"><label><input type="radio" name="tipoPersona" ${chk(esJuridica)}>Persona Jurídica</label></div><div class="grid2"><div class="field"><label>Razón Social</label><input type="text" value="${esJuridica ? esc(s.nombre_solicitante) : ''}" readonly></div><div class="field"><label>No. de Cédula Jurídica</label><input type="text" value="${esJuridica ? esc(s.identificacion_solicitante) : ''}" readonly></div></div><div class="grid2"><div class="field"><label>Teléfono 1</label><input type="text" value="${esc(s.telefono_solicitante)}" readonly></div><div class="field"><label>Teléfono 2</label><input type="text" value="" readonly></div></div></div>
-<div class="section"><span class="roman">II.</span>Medio para notificación <span class="small">(Seleccione el medio de notificación principal y secundario de su preferencia)</span></div>
-<div class="notif"><div class="notif-head"><div>Medio principal</div><div>Medio secundario</div></div><div class="notif-body"><div><div class="inline"><label>Fax:</label><input type="text" value="${medioPrincipalFax}" readonly></div><div class="inline"><label>Correo electrónico:</label><input type="text" value="${medioPrincipalCorreo}" readonly></div><div class="inline"><label>Dirección física:</label><div data-campo-valor style="min-height:7.2mm;border:1px solid #222;background:#fff;padding:1mm;font:inherit;white-space:pre-wrap;word-break:break-word;font-size:10px;line-height:1.2;box-sizing:border-box;">${medioPrincipalDireccion}</div></div></div><div><div class="inline"><label>Fax:</label><input type="text" value="${medioSecundarioFax}" readonly></div><div class="inline"><label>Correo electrónico:</label><input type="text" value="${medioSecundarioCorreo}" readonly></div><div class="inline"><label>Dirección física:</label><div data-campo-valor style="min-height:7.2mm;border:1px solid #222;background:#fff;padding:1mm;font:inherit;white-space:pre-wrap;word-break:break-word;font-size:10px;line-height:1.2;box-sizing:border-box;">${medioSecundarioDireccion}</div></div></div></div></div>
-<div class="section"><span class="roman">III.</span>Información del Inmueble</div><div class="content"><div class="grid3"><div class="field"><label>Provincia</label><input type="text" value="${esc(s.provincia)}" readonly></div><div class="field"><label>Cantón</label><input type="text" value="${esc(s.canton)}" readonly></div><div class="field"><label>Distrito</label><input type="text" value="${esc(s.distrito)}" readonly></div></div><div class="field"><label>Dirección exacta del inmueble</label><div data-campo-valor style="min-height:7.2mm;border:1px solid #222;background:#fff;padding:1mm;font:inherit;white-space:pre-wrap;word-break:break-word;font-size:10px;line-height:1.2;box-sizing:border-box;text-align:left;">${esc(s.direccion_inmueble)}</div></div><div class="grid3"><div class="field"><label>Folio real/Concesión/Arriendo/Asignación</label><input type="text" value="${esc(s.folio_real)}" readonly></div><div class="field"><label>Plano Catastro</label><input type="text" value="${esc(s.plano_catastro)}" readonly></div><div class="field"><label>Plano de Agrimensura</label><input type="text" value="${esc(s.plano_agrimensura)}" readonly></div></div><div class="grid2"><div class="inline"><label>Indicar el N° de disponibilidad</label><input type="text" value="${esc(s.numero_disponibilidad)}" readonly></div><div class="inline"><label>Indicar el N° de NIS en caso de que exista en el inmueble</label><input type="text" value="${esc(s.numero_nis)}" readonly></div></div></div>
-<div style="border-top:1px solid #222;display:grid;grid-template-columns:1fr 1fr;font-size:8px"><div style="padding:2mm;border-right:1px solid #222"><div style="text-align:center;font-size:10px">1. Naturaleza del inmueble</div><div class="checks">
-<label><input type="radio" name="naturaleza" ${chk(coincide(s.naturaleza_inmueble, 'Inmueble inscrito'))}>Inmueble inscrito</label>
-<label><input type="radio" name="naturaleza" ${chk(coincide(s.naturaleza_inmueble, 'Parcela agrícola', 'Parcelas agrícolas'))}>Parcelas agrícolas</label>
-<label><input type="radio" name="naturaleza" ${chk(coincide(s.naturaleza_inmueble, 'Zona indígena'))}>Zona indígena</label>
-<label><input type="radio" name="naturaleza" ${chk(coincide(s.naturaleza_inmueble, 'Zona marítimo', 'Zona marítimo terrestre'))}>Zona marítimo</label>
-<label><input type="radio" name="naturaleza" ${chk(coincide(s.naturaleza_inmueble, 'Terreno en administración del INDER'))}>Terreno en administración del INDER*</label>
-<label><input type="radio" name="naturaleza" ${chk(coincide(s.naturaleza_inmueble, 'Inmueble sin inscribir'))}>Inmueble sin inscribir</label>
-</div><div class="small">*Seleccione: “Terrenos en administración del INDER” cuando sea el caso de terrenos en concesión,</div></div><div style="padding:2mm"><div style="text-align:center;font-size:10px">2. Calidad del titular del inmueble</div><div class="checks">
-<label><input type="radio" name="calidad" ${chk(coincide(s.calidad_titular, 'Propietario registral'))}>Propietario registral</label>
-<label><input type="radio" name="calidad" ${chk(coincide(s.calidad_titular, 'Poseedor'))}>Poseedor</label>
-<label><input type="radio" name="calidad" ${chk(coincide(s.calidad_titular, 'Autorizado legal', 'Autorizado Legal'))}>Autorizado Legal</label>
-<label><input type="radio" name="calidad" ${chk(coincide(s.calidad_titular, 'Representante legal', 'Representante Legal'))}>Representante Legal</label>
-<label><input type="radio" name="calidad" ${chk(coincide(s.calidad_titular, 'Concesionario, arrendatario o asignatario'))}>Concesionario, arrendatario o asignatario</label>
-</div><div class="small">*Seleccione: “Autorizado legal” cuando sea el caso de que el solicitante esté designado como albacea, tutor, curador u otra autorización por medio de poder especial o general.</div></div></div>
-<div class="footer">El agua es vida ... ¡Cuidémosla!<span class="pageno">1</span></div></section>
-
-<section class="page"><div class="simple"><div class="logo">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}</div><div class="title">Solicitud de conexión de servicio</div></div>
-<div class="section"><span class="roman">IV.</span>Propósito de la solicitud</div><div class="purpose"><div class="purposegrid"><label><input type="checkbox" ${chk(s.servicio_solicitado === 'agua_potable')}>Agua potable</label><label><input type="checkbox" ${chk(s.servicio_solicitado === 'alcantarillado_sanitario')}>Alcantarillado sanitario</label><label><input type="checkbox" ${chk(s.servicio_solicitado === 'ambos')}>Ambos</label></div></div><div class="purpose"><div class="purposegrid4">
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'nueva_conexion')}>Nueva conexión</label>
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'individualizacion')}>Individualización</label>
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'independizacion')}>Independización</label>
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'traslado')}>Traslado</label>
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'servicio_provisional_proyectos')}>Servicio provisional para proyectos</label>
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'cambio_diametro')}>Cambio de diámetro</label>
-<label><input type="checkbox" ${chk(s.tipo_tramite === 'servicio_temporal')}>Servicio Temporal</label>
-<label>Indique el codigo APC, CFIA <input type="text" value="${esc(s.codigo_apc_cfia)}" readonly></label>
-</div></div><div class="purpose"><div class="purposegrid2"><label><input type="checkbox" ${chk(s.forma_pago === 'efectivo_previo')}>En efectivo en un solo tracto previo a la conexión del servicio.</label><label><input type="checkbox" ${chk(s.forma_pago === 'incluir_primera_facturacion')}>Autorizo incluir el monto por tarifa de derecho de conexión en la primera facturación.</label></div></div>
-<div class="section"><span class="roman">V.</span>Firma del solicitante</div><div class="signature"><div><div class="siglabel">Nombre completo del solicitante</div><div class="sigbox"><input style="width:100%;height:100%;border:0" type="text" value="${esc(s.nombre_firmante)}" readonly></div></div><div><div class="siglabel">Identificación</div><div class="sigbox"><input style="width:100%;height:100%;border:0" type="text" value="${esc(s.identificacion_firmante)}" readonly></div></div><div><div class="siglabel">Firma del solicitante</div><div class="sigbox" data-firma-box></div></div></div>
-<div class="section"><span class="roman">VI.</span>Datos del funcionario que recibe la solicitud <i>(Uso exclusivo de AyA)</i></div><div class="grid4" style="padding:0 2mm 2mm"><div><div class="siglabel">Nombre</div><input type="text" readonly></div><div><div class="siglabel">Primer apellido</div><input type="text" readonly></div><div><div class="siglabel">Segundo apellido</div><input type="text" readonly></div><div><div class="siglabel">Firma</div><div class="sigbox"></div></div></div>
-<div class="section"><span class="roman">VII.</span>Requisitos</div><div class="req"><ol><li>Para el otorgamiento del servicio el inmueble debe contar previamente con la disponibilidad de servicios positiva, vigente y asociada a los fines, naturaleza y propósitos para lo que fue aprobada. En caso de que se detecten movimientos registrables no relacionados con la titularidad del inmueble, AyA tramitará la solicitud al titular legitimado para tal efecto.</li><li>Ante las variaciones catastrales, tales como modificación de áreas y/o linderos que pueden incidir en el caudal y número de servicios definidos para el otorgamiento de la constancia de disponibilidad de servicios, deberá el interesado realizar el trámite señalado en el artículo 30 del Reglamento para la Prestación de los Servicios de AyA y presentar en las Plataformas de Servicio los siguientes requisitos, en forma física o formato digital. Además, debe llenar el formulario proporcionado por AyA, completo y firmado por el propietario registral o su representante legal. En caso de que no sea el propietario el que gestiona la solicitud, debe presentar poder especial, autorización o aval debidamente autenticado que lo acredite para realizar la gestión y firmar el documento denominado “De las condiciones del servicio” y cumplir con la presentación en las plataformas de servicio.</li><li>Para todos los casos previstos en esta norma, el AyA verificará que el solicitante y el inmueble no se encuentren en mora con AyA. Se exceptúan los casos definidos por otras normas o convenios.</li><li>El pago de la tarifa de conexión será conforme a lo establecido en este reglamento.</li><li>En caso de inmuebles con edificaciones existentes, donde no se aporte el permiso de construcción, deberá presentar una constancia municipal en la que se acredite la cantidad de unidades habitacionales existentes en el inmueble, que no cuentan con permiso de construcción y que fueron construidas bajo la tolerancia y aval municipal. Igualmente podrá suscribir una declaración jurada que sustituya este requisito, sin embargo, AyA previo a la aprobación del trámite deberá de verificar ante la Municipalidad correspondiente la veracidad de lo consignado por el solicitante, información que deberá ser remitida mediante correo electrónico u otro medio virtual que agilice el trámite, dentro del plazo de hasta 4 días hábiles. En caso de que el Municipio desmienta lo declarado por el solicitante, se dejará sin efecto la gestión y se procederá con la denuncia penal correspondiente.</li></ol></div><div class="footer">El agua es vida ... ¡Cuidémosla!<span class="pageno">2</span></div></section>
-
-<section class="page"><div class="simple"><div class="logo">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}</div><div class="title">Solicitud de conexión de servicio</div></div><div class="req">
-<div class="rtitle">b) De los requisitos para la solicitud de una conexión permanente por parte del propietario registral en terrenos inscritos:</div><div class="bullet">• Documento de identificación original y vigente del titular del inmueble o su representante legal para su verificación.</div><div class="bullet">• En caso de que para la propiedad no exista plano catastrado, o para efectos de segregación o fraccionamientos, debe presentar un plano de agrimensura que cumpla con lo estipulado en el Artículo N°2 inciso q) del Decreto Ejecutivo No. 34331, Reglamento de la Ley de Catastro Nacional vigente con su respectiva minuta de presentación y el correspondiente sello del CFIA conforme a lo dispuesto en el Reglamento Especial del Administrador de Proyectos de Topografía (APT) del CFIA vigente y sus reformas o las normativas que los sustituya.</div><div class="bullet">• Copia del permiso municipal de construcción vigente, o bien el Número de Proyecto tramitado ante la plataforma APC debidamente aprobado, con el fin de que AyA constate la existencia del requisito, en caso de que se trate de una edificación por desarrollar. El permiso deberá ser coincidente con el fin inicial para el que se gestionó y aprobó la disponibilidad. Igualmente podrá suscribir una declaración jurada que sustituya este requisito, sin embargo, AyA previo a la aprobación del trámite deberá de verificar ante la Municipalidad correspondiente la veracidad de lo consignado por el solicitante, información que deberá ser remitida mediante correo electrónico u otro medio virtual que agilice el trámite, dentro del plazo de hasta 4 días hábiles. En caso de que el Municipio desmienta lo declarado por el solicitante, se dejará sin efecto la gestión y se procederá con la denuncia penal correspondiente.</div>
-<div class="rtitle">c) Conexión permanente en territorios administrados por el Estado o sus instituciones con régimen jurídico especial:</div><div class="bullet">• En aquellos territorios del país con características especiales, como zona marítimo terrestre, zonas fronterizas, territorios indígenas, polos de desarrollo turístico, entre otros, que se otorgan mediante concesiones, arriendos y asignaciones, los solicitantes deberán presentar la autorización expresa del Ente correspondiente, según la norma que los regule.</div>
-<div class="rtitle">d) Conexión permanente en inmuebles registrados en derechos:</div><div class="bullet">• La solicitud podrá realizarla el copropietario que requiera el servicio, sin que sea necesaria la autorización de los demás titulares de los derechos restantes.</div><div class="bullet">• Documento de identificación original y vigente del titular del inmueble o su representante legal para su verificación.</div><div class="bullet">• En caso de que para la propiedad no exista plano catastrado, o para efectos de segregación o fraccionamientos, debe presentar un plano de agrimensura que cumpla con lo estipulado en el Artículo N°2 inciso q) del Decreto Ejecutivo No. 34331, Reglamento de la Ley de Catastro Nacional vigente con su respectiva minuta de presentación y el correspondiente sello del CFIA conforme a lo dispuesto en el Reglamento Especial del Administrador de Proyectos de Topografía (APT) del CFIA vigente y sus reformas o las normativas que los sustituya.</div><div class="bullet">• Copia del permiso municipal de construcción vigente, o bien el Número de Proyecto tramitado ante la plataforma APC debidamente aprobado, con el fin de que AyA constate la existencia del requisito, en caso de que se trate de una edificación por desarrollar. El permiso deberá ser coincidente con el fin inicial para el que se gestionó y aprobó la disponibilidad. Igualmente podrá suscribir una declaración jurada que sustituya este requisito, sin embargo, AyA previo a la aprobación del trámite deberá de verificar ante la Municipalidad correspondiente la veracidad de lo consignado por el solicitante, información que deberá ser remitida mediante correo electrónico u otro medio virtual que agilice el trámite, dentro del plazo de hasta 4 días hábiles. En caso de que el Municipio desmienta lo declarado por el solicitante, se dejará sin efecto la gestión y se procederá con la denuncia penal correspondiente.</div><div class="bullet">• En el caso de solicitudes de nuevos servicios, para actividades que generen aguas residuales de tipo especiales, el interesado deberá presentar, una declaración jurada en la que indique que la descarga al alcantarillado sanitario, cumplirá con el reglamento y nota de aprobación del Ministerio de Salud, que describa el tipo de actividad a</div>
-</div><div class="footer">El agua es vida ... ¡Cuidémosla!<span class="pageno">3</span></div></section>
-
-<section class="page"><div class="simple"><div class="logo">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}</div><div class="title">Solicitud de conexión de servicio</div></div><div class="req"><div>desarrollar, así como la cantidad y calidad de la descarga a verter; asimismo la especificación del sistema de tratamiento para cumplir con la normativa ambiental vigente.</div>
-<div class="rtitle">e) Conexión permanente por parte del poseedor de un inmueble sin inscribir:</div><div class="bullet">• Presentación del documento de identificación del titular del inmueble o representante legal.</div><div class="bullet">• El poseedor deberá suscribir la declaración jurada cuyo formulario será suplido por AyA, la cual será firmada por el solicitante y dos testigos con una descripción de la naturaleza del inmueble, señalando en qué consisten sus actos posesorios, la existencia de edificación, las mejoras realizadas y que la propiedad no se encuentra inscrita.</div><div class="bullet">• En caso de que para la propiedad no exista plano catastrado, o para efectos de segregación o fraccionamientos, debe presentar un plano de agrimensura que cumpla con lo estipulado en el Artículo N°2 inciso q) del Decreto Ejecutivo No. 34331, Reglamento de la Ley de Catastro Nacional vigente con su respectiva minuta de presentación y el correspondiente sello del CFIA conforme a lo dispuesto en el Reglamento Especial del Administrador de Proyectos de Topografía (APT) del CFIA vigente y sus reformas o las normativas que los sustituya.</div><div class="bullet">• Copia del permiso municipal de construcción vigente, o bien el Número de Proyecto tramitado ante la plataforma APC debidamente aprobado, con el fin de que AyA constate la existencia del requisito, en caso de que se trate de una edificación por desarrollar. El permiso deberá ser coincidente con el fin inicial para el que se gestionó y aprobó la disponibilidad. Igualmente podrá suscribir una declaración jurada que sustituya este requisito, sin embargo, AyA previo a la aprobación del trámite deberá de verificar ante la Municipalidad correspondiente la veracidad de lo consignado por el solicitante, información que deberá ser remitida mediante correo electrónico u otro medio virtual que agilice el trámite, dentro del plazo de hasta 4 días hábiles. En caso de que el Municipio desmienta lo declarado por el solicitante, se dejará sin efecto la gestión y se procederá con la denuncia penal correspondiente.</div>
-<div class="rtitle">f) Conexión especial, para el caso de ocupantes de inmuebles que carezcan de un título habilitante para realizar la ocupación:</div><div class="bullet">• En caso de que exista una Asociación de Desarrollo Comunal u otra organización formal y reconocida jurídicamente que respalde la solicitud del asentamiento poblacional, será necesario que el representante legal de dicha persona jurídica sea quien realice las gestiones.</div><div class="bullet">• En caso de que se carezca de una persona jurídica debidamente formalizada, será necesario un contrato de mandato, donde la totalidad de beneficiarios del servicio deleguen en un representante la realización de las gestiones. De acuerdo con la verificación y subsanación de condiciones necesarias para la aprobación de servicios, AyA verificará a través de las plataformas virtuales oficiales y disponibles, las siguientes condiciones: Certificaciones registrales o administrativas de personerías jurídicas vigentes, apoderados con facultades de representantes judiciales y extrajudiciales o facultados al efecto, albaceas, tutores y curadores.</div><div class="bullet">• Presentar declaración jurada con un máximo de 30 días de emitida y firmada por el representante de la asociación comunal o el representante de los beneficiarios y dos testigos, con una descripción de la propiedad, señalando en qué consisten sus actos posesorios, la existencia, cantidad y ubicación de las viviendas en un croquis con la delimitación del área de cobertura.</div>
-<div class="rtitle">g) Servicio temporal de agua para actividades no permanentes:</div><div class="bullet">•Presentar documento de identificación original y vigente del titular del inmueble o representante legal, para su verificación.</div><div class="bullet">• Autorización del propietario del inmueble, donde indique quien será el responsable de la actividad temporal.</div><div class="bullet">• Pago del consumo estimado aprobado.</div><div class="bullet">• El solicitante deberá indicar, mediante documento formal adjunto al formulario de solicitud, la forma en que va a disponer las aguas residuales que se generen por la conexión solicitada.</div></div><div class="footer">El agua es vida ... ¡Cuidémosla!<span class="pageno">4</span></div></section>
-
-<section class="page"><div class="simple"><div class="logo">${esc(ASADA_NOMBRE_LEGAL).toUpperCase()}</div><div class="title">Solicitud de conexión de servicio</div></div><div class="req"><div class="rtitle">h) Conexión de saneamiento en inmuebles que cuentan con el servicio de agua:</div><div class="bullet">• Presentar documento de identificación original y vigente del titular del inmueble o representante legal, para su verificación.</div><div class="bullet">• En caso de que para la propiedad no exista plano catastrado, o para efectos de segregación o fraccionamientos, debe presentar un plano de agrimensura que cumpla con lo estipulado en el Artículo N°2 inciso q) del Decreto Ejecutivo No. 34331, Reglamento de la Ley de Catastro Nacional vigente con su respectiva minuta de presentación y el correspondiente sello del CFIA conforme a lo dispuesto en el Reglamento Especial del Administrador de Proyectos de Topografía (APT) del CFIA vigente y sus reformas o las normativas que los sustituya.</div><div class="rtitle">i) Independización de la conexión en condominios:</div><div class="bullet">• La Administración del Condominio o la persona legalmente facultada para dicho proceder, será la responsable de presentar la solicitud escrita para independización parcial o total según corresponda.</div><div class="bullet">• Copia certificada de Acta de Asamblea de Condóminos en la que se aprobó la modificación y un diseño de sitio donde se indiquen los puntos de abastecimiento que requerirán la instalación de los hidrómetros.</div><div class="bullet">• Los interesados deberán proceder con la constitución e inscripción de servidumbres de paso y tuberías de agua potable y/o alcantarillado sanitario a favor de AyA para el otorgamiento de los servicios.</div><div class="bullet">• Para el caso de independización parcial, deberá solicitar las conexiones permanentes únicamente para aquellas fincas filiales que AyA autorizó.</div><div class="bullet">• De las condiciones a verificar por parte del AyA para la independización de servicios en condominios.</div><div class="bullet">- La resolución administrativa de aprobación de planos constructivos en la plataforma APC del CFIA.</div><div class="bullet">- La resolución administrativa positiva de verificación de la Documentación y Resolución de Revisión de Proyectos emitido por el Departamento de Urbanizaciones del AyA.</div><div class="bullet">- La resolución administrativa de Recepción de Obras emitida por AyA.</div><div class="rtitle">j) Traslado de acometida y cambio de diámetro:</div><div class="bullet">• Documento de identificación original y vigente del titular del inmueble o su representante legal para su verificación.</div><div class="bullet">• En caso de que para la propiedad no exista plano catastrado, o para efectos de segregación o fraccionamientos, debe presentar un plano de agrimensura que cumpla con lo estipulado en el Artículo N°2 inciso q) del Decreto Ejecutivo No. 34331, Reglamento de la Ley de Catastro Nacional vigente con su respectiva minuta de presentación y el correspondiente sello del CFIA conforme a lo dispuesto en el Reglamento Especial del Administrador de Proyectos de Topografía (APT) del CFIA vigente y sus reformas o las normativas que los sustituya.</div><div class="bullet">• En el caso de variación de diámetro, adicionalmente el solicitante deberá presentar una memoria de cálculo que justifique su solicitud.</div>
-<div class="vtitle"><span class="roman">VIII.</span>Otras consideraciones y plazo de ejecución</div><div>Conforme a lo establecido en el artículo 6 de la Ley 8220, Publicada en La Gaceta No. 49 de 11 de marzo de 2002, en caso de no cumplir con la presentación de la totalidad de los requisitos, se otorgará un plazo de 10 días hábiles para que los aporte. Transcurrido el plazo sin que se atienda el requerimiento, el trámite quedará denegado y en caso de requerir el servicio deberá realizar una nueva solicitud.</div><br><div>Cumplida la presentación de la totalidad de requisitos; la Institución contará con un plazo de hasta 15 días hábiles para la resolución del trámite.</div></div><div class="footer">El agua es vida ... ¡Cuidémosla!<span class="pageno">4</span></div></section>
-
-</body></html>`
-}
-
-// Superpone una marca visible (✓ / ●) sobre cada checkbox/radio marcado:
-// html2canvas no captura de forma confiable el "checked" nativo del
-// navegador, así que se refuerza con un elemento propio.
-function reforzarMarcas(root: HTMLElement) {
-  root.querySelectorAll<HTMLInputElement>('input[type=checkbox], input[type=radio]').forEach((input) => {
-    if (!input.checked) return
-    const parent = input.parentElement
-    if (!parent) return
-    if (getComputedStyle(parent).position === 'static') {
-      parent.style.position = 'relative'
-    }
-    const mark = document.createElement('span')
-    mark.textContent = input.type === 'radio' ? '●' : '✓'
-    Object.assign(mark.style, {
-      position: 'absolute',
-      left: `${input.offsetLeft}px`,
-      top: `${input.offsetTop}px`,
-      width: `${input.offsetWidth}px`,
-      height: `${input.offsetHeight}px`,
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      fontSize: '9px',
-      lineHeight: '1',
-      fontWeight: 'bold',
-      color: '#222',
-      pointerEvents: 'none',
-    })
-    parent.appendChild(mark)
-  })
-}
+const TITULO = 'Solicitud de conexión de servicio'
 
 async function cargarImagenComoDataUrl(url: string): Promise<string | null> {
   if (url.startsWith('data:')) return url
@@ -166,53 +39,222 @@ async function cargarImagenComoDataUrl(url: string): Promise<string | null> {
   }
 }
 
+
+function dibujarDocumento(s: SolicitudConexion, firmaDataUrl: string | null): Formulario {
+  const esFisica = s.tipo_persona === 'fisica'
+  const esJuridica = s.tipo_persona === 'juridica'
+  const nombre = ASADA_NOMBRE_LEGAL.toUpperCase()
+  const f = new Formulario()
+  const mitad = (ANCHO - 6) / 2
+
+  const medio = (principal: boolean, tipo: string) => {
+    const m = principal ? s.medio_notificacion_principal : s.medio_notificacion_secundario
+    const v = principal ? s.valor_notificacion_principal : s.valor_notificacion_secundario
+    return m === tipo ? (v ?? '') : ''
+  }
+
+  // ---------- Página 1 ----------
+  f.y = 10
+  f.encabezadoCompleto(nombre, TITULO, 'Código: GNU-42-01-F1   Versión: 03')
+
+  if (!s.codigo_solicitud) {
+    f.rect(X0, f.y, ANCHO, 6.5)
+    f.texto('Copia de respaldo: solicitud pendiente de registro en el sistema', X0 + ANCHO / 2, f.y + 3.25, {
+      size: 8.5, bold: true, align: 'center',
+    })
+    f.y += 8.5
+  }
+
+  f.rect(X0, f.y, ANCHO, 6.5)
+  f.texto('Uso exclusivo de la ASADA', X0 + ANCHO / 2, f.y + 3.25, { size: 8.5, bold: true, italic: true, align: 'center' })
+  f.y += 9
+  f.fila([
+    { etiqueta: 'Número de solicitud', valor: s.codigo_solicitud && s.codigo_solicitud.trim().length > 0 ? s.codigo_solicitud : 'Pendiente de registro', ancho: mitad },
+    { etiqueta: 'Fecha de ingreso', valor: obtenerFechaArchivoCostaRica(s.fecha_creacion), ancho: mitad },
+  ], { gap: 6 })
+
+  f.seccion('I.', 'Información del titular del inmueble')
+  f.opcion('radio', esFisica, X0, f.y + 2, 'Persona Física')
+  f.y += 5
+  f.fila([
+    { etiqueta: 'Nombre completo', valor: esFisica ? s.nombre_solicitante : '', ancho: mitad },
+    { etiqueta: 'No. de identificación', valor: esFisica ? s.identificacion_solicitante : '', ancho: mitad },
+  ], { gap: 6 })
+  f.opcion('radio', esJuridica, X0, f.y + 2, 'Persona Jurídica')
+  f.y += 5
+  f.fila([
+    { etiqueta: 'Razón Social', valor: esJuridica ? s.nombre_solicitante : '', ancho: mitad },
+    { etiqueta: 'No. de Cédula Jurídica', valor: esJuridica ? s.identificacion_solicitante : '', ancho: mitad },
+  ], { gap: 6 })
+  f.fila([
+    { etiqueta: 'Teléfono 1', valor: s.telefono_solicitante, ancho: mitad },
+    { etiqueta: 'Teléfono 2', valor: '', ancho: mitad },
+  ], { gap: 6 })
+
+  f.seccion('II.', 'Medio para notificación', '(Seleccione el medio de notificación principal y secundario de su preferencia)')
+  const yTabla = f.y
+  const alturaTabla = 6.5 + 8 + 8 + 15 + 3
+  const columna = ANCHO / 2
+  f.rect(X0, yTabla, ANCHO, alturaTabla)
+  f.linea(X0 + columna, yTabla, X0 + columna, yTabla + alturaTabla)
+  f.linea(X0, yTabla + 6.5, X1, yTabla + 6.5)
+  f.texto('Medio principal', X0 + columna / 2, yTabla + 3.25, { size: 8.5, bold: true, align: 'center' })
+  f.texto('Medio secundario', X0 + columna + columna / 2, yTabla + 3.25, { size: 8.5, bold: true, align: 'center' })
+  const filas = [
+    { etiqueta: 'Fax:', alto: 8, tipo: 'fax' },
+    { etiqueta: 'Correo electrónico:', alto: 8, tipo: 'correo' },
+    { etiqueta: 'Dirección física:', alto: 15, tipo: 'direccion' },
+  ]
+  let yFila = yTabla + 6.5 + 1.5
+  for (const fila of filas) {
+    for (let c = 0; c < 2; c++) {
+      const xc = X0 + c * columna
+      f.texto(fila.etiqueta, xc + 3, yFila + (fila.alto - 1) / 2, { size: 8 })
+      const xCaja = xc + 36
+      f.rect(xCaja, yFila, columna - 36 - 3, fila.alto - 1)
+      f.valorEnCaja(medio(c === 0, fila.tipo), xCaja, yFila, columna - 36 - 3, fila.alto - 1, 9)
+    }
+    yFila += fila.alto
+  }
+  f.y = yTabla + alturaTabla + 3
+
+  f.seccion('III.', 'Información del Inmueble')
+  const tercio = (ANCHO - 8) / 3
+  f.fila([
+    { etiqueta: 'Provincia', valor: s.provincia ?? '', ancho: tercio },
+    { etiqueta: 'Cantón', valor: s.canton ?? '', ancho: tercio },
+    { etiqueta: 'Distrito', valor: s.distrito ?? '', ancho: tercio },
+  ], { gap: 4 })
+  f.texto('Dirección exacta del inmueble', X0 + ANCHO / 2, f.y + 2.4, { size: 8.5, bold: true, align: 'center' })
+  f.rect(X0, f.y + 5, ANCHO, 12)
+  f.valorEnCaja(s.direccion_inmueble ?? '', X0, f.y + 5, ANCHO, 12, 9.5)
+  f.y += 5 + 12 + 3
+  f.fila([
+    { etiqueta: 'Folio real/Concesión/Arriendo/Asignación', valor: s.folio_real ?? '', ancho: tercio },
+    { etiqueta: 'Plano Catastro', valor: s.plano_catastro ?? '', ancho: tercio },
+    { etiqueta: 'Plano de Agrimensura', valor: s.plano_agrimensura ?? '', ancho: tercio },
+  ], { gap: 4 })
+  f.fila([
+    { etiqueta: 'N° de disponibilidad', valor: s.numero_disponibilidad ?? '', ancho: mitad },
+    { etiqueta: 'N° de NIS (si existe en el inmueble)', valor: s.numero_nis ?? '', ancho: mitad },
+  ], { gap: 6 })
+
+  // Naturaleza / calidad (arriba de la página 2: en la 1 no cabe)
+  f.nuevaPagina(() => f.encabezadoSimple(nombre, TITULO))
+  const yNat = f.y + 1
+  const alturaNat = 50
+  f.rect(X0, yNat, ANCHO, alturaNat)
+  f.linea(X0 + columna, yNat, X0 + columna, yNat + alturaNat)
+  f.texto('1.  Naturaleza del inmueble', X0 + columna / 2, yNat + 4, { size: 9, bold: true, align: 'center' })
+  f.texto('2.  Calidad del titular del inmueble', X0 + columna + columna / 2, yNat + 4, { size: 9, bold: true, align: 'center' })
+  const naturaleza: [string, boolean][] = [
+    ['Inmueble inscrito', coincide(s.naturaleza_inmueble, 'Inmueble inscrito')],
+    ['Parcelas agrícolas', coincide(s.naturaleza_inmueble, 'Parcela agrícola', 'Parcelas agrícolas')],
+    ['Zona indígena', coincide(s.naturaleza_inmueble, 'Zona indígena')],
+    ['Zona marítimo terrestre', coincide(s.naturaleza_inmueble, 'Zona marítimo', 'Zona marítimo terrestre')],
+    ['Terreno en administración del INDER*', coincide(s.naturaleza_inmueble, 'Terreno en administración del INDER')],
+    ['Inmueble sin inscribir', coincide(s.naturaleza_inmueble, 'Inmueble sin inscribir')],
+  ]
+  const calidad: [string, boolean][] = [
+    ['Propietario registral', coincide(s.calidad_titular, 'Propietario registral')],
+    ['Poseedor', coincide(s.calidad_titular, 'Poseedor')],
+    ['Autorizado Legal', coincide(s.calidad_titular, 'Autorizado legal', 'Autorizado Legal')],
+    ['Representante Legal', coincide(s.calidad_titular, 'Representante legal', 'Representante Legal')],
+    ['Concesionario, arrendatario o asignatario', coincide(s.calidad_titular, 'Concesionario, arrendatario o asignatario')],
+  ]
+  naturaleza.forEach(([t, m], i) => f.opcion('radio', m, X0 + 4, yNat + 11 + i * 5.2, t, { size: 8 }))
+  calidad.forEach(([t, m], i) => f.opcion('radio', m, X0 + columna + 4, yNat + 11 + i * 5.2, t, { size: 8 }))
+  f.bloque(f.lineas('*Seleccione: “Terrenos en administración del INDER” cuando sea el caso de terrenos en concesión,', columna - 8, { size: 6.5 }), X0 + 4, yNat + alturaNat - 6, { size: 6.5 })
+  f.bloque(f.lineas('*Seleccione: “Autorizado legal” cuando sea el caso de que el solicitante esté designado como albacea, tutor, curador u otra autorización por medio de poder especial o general.', columna - 8, { size: 6.5 }), X0 + columna + 4, yNat + alturaNat - 7, { size: 6.5 })
+  f.y = yNat + alturaNat + 3
+
+  f.seccion('IV.', 'Propósito de la solicitud')
+  const col3 = ANCHO / 3
+  const yIV = f.y
+  f.rect(X0, yIV, ANCHO, 9)
+  f.opcion('check', s.servicio_solicitado === 'agua_potable', X0 + 4, yIV + 4.5, 'Agua potable')
+  f.opcion('check', s.servicio_solicitado === 'alcantarillado_sanitario', X0 + col3 + 4, yIV + 4.5, 'Alcantarillado sanitario')
+  f.opcion('check', s.servicio_solicitado === 'ambos', X0 + col3 * 2 + 4, yIV + 4.5, 'Ambos')
+  const yTram = yIV + 9
+  const col4 = ANCHO / 4
+  f.rect(X0, yTram, ANCHO, 20)
+  const tramites: [string, boolean][] = [
+    ['Nueva conexión', s.tipo_tramite === 'nueva_conexion'],
+    ['Individualización', s.tipo_tramite === 'individualizacion'],
+    ['Independización', s.tipo_tramite === 'independizacion'],
+    ['Traslado', s.tipo_tramite === 'traslado'],
+    ['Servicio provisional para proyectos', s.tipo_tramite === 'servicio_provisional_proyectos'],
+    ['Cambio de diámetro', s.tipo_tramite === 'cambio_diametro'],
+    ['Servicio Temporal', s.tipo_tramite === 'servicio_temporal'],
+  ]
+  tramites.forEach(([t, m], i) => {
+    const fila = Math.floor(i / 4)
+    const c = i % 4
+    f.opcion('check', m, X0 + c * col4 + 4, yTram + 5 + fila * 10, t, { ancho: col4 - 5 })
+  })
+  f.texto('Indique el código APC, CFIA', X0 + col4 * 3 + 4, yTram + 12.5, { size: 8 })
+  f.rect(X0 + col4 * 3 + 4, yTram + 14.2, col4 - 8, 4.6)
+  f.valorEnCaja(s.codigo_apc_cfia ?? '', X0 + col4 * 3 + 4, yTram + 14.2, col4 - 8, 4.6, 8)
+  const yPago = yTram + 20
+  const colPago = ANCHO / 2
+  f.rect(X0, yPago, ANCHO, 12)
+  f.opcion('check', s.forma_pago === 'efectivo_previo', X0 + 4, yPago + 6, 'En efectivo en un solo tracto previo a la conexión del servicio.', { ancho: colPago - 8 })
+  f.opcion('check', s.forma_pago === 'incluir_primera_facturacion', X0 + colPago + 4, yPago + 6, 'Autorizo incluir el monto por tarifa de derecho de conexión en la primera facturación.', { ancho: colPago - 8 })
+  f.y = yPago + 12 + 3
+
+  f.seccion('V.', 'Firma del solicitante')
+  const util = ANCHO - 8
+  const yFirma = f.y
+  f.fila([
+    { etiqueta: 'Nombre completo del solicitante', valor: s.nombre_firmante ?? '', ancho: util * 0.45 },
+    { etiqueta: 'Identificación', valor: s.identificacion_firmante ?? '', ancho: util * 0.25 },
+    { etiqueta: 'Firma del solicitante', valor: '', ancho: util * 0.3 },
+  ], { gap: 4, alto: 18 })
+  if (firmaDataUrl) {
+    f.imagenEnCaja(firmaDataUrl, X0 + util * 0.7 + 8, yFirma + 5, util * 0.3, 18)
+  }
+
+  f.seccion('VI.', 'Datos del funcionario que recibe la solicitud (Uso exclusivo de AyA)')
+  const cuarto = (ANCHO - 12) / 4
+  f.fila([
+    { etiqueta: 'Nombre', valor: '', ancho: cuarto },
+    { etiqueta: 'Primer apellido', valor: '', ancho: cuarto },
+    { etiqueta: 'Segundo apellido', valor: '', ancho: cuarto },
+    { etiqueta: 'Firma', valor: '', ancho: cuarto },
+  ], { gap: 4, alto: 14 })
+
+  f.seccion('VII.', 'Requisitos')
+  let n = 0
+  for (const b of REQUISITOS_CONEXION) {
+    if (b.tipo === 'item') {
+      n += 1
+      f.parrafo(`${n}. ${b.texto}`, { size: 8, sangria: 4, espacio: 1.5 })
+    } else if (b.tipo === 'seccion') {
+      const [romano, titulo] = b.texto.split('|')
+      f.y += 2
+      f.seccion(romano.trim(), titulo.trim())
+    } else if (b.tipo === 'titulo') {
+      f.y += 1.5
+      f.parrafo(b.texto, { size: 8, bold: true, subrayado: true, espacio: 1 })
+    } else if (b.tipo === 'vineta') {
+      f.parrafo(b.texto, { size: 8, vineta: true, sangria: 2, espacio: 1 })
+    } else if (b.tipo === 'vineta2') {
+      f.parrafo(b.texto, { size: 8, sangria: 9, espacio: 0.6 })
+    } else {
+      f.parrafo(b.texto, { size: 8, espacio: 1.5 })
+    }
+  }
+
+  return f
+}
+
 export async function generarPdfConexion(
   solicitud: SolicitudConexion,
   firmaDataUrl?: string,
 ): Promise<Blob> {
-  const contenedor = crearContenedorCaptura(buildHtml(solicitud))
-
-  try {
-    // Incrustar la firma como imagen dentro de su recuadro.
-    const firmaSrc = firmaDataUrl || solicitud.firma_path
-    if (firmaSrc) {
-      const dataUrl = await cargarImagenComoDataUrl(firmaSrc)
-      const caja = contenedor.querySelector<HTMLElement>('[data-firma-box]')
-      if (dataUrl && caja) {
-        const img = document.createElement('img')
-        img.src = dataUrl
-        img.style.maxWidth = '100%'
-        img.style.maxHeight = '100%'
-        img.style.objectFit = 'contain'
-        caja.appendChild(img)
-      }
-    }
-
-    reforzarMarcas(contenedor)
-
-    // Esperar un frame para que el layout (grid/flex) termine de calcularse
-    // antes de medir offsetLeft/offsetTop de los checkboxes.
-    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
-
-    // Los valores se escriben luego como texto del PDF, centrados en su caja
-    // (ver camposPdf.ts); en la imagen solo queda el cuadro vacío.
-    const campos = extraerCamposTexto(contenedor)
-
-    const paginas = Array.from(contenedor.querySelectorAll<HTMLElement>('.page'))
-    const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
-
-    for (let i = 0; i < paginas.length; i++) {
-      const canvas = await html2canvas(paginas[i], { scale: 2, useCORS: true, backgroundColor: '#ffffff' })
-      const imgData = canvas.toDataURL('image/png')
-      if (i > 0) pdf.addPage()
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297)
-      dibujarCampos(pdf, campos, i)
-    }
-
-    return pdf.output('blob')
-  } finally {
-    document.body.removeChild(contenedor)
-  }
+  const firmaSrc = firmaDataUrl || solicitud.firma_path
+  const firma = firmaSrc ? await cargarImagenComoDataUrl(firmaSrc) : null
+  return dibujarDocumento(solicitud, firma).pdf.output('blob')
 }
 
 export function descargarPdfConexion(
