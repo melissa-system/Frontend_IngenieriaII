@@ -61,7 +61,11 @@ function Button({
       {...props}
     >
       {loading && <Spinner className="h-4 w-4 text-current" />}
-      {children}
+      {/* El contenido va envuelto para que el spinner nunca se inserte junto a
+          un nodo de texto suelto: si el traductor de Chrome reemplazó ese
+          texto, React no lo encuentra al insertar el spinner y la página
+          entera queda en blanco. "contents" mantiene el gap del flex. */}
+      <span className="contents">{children}</span>
     </button>
   )
 }
