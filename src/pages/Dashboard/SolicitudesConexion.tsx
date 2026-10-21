@@ -712,13 +712,17 @@ function VistaAdministrador() {
     fechaDe: (s) => s.fecha_creacion,
   })
 
-  async function gestionar(estado: 'en_proceso' | 'aprobado' | 'rechazado') {
+  async function gestionar(
+    estado: 'en_proceso' | 'aprobado' | 'rechazado',
+    documentoAprobacion?: File,
+  ) {
     if (!detalle) return
     setGestionando(true)
     try {
       const respuesta = await cambiarEstadoSolicitudConexion(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
+        documentoAprobacion,
       })
       const labor = respuesta.labor
       setToast({
@@ -728,7 +732,7 @@ function VistaAdministrador() {
                 labor
                   ? ` Se creó la labor ${labor.codigo_labor} en "Otros mantenimientos" para asignarle un fontanero.`
                   : ''
-              } Se notificó al solicitante por correo.`
+              } Se envió al solicitante el documento de aprobación por correo.`
             : estado === 'rechazado'
               ? 'Solicitud rechazada. Se notificó al solicitante por correo con el motivo.'
               : 'Solicitud marcada en proceso.',
@@ -853,10 +857,14 @@ function ModalDetalle({
   setMotivoRechazo: (valor: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
+  onGestionar: (
+    estado: 'en_proceso' | 'aprobado' | 'rechazado',
+    documentoAprobacion?: File,
+  ) => void | Promise<void>
 }) {
   const [expandido, setExpandido] = useState(false)
   const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  const [documentoAprobacion, setDocumentoAprobacion] = useState<File | null>(null)
   const [generando, setGenerando] = useState(false)
 
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
@@ -865,9 +873,13 @@ function ModalDetalle({
   // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
   async function confirmarAccion() {
     try {
-      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+      await onGestionar(
+        confirmar === 'aprobar' ? 'aprobado' : 'rechazado',
+        confirmar === 'aprobar' ? (documentoAprobacion ?? undefined) : undefined,
+      )
     } finally {
       setConfirmar(null)
+      setDocumentoAprobacion(null)
     }
   }
 
@@ -1050,6 +1062,22 @@ function ModalDetalle({
             codigo={solicitud.codigo_solicitud}
             motivo={motivoRechazo}
             onMotivoChange={setMotivoRechazo}
+            aviso={
+              confirmar === 'aprobar'
+                ? 'Al confirmar, el solicitante recibirá un correo con el documento de aprobación adjunto.'
+                : undefined
+            }
+            documento={
+              confirmar === 'aprobar'
+                ? {
+                    archivo: documentoAprobacion,
+                    onChange: setDocumentoAprobacion,
+                    etiqueta: 'Documento de aprobación (firmado por la ASADA)',
+                    ayuda: 'PDF o Word, máximo 5 MB. Se enviará por correo al solicitante.',
+                    accept: '.pdf,.doc,.docx',
+                  }
+                : undefined
+            }
             cargando={gestionando}
             onConfirmar={confirmarAccion}
             onCancelar={() => setConfirmar(null)}

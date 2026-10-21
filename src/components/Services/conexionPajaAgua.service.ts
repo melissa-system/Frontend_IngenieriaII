@@ -307,12 +307,24 @@ export const crearSolicitudConexion = async (
 
 export const cambiarEstadoSolicitudConexion = async (
   id: number,
-  payload: { estado: 'en_proceso' | 'aprobado' | 'rechazado'; motivoRechazo?: string },
+  payload: {
+    estado: 'en_proceso' | 'aprobado' | 'rechazado'
+    motivoRechazo?: string
+    /** Obligatorio al aprobar: documento firmado por la ASADA (PDF o Word). */
+    documentoAprobacion?: File
+  },
 ): Promise<SolicitudConexion> => {
   try {
+    // Multipart: al aprobar viaja el documento que se enviará por correo.
+    const formData = new FormData()
+    formData.append('estado', payload.estado)
+    if (payload.motivoRechazo) formData.append('motivoRechazo', payload.motivoRechazo)
+    if (payload.documentoAprobacion) {
+      formData.append('documentoAprobacion', payload.documentoAprobacion)
+    }
     const { data } = await apiClient.patch<SolicitudConexion>(
       `/solicitudes/conexion-paja-agua/${id}/estado`,
-      payload,
+      formData,
     )
     return data
   } catch (error) {
