@@ -1,7 +1,6 @@
-import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import logoFooter from '../../assets/logo-footer.png'
-import { obtenerConfiguracion, type Configuracion } from '../Services/configuracion.service'
+import { useConfiguracion } from '../../hooks/useConfiguracion'
 
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
@@ -34,15 +33,8 @@ function formatearLinkTelefono(tel: string): string {
 }
 
 function Footer() {
-  const [config, setConfig] = useState<Configuracion | null>(null)
-
-  useEffect(() => {
-    obtenerConfiguracion()
-      .then(setConfig)
-      .catch(() => {
-        /* fallback a DEFAULTS */
-      })
-  }, [])
+  // null mientras carga o si la API falla -> se usan los DEFAULTS
+  const config = useConfiguracion()
 
   const direccion = config?.direccion || DEFAULTS.direccion
   const telefono = config?.telefono || DEFAULTS.telefono
