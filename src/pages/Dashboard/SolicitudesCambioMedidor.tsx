@@ -647,15 +647,20 @@ function VistaAdministrador() {
     setGestionando(true)
     setToast(null)
     try {
-      await cambiarEstadoSolicitudCambioMedidor(detalle.id, {
+      const respuesta = await cambiarEstadoSolicitudCambioMedidor(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
       })
+      const labor = respuesta.labor
       setToast({
         tipo: 'exito',
         mensaje:
           estado === 'aprobado'
-            ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al abonado por correo.`
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada.${
+                labor
+                  ? ` Se creó la labor ${labor.codigo_labor} en "Otros mantenimientos" para asignarle un fontanero.`
+                  : ''
+              } Se notificó al abonado por correo.`
             : estado === 'rechazado'
               ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
               : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
@@ -1100,6 +1105,16 @@ function ModalDetalle({
             <div className="sm:col-span-2">
               <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
               <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
+            </div>
+          )}
+          {solicitud.labor && (
+            <div className="sm:col-span-2 rounded-lg border border-info-200 bg-info-50 px-3 py-2">
+              <dt className="text-xs font-medium uppercase text-primary-400">Trabajo operativo</dt>
+              <dd className="mt-0.5 text-primary-800">
+                Labor <span className="font-mono">{solicitud.labor.codigo_labor}</span> —{' '}
+                {solicitud.labor.estado}
+                <span className="ml-1 text-xs text-primary-500">(Otros mantenimientos)</span>
+              </dd>
             </div>
           )}
           <div>
