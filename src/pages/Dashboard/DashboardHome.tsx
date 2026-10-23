@@ -27,6 +27,14 @@ import {
   ETIQUETA_ACTIVIDAD,
   type ReporteFontanero,
 } from '../../components/Services/reportesFontanero.service'
+import DetalleTrabajoModal, {
+  type DatosTrabajo,
+} from '../../components/Dashboard/DetalleTrabajoModal'
+import {
+  obtenerMisSolicitudesMaterial,
+  obtenerSolicitudesMaterial,
+  type SolicitudMaterial,
+} from '../../components/Services/solicitudesMaterial.service'
 
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
@@ -295,6 +303,21 @@ function DashboardHomeContenido() {
     }
   }, [])
 
+  // Solicitudes de material pendientes de aprobación: se muestran como badge
+  // en el acceso rápido a Inventario. Si falla, no se muestra la notificación.
+  const [materialesPendientesAdmin, setMaterialesPendientesAdmin] = useState(0)
+  useEffect(() => {
+    let cancelado = false
+    obtenerSolicitudesMaterial({ estado: 'Pendiente' })
+      .then((lista) => {
+        if (!cancelado) setMaterialesPendientesAdmin(lista.length)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
   const { desde, hasta } = useMemo(() => {
     if (rango === 'personalizado' && desdeCustom && hastaCustom) {
       return { desde: desdeCustom, hasta: hastaCustom }
@@ -543,7 +566,17 @@ function DashboardHomeContenido() {
             badgeTitulo="Reportes de fontanero por revisar"
           />
           <QuickLink icon={<IconSolicitud />} label="Solicitudes" to="/dashboard/solicitudes" />
-          <QuickLink icon={<IconStock />} label="Inventario" to="/dashboard/inventario/articulos" />
+          <QuickLink
+            icon={<IconStock />}
+            label="Inventario"
+            to={
+              materialesPendientesAdmin > 0
+                ? '/dashboard/inventario/solicitudes-material'
+                : '/dashboard/inventario/articulos'
+            }
+            badge={materialesPendientesAdmin}
+            badgeTitulo="Solicitudes de material pendientes"
+          />
           <QuickLink icon={<IconUsuarios />} label="Usuarios" to="/dashboard/seguridad" />
           <QuickLink icon={<IconPublicaciones />} label="Publicaciones" to="/dashboard/administrativo" />
         </div>
@@ -906,6 +939,17 @@ function Cronometro({ inicio }: { inicio: string | null }) {
   )
 }
 
+// Fecha corta para la fila de trabajos (día + mes + año).
+function fechaCorta(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('es-CR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
 // Dashboard personalizado para fontaneros: muestra su resumen de actividad
 // (reportes registrados y horas acumuladas) y accesos rápidos a su sección
 // y a los documentos oficiales. Mismo patrón que DashboardAbonado.
@@ -915,6 +959,9 @@ function DashboardFontanero() {
   const [reportes, setReportes] = useState<ReporteFontanero[]>([])
   const [averiasPendientes, setAveriasPendientes] = useState<AveriaBackend[]>([])
   const [laboresPendientes, setLaboresPendientes] = useState<LaborBackend[]>([])
+  const [solicitudesMaterial, setSolicitudesMaterial] = useState<
+    SolicitudMaterial[]
+  >([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   // Error de una acción puntual (iniciar/finalizar) que se muestra dentro de la
@@ -923,6 +970,8 @@ function DashboardFontanero() {
   // Clave del trabajo en curso ("averia-3" / "labor-5") para deshabilitar su
   // botón mientras se procesa.
   const [accionandoClave, setAccionandoClave] = useState<string | null>(null)
+  // Clave del trabajo cuyo detalle está abierto en el modal.
+  const [detalleClave, setDetalleClave] = useState<string | null>(null)
 
   useEffect(() => {
     let cancelado = false
@@ -930,12 +979,14 @@ function DashboardFontanero() {
       obtenerMisReportes(),
       obtenerMisAveriasFontanero(),
       obtenerMisLabores(),
+      obtenerMisSolicitudesMaterial(),
     ])
-      .then(([reportesData, averiasData, laboresData]) => {
+      .then(([reportesData, averiasData, laboresData, materialesData]) => {
         if (!cancelado) {
           setReportes(reportesData)
           setAveriasPendientes(averiasData)
           setLaboresPendientes(laboresData)
+          setSolicitudesMaterial(materialesData)
         }
       })
       .catch((err) => {
@@ -959,14 +1010,22 @@ function DashboardFontanero() {
     tipo: string
     tipoEtiqueta: string
     descripcion: string
-    // Abonado, dirección y NIS cuando la labor viene de una solicitud
-    // aprobada; null en averías y en labores creadas a mano.
-    contexto: string | null
     estado: string
+    fecha: string
     gestion_iniciada_en: string | null
     gestion_finalizada_en: string | null
     devuelta_revision: boolean
     motivo_revision: string | null
+    // Datos para el detalle: averías traen al reportante; las labores que
+    // vienen de una solicitud aprobada traen al abonado y la dirección.
+    reportanteNombre?: string | null
+    reportanteCedula?: string | null
+    abonadoNombre?: string | null
+    abonadoNumero?: string | null
+    abonadoCedula?: string | null
+    abonadoTelefono?: string | null
+    direccion?: string | null
+    numeroNis?: string | null
   }
 
   const trabajos: TrabajoAsignado[] = [
@@ -978,12 +1037,26 @@ function DashboardFontanero() {
       tipo: a.tipo_averia,
       tipoEtiqueta: a.tipo_averia,
       descripcion: a.descripcion,
-      contexto: null,
-      estado: a.estado,
+      // La avería asignada queda "En proceso" en el sistema (para la
+      // administración), pero el fontanero la ve como "Pendiente" hasta que
+      // arranca la gestión.
+      estado:
+        a.estado === 'En proceso' && !a.gestion_iniciada_en
+          ? 'Pendiente'
+          : a.estado,
+      fecha: a.fecha_reporte,
       gestion_iniciada_en: a.gestion_iniciada_en,
       gestion_finalizada_en: a.gestion_finalizada_en,
       devuelta_revision: a.devuelta_revision,
       motivo_revision: a.motivo_revision,
+      reportanteNombre: [
+        a.nombre_reportante,
+        a.apellido1_reportante,
+        a.apellido2_reportante,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      reportanteCedula: a.cedula_reportante,
     })),
     ...laboresPendientes.map((l) => ({
       origen: 'labor' as const,
@@ -993,24 +1066,69 @@ function DashboardFontanero() {
       tipo: l.tipo_actividad,
       tipoEtiqueta: ETIQUETA_ACTIVIDAD[l.tipo_actividad],
       descripcion: l.descripcion,
-      contexto: l.datos_solicitud
-        ? [
-            `${l.datos_solicitud.abonado.nombre} (${l.datos_solicitud.abonado.numero_abonado})`,
-            l.datos_solicitud.direccion,
-            l.datos_solicitud.numero_nis
-              ? `NIS ${l.datos_solicitud.numero_nis}`
-              : null,
-          ]
-            .filter(Boolean)
-            .join(' · ')
-        : null,
       estado: l.estado,
+      fecha: l.fecha_creacion,
       gestion_iniciada_en: l.gestion_iniciada_en,
       gestion_finalizada_en: l.gestion_finalizada_en,
       devuelta_revision: l.devuelta_revision,
       motivo_revision: l.motivo_revision,
+      abonadoNombre: l.datos_solicitud?.abonado.nombre ?? null,
+      abonadoNumero: l.datos_solicitud?.abonado.numero_abonado ?? null,
+      abonadoCedula: l.datos_solicitud?.abonado.cedula ?? null,
+      abonadoTelefono: l.datos_solicitud?.abonado.telefono ?? null,
+      direccion: l.datos_solicitud?.direccion ?? null,
+      numeroNis: l.datos_solicitud?.numero_nis ?? null,
     })),
-  ].sort((a, b) => Number(b.devuelta_revision) - Number(a.devuelta_revision))
+  ].sort(
+    (a, b) =>
+      // Las devueltas por revisión van primero; después, las más antiguas.
+      Number(b.devuelta_revision) - Number(a.devuelta_revision) ||
+      new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+  )
+
+  // Solicitudes de material del trabajo (para el detalle y para bloquear el
+  // botón de atender mientras haya una pendiente).
+  const solicitudesDe = (t: TrabajoAsignado): SolicitudMaterial[] =>
+    solicitudesMaterial.filter((s) =>
+      t.origen === 'averia' ? s.averia?.id === t.id : s.labor?.id === t.id,
+    )
+
+  const tieneMaterialesPendientes = (t: TrabajoAsignado): boolean =>
+    solicitudesDe(t).some((s) => s.estado === 'Pendiente')
+
+  const guardarSolicitudMaterial = (solicitud: SolicitudMaterial) => {
+    setSolicitudesMaterial((prev) => {
+      const existe = prev.some((s) => s.id === solicitud.id)
+      return existe
+        ? prev.map((s) => (s.id === solicitud.id ? solicitud : s))
+        : [...prev, solicitud]
+    })
+  }
+
+  const aDatosTrabajo = (t: TrabajoAsignado): DatosTrabajo => ({
+    origen: t.origen,
+    id: t.id,
+    codigo: t.codigo,
+    tipoEtiqueta: t.tipoEtiqueta,
+    descripcion: t.descripcion,
+    estado: t.estado,
+    fecha: t.fecha,
+    gestionIniciada: t.gestion_iniciada_en,
+    gestionFinalizada: t.gestion_finalizada_en,
+    devueltaRevision: t.devuelta_revision,
+    motivoRevision: t.motivo_revision,
+    reportanteNombre: t.reportanteNombre,
+    reportanteCedula: t.reportanteCedula,
+    abonadoNombre: t.abonadoNombre,
+    abonadoNumero: t.abonadoNumero,
+    abonadoCedula: t.abonadoCedula,
+    abonadoTelefono: t.abonadoTelefono,
+    direccion: t.direccion,
+    numeroNis: t.numeroNis,
+  })
+
+  const detalleActual =
+    trabajos.find((t) => t.clave === detalleClave) ?? null
 
   // Minutos reales de una gestión ya terminada (con inicio y fin), para que el
   // reporte salga prellenado aunque el fontanero lo llene más tarde.
@@ -1173,10 +1291,15 @@ function DashboardFontanero() {
 
       {/* Trabajos pendientes asignados por la administración (averías + labores) */}
       <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-primary-900">
-            Trabajos asignados por atender
-          </h2>
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-primary-900">
+              Trabajos asignados por atender
+            </h2>
+            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700">
+              {trabajos.length}
+            </span>
+          </div>
           <Link
             to="/dashboard/averias/fontanero"
             className="text-sm font-medium text-primary-600 hover:text-primary-800"
@@ -1184,6 +1307,11 @@ function DashboardFontanero() {
             Registrar actividad
           </Link>
         </div>
+        {trabajos.length > 4 && (
+          <p className="mt-1 text-xs text-primary-400">
+            Deslizá la lista con la barra de la derecha para ver todos.
+          </p>
+        )}
         {trabajos.length === 0 ? (
           <p className="mt-4 text-sm text-primary-400">
             No tienes trabajos asignados pendientes.
@@ -1195,8 +1323,8 @@ function DashboardFontanero() {
                 <Alerta tipo="error">{aviso}</Alerta>
               </div>
             )}
-            <ul className="mt-3 space-y-2">
-              {trabajos.slice(0, 5).map((t) => {
+            <ul className="scroll-visible mt-3 max-h-[26rem] space-y-2 overflow-y-auto pr-2">
+              {trabajos.map((t) => {
                 const esEnProceso = t.estado === 'En proceso'
                 const devuelta = t.devuelta_revision
                 const timerActivo =
@@ -1206,6 +1334,7 @@ function DashboardFontanero() {
                 const listoParaReportar =
                   esEnProceso && Boolean(t.gestion_finalizada_en)
                 const ocupada = accionandoClave === t.clave
+                const materialesPendientes = tieneMaterialesPendientes(t)
                 const etiqueta = devuelta
                   ? 'Devuelta'
                   : listoParaReportar
@@ -1222,15 +1351,11 @@ function DashboardFontanero() {
                 return (
                   <li
                     key={t.clave}
-                    className="flex items-center justify-between gap-3 rounded-xl bg-primary-50/50 px-3 py-2.5"
+                    className="rounded-xl border border-primary-100 bg-white px-3 py-3"
                   >
-                    <button
-                      type="button"
-                      onClick={() => irAlReporte(t)}
-                      className="min-w-0 flex-1 rounded-full text-left"
-                      title="Registrar el reporte de este trabajo"
-                    >
-                      <div className="flex items-center gap-2">
+                    {/* Encabezado: tipo, código y estado */}
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
                         <span
                           className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             esAveria
@@ -1240,71 +1365,95 @@ function DashboardFontanero() {
                         >
                           {esAveria ? 'Avería' : 'Labor'}
                         </span>
-                        <p className="truncate text-sm font-medium text-primary-900">
-                          <span className="text-primary-500">{t.codigo}</span>{' '}
-                          — {t.tipoEtiqueta}
-                        </p>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-primary-900">
+                            {t.codigo}
+                          </p>
+                          <p className="truncate text-xs text-primary-500">
+                            {t.tipoEtiqueta}
+                          </p>
+                        </div>
                       </div>
-                      <p className="truncate text-xs text-primary-500">
-                        {t.descripcion}
-                      </p>
-                      {t.contexto && (
-                        <p className="truncate text-xs text-primary-400" title={t.contexto}>
-                          {t.contexto}
-                        </p>
-                      )}
-                      {devuelta && t.motivo_revision && (
-                        <p
-                          className="mt-0.5 truncate text-xs font-medium text-error-600"
-                          title={t.motivo_revision}
-                        >
-                          Devuelta: {t.motivo_revision}
-                        </p>
-                      )}
-                    </button>
-                    <div className="flex flex-none items-center gap-2">
-                      {timerActivo && (
-                        <Cronometro inicio={t.gestion_iniciada_en} />
-                      )}
                       <span
                         className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-semibold ${claseBadge}`}
                       >
                         {etiqueta}
                       </span>
-                      {timerActivo ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          type="button"
-                          disabled={ocupada}
-                          onClick={() => handleTerminar(t)}
-                        >
-                          {ocupada ? 'Terminando…' : 'Terminar y reportar'}
-                        </Button>
-                      ) : listoParaReportar ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          type="button"
-                          onClick={() => irAlReporte(t)}
-                        >
-                          Hacer reporte
-                        </Button>
-                      ) : (
+                    </div>
+
+                    {/* Aviso: materiales pendientes (el motivo de devolución
+                        se muestra solo en el Detalle) */}
+                    {materialesPendientes && (
+                      <div className="mt-2">
+                        <span className="rounded-full bg-advertencia-100 px-2 py-0.5 text-[10px] font-semibold text-advertencia-700">
+                          Materiales pendientes
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Pie: fecha/cronómetro y acciones */}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-primary-100 pt-2">
+                      <div className="flex items-center gap-2 text-xs text-primary-400">
+                        {timerActivo ? (
+                          <Cronometro inicio={t.gestion_iniciada_en} />
+                        ) : (
+                          <span>
+                            {esAveria ? 'Reportada' : 'Creada'} el{' '}
+                            {fechaCorta(t.fecha)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-none items-center gap-2">
                         <Button
                           variant="secondary"
                           size="sm"
                           type="button"
-                          disabled={ocupada}
-                          onClick={() => handleIniciar(t)}
+                          onClick={() => setDetalleClave(t.clave)}
                         >
-                          {ocupada
-                            ? 'Iniciando…'
-                            : esAveria
-                              ? 'Atender avería'
-                              : 'Atender labor'}
+                          Detalle
                         </Button>
-                      )}
+                        {timerActivo ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            type="button"
+                            disabled={ocupada}
+                            onClick={() => handleTerminar(t)}
+                          >
+                            {ocupada ? 'Terminando…' : 'Terminar y reportar'}
+                          </Button>
+                        ) : listoParaReportar ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            type="button"
+                            onClick={() => irAlReporte(t)}
+                          >
+                            Hacer reporte
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            type="button"
+                            disabled={ocupada || materialesPendientes}
+                            title={
+                              materialesPendientes
+                                ? 'Esperando aprobación de la solicitud de materiales'
+                                : undefined
+                            }
+                            onClick={() => handleIniciar(t)}
+                          >
+                            {ocupada
+                              ? 'Iniciando…'
+                              : materialesPendientes
+                                ? 'Esperando materiales'
+                                : esAveria
+                                  ? 'Atender avería'
+                                  : 'Atender labor'}
+                          </Button>
+                        )}
+                      </div>
                     </div>
                   </li>
                 )
@@ -1351,6 +1500,17 @@ function DashboardFontanero() {
           </ul>
         )}
       </div>
+
+      {/* Detalle del trabajo: datos completos y solicitud de materiales */}
+      {detalleActual && (
+        <DetalleTrabajoModal
+          trabajo={aDatosTrabajo(detalleActual)}
+          solicitudes={solicitudesDe(detalleActual)}
+          onClose={() => setDetalleClave(null)}
+          onSolicitudCreada={guardarSolicitudMaterial}
+          onSolicitudCancelada={guardarSolicitudMaterial}
+        />
+      )}
     </div>
   )
 }

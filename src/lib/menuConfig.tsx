@@ -126,6 +126,16 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Administrador', 'Fontanero', 'Junta Directiva', 'Abonado'],
   },
   {
+    // Vista del fontanero: su formulario e historial de actividad. Va como
+    // ítem directo (no dentro de Gestión operativa) para que su menú quede
+    // solo con Dashboard y Mis reportes.
+    label: 'Mis reportes',
+    icon: <ReportesIcon />,
+    to: '/dashboard/averias/fontanero',
+    roles: ['Fontanero'],
+    estrictoPorRol: true,
+  },
+  {
     label: 'Solicitudes',
     icon: <SolicitudesIcon />,
     roles: ['Administrador', 'Junta Directiva', 'Abonado'],
@@ -149,6 +159,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
       { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
       { label: 'Movimientos de Stock', to: '/dashboard/inventario/movimientos', roles: ['Administrador'] },
+      { label: 'Solicitudes de material', to: '/dashboard/inventario/solicitudes-material', roles: ['Administrador'] },
     ],
   },
   {
@@ -156,7 +167,8 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     icon: <AveriasIcon />,
     // Junta Directiva no se lista acá porque el guard le da acceso total al
     // sistema; se agrega igual para que el ítem le aparezca en el menú.
-    roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+    // El Fontanero no ve este grupo: su acceso es el ítem "Mis reportes".
+    roles: ['Administrador', 'Junta Directiva'],
     submenu: [
       {
         label: 'Averías',
@@ -169,12 +181,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
         roles: ['Administrador', 'Junta Directiva'],
       },
       {
-        // Registro de actividad: el fontanero llena el suyo; la
-        // administración consulta los de todos. Son dos pantallas
-        // distintas, por eso cada una lista solo sus roles.
+        // Registro de actividad: la administración consulta los de todos.
+        // El fontanero entra desde "Mis reportes".
         label: 'Reporte fontanero',
         to: '/dashboard/averias/fontanero',
-        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+        roles: ['Administrador', 'Junta Directiva'],
       },
     ],
   },

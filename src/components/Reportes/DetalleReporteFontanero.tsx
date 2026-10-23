@@ -71,10 +71,13 @@ function Dato({ etiqueta, children }: { etiqueta: string; children: ReactNode })
 function DetalleReporteFontanero({
   reporte,
   mostrarFontanero = false,
+  mostrarOrigen = false,
 }: {
   reporte: ReporteFontanero
   /** En el panel administrativo interesa ver de quién es el reporte. */
   mostrarFontanero?: boolean
+  /** Solo el panel administrativo marca los reportes no asignados. */
+  mostrarOrigen?: boolean
 }) {
   const materialesTexto = reporte.materiales_texto?.trim()
   const listaMateriales = reporte.materiales ?? []
@@ -91,10 +94,18 @@ function DetalleReporteFontanero({
             {ETIQUETA_ACTIVIDAD[reporte.tipo_actividad]}
           </p>
           <p className="truncate text-xs text-primary-500">
-            {reporte.averia?.codigo_averia ??
-              (reporte.labor?.codigo_labor
-                ? `Labor ${reporte.labor.codigo_labor}`
-                : 'Sin trabajo vinculado')}
+            {mostrarOrigen && reporte.origen === 'no_asignado' ? (
+              <span className="inline-block rounded-full bg-advertencia-100 px-2 py-0.5 text-[10px] font-semibold text-advertencia-700">
+                No asignado
+              </span>
+            ) : (
+              <>
+                {reporte.averia?.codigo_averia ??
+                  (reporte.labor?.codigo_labor
+                    ? `Labor ${reporte.labor.codigo_labor}`
+                    : 'Sin trabajo vinculado')}
+              </>
+            )}
             {reporte.reintentos > 0 ? ` · Reenviado (${reporte.reintentos})` : ''}
           </p>
         </div>

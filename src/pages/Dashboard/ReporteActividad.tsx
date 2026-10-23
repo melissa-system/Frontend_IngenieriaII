@@ -2,7 +2,7 @@ import Alerta from '../../components/ui/Alerta'
 import { FilaVacia } from '../../components/ui/EmptyState'
 import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { Notificar } from '../../components/ui/ToastProvider'
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   erroresPorCampo,
@@ -41,6 +41,10 @@ import {
   obtenerMisLabores,
   type LaborBackend,
 } from '../../components/Services/labores.service'
+import {
+  obtenerMisSolicitudesMaterial,
+  type SolicitudMaterial,
+} from '../../components/Services/solicitudesMaterial.service'
 import Button from '../../components/ui/Button'
 import Tabs from '../../components/ui/Tabs'
 import Table from '../../components/ui/Table'
@@ -112,10 +116,14 @@ function ReporteActividad() {
   const [errorEvidencia, setErrorEvidencia] = useState('')
   // Trabajo atendido, codificado como "averia:<id>" o "labor:<id>". '' =
   // trabajo sin avería/labor específica (mantenimiento, revisión, etc.).
+  // Solo se vincula automáticamente cuando el reporte viene del cronómetro:
+  // un reporte hecho a mano no se puede ligar a un trabajo.
   const [trabajoSeleccionado, setTrabajoSeleccionado] = useState<string>(
-    averiaParam && Number.isInteger(Number(averiaParam))
+    medicionBloqueada && averiaParam && Number.isInteger(Number(averiaParam))
       ? `averia:${Number(averiaParam)}`
-      : laborParam && Number.isInteger(Number(laborParam))
+      : medicionBloqueada &&
+          laborParam &&
+          Number.isInteger(Number(laborParam))
         ? `labor:${Number(laborParam)}`
         : '',
   )
@@ -123,6 +131,9 @@ function ReporteActividad() {
   const [misReportes, setMisReportes] = useState<ReporteFontanero[]>([])
   const [averiasPendientes, setAveriasPendientes] = useState<AveriaBackend[]>([])
   const [laboresPendientes, setLaboresPendientes] = useState<LaborBackend[]>([])
+  const [solicitudesMaterial, setSolicitudesMaterial] = useState<
+    SolicitudMaterial[]
+  >([])
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
@@ -142,14 +153,16 @@ function ReporteActividad() {
     setCargando(true)
     setError('')
     try {
-      const [reportes, averias, labores] = await Promise.all([
+      const [reportes, averias, labores, materiales] = await Promise.all([
         obtenerMisReportes(),
         obtenerMisAveriasFontanero(),
         obtenerMisLabores(),
+        obtenerMisSolicitudesMaterial(),
       ])
       setMisReportes(reportes)
       setAveriasPendientes(averias)
       setLaboresPendientes(labores)
+      setSolicitudesMaterial(materiales)
     } catch (err) {
       setError(
         err instanceof Error ? err.message : 'No se pudo cargar la información.',
@@ -330,6 +343,44 @@ function ReporteActividad() {
     return false
   })
 
+  // Materiales aprobados del trabajo seleccionado: se precargan en el campo
+  // de materiales para que el fontanero no tenga que escribirlos otra vez.
+  const materialesAprobados = (() => {
+    if (!trabajoSeleccionado) return []
+    const [tipo, idTexto] = trabajoSeleccionado.split(':')
+    const id = Number(idTexto)
+    if (!Number.isInteger(id) || id <= 0) return []
+    return solicitudesMaterial
+      .filter(
+        (s) =>
+          s.estado === 'Aprobada' &&
+          (tipo === 'averia' ? s.averia?.id === id : s.labor?.id === id),
+      )
+      .flatMap((s) =>
+        s.detalles.map(
+          (d) =>
+            `${d.cantidad} × ${d.articulo?.nombre ?? d.descripcion_libre ?? 'Material'}${
+              d.unidad ? ` (${d.unidad})` : ''
+            }`,
+        ),
+      )
+  })()
+
+  const textoMaterialesAprobados = materialesAprobados
+    .join('\n')
+    .slice(0, MAXIMO_LARGO_MATERIALES)
+
+  // Solo precarga al cambiar de trabajo (o al terminar de cargar los datos):
+  // si el fontanero edita el campo, no se vuelve a pisar.
+  const trabajoPrecargadoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (cargando) return
+    if (trabajoPrecargadoRef.current === trabajoSeleccionado) return
+    trabajoPrecargadoRef.current = trabajoSeleccionado
+    if (!trabajoSeleccionado) return
+    setMaterialesTexto(textoMaterialesAprobados)
+  }, [cargando, trabajoSeleccionado, textoMaterialesAprobados])
+
   const etiquetaCampo = 'block text-sm font-medium text-primary-900'
   const inputCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
@@ -422,36 +473,16 @@ function ReporteActividad() {
                     (trabajo ya gestionado)
                   </span>
                 </span>
-                {!medicionBloqueada && (
-                  <button
-                    type="button"
-                    onClick={() => setTrabajoSeleccionado('')}
-                    className="ml-3 flex-none text-xs font-medium text-primary-600 hover:text-primary-800 hover:underline"
-                  >
-                    Quitar
-                  </button>
-                )}
               </div>
             ) : (
               <select
                 id="trabajo"
                 value={trabajoSeleccionado}
-                disabled={medicionBloqueada}
-                onChange={(e) => {
-                  const valor = e.target.value
-                  setTrabajoSeleccionado(valor)
-                  // Al elegir una labor, su tipo define el tipo de actividad.
-                  if (valor.startsWith('labor:')) {
-                    const id = Number(valor.split(':')[1])
-                    const labor = laboresPendientes.find((l) => l.id === id)
-                    if (labor) setTipoActividad(labor.tipo_actividad)
-                  }
-                }}
-                className={`${inputCls} ${
-                  medicionBloqueada
-                    ? 'cursor-not-allowed bg-primary-100 text-primary-500'
-                    : ''
-                }`}
+                // Solo se puede ligar el trabajo cuando el reporte viene del
+                // cronómetro (ahí el trabajo ya viene fijado). Un reporte
+                // manual queda sin trabajo específico.
+                disabled
+                className={`${inputCls} cursor-not-allowed bg-primary-100 text-primary-500`}
               >
                 <option value="">Sin trabajo específico</option>
                 {opcionesTrabajo.map((o) => (
@@ -460,6 +491,12 @@ function ReporteActividad() {
                   </option>
                 ))}
               </select>
+            )}
+            {!medicionBloqueada && (
+              <p className="mt-1 text-xs text-primary-500">
+                Para vincular una avería o labor, el tiempo debe tomarse con el
+                cronómetro desde tu panel.
+              </p>
             )}
             {trabajoDevuelto && (
               <div className="mt-2">
@@ -474,12 +511,23 @@ function ReporteActividad() {
                 actualizará ese reporte en vez de crear uno nuevo.
               </p>
             )}
-            {opcionesTrabajo.length === 0 && !seleccionFijada && (
-              <p className="mt-1 text-xs text-primary-500">
-                No tienes trabajos asignados por atender. Puedes registrar la
-                actividad de todas formas.
-              </p>
-            )}
+          </div>
+
+          {/* Primero los materiales (precargados si hay una solicitud
+              aprobada), después la descripción del trabajo realizado. */}
+          <div>
+            <label htmlFor="materiales" className={etiquetaCampo}>
+              Materiales utilizados (opcional)
+            </label>
+            <textarea
+              id="materiales"
+              rows={3}
+              value={materialesTexto}
+              maxLength={MAXIMO_LARGO_MATERIALES}
+              onChange={(e) => setMaterialesTexto(e.target.value)}
+              placeholder="Ej: 2 m de tubo PVC, 1 codo, 3 m de cable."
+              className={`${inputCls} scroll-visible`}
+            />
           </div>
 
           <div>
@@ -504,25 +552,6 @@ function ReporteActividad() {
                   {descripcion.trim().length}).
                 </p>
               )}
-          </div>
-
-          <div>
-            <label htmlFor="materiales" className={etiquetaCampo}>
-              Materiales utilizados (opcional)
-            </label>
-            <textarea
-              id="materiales"
-              rows={2}
-              value={materialesTexto}
-              maxLength={MAXIMO_LARGO_MATERIALES}
-              onChange={(e) => setMaterialesTexto(e.target.value)}
-              placeholder="Ej: 2 m de tubo PVC, 1 codo, 3 m de cable."
-              className={inputCls}
-            />
-            <p className="mt-1 text-xs text-primary-500">
-              Escribe los materiales que usaste. La entrada y salida de{' '}
-              inventario la registra la administración por separado.
-            </p>
           </div>
 
           <FileDropZone

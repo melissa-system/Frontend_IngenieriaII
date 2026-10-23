@@ -170,7 +170,9 @@ function GestionModal({
                     disabled={!asignarFontanero && !fontaneroActual}
                     className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
                     <option value="">Mantener: {a.estado}</option>
-                    {['Pendiente', 'En proceso', 'Finalizado']
+                    {/* "En proceso" no se ofrece: lo asigna el sistema al
+                        asignar el fontanero. */}
+                    {['Pendiente', 'Finalizado']
                       .filter((e) => e !== a.estado)
                       .map((e) => (
                         <option key={e} value={e}>{e}</option>
@@ -191,6 +193,9 @@ function GestionModal({
                         <option key={emp.id} value={emp.nombre}>{emp.nombre}</option>
                       ))}
                     </select>
+                    <p className="mt-1 text-xs text-primary-500">
+                      Al asignar, la avería pasa a “En proceso” automáticamente.
+                    </p>
                   </div>
                 )}
 

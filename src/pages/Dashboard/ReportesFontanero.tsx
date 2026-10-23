@@ -56,6 +56,7 @@ function ReportesFontanero() {
   const [empleadoId, setEmpleadoId] = useState('')
   const [tipoActividad, setTipoActividad] = useState<TipoActividad | ''>('')
   const [estadoRevision, setEstadoRevision] = useState<EstadoRevision | ''>('')
+  const [origen, setOrigen] = useState<'' | 'asignado' | 'no_asignado'>('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
 
@@ -77,6 +78,7 @@ function ReportesFontanero() {
       if (empleadoId) filtros.empleadoId = Number(empleadoId)
       if (tipoActividad) filtros.tipoActividad = tipoActividad
       if (estadoRevision) filtros.estadoRevision = estadoRevision
+      if (origen) filtros.origen = origen
       if (desde) filtros.desde = desde
       if (hasta) filtros.hasta = hasta
 
@@ -90,7 +92,7 @@ function ReportesFontanero() {
     } finally {
       setCargando(false)
     }
-  }, [pagina, empleadoId, tipoActividad, estadoRevision, desde, hasta])
+  }, [pagina, empleadoId, tipoActividad, estadoRevision, origen, desde, hasta])
 
   useEffect(() => {
     void cargar()
@@ -107,6 +109,7 @@ function ReportesFontanero() {
     setEmpleadoId('')
     setTipoActividad('')
     setEstadoRevision('')
+    setOrigen('')
     setDesde('')
     setHasta('')
     setPagina(1)
@@ -138,7 +141,7 @@ function ReportesFontanero() {
   }
 
   const hayFiltros = Boolean(
-    empleadoId || tipoActividad || estadoRevision || desde || hasta,
+    empleadoId || tipoActividad || estadoRevision || origen || desde || hasta,
   )
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
@@ -157,7 +160,7 @@ function ReportesFontanero() {
 
       {/* Filtros */}
       <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label htmlFor="f-fontanero" className="block text-sm font-medium text-primary-900">
               Fontanero
@@ -222,6 +225,26 @@ function ReportesFontanero() {
           </div>
 
           <div>
+            <label htmlFor="f-origen" className="block text-sm font-medium text-primary-900">
+              Origen
+            </label>
+            <select
+              id="f-origen"
+              value={origen}
+              onChange={(e) =>
+                aplicarFiltro(setOrigen)(
+                  e.target.value as '' | 'asignado' | 'no_asignado',
+                )
+              }
+              className={selectCls}
+            >
+              <option value="">Todos</option>
+              <option value="asignado">Asignados</option>
+              <option value="no_asignado">No asignados</option>
+            </select>
+          </div>
+
+          <div>
             <label htmlFor="f-desde" className="block text-sm font-medium text-primary-900">
               Desde
             </label>
@@ -262,13 +285,13 @@ function ReportesFontanero() {
       {error && <ErrorState mensaje={error} onReintentar={cargar} />}
 
       {/* Tabla */}
-      <Table cabecera={['Fontanero', 'Fecha', 'Actividad', 'Tiempo', 'Materiales', 'Revisión', 'Acciones']} pie={<>{total > 0 && (
+      <Table cabecera={['Fontanero', 'Fecha', 'Trabajo', 'Actividad', 'Tiempo', 'Materiales', 'Revisión', 'Acciones']} pie={<>{total > 0 && (
           <Paginador total={total} pagina={pagina} porPagina={LIMITE_POR_PAGINA} onCambiar={setPagina} etiqueta="reportes" deshabilitado={cargando} />
         )}</>}>
             {cargando ? (
-              <FilasEsqueleto columnas={7} />
+              <FilasEsqueleto columnas={8} />
             ) : reportes.length === 0 ? (
-              <FilaVacia columnas={7} titulo={hayFiltros
+              <FilaVacia columnas={8} titulo={hayFiltros
                     ? 'No hay reportes que coincidan con los filtros.'
                     : 'Todavía no hay reportes de actividad registrados.'} />
             ) : (
@@ -279,6 +302,19 @@ function ReportesFontanero() {
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {reporte.fecha_trabajo}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {reporte.origen === 'no_asignado' ? (
+                      <span className="inline-block rounded-full bg-advertencia-100 px-2 py-0.5 text-[11px] font-semibold text-advertencia-700">
+                        No asignado
+                      </span>
+                    ) : (
+                      <span className="font-mono text-xs text-primary-600">
+                        {reporte.averia?.codigo_averia ??
+                          reporte.labor?.codigo_labor ??
+                          '—'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-primary-700">
                     {ETIQUETA_ACTIVIDAD[reporte.tipo_actividad]}
@@ -333,23 +369,31 @@ function ReportesFontanero() {
             </ModalTitulo>
 
             <div className="mt-4">
-              <DetalleReporteFontanero reporte={detalle} mostrarFontanero />
+              <DetalleReporteFontanero
+                reporte={detalle}
+                mostrarFontanero
+                mostrarOrigen
+              />
             </div>
 
             <div className="mt-5 rounded-xl border border-primary-200 bg-primary-50 p-3">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
                   <p className="text-sm font-semibold text-primary-900">
-                    {detalle.averia_id
-                      ? 'Resolución de la avería'
-                      : detalle.labor_id
-                        ? 'Resolución de la labor'
-                        : 'Revisión del reporte'}
+                    {detalle.origen === 'no_asignado'
+                      ? 'Revisión de reporte no asignado'
+                      : detalle.averia_id
+                        ? 'Resolución de la avería'
+                        : detalle.labor_id
+                          ? 'Resolución de la labor'
+                          : 'Revisión del reporte'}
                   </p>
                   <p className="mt-0.5 text-xs text-primary-500">
-                    {detalle.averia_id || detalle.labor_id
-                      ? 'Aprueba para dar el trabajo por resuelto; rechaza para devolvérselo al fontanero.'
-                      : 'Aprueba o rechaza este reporte de actividad.'}
+                    {detalle.origen === 'no_asignado'
+                      ? 'Aprueba o rechaza este reporte de actividad registrado sin un trabajo asignado.'
+                      : detalle.averia_id || detalle.labor_id
+                        ? 'Aprueba para dar el trabajo por resuelto; rechaza para devolvérselo al fontanero.'
+                        : 'Aprueba o rechaza este reporte de actividad.'}
                   </p>
                 </div>
                 <span
