@@ -51,6 +51,8 @@ export interface ReporteFontanero {
   averia?: { id: number; codigo_averia: string } | null
   labor_id?: number | null
   labor?: { id: number; codigo_labor: string; tipo_actividad: TipoActividad } | null
+  /** 'no_asignado' = reporte suelto (sin avería ni labor asignada). */
+  origen: 'asignado' | 'no_asignado'
   /** Texto libre con los materiales usados (flujo actual). */
   materiales_texto?: string | null
   /** Materiales vinculados a inventario (solo reportes antiguos). */
@@ -82,6 +84,7 @@ export interface FiltrosReportes {
   empleadoId?: number
   tipoActividad?: TipoActividad
   estadoRevision?: EstadoRevision
+  origen?: 'asignado' | 'no_asignado'
   desde?: string
   hasta?: string
   pagina?: number
