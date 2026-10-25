@@ -490,7 +490,7 @@ function SolicitudesMaterial() {
                                 [item.id]: e.target.value,
                               }))
                             }
-                            className="h-9 min-w-0 flex-1 rounded-lg border border-primary-200 bg-white px-2 text-sm"
+                            className="h-9 min-w-0 flex-1 rounded-full border border-primary-200 bg-white px-3 text-sm"
                           >
                             <option value="">Vincular a un artículo existente…</option>
                             {articulos
@@ -565,7 +565,7 @@ function SolicitudesMaterial() {
                               onChange={(e) =>
                                 setNuevo((n) => ({ ...n, proveedorId: e.target.value }))
                               }
-                              className="rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm"
+                              className="rounded-full border border-primary-200 bg-white px-4 py-2 text-sm"
                             >
                               <option value="">Proveedor…</option>
                               {proveedores.map((p) => (

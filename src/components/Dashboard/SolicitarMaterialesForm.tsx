@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Alerta from '../ui/Alerta'
 import Button from '../ui/Button'
+import Cargando from '../ui/Cargando'
 import { Textarea } from '../ui/campos'
 import {
   crearSolicitudMaterial,
@@ -216,7 +217,7 @@ function SolicitarMaterialesForm({
           className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
         />
         {cargandoCatalogo && (
-          <p className="mt-1 text-xs text-primary-400">Cargando catálogo…</p>
+          <Cargando texto="Cargando catálogo…" />
         )}
         {errorCatalogo && (
           <p className="mt-1 text-xs text-error-600">{errorCatalogo}</p>
