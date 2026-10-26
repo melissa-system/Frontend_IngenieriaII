@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
 import Alerta from '../ui/Alerta'
+import { Spinner } from '../ui/Cargando'
 import Button from '../ui/Button'
 import { Textarea } from '../ui/campos'
 import {
@@ -216,7 +217,9 @@ function SolicitarMaterialesForm({
           className="mt-1 w-full rounded-full border border-primary-200 px-4 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
         />
         {cargandoCatalogo && (
-          <p className="mt-1 text-xs text-primary-400">Cargando catálogo…</p>
+          <span className="mt-1 flex items-center gap-1.5 text-xs text-primary-400">
+            <Spinner className="h-3 w-3" /> Cargando catálogo…
+          </span>
         )}
         {errorCatalogo && (
           <p className="mt-1 text-xs text-error-600">{errorCatalogo}</p>

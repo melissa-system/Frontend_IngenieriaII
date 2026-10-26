@@ -12,6 +12,14 @@ export interface DetalleCampoCopia {
   valor: string | number | null | undefined
 }
 
+export interface AdjuntoDetalleCopia {
+  nombre: string
+  url?: string | null
+  tipo?: string | null
+  tamano?: string | number | null
+  archivo?: File | Blob | null
+}
+
 export interface DatosCopiaComun {
   tipoTramite: string
   tipoSlug: string
@@ -27,6 +35,8 @@ export interface DatosCopiaComun {
   }
   detalles: DetalleCampoCopia[]
   adjuntos?: string[]
+  adjuntosDetalle?: AdjuntoDetalleCopia[]
+  archivo?: File | Blob | null
   observaciones?: string | null
 }
 
@@ -42,35 +52,42 @@ function esc(valor: string | number | null | undefined): string {
 const STYLE_COMUN = `
 *{box-sizing:border-box}
 @page{size:A4;margin:0}
-body{margin:0;padding:12px;background:#eee;font-family:Arial,Helvetica,sans-serif;color:#1e293b;font-size:9pt}
-.page{width:210mm;min-height:297mm;margin:0 auto;background:#fff;border:1.2px solid #334155;border-radius:3mm;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;padding:8mm 12mm 6mm;position:relative;page-break-after:always}
-.page-content{flex:1 1 auto}
-.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2px solid #0f172a;padding-bottom:3mm;margin-bottom:3.5mm}
-.brand-name{font-size:13.5pt;font-weight:800;color:#0f172a;letter-spacing:-0.5px;margin:0;line-height:1.15}
-.brand-sub{font-size:7.5pt;color:#475569;margin-top:1mm;line-height:1.2}
+body{margin:0;padding:12px;background:#eee;font-family:Arial,Helvetica,sans-serif;color:#1e293b;font-size:9.5pt}
+.page{width:210mm;min-height:297mm;height:297mm;max-height:297mm;margin:0 auto;background:#fff;border:1.2px solid #334155;border-radius:3mm;box-sizing:border-box;display:flex;flex-direction:column;justify-content:space-between;padding:12mm 15mm 10mm;position:relative;overflow:hidden}
+.page-content{flex:1 1 auto;display:flex;flex-direction:column}
+.header{display:flex;justify-content:space-between;align-items:flex-start;border-bottom:2.5px solid #0f172a;padding-bottom:3.5mm;margin-bottom:4.5mm}
+.brand-name{font-size:14.5pt;font-weight:800;color:#0f172a;letter-spacing:-0.5px;margin:0;line-height:1.15}
+.brand-sub{font-size:8pt;color:#475569;margin-top:1.2mm;line-height:1.25}
 .doc-badge{text-align:right}
-.doc-title{font-size:11pt;font-weight:700;color:#0f172a;text-transform:uppercase;margin:0;line-height:1.15}
-.doc-subtitle{font-size:7.5pt;font-weight:600;color:#64748b;margin-top:0.5mm;letter-spacing:0.5px;line-height:1.2}
-.status-box{margin-bottom:3mm;padding:2.2mm 3.5mm;border-radius:2mm;text-align:center}
+.doc-title{font-size:11.5pt;font-weight:800;color:#0f172a;text-transform:uppercase;margin:0;line-height:1.15}
+.doc-subtitle{font-size:8pt;font-weight:600;color:#64748b;margin-top:0.8mm;letter-spacing:0.5px;line-height:1.2}
+.status-box{margin-bottom:4.5mm;padding:3mm 4.5mm;border-radius:2mm;text-align:center}
 .status-registrado{background:#f0fdf4;border:1.5px solid #22c55e;color:#166534}
 .status-pendiente{background:#fffbeb;border:1.5px solid #f59e0b;color:#92400e}
-.status-title{font-size:9.5pt;font-weight:700;margin:0 0 0.5mm;line-height:1.15;text-align:center}
-.status-desc{font-size:8pt;margin:0;line-height:1.15;text-align:center}
-.code-value{font-family:monospace;font-size:10.5pt;font-weight:800;letter-spacing:0.5px}
-.meta-strip{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #e2e8f0;padding:1.6mm 3.5mm;border-radius:1.5mm;font-size:8pt;line-height:1.15;color:#334155;margin-bottom:3.5mm}
-.section{margin-bottom:3.5mm}
-.section-head{font-size:8.5pt;font-weight:700;color:#0f172a;text-transform:uppercase;border-bottom:1px solid #cbd5e1;padding-bottom:1mm;margin-bottom:2mm;display:flex;align-items:center;gap:2mm}
-.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:2mm 3.5mm}
-.field-box{background:#fcfcfd;border:1px solid #cbd5e1;border-radius:1.5mm;padding:2mm 3mm;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:11.5mm;box-sizing:border-box}
-.field-label{font-size:6.8pt;font-weight:600;color:#64748b;text-transform:uppercase;display:block;margin:0 0 0.6mm 0;line-height:1.0;text-align:center;width:100%}
-.field-val{font-size:8.8pt;font-weight:600;color:#0f172a;word-break:break-word;line-height:1.15;text-align:center;width:100%}
-.table-data{width:100%;border-collapse:collapse;margin-top:1.5mm;font-size:8.5pt}
-.table-data th{background:#f1f5f9;border:1px solid #cbd5e1;padding:2.2mm 3mm;text-align:center;font-weight:600;color:#334155;font-size:7.5pt;text-transform:uppercase;vertical-align:middle;line-height:1.15}
-.table-data td{border:1px solid #cbd5e1;padding:2.2mm 3mm;color:#0f172a;word-break:break-word;text-align:center;vertical-align:middle;line-height:1.25}
+.status-title{font-size:10pt;font-weight:700;margin:0 0 0.8mm;line-height:1.15;text-align:center}
+.status-desc{font-size:8.2pt;margin:0;line-height:1.2;text-align:center}
+.code-value{font-family:monospace;font-size:11pt;font-weight:800;letter-spacing:0.5px}
+.meta-strip{display:flex;justify-content:space-between;align-items:center;background:#f8fafc;border:1px solid #cbd5e1;padding:2.2mm 4mm;border-radius:1.5mm;font-size:8.5pt;line-height:1.15;color:#334155;margin-bottom:5mm}
+.section{margin-bottom:5mm}
+.section-head{font-size:9.2pt;font-weight:800;color:#0f172a;text-transform:uppercase;border-bottom:1.5px solid #cbd5e1;padding-bottom:1.5mm;margin-bottom:3mm;letter-spacing:0.3px}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:3mm 4.5mm}
+.field-box{background:#fcfcfd;border:1.2px solid #cbd5e1;border-radius:2mm;padding:2.8mm 3.5mm;display:flex;flex-direction:column;justify-content:center;align-items:center;text-align:center;min-height:14mm;box-sizing:border-box}
+.field-label{font-size:7.2pt;font-weight:700;color:#64748b;text-transform:uppercase;display:block;margin:0 0 0.8mm 0;line-height:1.0;text-align:center;width:100%}
+.field-val{font-size:9.2pt;font-weight:700;color:#0f172a;word-break:break-word;line-height:1.2;text-align:center;width:100%}
+.table-data{width:100%;border-collapse:collapse;margin-top:2mm;font-size:9pt}
+.table-data th{background:#f1f5f9;border:1px solid #cbd5e1;padding:3mm 4mm;text-align:center;font-weight:700;color:#334155;font-size:8pt;text-transform:uppercase;vertical-align:middle;line-height:1.15}
+.table-data td{border:1px solid #cbd5e1;padding:3.2mm 4mm;color:#0f172a;word-break:break-word;text-align:center;vertical-align:middle;line-height:1.3}
 .table-data tr:nth-child(even){background:#fafafa}
-.attachments-list{margin:0;padding:0;list-style:none;font-size:8pt;line-height:1.25;color:#1e293b;text-align:center}
-.attachments-list li{margin:0.5mm 0;text-align:center}
-.footer{flex-shrink:0;margin-top:4mm;border-top:1px solid #cbd5e1;padding-top:2mm;text-align:center;font-size:7pt;color:#64748b;line-height:1.25}
+
+/* Bloque institucional de constancia y fe pública */
+.cert-box{display:flex;align-items:flex-start;gap:3.5mm;background:#f8fafc;border:1.2px solid #cbd5e1;border-left:4px solid #0284c7;border-radius:2mm;padding:3.2mm 4.5mm;margin-top:4.5mm;margin-bottom:3mm}
+.cert-icon{font-size:13pt;line-height:1}
+.cert-info{flex:1;min-width:0;text-align:left}
+.cert-title{font-size:8.2pt;font-weight:800;color:#0f172a;margin-bottom:0.8mm;text-transform:uppercase;letter-spacing:0.3px}
+.cert-desc{font-size:7.5pt;color:#475569;line-height:1.35}
+
+/* Pie de página oficial */
+.footer{flex-shrink:0;margin-top:auto;border-top:1.5px solid #cbd5e1;padding-top:3mm;text-align:center;font-size:7.3pt;color:#64748b;line-height:1.35}
 `
 
 export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
@@ -87,13 +104,6 @@ export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
       </tr>`,
     )
     .join('')
-
-  const adjuntosHtml =
-    datos.adjuntos && datos.adjuntos.length > 0
-      ? `<ul class="attachments-list">
-          ${datos.adjuntos.map((a) => `<li><strong>Documento:</strong> ${esc(a)}</li>`).join('')}
-        </ul>`
-      : '<p style="font-size: 8pt; color: #64748b; margin: 0; line-height: 1.25; text-align: center;">No se adjuntaron archivos adicionales.</p>'
 
   const obsHtml = datos.observaciones?.trim()
     ? `<div class="section">
@@ -112,6 +122,7 @@ export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
   <style>${STYLE_COMUN}</style>
 </head>
 <body>
+  <!-- COMPROBANTE OFICIAL (EXACTAMENTE 1 PÁGINA A4) -->
   <div class="page">
     <div class="page-content">
       <div class="header">
@@ -191,19 +202,22 @@ export function buildHtmlCopiaComun(datos: DatosCopiaComun): string {
         </table>
       </div>
 
-      <div class="section">
-        <div class="section-head">3. Documentos y Evidencias Adjuntas</div>
-        <div class="field-box">
-          ${adjuntosHtml}
+      ${obsHtml}
+
+      <div class="cert-box">
+        <div class="cert-icon">&#9989;</div>
+        <div class="cert-info">
+          <div class="cert-title">Constancia de Registro y Declaración Jurada</div>
+          <div class="cert-desc">
+            Se certifica que la presente solicitud ha sido formalmente consignada en el sistema web de la ${esc(ASADA_NOMBRE_LEGAL)}. Los datos suministrados constituyen declaración formal bajo responsabilidad del solicitante.
+          </div>
         </div>
       </div>
-
-      ${obsHtml}
     </div>
 
     <div class="footer">
-      <strong>Aviso de Validez:</strong> Este documento ha sido generado automáticamente por la plataforma web de la ${esc(ASADA_NOMBRE_LEGAL)} como copia de respaldo para el solicitante.<br>
-      La resolución y trámite formal están sujetos a la verificación de requisitos y aprobación reglamentaria de la ASADA. Conserve este comprobante.
+      <strong>Aviso de Validez y Efectos Administrativos:</strong> Este documento ha sido generado automáticamente por la plataforma web de la ${esc(ASADA_NOMBRE_LEGAL)} como copia de respaldo para el solicitante.<br>
+      La resolución y trámite formal están sujetos a la verificación de requisitos y aprobación reglamentaria de la ASADA. Conserve este comprobante para dar seguimiento a su trámite.
     </div>
   </div>
 </body>
@@ -216,6 +230,19 @@ export async function generarPdfSolicitudComun(datos: DatosCopiaComun): Promise<
   const quitarCorreccionTexto = corregirLineaBaseTexto()
 
   try {
+    const imagenes = Array.from(contenedor.querySelectorAll<HTMLImageElement>('img'))
+    if (imagenes.length > 0) {
+      await Promise.all(
+        imagenes.map((img) => {
+          if (img.complete) return Promise.resolve(true)
+          return new Promise((resolve) => {
+            img.onload = () => resolve(true)
+            img.onerror = () => resolve(false)
+          })
+        }),
+      )
+    }
+
     await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))
     const paginas = Array.from(contenedor.querySelectorAll<HTMLElement>('.page'))
     const pdf = new jsPDF({ unit: 'mm', format: 'a4' })
@@ -239,7 +266,7 @@ export async function generarPdfSolicitudComun(datos: DatosCopiaComun): Promise<
         const imgData = canvas.toDataURL('image/jpeg', 0.95)
         pdf.addImage(imgData, 'JPEG', 0, 0, PAGE_WIDTH_MM, PAGE_HEIGHT_MM)
       } else {
-        // El contenido es más largo que una sola hoja A4: se segmenta limpiamente por página
+        // En caso de que una página exceda la altura estándar, se segmenta limpiamente
         let positionPx = 0
         while (positionPx < canvas.height) {
           if (!esPrimeraPagina) pdf.addPage()

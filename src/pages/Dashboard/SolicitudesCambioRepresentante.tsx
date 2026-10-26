@@ -1,6 +1,7 @@
 import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import Alerta from '../../components/ui/Alerta'
-import Cargando from '../../components/ui/Cargando'
+import Cargando, { Spinner } from '../../components/ui/Cargando'
+import { useAutocompletarCedula } from '../../hooks/useCedulaLookup'
 import { Notificar } from '../../components/ui/ToastProvider'
 import {
   useCallback,
@@ -131,6 +132,13 @@ function VistaAbonado() {
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
   const [justificacion, setJustificacion] = useState('')
+
+  const {
+    cargando: buscandoNombre,
+    consultar: consultarCedula,
+    resetearConsulta,
+  } = useAutocompletarCedula(setNuevoNombre)
+
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
@@ -205,6 +213,7 @@ function VistaAbonado() {
   }
 
   const limpiarFormulario = () => {
+    resetearConsulta()
     setNuevoNombre('')
     setNuevaCedula('')
     setNuevoCorreo('')
@@ -239,6 +248,17 @@ function VistaAbonado() {
       { etiqueta: 'Justificación del cambio', valor: justificacion },
     ],
     adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
   })
 
   const descargarCopiaPrevia = async () => {
@@ -418,9 +438,16 @@ function VistaAbonado() {
             </h3>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
-                  Nombre Completo *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
+                    Nombre Completo *
+                  </label>
+                  {buscandoNombre && (
+                    <span className="flex items-center gap-1.5 text-xs text-primary-600 font-normal">
+                      <Spinner className="h-3 w-3" /> Cargando nombre...
+                    </span>
+                  )}
+                </div>
                 <input
                   id="nuevoNombre"
                   type="text"
@@ -441,7 +468,12 @@ function VistaAbonado() {
                   id="nuevaCedula"
                   type="text"
                   value={nuevaCedula}
-                  onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
+                  onChange={(e) => {
+                    const formateado = formatearCedula(e.target.value)
+                    setNuevaCedula(formateado)
+                    consultarCedula(formateado)
+                  }}
+                  onBlur={() => consultarCedula(nuevaCedula)}
                   required
                   disabled={tieneAbierta}
                   placeholder="Ej: 1-2345-6789 o 3-101-123456"
@@ -593,6 +625,12 @@ function VistaAdministrador() {
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
   const [justificacion, setJustificacion] = useState('')
+
+  const {
+    cargando: buscandoNombre,
+    consultar: consultarCedula,
+    resetearConsulta,
+  } = useAutocompletarCedula(setNuevoNombre)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
@@ -688,6 +726,7 @@ function VistaAdministrador() {
   }
 
   const limpiarFormulario = () => {
+    resetearConsulta()
     setAbonadoSel('')
     setBusqueda('')
     setNuevoNombre('')
@@ -724,6 +763,17 @@ function VistaAdministrador() {
       { etiqueta: 'Justificación del cambio', valor: justificacion },
     ],
     adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
   })
 
   const descargarCopiaPrevia = async () => {
@@ -956,9 +1006,16 @@ function VistaAdministrador() {
           </div>
 
           <div>
-            <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
-              Nombre del nuevo representante
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
+                Nombre del nuevo representante
+              </label>
+              {buscandoNombre && (
+                <span className="flex items-center gap-1.5 text-xs text-primary-600 font-normal">
+                  <Spinner className="h-3 w-3" /> Cargando nombre...
+                </span>
+              )}
+            </div>
             <input
               id="nuevoNombre"
               type="text"
@@ -979,7 +1036,12 @@ function VistaAdministrador() {
               id="nuevaCedula"
               type="text"
               value={nuevaCedula}
-              onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
+              onChange={(e) => {
+                const formateado = formatearCedula(e.target.value)
+                setNuevaCedula(formateado)
+                consultarCedula(formateado)
+              }}
+              onBlur={() => consultarCedula(nuevaCedula)}
               required
               placeholder="Ej: 1-2345-6789"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"

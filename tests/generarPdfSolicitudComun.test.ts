@@ -139,7 +139,7 @@ describe('PBI 532: Plantilla HTML Común de Copia de Respaldo', () => {
     )
   })
 
-  it('renderiza correctamente encabezados institucionales y datos del solicitante', () => {
+  it('renderiza correctamente encabezados institucionales, Punto 1, Punto 2 y pie oficial', () => {
     const html = buildHtmlCopiaComun(datosBase)
 
     assert.ok(html.includes('ASADA PUEBLO NUEVO'))
@@ -147,8 +147,46 @@ describe('PBI 532: Plantilla HTML Común de Copia de Respaldo', () => {
     assert.ok(html.includes('María Vargas Gómez'))
     assert.ok(html.includes('1-1234-0567'))
     assert.ok(html.includes('ABO-1024'))
+    assert.ok(html.includes('1. Información del Solicitante / Abonado'))
+    assert.ok(html.includes('2. Detalles y Declaración del Trámite'))
     assert.ok(html.includes('Carlos Mora Rojas'))
-    assert.ok(html.includes('escritura_publica.pdf'))
+    assert.ok(html.includes('Constancia de Registro y Declaración Jurada'))
+    assert.ok(html.includes('Aviso de Validez y Efectos Administrativos'))
+    assert.ok(!html.includes('3. Evidencia'), 'No debe incluir la sección 3 de adjuntos')
+    assert.ok(!html.includes('3. Documento'), 'No debe incluir la sección 3 de adjuntos')
+  })
+
+  it('no incluye la sección 3 de archivo adjunto ni imágenes embebidas en el comprobante formal', () => {
+    const datosConFoto: DatosCopiaComun = {
+      ...datosBase,
+      adjuntosDetalle: [
+        {
+          nombre: 'medidor_averiado.jpg',
+          tipo: 'image/jpeg',
+          url: 'data:image/jpeg;base64,/9j/4AAQSkZJRg==',
+        },
+      ],
+    }
+
+    const html = buildHtmlCopiaComun(datosConFoto)
+    assert.ok(!html.includes('3. Evidencia'), 'No debe existir el encabezado del punto 3')
+    assert.ok(!html.includes('3. Documento'), 'No debe existir el encabezado del punto 3')
+    assert.ok(!html.includes('<img'), 'No debe haber tags img embebidos')
+    assert.ok(!html.includes('page-anexo'), 'No debe existir página de anexo')
+    assert.ok(!html.includes('ANEXO: Documento de Respaldo'), 'No debe existir encabezado de anexo')
+  })
+
+  it('genera exactamente una sola página en el comprobante HTML', () => {
+    const datosSinAdjuntos: DatosCopiaComun = {
+      ...datosBase,
+      adjuntos: [],
+      adjuntosDetalle: [],
+    }
+
+    const html = buildHtmlCopiaComun(datosSinAdjuntos)
+    const totalPaginas = (html.match(/class="page"/g) || []).length
+    assert.equal(totalPaginas, 1, 'El comprobante debe consistir en exactamente 1 sola página')
+    assert.ok(!html.includes('page-anexo'), 'No debe incluir páginas adicionales de anexo')
   })
 
   it('escapa caracteres especiales para evitar inyecciones HTML (XSS)', () => {
@@ -171,3 +209,50 @@ describe('PBI 532: Plantilla HTML Común de Copia de Respaldo', () => {
     assert.ok(html.includes('Observación &amp; Detalle'))
   })
 })
+
+describe('PBI 532: Formato Estricto de Una Página sin Sección 3', () => {
+  const datosPrueba: DatosCopiaComun = {
+    tipoTramite: 'Solicitud de Cambio de Propietario',
+    tipoSlug: 'cambio-propietario',
+    fecha: new Date('2026-10-13T16:00:00Z'),
+    solicitante: {
+      nombre: 'Juan Pérez',
+      identificacion: '1-0234-0567',
+      telefono: '8888-8888',
+      correo: 'juan@ejemplo.com',
+      numeroAbonado: 'ABO-5555',
+      direccion: 'Nicoya Centro, 100m norte del parque',
+    },
+    detalles: [
+      { etiqueta: 'Nuevo Propietario', valor: 'Ana Rojas' },
+      { etiqueta: 'Cédula Nuevo Propietario', valor: '1-9876-5432' },
+      { etiqueta: 'Motivo', valor: 'Compra y Venta' },
+    ],
+    archivo: new File(['contenido'], 'contrato.pdf', { type: 'application/pdf' }),
+    adjuntos: ['contrato.pdf'],
+    adjuntosDetalle: [{ nombre: 'contrato.pdf', tipo: 'application/pdf' }],
+    observaciones: 'Trámite presentado conforme a requisitos institucionales.',
+  }
+
+  it('garantiza estructura de página única A4 con Punto 1 y Punto 2', () => {
+    const html = buildHtmlCopiaComun(datosPrueba)
+
+    // Verificar que solo haya un contenedor .page
+    const coincidenciasPaginas = html.match(/class="page"/g) || []
+    assert.equal(coincidenciasPaginas.length, 1)
+
+    // Verificar Secciones requeridas 1 y 2
+    assert.ok(html.includes('1. Información del Solicitante / Abonado'))
+    assert.ok(html.includes('2. Detalles y Declaración del Trámite'))
+    assert.ok(html.includes('Observaciones adicionales'))
+    assert.ok(html.includes('Constancia de Registro y Declaración Jurada'))
+    assert.ok(html.includes('Aviso de Validez y Efectos Administrativos'))
+
+    // Verificar ausencia absoluta de la Sección 3 y anexos
+    assert.ok(!html.includes('3. Evidencia'))
+    assert.ok(!html.includes('3. Documento'))
+    assert.ok(!html.includes('page-anexo'))
+    assert.ok(!html.includes('<img'))
+  })
+})
+
