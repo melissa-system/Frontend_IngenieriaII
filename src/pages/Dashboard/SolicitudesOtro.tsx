@@ -180,6 +180,17 @@ function VistaAbonado() {
       { etiqueta: 'Justificación / Detalle del trámite', valor: justificacion },
     ],
     adjuntos: adjunto ? [adjunto.name] : [],
+    adjuntosDetalle: adjunto
+      ? [
+          {
+            nombre: adjunto.name,
+            tipo: adjunto.type,
+            url: adjuntoPreview,
+            archivo: adjunto,
+          },
+        ]
+      : [],
+    archivo: adjunto,
   })
 
   const descargarCopiaPrevia = async () => {
@@ -546,6 +557,17 @@ function VistaAdministrador() {
       { etiqueta: 'Justificación / Detalle del trámite', valor: justificacion },
     ],
     adjuntos: adjunto ? [adjunto.name] : [],
+    adjuntosDetalle: adjunto
+      ? [
+          {
+            nombre: adjunto.name,
+            tipo: adjunto.type,
+            url: adjuntoPreview,
+            archivo: adjunto,
+          },
+        ]
+      : [],
+    archivo: adjunto,
   })
 
   const descargarCopiaPrevia = async () => {

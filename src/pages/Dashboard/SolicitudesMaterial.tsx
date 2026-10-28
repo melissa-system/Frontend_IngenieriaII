@@ -565,7 +565,7 @@ function SolicitudesMaterial() {
                               onChange={(e) =>
                                 setNuevo((n) => ({ ...n, proveedorId: e.target.value }))
                               }
-                              className="rounded-full border border-primary-200 bg-white px-4 py-2 text-sm"
+                              className="rounded-full border border-primary-200 bg-white px-3 py-2 text-sm"
                             >
                               <option value="">Proveedor…</option>
                               {proveedores.map((p) => (

@@ -173,6 +173,17 @@ function VistaAbonado() {
       { etiqueta: 'Detalle técnico o justificación', valor: justificacion },
     ],
     adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
   })
 
   const descargarCopiaPrevia = async () => {
@@ -570,6 +581,17 @@ function VistaAdministrador() {
       { etiqueta: 'Detalle técnico o justificación', valor: justificacion },
     ],
     adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
   })
 
   const descargarCopiaPrevia = async () => {
