@@ -15,7 +15,6 @@ import {
   normalizarIdentificacion,
   detectarTipoIdentificacion,
   IDENTIFICACION_REGEX,
-  TELEFONO_REGEX,
   EMAIL_REGEX,
   NATURALEZA_INMUEBLE_OPCIONES,
   CALIDAD_TITULAR_OPCIONES,
@@ -39,6 +38,8 @@ import {
 } from '../../lib/generarPdfSolicitud'
 import { obtenerPerfil } from '../../components/Services/perfil.service'
 import Button from '../../components/ui/Button'
+import Telefono from '../../components/ui/Telefono'
+import { MENSAJE_TELEFONO_INVALIDO, esTelefonoValido, normalizarTelefono } from '../../lib/telefono'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
@@ -415,9 +416,9 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
         IDENTIFICACION_REGEX.test(draft.cedulaRepresentante)))
 
   // ---------- Paso 1: contacto ----------
-  const telefonoValido = TELEFONO_REGEX.test(draft.telefono)
+  const telefonoValido = esTelefonoValido(draft.telefono)
   const telefonoSecundarioValido =
-    draft.telefonoSecundario.trim() === '' || TELEFONO_REGEX.test(draft.telefonoSecundario)
+    draft.telefonoSecundario.trim() === '' || esTelefonoValido(draft.telefonoSecundario)
   const correoValido = EMAIL_REGEX.test(draft.correo)
   const paso1Valido = telefonoValido && correoValido && telefonoSecundarioValido
 
@@ -492,8 +493,8 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
     cedulaRepresentante: esJuridica
       ? normalizarIdentificacion(draft.cedulaRepresentante)
       : null,
-    telefono: draft.telefono,
-    telefonoSecundario: draft.telefonoSecundario || null,
+    telefono: normalizarTelefono(draft.telefono),
+    telefonoSecundario: normalizarTelefono(draft.telefonoSecundario) || null,
     correo: draft.correo,
     provincia: UBICACION_ASADA.provincia,
     canton: UBICACION_ASADA.canton,
@@ -522,8 +523,8 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
         cedulaRepresentante: esJuridica
           ? normalizarIdentificacion(draft.cedulaRepresentante)
           : undefined,
-        telefono: draft.telefono,
-        telefonoSecundario: draft.telefonoSecundario || undefined,
+        telefono: normalizarTelefono(draft.telefono),
+        telefonoSecundario: normalizarTelefono(draft.telefonoSecundario) || undefined,
         correo: draft.correo,
         provincia: UBICACION_ASADA.provincia,
         canton: UBICACION_ASADA.canton,
@@ -881,33 +882,27 @@ function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
                     <label htmlFor="telefono" className={labelCls}>
                       Teléfono principal
                     </label>
-                    <input
+                    <Telefono
                       id="telefono"
-                      type="tel"
                       value={draft.telefono}
-                      onChange={(e) => actualizar('telefono', e.target.value)}
-                      placeholder="8888-8888"
-                      className={inputCls}
+                      onChange={(v) => actualizar('telefono', v)}
+                      error={draft.telefono.trim() !== '' && !telefonoValido ? MENSAJE_TELEFONO_INVALIDO : null}
                     />
-                    {draft.telefono.trim() !== '' && !telefonoValido && (
-                      <p className="mt-1 text-xs text-error-600">Formato inválido. Usa 8888-8888</p>
-                    )}
                   </div>
                   <div>
                     <label htmlFor="telefonoSecundario" className={labelCls}>
                       Teléfono secundario (opcional)
                     </label>
-                    <input
+                    <Telefono
                       id="telefonoSecundario"
-                      type="tel"
                       value={draft.telefonoSecundario}
-                      onChange={(e) => actualizar('telefonoSecundario', e.target.value)}
-                      placeholder="8888-8888"
-                      className={inputCls}
+                      onChange={(v) => actualizar('telefonoSecundario', v)}
+                      error={
+                        draft.telefonoSecundario.trim() !== '' && !telefonoSecundarioValido
+                          ? MENSAJE_TELEFONO_INVALIDO
+                          : null
+                      }
                     />
-                    {draft.telefonoSecundario.trim() !== '' && !telefonoSecundarioValido && (
-                      <p className="mt-1 text-xs text-error-600">Formato inválido. Usa 8888-8888</p>
-                    )}
                   </div>
                 </div>
                 <div>

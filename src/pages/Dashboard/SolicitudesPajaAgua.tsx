@@ -15,6 +15,7 @@ import {
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 import Toast from '../../components/ui/Toast'
 import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import { formatearTelefonoVisible } from '../../lib/telefono'
 import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
 import {
@@ -418,8 +419,8 @@ function ModalDetalle({
                 </>
               )}
 
-              <Campo etiqueta="Teléfono" valor={solicitud.telefono} />
-              <Campo etiqueta="Teléfono secundario" valor={solicitud.telefono_secundario ?? '—'} />
+              <Campo etiqueta="Teléfono" valor={formatearTelefonoVisible(solicitud.telefono)} />
+              <Campo etiqueta="Teléfono secundario" valor={solicitud.telefono_secundario ? formatearTelefonoVisible(solicitud.telefono_secundario) : '—'} />
               <Campo etiqueta="Correo" valor={solicitud.correo} colSpan2 />
 
               <Campo etiqueta="Dirección exacta" valor={solicitud.direccion} colSpan2 />

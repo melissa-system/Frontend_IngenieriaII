@@ -1,3 +1,4 @@
+import { isValidPhoneNumber } from 'libphonenumber-js'
 // Reglas de validación comunes a todos los formularios (PBI 511 / Task 513).
 // Son exactamente las mismas que aplica el backend en
 // src/common/validacion/reglas-validacion.ts: así un dato que el formulario
@@ -30,7 +31,8 @@ export const MENSAJES_VALIDACION = {
     'Debe ser una cédula física (9 dígitos) o un DIMEX (11 o 12 dígitos).',
   identificacion:
     'Debe ser una cédula física (9 dígitos), jurídica (10 dígitos) o un DIMEX (11 o 12 dígitos).',
-  telefono: 'El teléfono debe tener 8 dígitos (ej. 8888-8888).',
+  telefono:
+    'El teléfono debe ser válido: 8 dígitos de Costa Rica (ej. 8888-8888) o un número internacional con código de país (ej. +1 415 555 2671).',
   correo: 'El correo electrónico no tiene un formato válido.',
   fecha: 'La fecha no es válida.',
   fechaFutura: 'La fecha no puede ser posterior a hoy.',
@@ -53,7 +55,10 @@ export function esIdentificacion(
 }
 
 export function esTelefono(valor: string): boolean {
-  return REGEX_TELEFONO.test(valor.trim())
+  const v = valor.trim()
+  if (REGEX_TELEFONO.test(v)) return true
+  // Internacionales (E.164), validados según su país.
+  return v.startsWith('+') && isValidPhoneNumber(v)
 }
 
 export function esCorreo(valor: string): boolean {
@@ -193,6 +198,8 @@ export function validarArchivo(
 
 // Mientras se escribe: deja solo 8 dígitos y agrega el guion (8888-8888).
 export function formatearTelefono(valor: string): string {
+  // Números internacionales (+código de país): se dejan como se escriben.
+  if (valor.trim().startsWith('+')) return valor.replace(/[^\d+]/g, '').slice(0, 16)
   const d = soloDigitos(valor).slice(0, 8)
   return d.length > 4 ? `${d.slice(0, 4)}-${d.slice(4)}` : d
 }

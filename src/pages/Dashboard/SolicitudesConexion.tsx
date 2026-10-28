@@ -1,3 +1,5 @@
+import Telefono from '../../components/ui/Telefono'
+import { MENSAJE_TELEFONO_INVALIDO, esTelefonoValido } from '../../lib/telefono'
 import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
 import Alerta from '../../components/ui/Alerta'
 import ErrorState from '../../components/ui/ErrorState'
@@ -330,8 +332,14 @@ function FormularioConexion({
     // Checklist común (PBI 511): medio de notificación coherente con el
     // tipo elegido, identificación del firmante con formato válido y
     // longitudes máximas, igual que en el backend.
+    const reglaTelefono: Regla = (v) =>
+      !v.trim() || esTelefonoValido(v) ? null : MENSAJE_TELEFONO_INVALIDO
     const reglaValor = (medio: string): Regla[] =>
-      medio === 'correo' ? [correo()] : [maximo('El medio de notificación', 255)]
+      medio === 'correo'
+        ? [correo()]
+        : medio === 'fax'
+          ? [reglaTelefono]
+          : [maximo('El medio de notificación', 255)]
     const nuevos = validarCampos<CampoConexion>(
       {
         valorPrincipal: [requerido('El medio de notificación principal'), ...reglaValor(medioPrincipal)],
@@ -464,7 +472,13 @@ function FormularioConexion({
           <div className="flex gap-2">
             <select
               value={medioPrincipal}
-              onChange={(e) => setMedioPrincipal(e.target.value)}
+              onChange={(e) => {
+                const medio = e.target.value
+                setMedioPrincipal(medio)
+                // Cada medio tiene su propio formato: se parte de cero (el
+                // correo del abonado se vuelve a sugerir al elegir "correo").
+                setValorPrincipal(medio === 'correo' ? (seleccionada?.correo ?? '') : '')
+              }}
               className="h-10 rounded-full border border-primary-200 bg-white px-3 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
             >
               {MEDIO_NOTIFICACION_OPCIONES.map((o) => (
@@ -473,21 +487,34 @@ function FormularioConexion({
                 </option>
               ))}
             </select>
-            <input
-              type="text"
-              required
-              value={valorPrincipal}
-              maxLength={255}
-              onChange={(e) => setValorPrincipal(e.target.value)}
-              placeholder="Medio principal *"
-              className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.valorPrincipal)}`}
-            />
+            {medioPrincipal === 'fax' ? (
+              <div className="flex-1">
+                <Telefono
+                  value={valorPrincipal}
+                  onChange={setValorPrincipal}
+                  error={erroresCampo.valorPrincipal}
+                />
+              </div>
+            ) : (
+              <input
+                type="text"
+                required
+                value={valorPrincipal}
+                maxLength={255}
+                onChange={(e) => setValorPrincipal(e.target.value)}
+                placeholder="Medio principal *"
+                className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.valorPrincipal)}`}
+              />
+            )}
           </div>
           <CampoError mensaje={erroresCampo.valorPrincipal} />
           <div className="flex gap-2">
             <select
               value={medioSecundario}
-              onChange={(e) => setMedioSecundario(e.target.value)}
+              onChange={(e) => {
+                setMedioSecundario(e.target.value)
+                setValorSecundario('')
+              }}
               className="h-10 rounded-full border border-primary-200 bg-white px-3 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
             >
               <option value="">Sin medio secundario</option>
@@ -497,15 +524,25 @@ function FormularioConexion({
                 </option>
               ))}
             </select>
-            <input
-              type="text"
-              value={valorSecundario}
-              onChange={(e) => setValorSecundario(e.target.value)}
-              disabled={!medioSecundario}
-              maxLength={255}
-              placeholder="Medio secundario (opcional)"
-              className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none disabled:bg-primary-50 ${bordeCampo(erroresCampo.valorSecundario)}`}
-            />
+            {medioSecundario === 'fax' ? (
+              <div className="flex-1">
+                <Telefono
+                  value={valorSecundario}
+                  onChange={setValorSecundario}
+                  error={erroresCampo.valorSecundario}
+                />
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={valorSecundario}
+                onChange={(e) => setValorSecundario(e.target.value)}
+                disabled={!medioSecundario}
+                maxLength={255}
+                placeholder="Medio secundario (opcional)"
+                className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none disabled:bg-primary-50 ${bordeCampo(erroresCampo.valorSecundario)}`}
+              />
+            )}
           </div>
           <CampoError mensaje={erroresCampo.valorSecundario} />
         </div>

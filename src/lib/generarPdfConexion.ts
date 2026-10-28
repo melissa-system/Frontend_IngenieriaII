@@ -5,6 +5,7 @@ import {
   obtenerNombreArchivoCopia,
 } from './formatoFechaCostaRica'
 import { ANCHO, Formulario, X0, X1 } from './pdfFormulario'
+import { formatearTelefonoVisible } from './telefono'
 import { REQUISITOS_CONEXION } from './textosConexion'
 
 // PDF de la Solicitud de conexión de servicio (GNU-42-01-F1), con las mismas
@@ -50,7 +51,8 @@ function dibujarDocumento(s: SolicitudConexion, firmaDataUrl: string | null): Fo
   const medio = (principal: boolean, tipo: string) => {
     const m = principal ? s.medio_notificacion_principal : s.medio_notificacion_secundario
     const v = principal ? s.valor_notificacion_principal : s.valor_notificacion_secundario
-    return m === tipo ? (v ?? '') : ''
+    if (m !== tipo) return ''
+    return tipo === 'fax' ? formatearTelefonoVisible(v) : (v ?? '')
   }
 
   // ---------- Página 1 ----------
@@ -87,7 +89,7 @@ function dibujarDocumento(s: SolicitudConexion, firmaDataUrl: string | null): Fo
     { etiqueta: 'No. de Cédula Jurídica', valor: esJuridica ? s.identificacion_solicitante : '', ancho: mitad },
   ], { gap: 6 })
   f.fila([
-    { etiqueta: 'Teléfono 1', valor: s.telefono_solicitante, ancho: mitad },
+    { etiqueta: 'Teléfono 1', valor: formatearTelefonoVisible(s.telefono_solicitante), ancho: mitad },
     { etiqueta: 'Teléfono 2', valor: '', ancho: mitad },
   ], { gap: 6 })
 

@@ -1,5 +1,6 @@
 import { ASADA_NOMBRE_LEGAL, UBICACION_ASADA } from './asadaInfo'
 import { ANCHO, Formulario, X0 } from './pdfFormulario'
+import { formatearTelefonoVisible } from './telefono'
 import { consideracionesPajaAgua, requisitosPajaAgua } from './textosPajaAgua'
 import {
   obtenerFechaArchivoCostaRica,
@@ -116,8 +117,8 @@ function dibujarDocumento(datos: DatosDocumentoSolicitud): Formulario {
     { etiqueta: 'No. de Cédula Jurídica', valor: esJuridica ? datos.identificacion : '', ancho: mitad },
   ], { gap: 6 })
   f.fila([
-    { etiqueta: 'Teléfono 1', valor: datos.telefono, ancho: mitad },
-    { etiqueta: 'Teléfono 2', valor: datos.telefonoSecundario ?? '', ancho: mitad },
+    { etiqueta: 'Teléfono 1', valor: formatearTelefonoVisible(datos.telefono), ancho: mitad },
+    { etiqueta: 'Teléfono 2', valor: formatearTelefonoVisible(datos.telefonoSecundario), ancho: mitad },
   ], { gap: 6 })
 
   f.seccion('II.', 'Medio para notificación', '(Seleccione el medio de notificación principal y secundario de su preferencia)')
