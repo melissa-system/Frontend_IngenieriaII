@@ -2,6 +2,7 @@ import html2canvas from 'html2canvas'
 import jsPDF from 'jspdf'
 import { ASADA_NOMBRE_LEGAL, ASADA_CEDULA_JURIDICA } from './asadaInfo'
 import { crearContenedorCaptura } from './aislarEstilosPdf'
+import { colorGrafico } from './paletaGraficos'
 
 // PDF del Reporte Estadístico (A4), mismo enfoque que generarPdfConexion.ts:
 // se construye un contenedor oculto con el documento completo en HTML/CSS,
@@ -40,8 +41,6 @@ export interface ParametrosReportePdf {
   reporte: ReporteEstadisticoPdf
 }
 
-const PDF_COLORS = ['#073763', '#13416b', '#395f82', '#6a87a1', '#9cafc1']
-
 const ROWS_POR_PAGINA = 34
 const PAGE_WIDTH_MM = 210
 const PAGE_HEIGHT_MM = 297
@@ -63,8 +62,9 @@ function emptyBlock(): string {
   return '<div class="empty">No se encontraron registros para los filtros seleccionados.</div>'
 }
 
+// Mismos colores que los gráficos de la pantalla de Reportes.
 function color(i: number): string {
-  return PDF_COLORS[i % PDF_COLORS.length]
+  return colorGrafico(i)
 }
 
 function buildBarChart(data: DatoCategoria[]): string {
@@ -72,10 +72,10 @@ function buildBarChart(data: DatoCategoria[]): string {
   const max = Math.max(...data.map((d) => d.cantidad), 1)
   return data
     .map(
-      (d, i) =>
+      (d) =>
         `<div class="bar-row"><span class="bar-name">${esc(d.name)}</span>` +
         `<div class="bar-track"><div class="bar-fill" style="width:${pct(d.cantidad, max).toFixed(1)}%"></div></div>` +
-        `<span class="bar-val" style="color:${color(i)}">${d.cantidad}</span></div>`,
+        `<span class="bar-val">${d.cantidad}</span></div>`,
     )
     .join('')
 }
@@ -276,7 +276,7 @@ body{margin:0;padding:18px;background:#e8eef4;font-family:Arial,Helvetica,sans-s
 .bar-name{font-size:8.5px;color:#1e2a39;line-height:4mm;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .bar-track{background:#eef3f8;border-radius:2mm;height:3.6mm;overflow:hidden}
 .bar-fill{background:#073763;height:100%;border-radius:2mm}
-.bar-val{font-weight:bold;font-size:9px;line-height:4mm;text-align:right}
+.bar-val{color:#073763;font-weight:bold;font-size:9px;line-height:4mm;text-align:right}
 .donut-wrap{display:flex;gap:5mm;align-items:center}
 .donut{width:96px;height:96px;flex:0 0 auto}
 .leyenda{display:flex;flex-direction:column;gap:1.4mm;min-width:0;flex:1}

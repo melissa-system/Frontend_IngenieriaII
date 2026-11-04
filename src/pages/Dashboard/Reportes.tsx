@@ -38,6 +38,7 @@ import {
   type ParametrosReportePdf,
 } from '../../lib/generarPdfReporteEstadistico'
 import { generarExcelReporte } from '../../lib/generarExcelReporte'
+import { colorGrafico } from '../../lib/paletaGraficos'
 import {
   motivoNoExportable,
   nombreArchivoReporte,
@@ -59,8 +60,6 @@ const RANGE_OPTIONS = [
   { value: 'personalizado', label: 'Personalizado' },
 ] as const
 type RangeValue = (typeof RANGE_OPTIONS)[number]['value']
-
-const COLORS = ['#073763', '#13416b', '#395f82', '#4d6d88', '#9cafc1']
 
 const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
@@ -426,7 +425,7 @@ function Reportes() {
     .map((d, i) => ({
       name: d.name,
       value: d.cantidad,
-      fill: COLORS[i % COLORS.length],
+      fill: colorGrafico(i),
     }))
     .sort((a, b) => a.name.localeCompare(b.name, 'es'))
 
@@ -704,7 +703,7 @@ function Reportes() {
                     label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   >
                     {reporte.pieData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={colorGrafico(index)} />
                     ))}
                   </Pie>
                   <Tooltip />
