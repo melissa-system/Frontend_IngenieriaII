@@ -1,4 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
+import { useCallback, useEffect, useState } from 'react'
 import type { ReactNode } from 'react'
 import {
   obtenerSolicitudesPajaAgua,
@@ -6,16 +8,25 @@ import {
   type SolicitudPajaAgua,
 } from '../../components/Services/solicitudes.service'
 import {
-  obtenerConfiguracion,
-  type Configuracion,
-} from '../../components/Services/configuracion.service'
-import {
-  generarDocumentoSolicitud,
-  descargarDocumentoSolicitud,
+  generarPdfSolicitud,
+  descargarPdfSolicitud,
   type DatosDocumentoSolicitud,
-} from '../../lib/generarDocumentoSolicitud'
+} from '../../lib/generarPdfSolicitud'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
-import Toast from '../../components/Dashboard/Toast'
+import Toast from '../../components/ui/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import { formatearTelefonoVisible } from '../../lib/telefono'
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  type FiltroEstado,
+} from '../../lib/useFiltrosSolicitudes'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado from '../../components/ui/BadgeEstado'
+import Button from '../../components/ui/Button'
 
 // Traduce una fila de la tabla (forma de SolicitudPajaAgua) a la forma
 // común que espera el generador de documentos — la misma función que usa
@@ -45,51 +56,15 @@ function aDatosDocumento(s: SolicitudPajaAgua): DatosDocumentoSolicitud {
   }
 }
 
-type Estado = SolicitudPajaAgua['estado']
 
-const ESTADO_COLOR: Record<Estado, string> = {
-  Pendiente: 'bg-yellow-100 text-yellow-700',
-  'En proceso': 'bg-blue-100 text-blue-700',
-  Aprobada: 'bg-green-100 text-green-700',
-  Rechazada: 'bg-red-100 text-red-700',
-  Completada: 'bg-indigo-100 text-indigo-700',
-}
-
-// Colores de acento para las tarjetas de resumen y las pestañas de filtro
-// (mismo mapeo semántico que ESTADO_COLOR, pero pensado para fondos sólidos
-// de tarjeta en vez de badges).
-const ESTADO_ACENTO: Record<Estado, string> = {
-  Pendiente: 'border-yellow-200 bg-yellow-50 text-yellow-700',
-  'En proceso': 'border-blue-200 bg-blue-50 text-blue-700',
-  Aprobada: 'border-green-200 bg-green-50 text-green-700',
-  Rechazada: 'border-red-200 bg-red-50 text-red-700',
-  Completada: 'border-indigo-200 bg-indigo-50 text-indigo-700',
-}
-
-const ESTADOS: Estado[] = ['Pendiente', 'En proceso', 'Aprobada', 'Rechazada', 'Completada']
-
-// Mínimo de caracteres del motivo al rechazar — debe coincidir con
-// MIN_MOTIVO_RECHAZO_PAJA_AGUA del backend.
-const MIN_MOTIVO = 10
-
-// Ignora tildes y mayúsculas para que la búsqueda encuentre "Jose" al
-// escribir "josé" y viceversa (mismo criterio que AveriasAdmin.tsx).
-function normalizarBusqueda(texto: string | null | undefined): string {
-  return (texto ?? '')
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .toLowerCase()
-}
-
-function BadgeEstado({ estado }: { estado: Estado }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${ESTADO_COLOR[estado]}`}
-    >
-      {estado}
-    </span>
-  )
-}
+// Estados disponibles en el filtro de la barra de herramientas.
+const ESTADOS_FILTRO: FiltroEstado[] = [
+  { valor: 'Pendiente', etiqueta: 'Pendiente' },
+  { valor: 'En proceso', etiqueta: 'En proceso' },
+  { valor: 'Aprobada', etiqueta: 'Aprobada' },
+  { valor: 'Rechazada', etiqueta: 'Rechazada' },
+  { valor: 'Completada', etiqueta: 'Completada' },
+]
 
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
@@ -97,27 +72,28 @@ function formatearFecha(fecha: string): string {
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function EmptyState({ titulo, descripcion }: { titulo: string; descripcion: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
-}
-
 function SolicitudesPajaAgua() {
   const [solicitudes, setSolicitudes] = useState<SolicitudPajaAgua[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<SolicitudPajaAgua | null>(null)
-  const [configuracion, setConfiguracion] = useState<Configuracion | null>(null)
   const [motivoRechazo, setMotivoRechazo] = useState('')
   const [gestionando, setGestionando] = useState(false)
   const [toast, setToast] = useState<{ mensaje: string; tipo: 'exito' | 'error' } | null>(null)
 
-  const [filtroEstado, setFiltroEstado] = useState<Estado | 'Todas'>('Todas')
-  const [busqueda, setBusqueda] = useState('')
+  const filtros = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_FILTRO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_solicitante,
+      s.identificacion,
+      s.correo,
+      s.distrito,
+      s.canton,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_solicitud,
+  })
 
   const cargar = useCallback(async () => {
     setCargando(true)
@@ -134,12 +110,6 @@ function SolicitudesPajaAgua() {
 
   useEffect(() => {
     cargar()
-    // Datos reales de la ASADA (dirección/teléfono/correo) para el
-    // documento generado — ruta pública, no hace falta re-manejar errores
-    // de sesión acá: si falla, simplemente no se ofrece el documento.
-    obtenerConfiguracion()
-      .then(setConfiguracion)
-      .catch(() => setConfiguracion(null))
   }, [cargar])
 
   const abrirDetalle = (s: SolicitudPajaAgua) => {
@@ -147,43 +117,10 @@ function SolicitudesPajaAgua() {
     setDetalle(s)
   }
 
-  // Conteo por estado para las tarjetas de resumen y las pestañas de
-  // filtro — se calcula sobre TODAS las solicitudes, sin aplicar la
-  // búsqueda de texto, para que los números no "salten" al escribir.
-  const conteos = useMemo(() => {
-    const base: Record<Estado, number> = {
-      Pendiente: 0,
-      'En proceso': 0,
-      Aprobada: 0,
-      Rechazada: 0,
-      Completada: 0,
-    }
-    for (const s of solicitudes) base[s.estado] += 1
-    return base
-  }, [solicitudes])
-
-  const solicitudesFiltradas = useMemo(() => {
-    let resultado =
-      filtroEstado === 'Todas' ? solicitudes : solicitudes.filter((s) => s.estado === filtroEstado)
-
-    const q = normalizarBusqueda(busqueda)
-    if (q) {
-      resultado = resultado.filter((s) => {
-        const campos = [
-          s.codigo_solicitud,
-          s.nombre_solicitante,
-          s.identificacion,
-          s.correo,
-          s.distrito,
-          s.canton,
-        ]
-        return campos.some((c) => normalizarBusqueda(c).includes(q))
-      })
-    }
-    return resultado
-  }, [solicitudes, filtroEstado, busqueda])
-
-  const gestionar = async (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => {
+const gestionar = async (
+    estado: 'En proceso' | 'Aprobada' | 'Rechazada',
+    documentoAprobacion?: File,
+  ) => {
     if (!detalle) return
     setGestionando(true)
     setToast(null)
@@ -191,13 +128,16 @@ function SolicitudesPajaAgua() {
       await cambiarEstadoSolicitudPajaAgua(detalle.id, {
         estado,
         motivoRechazo: estado === 'Rechazada' ? motivoRechazo : undefined,
+        documentoAprobacion,
       })
       setToast({
         tipo: 'exito',
         mensaje:
           estado === 'Aprobada'
-            ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al solicitante por correo con los próximos pasos.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${estado}".`,
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se envió al solicitante el documento aprobado por correo con los próximos pasos.`
+            : estado === 'Rechazada'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${estado}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -215,117 +155,52 @@ function SolicitudesPajaAgua() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Paja de Agua</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Paja de Agua</h1>
         <p className="mt-1 text-sm text-primary-500">
           Solicitudes de disponibilidad de servicio registradas desde el sitio público
         </p>
       </div>
 
-      {error && (
-        <p className="rounded-lg bg-red-50 px-3 py-2 text-sm font-medium text-red-600">{error}</p>
-      )}
+      {error && <ErrorState mensaje={error} onReintentar={cargar} />}
 
       {!cargando && solicitudes.length > 0 && (
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-          <button
-            type="button"
-            onClick={() => setFiltroEstado('Todas')}
-            className={`rounded-xl border p-3 text-left shadow-sm transition-colors ${
-              filtroEstado === 'Todas'
-                ? 'border-primary-700 bg-primary-700 text-white'
-                : 'border-primary-100 bg-white hover:bg-primary-50'
-            }`}
-          >
-            <p
-              className={`text-xs font-medium uppercase ${
-                filtroEstado === 'Todas' ? 'text-primary-100' : 'text-primary-400'
-              }`}
-            >
-              Todas
-            </p>
-            <p className="mt-1 text-2xl font-semibold">{solicitudes.length}</p>
-          </button>
-          {ESTADOS.map((estado) => (
-            <button
-              key={estado}
-              type="button"
-              onClick={() => setFiltroEstado(estado)}
-              className={`rounded-xl border p-3 text-left shadow-sm transition-colors ${
-                filtroEstado === estado
-                  ? `${ESTADO_ACENTO[estado]} ring-1 ring-inset ring-current`
-                  : 'border-primary-100 bg-white hover:bg-primary-50'
-              }`}
-            >
-              <p className="text-xs font-medium uppercase text-primary-400">{estado}</p>
-              <p className="mt-1 text-2xl font-semibold text-primary-900">{conteos[estado]}</p>
-            </button>
-          ))}
-        </div>
-      )}
-
-      {!cargando && solicitudes.length > 0 && (
-        <div className="relative w-full sm:w-96">
-          <svg
-            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-            />
-          </svg>
-          <input
-            type="text"
-            placeholder="Buscar por código, nombre, cédula o correo…"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-          />
-          {busqueda && (
-            <button
-              type="button"
-              onClick={() => setBusqueda('')}
-              title="Limpiar búsqueda"
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          )}
-        </div>
+        <BarraFiltrosSolicitudes
+          busca={filtros.busqueda}
+          manejarBusqueda={filtros.cambiarBusqueda}
+          placeholder="Buscar por código, nombre, cédula o correo…"
+          orden={filtros.orden}
+          cambiarOrden={filtros.cambiarOrden}
+          filtroEstado={filtros.filtroEstado}
+          cambiarEstado={filtros.cambiarEstado}
+          estados={ESTADOS_FILTRO}
+        />
       )}
 
       {cargando ? (
-        <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+        <Cargando texto="Cargando solicitudes…" />
       ) : solicitudes.length === 0 ? (
         <EmptyState
           titulo="No hay solicitudes registradas de este tipo."
           descripcion="Las solicitudes de paja de agua enviadas desde el sitio público aparecerán aquí."
         />
-      ) : solicitudesFiltradas.length === 0 ? (
+      ) : filtros.filtradas.length === 0 ? (
         <EmptyState
-          titulo="Ninguna solicitud coincide con el filtro."
-          descripcion="Probá con otro estado o limpiá la búsqueda."
+          titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+          descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Solicitante</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-100">
-              {solicitudesFiltradas.map((s) => (
+        <Table cabecera={['Código', 'Solicitante', 'Estado', 'Fecha', 'Acciones']} pie={<><PaginadorSolicitudes
+            total={filtros.filtradas.length}
+            primeraFila={filtros.primeraFila}
+            porPagina={filtros.porPagina}
+            paginaActual={filtros.paginaActual}
+            totalPaginas={filtros.totalPaginas}
+            numerosPagina={filtros.numerosPagina}
+            busca={filtros.busqueda}
+            etiqueta="solicitudes"
+            irPagina={filtros.irPagina}
+          /></>}>
+              {filtros.filasVisibles.map((s) => (
                 <tr key={s.id} className="hover:bg-primary-50/50">
                   <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
                   <td className="px-4 py-3 text-primary-600">
@@ -339,25 +214,21 @@ function SolicitudesPajaAgua() {
                     {formatearFecha(s.fecha_solicitud)}
                   </td>
                   <td className="px-4 py-3">
-                    <button
+                    <Button
+                      variant="secondary" size="sm"
                       type="button"
-                      onClick={() => abrirDetalle(s)}
-                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                    >
-                      Ver detalle
-                    </button>
+                      onClick={() => abrirDetalle(s)}>
+                      Ver / gestionar
+                    </Button>
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table>
       )}
 
       {detalle && (
         <ModalDetalle
           solicitud={detalle}
-          configuracion={configuracion}
           motivoRechazo={motivoRechazo}
           setMotivoRechazo={setMotivoRechazo}
           gestionando={gestionando}
@@ -412,7 +283,7 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
             Descargar →
           </button>
         ) : (
-          <span className="text-primary-300">No adjuntado</span>
+          <span className="text-primary-500">No adjuntado</span>
         )}
       </dd>
     </div>
@@ -425,7 +296,6 @@ function EnlaceDocumento({ etiqueta, url }: { etiqueta: string; url: string | nu
 // correo los próximos pasos).
 function ModalDetalle({
   solicitud,
-  configuracion,
   motivoRechazo,
   setMotivoRechazo,
   gestionando,
@@ -433,52 +303,56 @@ function ModalDetalle({
   onGestionar,
 }: {
   solicitud: SolicitudPajaAgua
-  configuracion: Configuracion | null
   motivoRechazo: string
   setMotivoRechazo: (valor: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'En proceso' | 'Aprobada' | 'Rechazada') => void
+  onGestionar: (
+    estado: 'En proceso' | 'Aprobada' | 'Rechazada',
+    documentoAprobacion?: File,
+  ) => void | Promise<void>
 }) {
   const [generandoDocumento, setGenerandoDocumento] = useState(false)
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
   const [expandido, setExpandido] = useState(false)
+  const [documentoAprobacion, setDocumentoAprobacion] = useState<File | null>(null)
 
   const esFinal =
     solicitud.estado === 'Aprobada' ||
     solicitud.estado === 'Rechazada' ||
     solicitud.estado === 'Completada'
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   async function manejarDescargarDocumento() {
-    if (!configuracion) return
     setGenerandoDocumento(true)
     try {
-      const blob = await generarDocumentoSolicitud(aDatosDocumento(solicitud), configuracion)
-      descargarDocumentoSolicitud(blob, solicitud.codigo_solicitud)
+      const blob = await generarPdfSolicitud(aDatosDocumento(solicitud))
+      descargarPdfSolicitud(blob, solicitud.codigo_solicitud)
     } finally {
       setGenerandoDocumento(false)
     }
   }
 
-  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
-  // (ya con motivo válido) confirma el rechazo.
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(
+        confirmar === 'aprobar' ? 'Aprobada' : 'Rechazada',
+        confirmar === 'aprobar' ? (documentoAprobacion ?? undefined) : undefined,
+      )
+    } finally {
+      setConfirmar(null)
+      setDocumentoAprobacion(null)
     }
-    if (motivoValido) onGestionar('Rechazada')
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl" onCerrar={onCerrar}>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               {solicitud.codigo_solicitud}
-            </h3>
+            </ModalTitulo>
             <p className="mt-0.5 text-sm text-primary-500">
               Solicitud de disponibilidad de servicio (Paja de Agua)
             </p>
@@ -511,8 +385,8 @@ function ModalDetalle({
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
-              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+              <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
             </div>
           )}
 
@@ -545,8 +419,8 @@ function ModalDetalle({
                 </>
               )}
 
-              <Campo etiqueta="Teléfono" valor={solicitud.telefono} />
-              <Campo etiqueta="Teléfono secundario" valor={solicitud.telefono_secundario ?? '—'} />
+              <Campo etiqueta="Teléfono" valor={formatearTelefonoVisible(solicitud.telefono)} />
+              <Campo etiqueta="Teléfono secundario" valor={solicitud.telefono_secundario ? formatearTelefonoVisible(solicitud.telefono_secundario) : '—'} />
               <Campo etiqueta="Correo" valor={solicitud.correo} colSpan2 />
 
               <Campo etiqueta="Dirección exacta" valor={solicitud.direccion} colSpan2 />
@@ -587,100 +461,92 @@ function ModalDetalle({
               <p className="mb-2 text-xs font-semibold uppercase text-primary-400">
                 Documento de solicitud (machote)
               </p>
-              {configuracion ? (
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={manejarDescargarDocumento}
-                    disabled={generandoDocumento}
-                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-                  >
-                    {generandoDocumento ? 'Generando…' : 'Descargar documento (Word)'}
-                  </button>
-                </div>
-              ) : (
-                <p className="text-xs text-primary-400">
-                  No se pudo cargar la información de la ASADA para generar el documento.
-                </p>
-              )}
+              <div className="flex gap-2">
+                <Button
+                  variant="secondary" size="sm"
+                  type="button"
+                  onClick={manejarDescargarDocumento}
+                  disabled={generandoDocumento}>
+                  {generandoDocumento ? 'Generando…' : 'Descargar documento (PDF)'}
+                </Button>
+              </div>
             </div>
           </>
         )}
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label
-                  htmlFor="motivoRechazoPajaAgua"
-                  className="block text-sm font-medium text-primary-700"
-                >
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivoRechazoPajaAgua"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: Documentación incompleta o ilegible..."
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar (llevas{' '}
-                    {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              {solicitud.estado !== 'En proceso' && (
+                <Button
+                  variant="info"
+                  type="button"
+                  onClick={() => onGestionar('En proceso')}
+                  disabled={gestionando}>
+                  {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                </Button>
+              )}
+              <Button
+                variant="success"
                 type="button"
-                onClick={() => onGestionar('En proceso')}
-                disabled={gestionando || solicitud.estado === 'En proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
-                type="button"
-                onClick={() => onGestionar('Aprobada')}
-                disabled={gestionando}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('aprobar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            aviso={
+              confirmar === 'aprobar'
+                ? 'Al confirmar, se creará o vinculará al abonado y el solicitante recibirá un correo con el documento adjunto y los próximos pasos.'
+                : undefined
+            }
+            documento={
+              confirmar === 'aprobar'
+                ? {
+                    archivo: documentoAprobacion,
+                    onChange: setDocumentoAprobacion,
+                    etiqueta: 'Documento de la solicitud aprobada (firmado por la ASADA)',
+                    ayuda: 'PDF o Word, máximo 5 MB. Se enviará por correo al solicitante para que lo descargue e inicie la segunda etapa.',
+                    accept: '.pdf,.doc,.docx',
+                  }
+                : undefined
+            }
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
+        )}
+</Modal>
   )
 }
 

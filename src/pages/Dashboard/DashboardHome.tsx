@@ -1,9 +1,40 @@
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Alerta from '../../components/ui/Alerta'
+import Button from '../../components/ui/Button'
 import { useState, useMemo, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerMiResumen, type MiResumen } from '../../components/Services/abonados.service'
-import { obtenerAverias, type AveriaBackend } from '../../components/Services/averias.service'
+import {
+  obtenerAverias,
+  obtenerMisAveriasFontanero,
+  iniciarGestionAveria,
+  terminarGestionAveria,
+  type AveriaBackend,
+} from '../../components/Services/averias.service'
+import {
+  obtenerMisLabores,
+  iniciarGestionLabor,
+  terminarGestionLabor,
+  type LaborBackend,
+} from '../../components/Services/labores.service'
+import {
+  obtenerMisReportes,
+  obtenerReportes,
+  formatearTiempo,
+  ETIQUETA_ACTIVIDAD,
+  type ReporteFontanero,
+} from '../../components/Services/reportesFontanero.service'
+import DetalleTrabajoModal, {
+  type DatosTrabajo,
+} from '../../components/Dashboard/DetalleTrabajoModal'
+import {
+  obtenerMisSolicitudesMaterial,
+  obtenerSolicitudesMaterial,
+  type SolicitudMaterial,
+} from '../../components/Services/solicitudesMaterial.service'
 
 type Rango = 'este-mes' | 'este-trimestre' | 'este-ano' | 'personalizado'
 
@@ -84,7 +115,7 @@ function StatCard({
         {icon}
       </span>
       <p className="mt-3 truncate text-xs font-medium text-primary-500 sm:mt-4 sm:text-sm">{title}</p>
-      <p className="mt-1 text-2xl font-semibold text-primary-900 sm:text-3xl">{value}</p>
+      <p className="mt-1 text-titulo-pagina font-semibold text-primary-900 sm:text-3xl">{value}</p>
       <p className="mt-1 truncate text-[11px] text-primary-400 sm:text-xs">{subtitle}</p>
     </Link>
   )
@@ -145,9 +176,9 @@ function IconCalendario() {
 // (ámbar), 5+ días es urgente (rojo). Se usa tanto en el calendario como en
 // la lista de seguimientos para que el color signifique lo mismo en los dos.
 function colorSeveridad(diasAbierta: number): { bg: string; text: string; dot: string } {
-  if (diasAbierta >= 5) return { bg: 'bg-red-100', text: 'text-red-700', dot: 'bg-red-500' }
-  if (diasAbierta >= 2) return { bg: 'bg-amber-100', text: 'text-amber-700', dot: 'bg-amber-500' }
-  return { bg: 'bg-blue-100', text: 'text-blue-700', dot: 'bg-blue-500' }
+  if (diasAbierta >= 5) return { bg: 'bg-error-100', text: 'text-error-700', dot: 'bg-error-500' }
+  if (diasAbierta >= 2) return { bg: 'bg-advertencia-100', text: 'text-advertencia-700', dot: 'bg-advertencia-500' }
+  return { bg: 'bg-info-100', text: 'text-info-700', dot: 'bg-info-500' }
 }
 
 function IconPublicaciones() {
@@ -158,54 +189,42 @@ function IconPublicaciones() {
   )
 }
 
-// Fila compacta de alerta (no la tarjeta grande de antes): pensada para
-// vivir varias juntas dentro de una sola tarjeta contenedora, como una
-// mini-lista de pendientes en vez de un bloque de KPIs por separado.
-function AlertRow({
-  icon,
-  color,
-  mensaje,
-  count,
-  to,
-}: {
-  icon: React.ReactNode
-  color: string
-  mensaje: string
-  count: number
-  to: string
-}) {
+function IconDocumento() {
   return (
-    <Link
-      to={to}
-      className="group flex items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-primary-50"
-    >
-      <span className={`flex h-9 w-9 flex-none items-center justify-center rounded-full ${color}`}>
-        {icon}
-      </span>
-      <p className="min-w-0 flex-1 truncate text-sm font-medium text-primary-800">{mensaje}</p>
-      <span className="flex h-6 min-w-6 flex-none items-center justify-center rounded-full bg-primary-100 px-1.5 text-xs font-bold text-primary-700 group-hover:bg-primary-700 group-hover:text-white">
-        {count}
-      </span>
-    </Link>
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-5 w-5">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 0 0-3.375-3.375h-1.5A1.125 1.125 0 0 1 13.5 7.125v-1.5a3.375 3.375 0 0 0-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 0 0-9-9Z" />
+    </svg>
   )
 }
 
 // Tile de navegación rápida hacia otra sección del dashboard — para que el
 // panel principal también sirva como punto de partida, no solo de lectura.
+// El `badge` muestra, como una notificación, cuántos pendientes hay en esa
+// sección; solo aparece cuando hay algo que atender.
 function QuickLink({
   icon,
   label,
   to,
+  badge = 0,
+  badgeTitulo,
 }: {
   icon: React.ReactNode
   label: string
   to: string
+  badge?: number
+  badgeTitulo?: string
 }) {
   return (
     <Link
       to={to}
-      className="group flex flex-col items-center gap-2 rounded-2xl border border-primary-100 bg-white px-3 py-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
+      title={badge > 0 && badgeTitulo ? badgeTitulo : undefined}
+      className="group relative flex flex-col items-center gap-2 rounded-2xl border border-primary-100 bg-white px-3 py-4 text-center shadow-sm transition-all hover:-translate-y-0.5 hover:border-primary-300 hover:shadow-md"
     >
+      {badge > 0 && (
+        <span className="absolute right-2 top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-error-500 px-1 text-[10px] font-bold text-white">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
       <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary-50 text-primary-700 transition-colors group-hover:bg-primary-700 group-hover:text-white">
         {icon}
       </span>
@@ -219,6 +238,10 @@ function DashboardHome() {
 
   if (rolEfectivo === 'Abonado') {
     return <DashboardAbonado />
+  }
+
+  if (rolEfectivo === 'Fontanero') {
+    return <DashboardFontanero />
   }
 
   return <DashboardHomeContenido />
@@ -263,6 +286,38 @@ function DashboardHomeContenido() {
     }
   }, [])
 
+  // Reportes de fontanero pendientes de revisión: la administración decide si
+  // la resolución de la avería se aprueba o no. Se cuenta desde el backend
+  // (endpoint administrativo); si falla, simplemente no se muestra la
+  // notificación.
+  const [reportesPorRevisar, setReportesPorRevisar] = useState(0)
+  useEffect(() => {
+    let cancelado = false
+    obtenerReportes({ estadoRevision: 'Pendiente', limite: 1 })
+      .then((r) => {
+        if (!cancelado) setReportesPorRevisar(r.total)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  // Solicitudes de material pendientes de aprobación: se muestran como badge
+  // en el acceso rápido a Inventario. Si falla, no se muestra la notificación.
+  const [materialesPendientesAdmin, setMaterialesPendientesAdmin] = useState(0)
+  useEffect(() => {
+    let cancelado = false
+    obtenerSolicitudesMaterial({ estado: 'Pendiente' })
+      .then((lista) => {
+        if (!cancelado) setMaterialesPendientesAdmin(lista.length)
+      })
+      .catch(() => {})
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
   const { desde, hasta } = useMemo(() => {
     if (rango === 'personalizado' && desdeCustom && hastaCustom) {
       return { desde: desdeCustom, hasta: hastaCustom }
@@ -288,53 +343,20 @@ function DashboardHomeContenido() {
   const totalAverias = averiasFiltradas.length
   const averiasPendientes = averiasFiltradas.filter((a) => a.estado === 'Pendiente').length
   const averiasEnProceso = averiasFiltradas.filter((a) => a.estado === 'En proceso').length
+  const averiasEnRevision = averiasFiltradas.filter((a) => a.estado === 'En revisión').length
   const averiasFinalizadas = averiasFiltradas.filter((a) => a.estado === 'Finalizado').length
-  const averiasActivas = averiasPendientes + averiasEnProceso
+  const averiasActivas = averiasPendientes + averiasEnProceso + averiasEnRevision
 
   const averiasSinAsignar = averiasReales.filter(
     (a) => a.estado === 'Pendiente' && !a.empleado,
   ).length
 
-  // Estas dos vienen directo de abonadosReales (no del filtro de rango):
-  // "inactivos" refleja el estado del abonado, y "sin cuenta" detecta
-  // abonados con correo registrado pero sin usuario vinculado todavía (ej.
-  // si el correo de bienvenida falló o nadie lo vinculó a mano después).
+  // Viene directo de abonadosReales (no del filtro de rango): refleja el
+  // estado del abonado, no cuándo se registró.
   const abonadosInactivosTotal = abonadosReales.filter((a) => a.estado === 'Inactivo').length
-  const abonadosSinCuenta = abonadosReales.filter((a) => !a.usuario_id).length
 
-  // Solo alertas basadas en datos reales — nada de mock. Si algún día se
-  // agrega otra alerta acá, que sea sobre un dato que de verdad viene del
-  // backend, no una aproximación.
-  const alertasActivas = useMemo(
-    () =>
-      [
-        {
-          key: 'averias',
-          icon: <IconAveria />,
-          color: 'bg-red-100 text-red-600',
-          mensaje: 'Averías sin asignar',
-          count: averiasSinAsignar,
-          to: '/dashboard/averias',
-        },
-        {
-          key: 'abonados-inactivos',
-          icon: <IconAbonado />,
-          color: 'bg-blue-100 text-blue-600',
-          mensaje: 'Abonados inactivos',
-          count: abonadosInactivosTotal,
-          to: '/dashboard/abonados',
-        },
-        {
-          key: 'abonados-sin-cuenta',
-          icon: <IconAbonado />,
-          color: 'bg-purple-100 text-purple-600',
-          mensaje: 'Abonados sin cuenta vinculada',
-          count: abonadosSinCuenta,
-          to: '/dashboard/abonados',
-        },
-      ].filter((a) => a.count > 0),
-    [averiasSinAsignar, abonadosInactivosTotal, abonadosSinCuenta],
-  )
+  // Los pendientes ya no se listan como "alertas" aparte: se muestran como
+  // notificaciones (badge) sobre los accesos rápidos de abajo.
 
   // Averías todavía sin resolver (Pendiente o En proceso), con sus días de
   // antigüedad desde que se reportaron — es el dato real que alimenta tanto
@@ -397,7 +419,7 @@ function DashboardHomeContenido() {
           por eso vive junto a ellas y no como una franja aparte. */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">
             {primerNombre ? `Hola, ${primerNombre}` : 'Panel de control'}
           </h1>
           <p className="mt-1 text-sm text-primary-500">
@@ -496,44 +518,65 @@ function DashboardHomeContenido() {
           </p>
 
           <div className="relative mt-5 flex flex-wrap gap-2">
-            <span className="rounded-full bg-yellow-100 px-3 py-1 text-xs font-semibold text-yellow-700">
+            <span className="rounded-full bg-advertencia-100 px-3 py-1 text-xs font-semibold text-advertencia-700">
               {averiasPendientes} pendientes
             </span>
-            <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
+            <span className="rounded-full bg-info-100 px-3 py-1 text-xs font-semibold text-info-700">
               {averiasEnProceso} en proceso
             </span>
-            <span className="rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+            {averiasEnRevision > 0 && (
+              <span className="rounded-full bg-acento-100 px-3 py-1 text-xs font-semibold text-acento-700">
+                {averiasEnRevision} en revisión
+              </span>
+            )}
+            <span className="rounded-full bg-exito-100 px-3 py-1 text-xs font-semibold text-exito-700">
               {averiasFinalizadas} finalizadas
             </span>
           </div>
         </Link>
       </div>
 
-      {/* Alertas: lista compacta, solo si hay algo real que atender. */}
-      {alertasActivas.length > 0 && (
-        <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-3 shadow-sm sm:p-4">
-          <p className="px-2 pt-1 text-xs font-semibold tracking-wide text-primary-400 uppercase">
-            Por revisar
-          </p>
-          <div className="mt-1 grid grid-cols-1 gap-1 sm:grid-cols-3">
-            {alertasActivas.map((a) => (
-              <AlertRow key={a.key} icon={a.icon} color={a.color} mensaje={a.mensaje} count={a.count} to={a.to} />
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Accesos rápidos: el panel también es punto de partida, no solo
-          lectura de números. */}
+          lectura de números. Los pendientes se muestran como una notificación
+          (badge) sobre cada sección, en vez de una lista de alertas aparte. */}
       <div>
         <p className="mb-3 text-xs font-semibold tracking-wide text-primary-400 uppercase">
           Accesos rápidos
         </p>
-        <div className="grid grid-cols-3 gap-3 sm:grid-cols-6">
-          <QuickLink icon={<IconAbonado />} label="Abonados" to="/dashboard/abonados" />
-          <QuickLink icon={<IconAveria />} label="Averías" to="/dashboard/averias" />
+        <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-7">
+          <QuickLink
+            icon={<IconAbonado />}
+            label="Abonados"
+            to="/dashboard/abonados"
+            badge={abonadosInactivosTotal}
+            badgeTitulo="Abonados inactivos"
+          />
+          <QuickLink
+            icon={<IconAveria />}
+            label="Averías"
+            to="/dashboard/averias"
+            badge={averiasSinAsignar}
+            badgeTitulo="Averías sin asignar"
+          />
+          <QuickLink
+            icon={<IconDocumento />}
+            label="Reportes"
+            to="/dashboard/averias/fontanero"
+            badge={reportesPorRevisar}
+            badgeTitulo="Reportes de fontanero por revisar"
+          />
           <QuickLink icon={<IconSolicitud />} label="Solicitudes" to="/dashboard/solicitudes" />
-          <QuickLink icon={<IconStock />} label="Inventario" to="/dashboard/inventario/articulos" />
+          <QuickLink
+            icon={<IconStock />}
+            label="Inventario"
+            to={
+              materialesPendientesAdmin > 0
+                ? '/dashboard/inventario/solicitudes-material'
+                : '/dashboard/inventario/articulos'
+            }
+            badge={materialesPendientesAdmin}
+            badgeTitulo="Solicitudes de material pendientes"
+          />
           <QuickLink icon={<IconUsuarios />} label="Usuarios" to="/dashboard/seguridad" />
           <QuickLink icon={<IconPublicaciones />} label="Publicaciones" to="/dashboard/administrativo" />
         </div>
@@ -584,13 +627,13 @@ function DashboardHomeContenido() {
 
           <div className="mt-4 flex flex-wrap items-center gap-3 text-[11px] text-primary-500">
             <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-blue-500" /> reciente
+              <span className="h-2.5 w-2.5 rounded-full bg-info-500" /> reciente
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> 2-4 días
+              <span className="h-2.5 w-2.5 rounded-full bg-advertencia-500" /> 2-4 días
             </span>
             <span className="flex items-center gap-1">
-              <span className="h-2.5 w-2.5 rounded-full bg-red-500" /> 5+ días
+              <span className="h-2.5 w-2.5 rounded-full bg-error-500" /> 5+ días
             </span>
           </div>
         </div>
@@ -608,9 +651,7 @@ function DashboardHomeContenido() {
           <p className="mt-1 text-sm text-primary-400">Averías abiertas, de más antigua a más reciente</p>
 
           {averiasAbiertas.length === 0 ? (
-            <p className="py-16 text-center text-sm text-primary-400">
-              No hay averías pendientes en este momento.
-            </p>
+            <EmptyState compacto titulo="No hay averías pendientes en este momento." />
           ) : (
             <div className="mt-3 divide-y divide-primary-50">
               {averiasAbiertas.slice(0, 6).map((a) => {
@@ -683,9 +724,7 @@ function DashboardAbonado() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-center text-red-700">
-          {error}
-        </div>
+        <ErrorState mensaje={error} onReintentar={() => window.location.reload()} />
       </div>
     )
   }
@@ -698,13 +737,14 @@ function DashboardAbonado() {
     .join(' ')
 
   const ESTADO_COLORS: Record<string, string> = {
-    pendiente: 'bg-yellow-100 text-yellow-700',
-    en_proceso: 'bg-blue-100 text-blue-700',
-    aprobado: 'bg-green-100 text-green-700',
-    rechazado: 'bg-red-100 text-red-700',
-    Pendiente: 'bg-yellow-100 text-yellow-700',
-    'En proceso': 'bg-blue-100 text-blue-700',
-    Finalizado: 'bg-green-100 text-green-700',
+    pendiente: 'bg-advertencia-100 text-advertencia-700',
+    en_proceso: 'bg-info-100 text-info-700',
+    aprobado: 'bg-exito-100 text-exito-700',
+    rechazado: 'bg-error-100 text-error-700',
+    Pendiente: 'bg-advertencia-100 text-advertencia-700',
+    'En proceso': 'bg-info-100 text-info-700',
+    'En revisión': 'bg-info-100 text-info-700',
+    Finalizado: 'bg-exito-100 text-exito-700',
   }
 
   return (
@@ -714,7 +754,7 @@ function DashboardAbonado() {
         <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
         <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl" />
         <div className="relative">
-          <h1 className="text-2xl font-semibold text-primary-900">
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">
             Bienvenido, {nombreCompleto}
           </h1>
           <p className="mt-1 text-sm text-primary-500">
@@ -774,7 +814,7 @@ function DashboardAbonado() {
           {/* Columna 3 */}
           <div>
             <p className="text-xs font-medium text-primary-500">Tipo de abonado</p>
-            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.tipo_abonado === 'Jurídica' ? 'bg-purple-100 text-purple-700' : 'bg-blue-100 text-blue-700'}`}>
+            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.tipo_abonado === 'Jurídica' ? 'bg-acento-100 text-acento-700' : 'bg-info-100 text-info-700'}`}>
               {abonado.tipo_abonado}
             </span>
           </div>
@@ -793,7 +833,7 @@ function DashboardAbonado() {
           {/* Columna 3 */}
           <div>
             <p className="text-xs font-medium text-primary-500">Estado</p>
-            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.estado === 'Activo' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+            <span className={`mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${abonado.estado === 'Activo' ? 'bg-exito-100 text-exito-700' : 'bg-error-100 text-error-700'}`}>
               {abonado.estado}
             </span>
           </div>
@@ -811,7 +851,7 @@ function DashboardAbonado() {
             </Link>
           </div>
           {solicitudesRecientes.length === 0 ? (
-            <p className="mt-4 text-sm text-primary-400">Aún no has realizado solicitudes.</p>
+            <EmptyState compacto titulo="Aún no has realizado solicitudes." />
           ) : (
             <ul className="mt-3 space-y-2">
               {solicitudesRecientes.map((s) => (
@@ -821,7 +861,7 @@ function DashboardAbonado() {
                     <p className="text-xs text-primary-500">{s.tipo_solicitud}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[s.estado] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[s.estado] || 'bg-primary-100 text-primary-600'}`}>
                       {s.estado}
                     </span>
                     <span className="text-[11px] text-primary-400">
@@ -840,7 +880,7 @@ function DashboardAbonado() {
             <h2 className="text-lg font-semibold text-primary-900">Últimos reportes de averías</h2>
           </div>
           {averiasRecientes.length === 0 ? (
-            <p className="mt-4 text-sm text-primary-400">Aún no has reportado averías.</p>
+            <EmptyState compacto titulo="Aún no has reportado averías." />
           ) : (
             <ul className="mt-3 space-y-2">
               {averiasRecientes.map((a) => (
@@ -850,7 +890,7 @@ function DashboardAbonado() {
                     <p className="text-xs text-primary-500">{a.tipo_averia}</p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[a.estado] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${ESTADO_COLORS[a.estado] || 'bg-primary-100 text-primary-600'}`}>
                       {a.estado}
                     </span>
                     <span className="text-[11px] text-primary-400">
@@ -863,6 +903,614 @@ function DashboardAbonado() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Cronómetro en vivo de la gestión de una avería. Se calcula contra la hora
+// de inicio que guardó el servidor, así que recargar la página no lo altera.
+function Cronometro({ inicio }: { inicio: string | null }) {
+  const [ahora, setAhora] = useState(() => Date.now())
+
+  useEffect(() => {
+    const id = setInterval(() => setAhora(Date.now()), 1000)
+    return () => clearInterval(id)
+  }, [])
+
+  const inicioMs = inicio ? new Date(inicio).getTime() : NaN
+  const segundos = Number.isNaN(inicioMs)
+    ? 0
+    : Math.max(0, Math.floor((ahora - inicioMs) / 1000))
+  const horas = Math.floor(segundos / 3600)
+  const minutos = Math.floor((segundos % 3600) / 60)
+  const restoSegundos = segundos % 60
+  const texto =
+    horas > 0
+      ? `${horas}:${String(minutos).padStart(2, '0')}:${String(restoSegundos).padStart(2, '0')}`
+      : `${String(minutos).padStart(2, '0')}:${String(restoSegundos).padStart(2, '0')}`
+
+  return (
+    <span
+      className="rounded-full bg-info-100 px-2 py-0.5 font-mono text-[11px] font-semibold tabular-nums text-info-700"
+      title="Tiempo transcurrido desde que iniciaste la gestión"
+    >
+      {texto}
+    </span>
+  )
+}
+
+// Fecha corta para la fila de trabajos (día + mes + año).
+function fechaCorta(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleDateString('es-CR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  })
+}
+
+// Dashboard personalizado para fontaneros: muestra su resumen de actividad
+// (reportes registrados y horas acumuladas) y accesos rápidos a su sección
+// y a los documentos oficiales. Mismo patrón que DashboardAbonado.
+function DashboardFontanero() {
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const [reportes, setReportes] = useState<ReporteFontanero[]>([])
+  const [averiasPendientes, setAveriasPendientes] = useState<AveriaBackend[]>([])
+  const [laboresPendientes, setLaboresPendientes] = useState<LaborBackend[]>([])
+  const [solicitudesMaterial, setSolicitudesMaterial] = useState<
+    SolicitudMaterial[]
+  >([])
+  const [cargando, setCargando] = useState(true)
+  const [error, setError] = useState('')
+  // Error de una acción puntual (iniciar/finalizar) que se muestra dentro de la
+  // tarjeta, sin reemplazar todo el dashboard como hace el error de carga.
+  const [aviso, setAviso] = useState('')
+  // Clave del trabajo en curso ("averia-3" / "labor-5") para deshabilitar su
+  // botón mientras se procesa.
+  const [accionandoClave, setAccionandoClave] = useState<string | null>(null)
+  // Clave del trabajo cuyo detalle está abierto en el modal.
+  const [detalleClave, setDetalleClave] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelado = false
+    Promise.all([
+      obtenerMisReportes(),
+      obtenerMisAveriasFontanero(),
+      obtenerMisLabores(),
+      obtenerMisSolicitudesMaterial(),
+    ])
+      .then(([reportesData, averiasData, laboresData, materialesData]) => {
+        if (!cancelado) {
+          setReportes(reportesData)
+          setAveriasPendientes(averiasData)
+          setLaboresPendientes(laboresData)
+          setSolicitudesMaterial(materialesData)
+        }
+      })
+      .catch((err) => {
+        if (!cancelado) setError(err.message || 'No se pudo cargar tu resumen.')
+      })
+      .finally(() => {
+        if (!cancelado) setCargando(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [])
+
+  // Un "trabajo" es una avería o una labor adicional asignada al fontanero.
+  // Ambas se unifican para mostrarlas en una sola lista.
+  type TrabajoAsignado = {
+    origen: 'averia' | 'labor'
+    id: number
+    clave: string
+    codigo: string
+    tipo: string
+    tipoEtiqueta: string
+    descripcion: string
+    estado: string
+    fecha: string
+    gestion_iniciada_en: string | null
+    gestion_finalizada_en: string | null
+    devuelta_revision: boolean
+    motivo_revision: string | null
+    // Datos para el detalle: averías traen al reportante; las labores que
+    // vienen de una solicitud aprobada traen al abonado y la dirección.
+    reportanteNombre?: string | null
+    reportanteCedula?: string | null
+    abonadoNombre?: string | null
+    abonadoNumero?: string | null
+    abonadoCedula?: string | null
+    abonadoTelefono?: string | null
+    direccion?: string | null
+    numeroNis?: string | null
+  }
+
+  const trabajos: TrabajoAsignado[] = [
+    ...averiasPendientes.map((a) => ({
+      origen: 'averia' as const,
+      id: a.id,
+      clave: `averia-${a.id}`,
+      codigo: a.codigo_averia,
+      tipo: a.tipo_averia,
+      tipoEtiqueta: a.tipo_averia,
+      descripcion: a.descripcion,
+      // La avería asignada queda "En proceso" en el sistema (para la
+      // administración), pero el fontanero la ve como "Pendiente" hasta que
+      // arranca la gestión.
+      estado:
+        a.estado === 'En proceso' && !a.gestion_iniciada_en
+          ? 'Pendiente'
+          : a.estado,
+      fecha: a.fecha_reporte,
+      gestion_iniciada_en: a.gestion_iniciada_en,
+      gestion_finalizada_en: a.gestion_finalizada_en,
+      devuelta_revision: a.devuelta_revision,
+      motivo_revision: a.motivo_revision,
+      reportanteNombre: [
+        a.nombre_reportante,
+        a.apellido1_reportante,
+        a.apellido2_reportante,
+      ]
+        .filter(Boolean)
+        .join(' '),
+      reportanteCedula: a.cedula_reportante,
+    })),
+    ...laboresPendientes.map((l) => ({
+      origen: 'labor' as const,
+      id: l.id,
+      clave: `labor-${l.id}`,
+      codigo: l.codigo_labor,
+      tipo: l.tipo_actividad,
+      tipoEtiqueta: ETIQUETA_ACTIVIDAD[l.tipo_actividad],
+      descripcion: l.descripcion,
+      estado: l.estado,
+      fecha: l.fecha_creacion,
+      gestion_iniciada_en: l.gestion_iniciada_en,
+      gestion_finalizada_en: l.gestion_finalizada_en,
+      devuelta_revision: l.devuelta_revision,
+      motivo_revision: l.motivo_revision,
+      abonadoNombre: l.datos_solicitud?.abonado.nombre ?? null,
+      abonadoNumero: l.datos_solicitud?.abonado.numero_abonado ?? null,
+      abonadoCedula: l.datos_solicitud?.abonado.cedula ?? null,
+      abonadoTelefono: l.datos_solicitud?.abonado.telefono ?? null,
+      direccion: l.datos_solicitud?.direccion ?? null,
+      numeroNis: l.datos_solicitud?.numero_nis ?? null,
+    })),
+  ].sort(
+    (a, b) =>
+      // Las devueltas por revisión van primero; después, las más antiguas.
+      Number(b.devuelta_revision) - Number(a.devuelta_revision) ||
+      new Date(a.fecha).getTime() - new Date(b.fecha).getTime(),
+  )
+
+  // Solicitudes de material del trabajo (para el detalle y para bloquear el
+  // botón de atender mientras haya una pendiente).
+  const solicitudesDe = (t: TrabajoAsignado): SolicitudMaterial[] =>
+    solicitudesMaterial.filter((s) =>
+      t.origen === 'averia' ? s.averia?.id === t.id : s.labor?.id === t.id,
+    )
+
+  const tieneMaterialesPendientes = (t: TrabajoAsignado): boolean =>
+    solicitudesDe(t).some((s) => s.estado === 'Pendiente')
+
+  const guardarSolicitudMaterial = (solicitud: SolicitudMaterial) => {
+    setSolicitudesMaterial((prev) => {
+      const existe = prev.some((s) => s.id === solicitud.id)
+      return existe
+        ? prev.map((s) => (s.id === solicitud.id ? solicitud : s))
+        : [...prev, solicitud]
+    })
+  }
+
+  const aDatosTrabajo = (t: TrabajoAsignado): DatosTrabajo => ({
+    origen: t.origen,
+    id: t.id,
+    codigo: t.codigo,
+    tipoEtiqueta: t.tipoEtiqueta,
+    descripcion: t.descripcion,
+    estado: t.estado,
+    fecha: t.fecha,
+    gestionIniciada: t.gestion_iniciada_en,
+    gestionFinalizada: t.gestion_finalizada_en,
+    devueltaRevision: t.devuelta_revision,
+    motivoRevision: t.motivo_revision,
+    reportanteNombre: t.reportanteNombre,
+    reportanteCedula: t.reportanteCedula,
+    abonadoNombre: t.abonadoNombre,
+    abonadoNumero: t.abonadoNumero,
+    abonadoCedula: t.abonadoCedula,
+    abonadoTelefono: t.abonadoTelefono,
+    direccion: t.direccion,
+    numeroNis: t.numeroNis,
+  })
+
+  const detalleActual =
+    trabajos.find((t) => t.clave === detalleClave) ?? null
+
+  // Minutos reales de una gestión ya terminada (con inicio y fin), para que el
+  // reporte salga prellenado aunque el fontanero lo llene más tarde.
+  const minutosDeGestion = (t: TrabajoAsignado): number | null => {
+    if (!t.gestion_iniciada_en || !t.gestion_finalizada_en) return null
+    const ms =
+      new Date(t.gestion_finalizada_en).getTime() -
+      new Date(t.gestion_iniciada_en).getTime()
+    if (!Number.isFinite(ms) || ms <= 0) return null
+    return Math.min(1440, Math.max(1, Math.round(ms / 60000)))
+  }
+
+  // Fecha local (YYYY-MM-DD) en que inició la gestión, para que el reporte
+  // quede con el día en que se trabajó aunque se llene después.
+  const fechaDeGestion = (t: TrabajoAsignado): string | null => {
+    if (!t.gestion_iniciada_en) return null
+    const d = new Date(t.gestion_iniciada_en)
+    if (Number.isNaN(d.getTime())) return null
+    const mes = String(d.getMonth() + 1).padStart(2, '0')
+    const dia = String(d.getDate()).padStart(2, '0')
+    return `${d.getFullYear()}-${mes}-${dia}`
+  }
+
+  // Arma los parámetros del formulario de reporte para un trabajo.
+  const parametrosReporte = (t: TrabajoAsignado): URLSearchParams => {
+    const params = new URLSearchParams({
+      [t.origen]: String(t.id),
+      nuevo: '1',
+      codigo: t.codigo,
+    })
+    // En labores el tipo lo define la labor; en averías el formulario usa
+    // "atención de avería".
+    if (t.origen === 'labor') params.set('tipo', t.tipo)
+    const minutos = minutosDeGestion(t)
+    if (minutos !== null) params.set('minutos', String(minutos))
+    const fecha = fechaDeGestion(t)
+    if (fecha) params.set('fecha', fecha)
+    return params
+  }
+
+  const irAlReporte = (t: TrabajoAsignado) => {
+    navigate(`/dashboard/averias/fontanero?${parametrosReporte(t).toString()}`)
+  }
+
+  const handleIniciar = async (t: TrabajoAsignado) => {
+    setAccionandoClave(t.clave)
+    setAviso('')
+    try {
+      if (t.origen === 'averia') {
+        const actualizada = await iniciarGestionAveria(t.id)
+        setAveriasPendientes((prev) =>
+          prev.map((a) => (a.id === t.id ? actualizada : a)),
+        )
+      } else {
+        const actualizada = await iniciarGestionLabor(t.id)
+        setLaboresPendientes((prev) =>
+          prev.map((l) => (l.id === t.id ? actualizada : l)),
+        )
+      }
+    } catch (err) {
+      setAviso(
+        err instanceof Error ? err.message : 'No se pudo iniciar la gestión.',
+      )
+    } finally {
+      setAccionandoClave(null)
+    }
+  }
+
+  // Al terminar, el backend detiene el cronómetro y devuelve la duración real;
+  // se redirige al reporte ya prellenado. El trabajo queda "En proceso" hasta
+  // que la administración apruebe la resolución.
+  const handleTerminar = async (t: TrabajoAsignado) => {
+    setAccionandoClave(t.clave)
+    setAviso('')
+    try {
+      const result =
+        t.origen === 'averia'
+          ? await terminarGestionAveria(t.id)
+          : await terminarGestionLabor(t.id)
+      const params = parametrosReporte(t)
+      params.set('minutos', String(result.duracion_minutos))
+      navigate(`/dashboard/averias/fontanero?${params.toString()}`)
+    } catch (err) {
+      setAviso(
+        err instanceof Error ? err.message : 'No se pudo terminar la gestión.',
+      )
+      setAccionandoClave(null)
+    }
+  }
+
+  const minutosTotales = reportes.reduce((suma, r) => suma + r.tiempo_minutos, 0)
+  const primerNombre = user?.nombre?.split(' ')[0] ?? ''
+
+  if (cargando) {
+    return (
+      <div className="space-y-6">
+        <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+          <div className="h-8 w-48 animate-pulse rounded bg-primary-200/50" />
+          <div className="mt-2 h-4 w-64 animate-pulse rounded bg-primary-200/30" />
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+            {[1, 2, 3, 4].map((i) => (
+              <div key={i} className="h-28 animate-pulse rounded-2xl bg-primary-100/50" />
+            ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="space-y-6">
+        <ErrorState mensaje={error} onReintentar={() => window.location.reload()} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Panel de bienvenida + KPIs */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-primary-50 via-primary-50 to-white p-4 sm:p-6">
+        <div aria-hidden="true" className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-primary-200/40 blur-3xl" />
+        <div aria-hidden="true" className="pointer-events-none absolute -bottom-24 left-1/3 h-48 w-48 rounded-full bg-primary-300/20 blur-3xl" />
+        <div className="relative">
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">
+            Bienvenido, {primerNombre}
+          </h1>
+          <p className="mt-1 text-sm text-primary-500">
+            Resumen de tu actividad como fontanero
+          </p>
+        </div>
+
+        <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
+          <StatCard
+            variant="dark"
+            icon={<IconAveria />}
+            title="Trabajos asignados"
+            value={String(trabajos.length)}
+            subtitle={`${averiasPendientes.length} averías · ${laboresPendientes.length} labores`}
+            to="/dashboard/averias/fontanero"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconSolicitud />}
+            title="Mis Reportes"
+            value={String(reportes.length)}
+            subtitle="Total registrados"
+            to="/dashboard/averias/fontanero"
+          />
+          <StatCard
+            variant="light"
+            icon={<IconDocumento />}
+            title="Horas reportadas"
+            value={formatearTiempo(minutosTotales)}
+            subtitle="Acumuladas"
+            to="/dashboard/averias/fontanero"
+          />
+        </div>
+      </div>
+
+      {/* Trabajos pendientes asignados por la administración (averías + labores) */}
+      <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-primary-900">
+              Trabajos asignados por atender
+            </h2>
+            <span className="rounded-full bg-primary-100 px-2 py-0.5 text-xs font-semibold text-primary-700">
+              {trabajos.length}
+            </span>
+          </div>
+          <Link
+            to="/dashboard/averias/fontanero"
+            className="text-sm font-medium text-primary-600 hover:text-primary-800"
+          >
+            Registrar actividad
+          </Link>
+        </div>
+        {trabajos.length > 4 && (
+          <p className="mt-1 text-xs text-primary-400">
+            Deslizá la lista con la barra de la derecha para ver todos.
+          </p>
+        )}
+        {trabajos.length === 0 ? (
+          <p className="mt-4 text-sm text-primary-400">
+            No tienes trabajos asignados pendientes.
+          </p>
+        ) : (
+          <>
+            {aviso && (
+              <div className="mt-3">
+                <Alerta tipo="error">{aviso}</Alerta>
+              </div>
+            )}
+            <ul className="scroll-visible mt-3 max-h-[26rem] space-y-2 overflow-y-auto pr-2">
+              {trabajos.map((t) => {
+                const esEnProceso = t.estado === 'En proceso'
+                const devuelta = t.devuelta_revision
+                const timerActivo =
+                  esEnProceso &&
+                  Boolean(t.gestion_iniciada_en) &&
+                  !t.gestion_finalizada_en
+                const listoParaReportar =
+                  esEnProceso && Boolean(t.gestion_finalizada_en)
+                const ocupada = accionandoClave === t.clave
+                const materialesPendientes = tieneMaterialesPendientes(t)
+                const etiqueta = devuelta
+                  ? 'Devuelta'
+                  : listoParaReportar
+                    ? 'Listo para reportar'
+                    : t.estado
+                const claseBadge = devuelta
+                  ? 'bg-error-100 text-error-700'
+                  : listoParaReportar
+                    ? 'bg-exito-100 text-exito-700'
+                    : esEnProceso
+                      ? 'bg-info-100 text-info-700'
+                      : 'bg-advertencia-100 text-advertencia-700'
+                const esAveria = t.origen === 'averia'
+                return (
+                  <li
+                    key={t.clave}
+                    className="rounded-xl border border-primary-100 bg-white px-3 py-3"
+                  >
+                    {/* Encabezado: tipo, código y estado */}
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2.5">
+                        <span
+                          className={`flex-none rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                            esAveria
+                              ? 'bg-acento-100 text-acento-700'
+                              : 'bg-info-100 text-info-700'
+                          }`}
+                        >
+                          {esAveria ? 'Avería' : 'Labor'}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="truncate text-sm font-semibold text-primary-900">
+                            {t.codigo}
+                          </p>
+                          <p className="truncate text-xs text-primary-500">
+                            {t.tipoEtiqueta}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`flex-none rounded-full px-2 py-0.5 text-[11px] font-semibold ${claseBadge}`}
+                      >
+                        {etiqueta}
+                      </span>
+                    </div>
+
+                    {/* Aviso: materiales pendientes (el motivo de devolución
+                        se muestra solo en el Detalle) */}
+                    {materialesPendientes && (
+                      <div className="mt-2">
+                        <span className="rounded-full bg-advertencia-100 px-2 py-0.5 text-[10px] font-semibold text-advertencia-700">
+                          Materiales pendientes
+                        </span>
+                      </div>
+                    )}
+
+                    {/* Pie: fecha/cronómetro y acciones */}
+                    <div className="mt-3 flex flex-wrap items-center justify-between gap-2 border-t border-primary-100 pt-2">
+                      <div className="flex items-center gap-2 text-xs text-primary-400">
+                        {timerActivo ? (
+                          <Cronometro inicio={t.gestion_iniciada_en} />
+                        ) : (
+                          <span>
+                            {esAveria ? 'Reportada' : 'Creada'} el{' '}
+                            {fechaCorta(t.fecha)}
+                          </span>
+                        )}
+                      </div>
+                      <div className="flex flex-none items-center gap-2">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          type="button"
+                          onClick={() => setDetalleClave(t.clave)}
+                        >
+                          Detalle
+                        </Button>
+                        {timerActivo ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            type="button"
+                            disabled={ocupada}
+                            onClick={() => handleTerminar(t)}
+                          >
+                            {ocupada ? 'Terminando…' : 'Terminar y reportar'}
+                          </Button>
+                        ) : listoParaReportar ? (
+                          <Button
+                            variant="primary"
+                            size="sm"
+                            type="button"
+                            onClick={() => irAlReporte(t)}
+                          >
+                            Hacer reporte
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            type="button"
+                            disabled={ocupada || materialesPendientes}
+                            title={
+                              materialesPendientes
+                                ? 'Esperando aprobación de la solicitud de materiales'
+                                : undefined
+                            }
+                            onClick={() => handleIniciar(t)}
+                          >
+                            {ocupada
+                              ? 'Iniciando…'
+                              : materialesPendientes
+                                ? 'Esperando materiales'
+                                : esAveria
+                                  ? 'Atender avería'
+                                  : 'Atender labor'}
+                          </Button>
+                        )}
+                      </div>
+                    </div>
+                  </li>
+                )
+              })}
+            </ul>
+          </>
+        )}
+      </div>
+
+      {/* Mis últimos reportes */}
+      <div className="overflow-hidden rounded-2xl border border-primary-100 bg-white p-5 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-primary-900">Mis últimos reportes</h2>
+          <Link
+            to="/dashboard/averias/fontanero"
+            className="text-sm font-medium text-primary-600 hover:text-primary-800"
+          >
+            Ver todos
+          </Link>
+        </div>
+        {reportes.length === 0 ? (
+          <EmptyState compacto titulo="Aún no has registrado ninguna actividad." />
+        ) : (
+          <ul className="mt-3 space-y-2">
+            {reportes.slice(0, 5).map((r) => (
+              <li
+                key={r.id}
+                className="flex items-center justify-between rounded-xl bg-primary-50/50 px-3 py-2.5"
+              >
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-medium text-primary-900">
+                    {ETIQUETA_ACTIVIDAD[r.tipo_actividad]}
+                  </p>
+                  <p className="truncate text-xs text-primary-500">{r.descripcion}</p>
+                </div>
+                <div className="flex flex-none items-center gap-2">
+                  <span className="text-[11px] text-primary-400">{r.fecha_trabajo}</span>
+                  <span className="flex-none rounded-full bg-primary-100 px-2 py-0.5 text-[11px] font-medium text-primary-700">
+                    {formatearTiempo(r.tiempo_minutos)}
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* Detalle del trabajo: datos completos y solicitud de materiales */}
+      {detalleActual && (
+        <DetalleTrabajoModal
+          trabajo={aDatosTrabajo(detalleActual)}
+          solicitudes={solicitudesDe(detalleActual)}
+          onClose={() => setDetalleClave(null)}
+          onSolicitudCreada={guardarSolicitudMaterial}
+          onSolicitudCancelada={guardarSolicitudMaterial}
+        />
+      )}
     </div>
   )
 }

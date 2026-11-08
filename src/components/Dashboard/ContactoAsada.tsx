@@ -1,3 +1,7 @@
+import Alerta from '../ui/Alerta'
+import { Notificar } from '../ui/ToastProvider'
+import ErrorState from '../ui/ErrorState'
+import Cargando from '../ui/Cargando'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
 import {
   obtenerConfiguracion,
@@ -86,21 +90,17 @@ function ContactoAsada() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-primary-500">Cargando configuración…</p>
-      </div>
+      <Cargando texto="Cargando configuración…" />
     )
   }
 
   if (errorCarga) {
     return (
       <div className="mx-auto max-w-2xl space-y-6">
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Información de Contacto
         </h1>
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorCarga}
-        </div>
+        <ErrorState mensaje={errorCarga} onReintentar={() => window.location.reload()} />
       </div>
     )
   }
@@ -192,14 +192,14 @@ function ContactoAsada() {
   const inputClass = (tieneError: boolean) =>
     `mt-1 w-full rounded-lg border px-4 py-2.5 text-sm text-primary-900 focus:outline-none ${
       tieneError
-        ? 'border-red-400 focus:border-red-500'
+        ? 'border-error-400 focus:border-error-500'
         : 'border-primary-200 focus:border-primary-500'
     }`
 
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Información de Contacto
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -208,21 +208,15 @@ function ContactoAsada() {
       </div>
 
       <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
-        {exito && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Configuración guardada correctamente.
-          </div>
-        )}
+        <Notificar mensaje={exito ? 'Configuración guardada correctamente.' : null} />
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
+          <Alerta tipo="error" className="mb-4">{error}</Alerta>
         )}
 
         <form onSubmit={manejarEnvio} className="space-y-5">
           <div>
             <label className="block text-sm font-medium text-primary-700">
-              Dirección completa <span className="text-red-500">*</span>
+              Dirección completa <span className="text-error-600">*</span>
             </label>
             <textarea
               value={direccion}
@@ -234,7 +228,7 @@ function ContactoAsada() {
               className={inputClass(!!errores.direccion)}
             />
             {errores.direccion && (
-              <p className="mt-1 text-xs text-red-600">{errores.direccion}</p>
+              <p className="mt-1 text-xs text-error-600">{errores.direccion}</p>
             )}
           </div>
 
@@ -254,7 +248,7 @@ function ContactoAsada() {
                 className={inputClass(!!errores.telefono)}
               />
               {errores.telefono && (
-                <p className="mt-1 text-xs text-red-600">{errores.telefono}</p>
+                <p className="mt-1 text-xs text-error-600">{errores.telefono}</p>
               )}
             </div>
             <div>
@@ -272,7 +266,7 @@ function ContactoAsada() {
                 className={inputClass(!!errores.correo)}
               />
               {errores.correo && (
-                <p className="mt-1 text-xs text-red-600">{errores.correo}</p>
+                <p className="mt-1 text-xs text-error-600">{errores.correo}</p>
               )}
             </div>
           </div>
@@ -292,7 +286,7 @@ function ContactoAsada() {
               className={inputClass(!!errores.enlaceMaps)}
             />
             {errores.enlaceMaps && (
-              <p className="mt-1 text-xs text-red-600">{errores.enlaceMaps}</p>
+              <p className="mt-1 text-xs text-error-600">{errores.enlaceMaps}</p>
             )}
           </div>
 
@@ -311,7 +305,7 @@ function ContactoAsada() {
               className={inputClass(!!errores.coordenadas)}
             />
             {errores.coordenadas && (
-              <p className="mt-1 text-xs text-red-600">{errores.coordenadas}</p>
+              <p className="mt-1 text-xs text-error-600">{errores.coordenadas}</p>
             )}
           </div>
 
@@ -331,7 +325,7 @@ function ContactoAsada() {
                 className={inputClass(!!errores.telJunta1)}
               />
               {errores.telJunta1 && (
-                <p className="mt-1 text-xs text-red-600">{errores.telJunta1}</p>
+                <p className="mt-1 text-xs text-error-600">{errores.telJunta1}</p>
               )}
             </div>
             <div>
@@ -349,7 +343,7 @@ function ContactoAsada() {
                 className={inputClass(!!errores.telJunta2)}
               />
               {errores.telJunta2 && (
-                <p className="mt-1 text-xs text-red-600">{errores.telJunta2}</p>
+                <p className="mt-1 text-xs text-error-600">{errores.telJunta2}</p>
               )}
             </div>
           </div>

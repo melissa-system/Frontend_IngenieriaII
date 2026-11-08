@@ -126,11 +126,21 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Administrador', 'Fontanero', 'Junta Directiva', 'Abonado'],
   },
   {
+    // Vista del fontanero: su formulario e historial de actividad. Va como
+    // ítem directo (no dentro de Gestión operativa) para que su menú quede
+    // solo con Dashboard y Mis reportes.
+    label: 'Mis reportes',
+    icon: <ReportesIcon />,
+    to: '/dashboard/averias/fontanero',
+    roles: ['Fontanero'],
+    estrictoPorRol: true,
+  },
+  {
     label: 'Solicitudes',
     icon: <SolicitudesIcon />,
     roles: ['Administrador', 'Junta Directiva', 'Abonado'],
     submenu: [
-      // Paja de Agua es solo para administración; los abonados no la ven.
+      // Paja de Agua (bandeja de gestión) es solo para administración.
       { label: 'Paja de Agua', to: '/dashboard/solicitudes/paja-de-agua', roles: ['Administrador', 'Junta Directiva'] },
       // Conexión de Servicio va primero para el Abonado: es la continuación
       // directa de su trámite de paja de agua ya aprobado.
@@ -149,27 +159,33 @@ export const MENU_CONFIG: MenuItemConfig[] = [
       { label: 'Artículos', to: '/dashboard/inventario/articulos', roles: ['Administrador'] },
       { label: 'Proveedores', to: '/dashboard/inventario/proveedores', roles: ['Administrador'] },
       { label: 'Movimientos de Stock', to: '/dashboard/inventario/movimientos', roles: ['Administrador'] },
+      { label: 'Solicitudes de material', to: '/dashboard/inventario/solicitudes-material', roles: ['Administrador'] },
     ],
   },
   {
-    label: 'Averías',
+    label: 'Gestión operativa',
     icon: <AveriasIcon />,
     // Junta Directiva no se lista acá porque el guard le da acceso total al
     // sistema; se agrega igual para que el ítem le aparezca en el menú.
-    roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+    // El Fontanero no ve este grupo: su acceso es el ítem "Mis reportes".
+    roles: ['Administrador', 'Junta Directiva'],
     submenu: [
       {
-        label: 'Reporte de Averías',
+        label: 'Averías',
         to: '/dashboard/averias',
-        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+        roles: ['Administrador', 'Junta Directiva'],
       },
       {
-        // Registro de actividad: el fontanero llena el suyo; la
-        // administración consulta los de todos. Son dos pantallas
-        // distintas, por eso cada una lista solo sus roles.
-        label: 'Fontanero',
+        label: 'Otros mantenimientos',
+        to: '/dashboard/labores',
+        roles: ['Administrador', 'Junta Directiva'],
+      },
+      {
+        // Registro de actividad: la administración consulta los de todos.
+        // El fontanero entra desde "Mis reportes".
+        label: 'Reporte fontanero',
         to: '/dashboard/averias/fontanero',
-        roles: ['Administrador', 'Junta Directiva', 'Fontanero'],
+        roles: ['Administrador', 'Junta Directiva'],
       },
     ],
   },
@@ -182,7 +198,7 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     roles: ['Abonado'],
   },
   {
-    label: 'Usuarios',
+    label: 'Directorio',
     icon: <AdminIcon />,
     roles: ['Administrador', 'Junta Directiva'],
     submenu: [
@@ -223,10 +239,11 @@ export const MENU_CONFIG: MenuItemConfig[] = [
     label: 'Documentos Oficiales',
     icon: <DocumentosOficialesIcon />,
     to: '/dashboard/documentos-oficiales',
-    // Solo para Abonado y Fontanero: Administrador/Junta Directiva ya
+    // Exclusivo del Abonado (matriz de roles: el Fontanero solo ve su
+    // dashboard y sus averías). Administrador/Junta Directiva ya
     // tienen su propia sección "Documentos" en Edición de página, así que
     // estrictoPorRol evita que la "Regla de Oro" se lo muestre también ahí.
-    roles: ['Abonado', 'Fontanero'],
+    roles: ['Abonado'],
     estrictoPorRol: true,
   },
   {

@@ -1,3 +1,8 @@
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
+import Alerta from '../../components/ui/Alerta'
+import Cargando, { Spinner } from '../../components/ui/Cargando'
+import { useAutocompletarCedula } from '../../hooks/useCedulaLookup'
+import { Notificar } from '../../components/ui/ToastProvider'
 import {
   useCallback,
   useEffect,
@@ -6,6 +11,8 @@ import {
   useState,
   type FormEvent,
 } from 'react'
+import CampoError, { enfocarPrimerError } from '../../components/common/CampoError'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import { obtenerPerfil, type PerfilCompleto } from '../../components/Services/perfil.service'
@@ -14,7 +21,6 @@ import {
   crearSolicitudCambioRepresentante,
   obtenerSolicitudesCambioRepresentante,
   type SolicitudCambioRepresentante,
-  type EstadoSolicitud,
 } from '../../components/Services/cambioRepresentante.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 import {
@@ -22,14 +28,24 @@ import {
   validarDocumento,
 } from '../../components/common/FileDropZone'
 import ModalConfirmacion from '../../components/common/ModalConfirmacion'
-import Toast from '../../components/Dashboard/Toast'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
+import {
+  generarPdfSolicitudComun,
+  descargarPdfSolicitudComun,
+  type DatosCopiaComun,
+} from '../../lib/generarPdfSolicitudComun'
+import Toast from '../../components/ui/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
+import Tabs from '../../components/ui/Tabs'
+import Button from '../../components/ui/Button'
 
 // Mismas reglas que valida el backend (clase-validator, DTO de representante).
 const IDENTIFICACION_REGEX = /^(\d{1}-\d{4}-\d{4}|\d{1}-\d{3}-\d{6}|\d{11,12})$/
@@ -56,51 +72,13 @@ function formatearCedula(valor: string): string {
 
 // Colores para el distintivo de estado: amarillo (pendiente), azul (en
 // proceso), verde (aprobado), rojo (rechazado).
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-700'
-    case 'aprobado':
-      return 'bg-green-100 text-green-700'
-    case 'rechazado':
-      return 'bg-red-100 text-red-700'
-  }
-}
-
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(estado)}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
-
 // Estado vacío compartido (mismo esquema visual que el resto del Dashboard).
-function EmptyState({
-  titulo,
-  descripcion,
-}: {
-  titulo: string
-  descripcion: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
-}
-
 // Enlace a la cédula adjunta de una solicitud (en listas).
 function EnlaceCedula({ url }: { url: string | null }) {
   if (!url) {
@@ -110,7 +88,7 @@ function EnlaceCedula({ url }: { url: string | null }) {
     <button
       type="button"
       onClick={() => descargarArchivo(url, `copia-cedula${extensionDesdeUrl(url)}`)}
-      className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+      className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
     >
       Descargar cédula
     </button>
@@ -124,7 +102,7 @@ function SolicitudesCambioRepresentante() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Representante</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Cambio de Representante</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Solicitá el cambio del representante legal registrado en tu cuenta'
@@ -154,6 +132,13 @@ function VistaAbonado() {
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
   const [justificacion, setJustificacion] = useState('')
+
+  const {
+    cargando: buscandoNombre,
+    consultar: consultarCedula,
+    resetearConsulta,
+  } = useAutocompletarCedula(setNuevoNombre)
+
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
@@ -163,6 +148,7 @@ function VistaAbonado() {
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   // Alterna entre ver el historial y generar una solicitud nueva, en vez de
@@ -227,6 +213,7 @@ function VistaAbonado() {
   }
 
   const limpiarFormulario = () => {
+    resetearConsulta()
     setNuevoNombre('')
     setNuevaCedula('')
     setNuevoCorreo('')
@@ -236,39 +223,85 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nuevoNombre, nuevaCedula, nuevoCorreo, justificacion])
+
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Representante Legal',
+    tipoSlug: 'cambio-representante',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: perfil?.nombre ?? 'Abonado',
+      identificacion: perfil?.cedula ?? '',
+      telefono: perfil?.telefono ?? '',
+      correo: perfil?.email ?? '',
+      numeroAbonado: '',
+    },
+    detalles: [
+      { etiqueta: 'Nombre del nuevo representante', valor: nuevoNombre },
+      { etiqueta: 'Cédula del nuevo representante', valor: nuevaCedula },
+      { etiqueta: 'Correo del nuevo representante', valor: nuevoCorreo || 'No especificado' },
+      { etiqueta: 'Justificación del cambio', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-representante', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
 
     if (enviandoRef.current) return
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
     const just = justificacion.trim()
-    if (!nombre) {
-      setError('El nombre del nuevo representante es obligatorio.')
-      return
-    }
-    if (!IDENTIFICACION_REGEX.test(cedula)) {
-      setError(
-        'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).',
-      )
-      return
-    }
-    if (correo && !CORREO_REGEX.test(correo)) {
-      setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar la foto o PDF de la cédula del nuevo representante.')
+    if (nombre.length < 5) errs.nombre ??= nombre
+          ? 'El nombre del nuevo representante debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo representante es obligatorio.'
+    if (!IDENTIFICACION_REGEX.test(cedula)) errs.cedula ??= 'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).'
+    if (correo && !CORREO_REGEX.test(correo)) errs.correo ??= 'El correo del nuevo representante no es válido.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar la foto o PDF de la cédula del nuevo representante.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
       const resp = await crearSolicitudCambioRepresentante({
@@ -278,12 +311,15 @@ function VistaAbonado() {
         justificacion: just,
         copiaCedula: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
       setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { representanteNuevoNombre: 'nombre', representanteNuevoCedula: 'cedula', representanteNuevoCorreo: 'correo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -295,7 +331,10 @@ function VistaAbonado() {
       {codigoGenerado && (
         <ModalConfirmacion
           codigo={codigoGenerado}
-          onCerrar={() => setCodigoGenerado(null)}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
           titulo="¡Solicitud Registrada con Éxito!"
           descripcion={
             <>
@@ -303,40 +342,26 @@ function VistaAbonado() {
               recibido por la administración de la ASADA.
             </>
           }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
         />
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
+        <Alerta tipo="error">
+          <p>{error}</p>
+        </Alerta>
       )}
 
       {esJuridica && (
-        <div className="flex gap-6 border-b border-primary-100">
-          <button
-            type="button"
-            onClick={() => setVista('lista')}
-            className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-              vista === 'lista'
-                ? 'border-primary-700 text-primary-900'
-                : 'border-transparent text-primary-400 hover:text-primary-700'
-            }`}
-          >
-            Mis solicitudes
-          </button>
-          <button
-            type="button"
-            onClick={() => setVista('crear')}
-            className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-              vista === 'crear'
-                ? 'border-primary-700 text-primary-900'
-                : 'border-transparent text-primary-400 hover:text-primary-700'
-            }`}
-          >
-            Nueva solicitud
-          </button>
-        </div>
+        <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis solicitudes' },
+          { valor: 'crear', etiqueta: 'Nueva solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
       )}
 
       {!esJuridica ? (
@@ -368,36 +393,36 @@ function VistaAbonado() {
             </h3>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-primary-500">
                   Nombre del Representante
                 </label>
                 <input
                   type="text"
                   disabled
                   value={cargandoPerfil ? 'Cargando…' : (juridico?.nombre_representante_legal ?? '-')}
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                  className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-primary-500">
                   Cédula del Representante
                 </label>
                 <input
                   type="text"
                   disabled
                   value={cargandoPerfil ? 'Cargando…' : (juridico?.cedula_representante ?? '-')}
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                  className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-500">
+                <label className="block text-xs font-medium text-primary-500">
                   Número de Abonado
                 </label>
                 <input
                   type="text"
                   disabled
                   value={cargandoPerfil ? 'Cargando…' : numeroAbonado}
-                  className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                  className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
                 />
               </div>
             </div>
@@ -413,9 +438,16 @@ function VistaAbonado() {
             </h3>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
-                  Nombre Completo *
-                </label>
+                <div className="flex items-center justify-between">
+                  <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
+                    Nombre Completo *
+                  </label>
+                  {buscandoNombre && (
+                    <span className="flex items-center gap-1.5 text-xs text-primary-600 font-normal">
+                      <Spinner className="h-3 w-3" /> Cargando nombre...
+                    </span>
+                  )}
+                </div>
                 <input
                   id="nuevoNombre"
                   type="text"
@@ -424,11 +456,9 @@ function VistaAbonado() {
                   required
                   disabled={tieneAbierta}
                   placeholder="Nombre completo del nuevo representante"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-primary-100"
                 />
-                {nuevoNombre.length > 0 && nuevoNombre.trim().length < 5 && (
-                  <p className="mt-1 text-xs text-red-500">Mínimo 5 caracteres</p>
-                )}
+                <CampoError mensaje={erroresCampo.nombre} />
               </div>
               <div>
                 <label htmlFor="nuevaCedula" className="block text-sm font-medium text-primary-700">
@@ -438,14 +468,20 @@ function VistaAbonado() {
                   id="nuevaCedula"
                   type="text"
                   value={nuevaCedula}
-                  onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
+                  onChange={(e) => {
+                    const formateado = formatearCedula(e.target.value)
+                    setNuevaCedula(formateado)
+                    consultarCedula(formateado)
+                  }}
+                  onBlur={() => consultarCedula(nuevaCedula)}
                   required
                   disabled={tieneAbierta}
                   placeholder="Ej: 1-2345-6789 o 3-101-123456"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-primary-100"
                 />
+                <CampoError mensaje={erroresCampo.cedula} />
                 {nuevaCedula.length > 0 && !IDENTIFICACION_REGEX.test(nuevaCedula.trim()) && (
-                  <p className="mt-1 text-xs text-red-500">
+                  <p className="mt-1 text-xs text-error-600">
                     Ingresá una identificación válida (física, jurídica o DIMEX)
                   </p>
                 )}
@@ -461,8 +497,9 @@ function VistaAbonado() {
                   onChange={(e) => setNuevoCorreo(e.target.value)}
                   disabled={tieneAbierta}
                   placeholder="correo@ejemplo.com (opcional)"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-primary-100"
                 />
+                <CampoError mensaje={erroresCampo.correo} />
                 <p className="mt-1 text-xs text-primary-400">
                   Se usa para notificarlo del resultado de la solicitud.
                 </p>
@@ -472,7 +509,7 @@ function VistaAbonado() {
                   <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
                     Justificación del Cambio *
                   </label>
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-primary-400">
                     {justificacion.trim().length} / 255 (mínimo 10)
                   </span>
                 </div>
@@ -485,10 +522,11 @@ function VistaAbonado() {
                   rows={3}
                   maxLength={255}
                   placeholder="Explicá brevemente el motivo del cambio de representante"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-gray-100"
+                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none disabled:bg-primary-100"
                 />
+                <CampoError mensaje={erroresCampo.justificacion} />
                 {justificacion.length > 0 && justificacion.trim().length < 10 && (
-                  <p className="mt-1 text-xs text-red-500">
+                  <p className="mt-1 text-xs text-error-600">
                     La justificación debe tener al menos 10 caracteres.
                   </p>
                 )}
@@ -514,30 +552,29 @@ function VistaAbonado() {
           </div>
 
           {tieneAbierta && (
-            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+            <div className="rounded-xl border border-advertencia-200 bg-advertencia-50 p-4 text-sm text-advertencia-800">
               Actualmente tenés una solicitud de cambio de representante en proceso. No podés crear otra hasta que sea resuelta.
             </div>
           )}
 
           {/* Botones */}
-          <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-primary-100">
-            <button
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
+            <Button
+              variant="primary"
               type="submit"
               disabled={tieneAbierta || enviando}
-              className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              className="shadow-sm">
               {enviando ? 'Enviando solicitud…' : 'Enviar Solicitud'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => {
                 limpiarFormulario()
                 setError('')
-              }}
-              className="rounded-full border border-primary-200 px-5 py-2.5 text-sm font-semibold text-primary-700 hover:bg-primary-50"
-            >
+              }}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </form>
       ) : (
@@ -545,25 +582,14 @@ function VistaAbonado() {
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Aún no tenés solicitudes de cambio de representante"
             descripcion="Tus solicitudes aparecerán aquí junto con su estado."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo representante</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula adjunta</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Nuevo representante', 'Cédula adjunta', 'Estado', 'Fecha']}>
                 {solicitudes.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
@@ -573,18 +599,13 @@ function VistaAbonado() {
                     </td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
-                      {s.motivo_rechazo && (
-                        <p className="mt-1 text-xs text-red-500">{s.motivo_rechazo}</p>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-primary-500">
                       {formatearFecha(s.fecha_creacion)}
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       )}
@@ -604,6 +625,12 @@ function VistaAdministrador() {
   const [nuevaCedula, setNuevaCedula] = useState('')
   const [nuevoCorreo, setNuevoCorreo] = useState('')
   const [justificacion, setJustificacion] = useState('')
+
+  const {
+    cargando: buscandoNombre,
+    consultar: consultarCedula,
+    resetearConsulta,
+  } = useAutocompletarCedula(setNuevoNombre)
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
@@ -614,6 +641,7 @@ function VistaAdministrador() {
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   const [detalle, setDetalle] = useState<SolicitudCambioRepresentante | null>(null)
@@ -624,6 +652,19 @@ function VistaAdministrador() {
   // Alterna entre ver el listado y generar una solicitud nueva, en vez de
   // mostrar ambas cosas apiladas en la misma pantalla.
   const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_abonado,
+      s.numero_abonado,
+      s.cedula,
+      s.representante_nuevo_nombre,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
 
   const cargar = useCallback(async () => {
     try {
@@ -685,6 +726,7 @@ function VistaAdministrador() {
   }
 
   const limpiarFormulario = () => {
+    resetearConsulta()
     setAbonadoSel('')
     setBusqueda('')
     setNuevoNombre('')
@@ -696,43 +738,86 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nuevoNombre, nuevaCedula, nuevoCorreo, justificacion, busqueda])
+
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Representante Legal',
+    tipoSlug: 'cambio-representante',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: abonadoElegido ? nombreVisible(abonadoElegido) : 'Abonado no seleccionado',
+      identificacion: abonadoElegido?.cedula ?? '',
+      telefono: abonadoElegido?.telefono ?? '',
+      correo: abonadoElegido?.correo ?? '',
+      numeroAbonado: abonadoElegido?.numero_abonado ?? '',
+    },
+    detalles: [
+      { etiqueta: 'Nombre del nuevo representante', valor: nuevoNombre },
+      { etiqueta: 'Cédula del nuevo representante', valor: nuevaCedula },
+      { etiqueta: 'Correo del nuevo representante', valor: nuevoCorreo || 'No especificado' },
+      { etiqueta: 'Justificación del cambio', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-representante', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
 
     if (enviandoRef.current) return
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
     const nombre = nuevoNombre.trim()
     const cedula = nuevaCedula.trim()
     const correo = nuevoCorreo.trim()
     const just = justificacion.trim()
-    if (!nombre) {
-      setError('El nombre del nuevo representante es obligatorio.')
-      return
-    }
-    if (!IDENTIFICACION_REGEX.test(cedula)) {
-      setError(
-        'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).',
-      )
-      return
-    }
-    if (correo && !CORREO_REGEX.test(correo)) {
-      setError('El correo del nuevo representante no es válido.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar la foto o PDF de la cédula del nuevo representante.')
+    if (nombre.length < 5) errs.nombre ??= nombre
+          ? 'El nombre del nuevo representante debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo representante es obligatorio.'
+    if (!IDENTIFICACION_REGEX.test(cedula)) errs.cedula ??= 'Formato de cédula inválido. Usa cédula (1-2345-6789), cédula jurídica (3-101-123456) o DIMEX (11-12 dígitos).'
+    if (correo && !CORREO_REGEX.test(correo)) errs.correo ??= 'El correo del nuevo representante no es válido.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar la foto o PDF de la cédula del nuevo representante.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !abonadoElegido || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
       const resp = await crearSolicitudCambioRepresentante({
@@ -743,12 +828,15 @@ function VistaAdministrador() {
         justificacion: just,
         copiaCedula: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
       setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { representanteNuevoNombre: 'nombre', representanteNuevoCedula: 'cedula', representanteNuevoCorreo: 'correo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -775,7 +863,9 @@ function VistaAdministrador() {
         mensaje:
           estado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada. El representante del abonado se actualizó y se notificó por correo.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
+            : estado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -797,7 +887,10 @@ function VistaAdministrador() {
       {codigoGenerado && (
         <ModalConfirmacion
           codigo={codigoGenerado}
-          onCerrar={() => setCodigoGenerado(null)}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
           titulo="¡Solicitud Registrada con Éxito!"
           descripcion={
             <>
@@ -805,39 +898,25 @@ function VistaAdministrador() {
               recibido por la administración de la ASADA.
             </>
           }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
         />
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          {error}
-        </div>
+        <Alerta tipo="error">
+          <p>{error}</p>
+        </Alerta>
       )}
 
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Solicitudes registradas
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Generar solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Solicitudes registradas' },
+          { valor: 'crear', etiqueta: 'Generar solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -857,7 +936,7 @@ function VistaAdministrador() {
 
             {abonadoElegido ? (
               <div>
-                <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-exito-200 bg-exito-50 px-3 py-2.5 text-sm shadow-sm">
                   <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                   <button
                     type="button"
@@ -865,7 +944,7 @@ function VistaAdministrador() {
                       setAbonadoSel('')
                       setBusqueda('')
                     }}
-                    className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                    className="shrink-0 rounded-full border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                   >
                     Quitar
                   </button>
@@ -881,6 +960,7 @@ function VistaAdministrador() {
                   placeholder="Buscar abonado jurídico por nombre o cédula…"
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 />
+                <CampoError mensaje={erroresCampo.abonado} />
                 {busqueda.trim() !== '' && (
                   <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-primary-200 bg-white shadow-lg">
                     {cargandoAbonados ? (
@@ -908,8 +988,8 @@ function VistaAdministrador() {
                               <span
                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                   a.estado === 'Activo'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
+                                    ? 'bg-exito-100 text-exito-700'
+                                    : 'bg-error-100 text-error-700'
                                 }`}
                               >
                                 {a.estado}
@@ -926,9 +1006,16 @@ function VistaAdministrador() {
           </div>
 
           <div>
-            <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
-              Nombre del nuevo representante
-            </label>
+            <div className="flex items-center justify-between">
+              <label htmlFor="nuevoNombre" className="block text-sm font-medium text-primary-700">
+                Nombre del nuevo representante
+              </label>
+              {buscandoNombre && (
+                <span className="flex items-center gap-1.5 text-xs text-primary-600 font-normal">
+                  <Spinner className="h-3 w-3" /> Cargando nombre...
+                </span>
+              )}
+            </div>
             <input
               id="nuevoNombre"
               type="text"
@@ -938,6 +1025,7 @@ function VistaAdministrador() {
               placeholder="Nombre completo del nuevo representante"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.nombre} />
           </div>
 
           <div>
@@ -948,11 +1036,17 @@ function VistaAdministrador() {
               id="nuevaCedula"
               type="text"
               value={nuevaCedula}
-              onChange={(e) => setNuevaCedula(formatearCedula(e.target.value))}
+              onChange={(e) => {
+                const formateado = formatearCedula(e.target.value)
+                setNuevaCedula(formateado)
+                consultarCedula(formateado)
+              }}
+              onBlur={() => consultarCedula(nuevaCedula)}
               required
               placeholder="Ej: 1-2345-6789"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.cedula} />
           </div>
 
           <div>
@@ -967,6 +1061,7 @@ function VistaAdministrador() {
               placeholder="correo@ejemplo.com (opcional)"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.correo} />
           </div>
 
           <div className="sm:col-span-2">
@@ -982,6 +1077,7 @@ function VistaAdministrador() {
               placeholder="Motivo del cambio de representante"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
@@ -999,35 +1095,29 @@ function VistaAdministrador() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-            {error}
-          </p>
+          <Alerta tipo="error" className="mt-3">
+            <p>{error}</p>
+          </Alerta>
         )}
-        {mensaje && (
-          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-            {mensaje}
-          </p>
-        )}
+        <Notificar mensaje={mensaje} />
 
-        <div className="mt-5 flex justify-center gap-3">
-          <button
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
+          <Button
+            variant="primary"
             type="submit"
-            disabled={enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={enviando}>
             {enviando ? 'Subiendo solicitud…' : 'Registrar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       )}
@@ -1037,53 +1127,67 @@ function VistaAdministrador() {
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="No hay solicitudes de cambio de representante"
             descripcion="Las solicitudes registradas aparecerán aquí."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo representante</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
-                {solicitudes.map((s) => (
-                  <tr key={s.id} className="hover:bg-primary-50/50">
-                    <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
-                    <td className="px-4 py-3 text-primary-600">
-                      <div className="font-medium text-primary-800">{s.nombre_abonado}</div>
-                      <div className="text-xs text-primary-400">{s.numero_abonado}</div>
-                    </td>
-                    <td className="px-4 py-3 text-primary-600">{s.representante_nuevo_nombre}</td>
-                    <td className="px-4 py-3">
-                      <BadgeEstado estado={s.estado} />
-                    </td>
-                    <td className="px-4 py-3 text-primary-500">
-                      {formatearFecha(s.fecha_creacion)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => abrirDetalle(s)}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
-                        Ver / gestionar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            <BarraFiltrosSolicitudes
+              busca={filtrosLista.busqueda}
+              manejarBusqueda={filtrosLista.cambiarBusqueda}
+              placeholder="Buscar por código, abonado o nuevo representante…"
+              orden={filtrosLista.orden}
+              cambiarOrden={filtrosLista.cambiarOrden}
+              filtroEstado={filtrosLista.filtroEstado}
+              cambiarEstado={filtrosLista.cambiarEstado}
+              estados={ESTADOS_ABONADO}
+            />
+            {filtrosLista.filtradas.length === 0 ? (
+              <EmptyState
+                titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+                descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+              />
+            ) : (
+              <Table cabecera={['Código', 'Abonado', 'Nuevo representante', 'Estado', 'Fecha', 'Acciones']} pie={<><PaginadorSolicitudes
+                  total={filtrosLista.filtradas.length}
+                  primeraFila={filtrosLista.primeraFila}
+                  porPagina={filtrosLista.porPagina}
+                  paginaActual={filtrosLista.paginaActual}
+                  totalPaginas={filtrosLista.totalPaginas}
+                  numerosPagina={filtrosLista.numerosPagina}
+                  busca={filtrosLista.busqueda}
+                  etiqueta="solicitudes"
+                  irPagina={filtrosLista.irPagina}
+                /></>}>
+                    {filtrosLista.filasVisibles.map((s) => (
+                      <tr key={s.id} className="hover:bg-primary-50/50">
+                        <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
+                        <td className="px-4 py-3 text-primary-600">
+                          <div className="font-medium text-primary-800">{s.nombre_abonado}</div>
+                          <div className="text-xs text-primary-400">{s.numero_abonado}</div>
+                        </td>
+                        <td className="px-4 py-3 text-primary-600">{s.representante_nuevo_nombre}</td>
+                        <td className="px-4 py-3">
+                          <BadgeEstado estado={s.estado} />
+                        </td>
+                        <td className="px-4 py-3 text-primary-500">
+                          {formatearFecha(s.fecha_creacion)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="secondary" size="sm"
+                            type="button"
+                            onClick={() => abrirDetalle(s)}>
+                            Ver / gestionar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+            )}
           </div>
         )}
       </div>
@@ -1123,35 +1227,34 @@ function ModalDetalle({
   setMotivoRechazo: (v: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
  
   // Mínimo de caracteres del motivo al rechazar. Un "no" o un "." no le
   // sirven al abonado, que recibe este texto por correo como única
   // explicación del rechazo.
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
   // (ya con motivo válido) confirma el rechazo.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar('rechazado')
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl" onCerrar={onCerrar}>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               {solicitud.codigo_solicitud}
-            </h3>
+            </ModalTitulo>
             <p className="mt-0.5 text-sm text-primary-500">
               Solicitud de cambio de representante
             </p>
@@ -1208,8 +1311,8 @@ function ModalDetalle({
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
-              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+              <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
             </div>
           )}
 
@@ -1225,77 +1328,63 @@ function ModalDetalle({
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivo"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: la cédula adjunta no coincide con la identificación del nuevo representante"
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                    (llevas {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              {solicitud.estado !== 'en_proceso' && (
+                <Button
+                  variant="info"
+                  type="button"
+                  onClick={() => onGestionar('en_proceso')}
+                  disabled={gestionando}>
+                  {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                </Button>
+              )}
+              <Button
+                variant="success"
                 type="button"
-                onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
-                type="button"
-                onClick={() => onGestionar('aprobado')}
-                disabled={gestionando}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('aprobar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
+        )}
+</Modal>
   )
 }
 

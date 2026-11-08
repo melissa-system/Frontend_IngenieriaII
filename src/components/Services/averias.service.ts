@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/averias'
 
@@ -8,7 +8,7 @@ export interface AveriaBackend {
   codigo_averia: string
   tipo_averia: string
   descripcion: string
-  estado: 'Pendiente' | 'En proceso' | 'Finalizado'
+  estado: 'Pendiente' | 'En proceso' | 'En revisión' | 'Finalizado'
   cedula_reportante: string
   nombre_reportante: string
   apellido1_reportante: string | null
@@ -16,6 +16,14 @@ export interface AveriaBackend {
   ubicacion: string | null
   imagen_url: string | null
   fecha_reporte: string
+  /** Inicio de la gestión del fontanero (cronómetro); null si no ha empezado. */
+  gestion_iniciada_en: string | null
+  /** Fin de la gestión del fontanero; null mientras siga abierta. */
+  gestion_finalizada_en: string | null
+  /** true si la administración devolvió la resolución; el fontanero debe rehacerla. */
+  devuelta_revision: boolean
+  /** Motivo de la devolución, para mostrárselo al fontanero. */
+  motivo_revision: string | null
   empleado: {
     id: number
     nombre: string
@@ -52,17 +60,6 @@ export interface ActualizarAveriaPayload {
   realizado_por?: string
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 // El token de reCAPTCHA viaja en un encabezado y no en el cuerpo porque el
 // backend lo valida en un guard, que se ejecuta antes de leer el cuerpo de
@@ -79,9 +76,7 @@ export const crearAveria = async (
     })
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo crear el reporte de avería.'),
-    )
+    throw crearErrorApi(error, 'No se pudo crear el reporte de avería.')
   }
 }
 
@@ -90,9 +85,7 @@ export const obtenerAverias = async (): Promise<AveriaBackend[]> => {
     const { data } = await apiClient.get<AveriaBackend[]>(RESOURCE)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las averías.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las averías.')
   }
 }
 
@@ -101,9 +94,21 @@ export const obtenerMisAverias = async (): Promise<AveriaBackend[]> => {
     const { data } = await apiClient.get<AveriaBackend[]>(`${RESOURCE}/mis-averias`)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar tus averías.'),
+    throw crearErrorApi(error, 'No se pudieron cargar tus averías.')
+  }
+}
+
+// Averías asignadas al fontanero autenticado que siguen abiertas. Se usan
+// como bandeja de pendientes en su perfil y como opciones del formulario de
+// reporte de actividad.
+export const obtenerMisAveriasFontanero = async (): Promise<AveriaBackend[]> => {
+  try {
+    const { data } = await apiClient.get<AveriaBackend[]>(
+      `${RESOURCE}/mis-averias-fontanero`,
     )
+    return data
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudieron cargar tus averías asignadas.')
   }
 }
 
@@ -112,9 +117,7 @@ export const obtenerAveria = async (id: number): Promise<AveriaBackend> => {
     const { data } = await apiClient.get<AveriaBackend>(`${RESOURCE}/${id}`)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar la avería.'),
-    )
+    throw crearErrorApi(error, 'No se pudo cargar la avería.')
   }
 }
 
@@ -129,9 +132,41 @@ export const actualizarAveria = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar la avería.'),
+    throw crearErrorApi(error, 'No se pudo actualizar la avería.')
+  }
+}
+
+// Respuesta de terminarGestionAveria: la avería más los minutos reales que
+// duró la gestión, para prellenar el reporte de actividad.
+export type AveriaFinalizada = AveriaBackend & { duracion_minutos: number }
+
+// El fontanero asignado arranca el cronómetro de su avería (estado En proceso).
+export const iniciarGestionAveria = async (
+  id: number,
+): Promise<AveriaBackend> => {
+  try {
+    const { data } = await apiClient.patch<AveriaBackend>(
+      `${RESOURCE}/${id}/iniciar-gestion`,
     )
+    return data
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo iniciar la gestión de la avería.')
+  }
+}
+
+// El fontanero asignado detiene el cronómetro al terminar el trabajo. NO
+// finaliza la avería: la resolución la decide la administración tras revisar
+// el reporte.
+export const terminarGestionAveria = async (
+  id: number,
+): Promise<AveriaFinalizada> => {
+  try {
+    const { data } = await apiClient.patch<AveriaFinalizada>(
+      `${RESOURCE}/${id}/terminar-gestion`,
+    )
+    return data
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo terminar la gestión de la avería.')
   }
 }
 
@@ -150,9 +185,7 @@ export const subirImagenAveria = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo subir la imagen.'),
-    )
+    throw crearErrorApi(error, 'No se pudo subir la imagen.')
   }
 }
 
@@ -180,9 +213,7 @@ export const obtenerEstadisticasAverias = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las estadísticas de averías.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las estadísticas de averías.')
   }
 }
 

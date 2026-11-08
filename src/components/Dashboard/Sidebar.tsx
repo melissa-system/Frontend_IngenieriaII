@@ -186,13 +186,22 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
   }
   const isSubmenuActive = (items: SubMenuItem[]) => rutasDe(items).some(isActive)
 
-  // Cambia el perfil activo (rol base <-> Abonado) y vuelve al home del
-  // dashboard, igual que el switcher del DashboardHeader — evita quedar en
-  // una pantalla que ya no aplica al perfil nuevo (ej. Usuarios).
+  // Cambia el perfil activo (rol base <-> Abonado) y siempre termina en el
+  // home del dashboard del rol elegido.
+  //
+  // IMPORTANTE: el navigate va ANTES de cambiarPerfil, no después. navigate()
+  // de React Router aplica la ubicación de forma síncrona y fuerza un render
+  // antes de que setPerfilActivo (una simple setState) llegue a pintarse; si
+  // se cambiara el rol estando todavía en una pantalla con RoleRoute del rol
+  // anterior, o en un dashboard del rol viejo con el token ya nuevo, alguna
+  // llamada respondería 403 y GestorAcceso nos mandaría a /acceso-denegado.
+  // Navegando primero, el dashboard intermedio que monta es el del rol VIEJO
+  // con el token VIEJO (coherente) y, al aplicarse el cambio, se re-renderiza
+  // el del rol NUEVO con el token NUEVO (también coherente).
   async function seleccionarPerfil(perfil: PerfilActivo) {
-    await cambiarPerfil(perfil)
     setPerfilMenuOpen(false)
     navigate('/dashboard')
+    await cambiarPerfil(perfil)
   }
 
   // Renderiza una opción de submenú: enlace directo (hoja) o, si trae su
@@ -205,7 +214,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <li key={sub.to}>
           <Link
             to={sub.to!}
-            className={`block rounded-2xl pl-3 pr-3 py-2 text-sm transition-colors ${
+            className={`block rounded-2xl pl-3 pr-3 py-2 text-sm pointer-coarse:py-3 transition-colors ${
               active
                 ? '-mr-3 bg-white font-medium text-primary-900 shadow-md'
                 : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -228,7 +237,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <button
           type="button"
           onClick={() => toggleExpand(key)}
-          className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-colors ${
+          className={`flex w-full items-center gap-2 rounded-2xl px-3 py-2 text-sm pointer-coarse:py-3 transition-colors ${
             active
               ? '-mr-3 bg-white font-medium text-primary-900 shadow-md'
               : 'text-primary-300 hover:bg-primary-800 hover:text-white'
@@ -265,7 +274,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               type="button"
               title={item.label}
               onClick={() => toggleExpand(item.label)}
-              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+              className={`flex w-full items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium pointer-coarse:py-3 transition-colors ${
                 collapsed ? 'lg:justify-center' : ''
               } ${
                 active
@@ -304,7 +313,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
           <Link
             to={item.to!}
             title={item.label}
-            className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`flex items-center gap-3 rounded-2xl px-3 py-2.5 text-sm font-medium pointer-coarse:py-3 transition-colors ${
               collapsed ? 'lg:justify-center' : ''
             } ${
               active
@@ -322,9 +331,9 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
 
   return (
     <aside
-      className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
-        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:static lg:h-screen lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
+      className={`fixed inset-y-0 right-0 z-50 flex h-dvh w-64 flex-col bg-primary-900 text-white transition-all duration-200 ease-in-out
+        ${mobileOpen ? 'translate-x-0' : 'translate-x-full'}
+        lg:static lg:right-auto lg:h-screen lg:translate-x-0 ${collapsed ? 'lg:w-16' : 'lg:w-64'}`}
     >
       <div className="flex items-center justify-between border-b border-primary-700 px-5 py-5">
         <span
@@ -342,7 +351,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
         <button
           type="button"
           onClick={onCloseMobile}
-          className="rounded-lg p-1 text-primary-300 hover:bg-primary-800 hover:text-white lg:hidden"
+          className="rounded-full p-1 text-primary-300 hover:bg-primary-800 hover:text-white lg:hidden"
           aria-label="Cerrar menú"
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-6 w-6">
@@ -367,7 +376,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
               estar pegada al fondo. */}
           <div className="relative" ref={perfilMenuRef}>
             {perfilMenuOpen && (
-              <div className="absolute bottom-full left-0 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-primary-700 bg-primary-800 shadow-2xl">
+              <div className="absolute bottom-full right-0 z-20 mb-2 w-72 overflow-hidden rounded-xl border border-primary-700 bg-primary-800 shadow-2xl lg:right-auto lg:left-0">
                 <div className="px-4 py-3">
                   <p className="truncate text-sm font-medium text-white">{user?.nombre}</p>
                   <p className="truncate text-xs text-primary-400">{user?.email}</p>
@@ -451,7 +460,7 @@ function Sidebar({ collapsed, onToggleCollapse, mobileOpen, onCloseMobile }: Sid
                       // landing termine de aplicarse.
                       window.location.href = '/'
                     }}
-                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-red-300 transition-colors hover:bg-primary-700 hover:text-red-200"
+                    className="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-error-300 transition-colors hover:bg-primary-700 hover:text-error-200"
                   >
                     <IconCerrarSesion />
                     Cerrar sesión

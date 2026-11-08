@@ -1,6 +1,9 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
-import { RequiereConfirmacionError, extraerRequiereConfirmacion } from './erroresApi'
+import {
+  RequiereConfirmacionError,
+  extraerRequiereConfirmacion,
+  crearErrorApi,
+} from './erroresApi'
 
 const RESOURCE = '/empleados'
 
@@ -39,17 +42,6 @@ export interface EmpleadoUpdatePayload {
   usuario_id?: number | null
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const crearEmpleado = async (
   payload: EmpleadoPayload,
@@ -64,9 +56,7 @@ export const crearEmpleado = async (
   } catch (error) {
     const info = extraerRequiereConfirmacion(error)
     if (info) throw new RequiereConfirmacionError(info)
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo registrar el empleado.'),
-    )
+    throw crearErrorApi(error, 'No se pudo registrar el empleado.')
   }
 }
 
@@ -78,9 +68,7 @@ export const obtenerEmpleados = async (
     const { data } = await apiClient.get<Empleado[]>(RESOURCE, { params })
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar los empleados.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar los empleados.')
   }
 }
 
@@ -91,9 +79,7 @@ export const obtenerEmpleado = async (
     const { data } = await apiClient.get<Empleado>(`${RESOURCE}/${id}`)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar el empleado.'),
-    )
+    throw crearErrorApi(error, 'No se pudo cargar el empleado.')
   }
 }
 
@@ -108,12 +94,7 @@ export const actualizarEmpleado = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(
-        error,
-        'No se pudieron guardar los cambios del empleado.',
-      ),
-    )
+    throw crearErrorApi(error, 'No se pudieron guardar los cambios del empleado.')
   }
 }
 
@@ -128,12 +109,7 @@ export const cambiarEstadoEmpleado = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(
-        error,
-        'No se pudo cambiar el estado del empleado.',
-      ),
-    )
+    throw crearErrorApi(error, 'No se pudo cambiar el estado del empleado.')
   }
 }
 
@@ -147,9 +123,7 @@ export const buscarUsuarioPorEmail = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo consultar el correo.'),
-    )
+    throw crearErrorApi(error, 'No se pudo consultar el correo.')
   }
 }
 
@@ -170,8 +144,6 @@ export const vincularCuentaEmpleado = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo vincular la cuenta al empleado.'),
-    )
+    throw crearErrorApi(error, 'No se pudo vincular la cuenta al empleado.')
   }
 }

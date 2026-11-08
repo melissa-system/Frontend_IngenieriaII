@@ -1,19 +1,48 @@
+import { ordenar, siguienteOrden, type OrdenTabla } from '../../lib/tabla'
+import Paginador from '../../components/ui/Paginador'
+import Alerta from '../../components/ui/Alerta'
+import { FilaVacia } from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  correo,
+  formatearTelefono,
+  hayErrores,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoProveedor = 'nombre' | 'contacto' | 'telefono' | 'correo' | 'direccion'
 import {
   obtenerProveedores,
   crearProveedor,
   actualizarProveedor,
   type Proveedor,
 } from '../../components/Services/inventario.service'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
+import Table from '../../components/ui/Table'
+import PageHeader from '../../components/ui/PageHeader'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 function getEstadoColor(estado: string) {
-  if (estado === 'Activo') return 'bg-green-100 text-green-700'
-  return 'bg-red-100 text-red-700'
+  if (estado === 'Activo') return 'bg-exito-100 text-exito-700'
+  return 'bg-error-100 text-error-700'
 }
 
 function getTipoBadge(tipo: string) {
-  if (tipo === 'Físico') return 'bg-blue-100 text-blue-700'
-  return 'bg-purple-100 text-purple-700'
+  if (tipo === 'Físico') return 'bg-info-100 text-info-700'
+  return 'bg-acento-100 text-acento-700'
 }
 
 function formatearFecha(fecha?: string) {
@@ -57,8 +86,8 @@ function EstadoSwitch({
       title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+      className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -79,6 +108,11 @@ function Proveedores() {
   // Búsqueda y paginación
   const [search, setSearch] = useState('')
   const [pagina, setPagina] = useState(1)
+  // Filtro de estado: por defecto solo activos, para que los proveedores
+  // desactivados (eliminados) "desaparezcan" de la vista como si se hubieran
+  // borrado; se recuperan cambiando el filtro a "Inactivos"/"Todos".
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Activo')
+  const [filtroTipo, setFiltroTipo] = useState<'Todos' | 'Jurídico' | 'Físico'>('Todos')
 
   // Modales
   const [modalNuevoProveedor, setModalNuevoProveedor] = useState(false)
@@ -103,6 +137,30 @@ function Proveedores() {
     direccion: '',
   })
   const [errorFormProveedor, setErrorFormProveedor] = useState('')
+  const [errores, setErrores] = useState<ErroresFormulario<CampoProveedor>>({})
+
+  // Checklist común (PBI 511): nombre obligatorio; teléfono y correo
+  // opcionales, pero con formato válido si se escriben; longitudes máximas.
+  function validarProveedor(): boolean {
+    const nuevos = validarCampos<CampoProveedor>(
+      {
+        nombre: [requerido('El nombre del proveedor'), maximo('El nombre', 200)],
+        contacto: [maximo('El contacto', 150)],
+        telefono: [telefono()],
+        correo: [correo(), maximo('El correo', 150)],
+        direccion: [maximo('La dirección', 255)],
+      },
+      formProveedor,
+    )
+    setErrores(nuevos)
+    enfocarPrimerError()
+    return !hayErrores(nuevos)
+  }
+
+  function cambiarCampo(campo: CampoProveedor, valor: string) {
+    setFormProveedor((p) => ({ ...p, [campo]: valor }))
+    setErrores((prev) => ({ ...prev, [campo]: undefined }))
+  }
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -142,15 +200,13 @@ function Proveedores() {
       direccion: '',
     })
     setErrorFormProveedor('')
+    setErrores({})
   }
 
   async function handleCrearProveedor(e: React.FormEvent) {
     e.preventDefault()
     setErrorFormProveedor('')
-    if (!formProveedor.nombre.trim()) {
-      setErrorFormProveedor('El nombre del proveedor es obligatorio')
-      return
-    }
+    if (!validarProveedor()) return
 
     try {
       await crearProveedor(formProveedor)
@@ -159,7 +215,13 @@ function Proveedores() {
       notificarExito('Proveedor registrado exitosamente.')
       void cargarDatos()
     } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al registrar el proveedor')
+      setErrores(erroresPorCampo<CampoProveedor>(err))
+      enfocarPrimerError()
+      setErrorFormProveedor(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'Error al registrar el proveedor',
+      )
     }
   }
 
@@ -167,10 +229,7 @@ function Proveedores() {
     e.preventDefault()
     if (!proveedorAEditar) return
     setErrorFormProveedor('')
-    if (!formProveedor.nombre.trim()) {
-      setErrorFormProveedor('El nombre del proveedor es obligatorio')
-      return
-    }
+    if (!validarProveedor()) return
 
     try {
       await actualizarProveedor(proveedorAEditar.id, formProveedor)
@@ -178,7 +237,13 @@ function Proveedores() {
       notificarExito('Proveedor actualizado exitosamente.')
       void cargarDatos()
     } catch (err) {
-      setErrorFormProveedor(err instanceof Error ? err.message : 'Error al actualizar el proveedor')
+      setErrores(erroresPorCampo<CampoProveedor>(err))
+      enfocarPrimerError()
+      setErrorFormProveedor(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'Error al actualizar el proveedor',
+      )
     }
   }
 
@@ -205,13 +270,23 @@ function Proveedores() {
     }
   }
 
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
+
   // Búsqueda y paginación client-side: si la lista encoge, paginaActual se
   // autocorrige y nunca queda apuntando a una página vacía.
   const q = normalizarBusqueda(search)
+  const conTipo =
+    filtroTipo === 'Todos'
+      ? proveedores
+      : proveedores.filter((p) => p.tipo === filtroTipo)
+  const conEstado =
+    filtroEstado === 'Todos'
+      ? conTipo
+      : conTipo.filter((p) => p.estado === filtroEstado)
   const filtrados =
     q === ''
-      ? proveedores
-      : proveedores.filter(
+      ? conEstado
+      : conEstado.filter(
           (p) =>
             normalizarBusqueda(p.nombre).includes(q) ||
             normalizarBusqueda(p.contacto ?? '').includes(q) ||
@@ -226,11 +301,15 @@ function Proveedores() {
   )
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * PROVEEDORES_POR_PAGINA
-  const filasVisibles = filtrados.slice(
+  const ordenados = ordenar(filtrados, orden, {
+    nombre: (p) => p.nombre,
+    tipo: (p) => p.tipo,
+    estado: (p) => p.estado,
+  })
+  const filasVisibles = ordenados.slice(
     primeraFila,
     primeraFila + PROVEEDORES_POR_PAGINA,
   )
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   // Buscar siempre regresa a la primera página; navegar páginas NO toca el
   // término de búsqueda, así que el filtro se mantiene entre páginas.
@@ -240,113 +319,117 @@ function Proveedores() {
   }
 
   // Clases compartidas
-  const inputCls = 'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none'
+  const inputConError = (error?: string) =>
+    `mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(error)}`
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none bg-white'
   const labelCls = 'block text-sm font-medium text-primary-700'
-  const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
-  const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
 
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Proveedores</h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Registro y administración de los proveedores de materiales de la ASADA
-          </p>
-        </div>
-
-        <button
+      <PageHeader
+        titulo="Proveedores"
+        descripcion="Registro y administración de los proveedores de materiales de la ASADA"
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={() => {
             resetFormProveedor()
             setModalNuevoProveedor(true)
           }}
-          className="self-start rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white shadow transition-colors hover:bg-primary-800"
-        >
+          className="self-start shadow">
           + Nuevo Proveedor
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
       {/* Alertas */}
-      {mensajeExito && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
-          ✓ {mensajeExito}
-        </div>
-      )}
-      {errorGeneral && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-800">
-          ✕ {errorGeneral}
-        </div>
-      )}
+      <Notificar mensaje={mensajeExito} />
+      {errorGeneral && <ErrorState mensaje={errorGeneral} onReintentar={cargarDatos} />}
 
-      {/* Búsqueda */}
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, contacto, teléfono, correo o dirección..."
-          value={search}
-          onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => manejarBusqueda('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+      {/* Búsqueda y filtros a la par, en una sola fila */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, contacto, teléfono, correo o dirección..."
+            value={search}
+            onChange={(e) => manejarBusqueda(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => manejarBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        <select
+          value={filtroTipo}
+          onChange={(e) => {
+            setFiltroTipo(e.target.value as 'Todos' | 'Jurídico' | 'Físico')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los tipos</option>
+          <option value="Jurídico">Jurídico</option>
+          <option value="Físico">Físico</option>
+        </select>
+
+        {/* Los desactivados quedan ocultos por defecto (soft delete) */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as 'Todos' | 'Activo' | 'Inactivo')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+          <option value="Todos">Todos los estados</option>
+        </select>
       </div>
 
       {/* Tabla de Proveedores */}
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-primary-100 text-sm">
-          <thead className="bg-primary-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Proveedor</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Contacto</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Teléfono</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Correo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-primary-50">
+      <Table orden={orden} onOrdenar={(c) => { setOrden(siguienteOrden(orden, c)); setPagina(1) }} cabecera={[{ etiqueta: 'Proveedor', clave: 'nombre' }, { etiqueta: 'Tipo', clave: 'tipo' }, 'Contacto', 'Teléfono', 'Correo', { etiqueta: 'Estado', clave: 'estado' }, 'Acciones']} pie={<>{!cargando && filtrados.length > 0 && (
+          <Paginador total={filtrados.length} pagina={paginaActual} porPagina={PROVEEDORES_POR_PAGINA} onCambiar={setPagina} etiqueta="proveedores" filtro={search} />
+        )}</>}>
             {cargando ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                  Cargando proveedores...
-                </td>
-              </tr>
+              <FilasEsqueleto columnas={7} />
             ) : filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={7} className="px-4 py-8 text-center text-primary-400">
-                  {search
+              <FilaVacia columnas={7} titulo={search
                     ? `No encontramos proveedores para "${search}"`
-                    : 'No hay proveedores registrados.'}
-                </td>
-              </tr>
+                    : filtroTipo !== 'Todos'
+                      ? `No hay proveedores de tipo ${filtroTipo}.`
+                      : filtroEstado === 'Todos'
+                        ? 'No hay proveedores registrados.'
+                        : `No hay proveedores ${filtroEstado === 'Activo' ? 'activos' : 'inactivos'}.`} />
             ) : (
               filasVisibles.map((p) => (
                 <tr key={p.id} className="hover:bg-primary-50/50">
@@ -380,9 +463,9 @@ function Proveedores() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
+                    <div className="flex items-center gap-1">
+                      <IconoEditar
+                        titulo={`Editar ${p.nombre}`}
                         onClick={() => {
                           setProveedorAEditar(p)
                           setFormProveedor({
@@ -395,81 +478,39 @@ function Proveedores() {
                           })
                           setErrorFormProveedor('')
                         }}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <IconoVer
+                        titulo={`Ver detalle de ${p.nombre}`}
                         onClick={() => setProveedorAVer(p)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Ver
-                      </button>
+                      />
+                      {/* Eliminar = desactivar (soft delete), mismo criterio
+                          que en artículos: reutiliza el modal de confirmación
+                          de cambio de estado. Solo aparece en activos. */}
+                      {p.estado === 'Activo' && (
+                        <IconoEliminar
+                          titulo={`Desactivar ${p.nombre}`}
+                          onClick={() => {
+                            setErrorCambioEstado(null)
+                            setCambioEstado({ proveedor: p, nuevo: 'Inactivo' })
+                          }}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-
-        {!cargando && filtrados.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {`${primeraFila + 1}–${Math.min(primeraFila + PROVEEDORES_POR_PAGINA, filtrados.length)}`}{' '}
-              de {filtrados.length} proveedores
-              {search ? ` (filtro: "${search}")` : ''}
-            </p>
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={() => setPagina(paginaActual - 1)}
-                disabled={paginaActual === 1}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                ‹ Anterior
-              </button>
-              {numerosPagina.map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setPagina(n)}
-                  disabled={n === paginaActual}
-                  aria-current={n === paginaActual ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                    n === paginaActual
-                      ? 'bg-primary-700 text-white'
-                      : 'text-primary-700 hover:bg-primary-50'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => setPagina(paginaActual + 1)}
-                disabled={paginaActual === totalPaginas}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-              >
-                Siguiente ›
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          </Table>
 
       {/* ------------------------------------------------------------------ */}
       {/* MODAL REGISTRAR O EDITAR PROVEEDOR */}
       {/* ------------------------------------------------------------------ */}
       {(modalNuevoProveedor || proveedorAEditar) && (
-        <div className={modalBgCls}>
-          <div className={modalCls}>
+        <Modal size="2xl">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 {proveedorAEditar ? `Editar Proveedor: ${proveedorAEditar.nombre}` : 'Nuevo Proveedor'}
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={() => {
@@ -477,28 +518,32 @@ function Proveedores() {
                   setProveedorAEditar(null)
                   resetFormProveedor()
                 }}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 ✕
               </button>
             </div>
 
             {errorFormProveedor && (
-              <div className="mb-4 rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700">
+              <Alerta tipo="error" className="mb-4">
                 {errorFormProveedor}
-              </div>
+              </Alerta>
             )}
 
-            <form onSubmit={proveedorAEditar ? handleEditarProveedor : handleCrearProveedor} className="space-y-4">
+            <form onSubmit={proveedorAEditar ? handleEditarProveedor : handleCrearProveedor} noValidate className="space-y-4">
               <div>
-                <label className={labelCls}>Nombre del proveedor *</label>
+                <label className={labelCls}>
+                  Nombre del proveedor
+                  <Obligatorio />
+                </label>
                 <input
                   type="text"
-                  required
                   value={formProveedor.nombre}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, nombre: e.target.value }))}
-                  className={inputCls}
+                  maxLength={200}
+                  onChange={(e) => cambiarCampo('nombre', e.target.value)}
+                  className={inputConError(errores.nombre)}
                 />
+                <CampoError mensaje={errores.nombre} />
               </div>
 
               <div>
@@ -523,29 +568,36 @@ function Proveedores() {
                 <input
                   type="text"
                   value={formProveedor.contacto}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, contacto: e.target.value }))}
-                  className={inputCls}
+                  maxLength={150}
+                  onChange={(e) => cambiarCampo('contacto', e.target.value)}
+                  className={inputConError(errores.contacto)}
                 />
+                <CampoError mensaje={errores.contacto} />
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Teléfono</label>
                   <input
                     type="text"
+                    inputMode="numeric"
+                    placeholder="8888-8888"
                     value={formProveedor.telefono}
-                    onChange={(e) => setFormProveedor((p) => ({ ...p, telefono: e.target.value }))}
-                    className={inputCls}
+                    onChange={(e) => cambiarCampo('telefono', formatearTelefono(e.target.value))}
+                    className={inputConError(errores.telefono)}
                   />
+                  <CampoError mensaje={errores.telefono} />
                 </div>
                 <div>
                   <label className={labelCls}>Correo electrónico</label>
                   <input
                     type="email"
                     value={formProveedor.correo}
-                    onChange={(e) => setFormProveedor((p) => ({ ...p, correo: e.target.value }))}
-                    className={inputCls}
+                    maxLength={150}
+                    onChange={(e) => cambiarCampo('correo', e.target.value)}
+                    className={inputConError(errores.correo)}
                   />
+                  <CampoError mensaje={errores.correo} />
                 </div>
               </div>
 
@@ -554,45 +606,44 @@ function Proveedores() {
                 <input
                   type="text"
                   value={formProveedor.direccion}
-                  onChange={(e) => setFormProveedor((p) => ({ ...p, direccion: e.target.value }))}
-                  className={inputCls}
+                  maxLength={255}
+                  onChange={(e) => cambiarCampo('direccion', e.target.value)}
+                  className={inputConError(errores.direccion)}
                 />
+                <CampoError mensaje={errores.direccion} />
               </div>
 
               <div className="mt-6 flex justify-end gap-3 border-t border-primary-100 pt-4">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white shadow hover:bg-primary-800"
-                >
+                  className="shadow">
                   {proveedorAEditar ? 'Guardar Cambios' : 'Registrar Proveedor'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
                   onClick={() => {
                     setModalNuevoProveedor(false)
                     setProveedorAEditar(null)
                     resetFormProveedor()
-                  }}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
+                  }}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* MODAL DETALLE DEL PROVEEDOR */}
       {proveedorAVer && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Detalle de Proveedor</h2>
+              <ModalTitulo>Detalle de Proveedor</ModalTitulo>
               <button
                 type="button"
                 onClick={() => setProveedorAVer(null)}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -600,7 +651,7 @@ function Proveedores() {
               </button>
             </div>
             <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 break-words">
                 <span className="font-medium text-primary-700">Proveedor:</span>
                 <span className="text-primary-900">{proveedorAVer.nombre}</span>
                 <span className="font-medium text-primary-700">Tipo:</span>
@@ -629,25 +680,22 @@ function Proveedores() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={() => setProveedorAVer(null)}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                onClick={() => setProveedorAVer(null)}>
                 Cerrar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* Confirmación de cambio de estado (Activo / Inactivo) */}
       {cambioEstado && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-primary-900">
+        <Modal size="md" layer={60} scroll={false}>
+            <ModalTitulo>
               Cambiar estado del proveedor
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               ¿Seguro que deseas cambiar el estado de{' '}
               <span className="font-semibold text-primary-800">
@@ -673,30 +721,27 @@ function Proveedores() {
               proveedores.
             </p>
             {errorCambioEstado && (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              <Alerta tipo="error" className="mt-3">
                 {errorCambioEstado}
-              </p>
+              </Alerta>
             )}
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={confirmarCambioEstado}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setCambioEstado(null)}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

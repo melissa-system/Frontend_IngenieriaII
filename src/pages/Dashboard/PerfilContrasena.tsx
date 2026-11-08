@@ -1,7 +1,11 @@
+import Alerta from '../../components/ui/Alerta'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, type FormEvent } from 'react'
+import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { useAuth } from '../../contexts/AuthContext'
 import apiClient from '../../lib/apiClient'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
+import Button from '../../components/ui/Button'
 
 // Espejo client-side de las reglas de fortaleza que aplica el backend en
 // CambiarPasswordDto (min 8 caracteres, mayuscula, numero).
@@ -18,12 +22,9 @@ function validarFortaleza(pw: string): string | null {
   return null
 }
 
+// Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(err: unknown): string {
-  const data = (err as { response?: { data?: { message?: unknown } } })?.response
-    ?.data?.message
-  if (Array.isArray(data)) return data.join(' · ')
-  if (typeof data === 'string') return data
-  return 'No se pudo realizar la operación. Intenta nuevamente.'
+  return mensajeDeError(err, 'No se pudo realizar la operación. Intenta nuevamente.')
 }
 
 // Cambio de contraseña, separado de "Editar perfil" (ver PerfilEditar.tsx)
@@ -94,23 +95,16 @@ function PerfilContrasena() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
           Mínimo 8 caracteres, una letra mayúscula y un número.
         </p>
       </div>
 
       <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
-        {exito && (
-          <div className="mb-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            Contraseña actualizada correctamente. Cierra sesión e inicia con tu
-            nueva contraseña…
-          </div>
-        )}
+        <Notificar mensaje={exito ? 'Contraseña actualizada correctamente. Cerrá sesión e iniciá con tu nueva contraseña.' : null} />
         {error && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {error}
-          </div>
+          <Alerta tipo="error" className="mb-4">{error}</Alerta>
         )}
 
         <form onSubmit={manejarSubmit} className="space-y-5">
@@ -184,13 +178,12 @@ function PerfilContrasena() {
             </div>
           </div>
           <div className="flex items-center justify-end gap-3">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              disabled={enviando || exito}
-              className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-            >
+              disabled={enviando || exito}>
               {enviando ? 'Guardando…' : 'Cambiar contraseña'}
-            </button>
+            </Button>
             <button
               type="button"
               onClick={cancelar}

@@ -1,3 +1,7 @@
+import Alerta from '../../components/ui/Alerta'
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type ChangeEvent, type FormEvent } from 'react'
 import {
   crearDocumento,
@@ -15,6 +19,8 @@ import {
   type VisibilidadDocumento,
 } from '../../components/Services/documentos.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -41,11 +47,20 @@ function DocumentosAdmin() {
   const [filtroTipo, setFiltroTipo] = useState<TipoDocumento | ''>('')
   const [filtroNombreInput, setFiltroNombreInput] = useState('')
   const [filtroNombre, setFiltroNombre] = useState('')
+  // Visibilidad se filtra en cliente sobre lo que ya devolvió el backend
+  // (tipo y nombre ya van como query params en obtenerDocumentos).
+  const [filtroVisibilidad, setFiltroVisibilidad] = useState<
+    VisibilidadDocumento | ''
+  >('')
 
   useEffect(() => {
     const t = setTimeout(() => setFiltroNombre(filtroNombreInput), 300)
     return () => clearTimeout(t)
   }, [filtroNombreInput])
+
+  const documentosVisibles = filtroVisibilidad
+    ? documentos.filter((doc) => doc.visibilidad === filtroVisibilidad)
+    : documentos
 
   const [uploadModalOpen, setUploadModalOpen] = useState(false)
   const [uploadForm, setUploadForm] = useState<{
@@ -301,7 +316,7 @@ function DocumentosAdmin() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Documentos
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -311,7 +326,14 @@ function DocumentosAdmin() {
 
       <div className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              type="search"
+              value={filtroNombreInput}
+              onChange={(e) => setFiltroNombreInput(e.target.value)}
+              placeholder="Buscar por nombre..."
+              className="w-56 rounded-full border border-primary-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            />
             <select
               value={filtroTipo}
               onChange={(e) => setFiltroTipo(e.target.value as TipoDocumento | '')}
@@ -324,47 +346,40 @@ function DocumentosAdmin() {
                 </option>
               ))}
             </select>
-            <input
-              type="search"
-              value={filtroNombreInput}
-              onChange={(e) => setFiltroNombreInput(e.target.value)}
-              placeholder="Buscar por nombre..."
-              className="w-56 rounded-full border border-primary-200 px-4 py-2 text-sm focus:border-primary-500 focus:outline-none"
-            />
+            <select
+              value={filtroVisibilidad}
+              onChange={(e) =>
+                setFiltroVisibilidad(e.target.value as VisibilidadDocumento | '')
+              }
+              className="rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+            >
+              <option value="">Todas las visibilidades</option>
+              {VISIBILIDADES_DOCUMENTO.map((v) => (
+                <option key={v} value={v}>
+                  {v}
+                </option>
+              ))}
+            </select>
           </div>
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={openUploadModal}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
+            onClick={openUploadModal}>
             + Subir documento
-          </button>
+          </Button>
         </div>
 
         {docLoadError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-            <p className="text-sm font-medium text-red-600">{docLoadError}</p>
-            <button
-              type="button"
-              onClick={cargarDocumentos}
-              className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-            >
-              Reintentar
-            </button>
-          </div>
+          <ErrorState mensaje={docLoadError} onReintentar={cargarDocumentos} />
         ) : docLoading ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            Cargando documentos...
-          </p>
-        ) : documentos.length === 0 ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            {filtroTipo || filtroNombre
+          <Cargando texto="Cargando documentos..." />
+        ) : documentosVisibles.length === 0 ? (
+          <EmptyState titulo={filtroTipo || filtroNombre || filtroVisibilidad
               ? 'No se encontraron documentos con ese filtro.'
-              : 'Todavía no hay documentos cargados.'}
-          </p>
+              : 'Todavía no hay documentos cargados.'} />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            {documentos.map((doc) => (
+            {documentosVisibles.map((doc) => (
               <div
                 key={doc.id}
                 className="flex flex-col rounded-xl border border-primary-100 bg-white p-5 shadow-sm"
@@ -376,8 +391,8 @@ function DocumentosAdmin() {
                   <span
                     className={`rounded-full px-3 py-1 text-xs font-semibold ${
                       doc.estado === 'Vigente'
-                        ? 'bg-green-100 text-green-700'
-                        : 'bg-red-100 text-red-700'
+                        ? 'bg-exito-100 text-exito-700'
+                        : 'bg-error-100 text-error-700'
                     }`}
                   >
                     {doc.estado}
@@ -439,14 +454,15 @@ function DocumentosAdmin() {
                         ? 'Deshabilitar'
                         : 'Habilitar'}
                   </button>
-                  <button
+                  <Button
+                    variant="danger"
+                    size="sm"
                     type="button"
                     onClick={() => handleDeleteDoc(doc)}
                     disabled={togglingDocId === doc.id}
-                    className="text-sm font-medium text-red-600 hover:text-red-800 hover:underline disabled:opacity-50"
                   >
                     Eliminar
-                  </button>
+                  </Button>
                 </div>
               </div>
             ))}
@@ -455,15 +471,14 @@ function DocumentosAdmin() {
       </div>
 
       {uploadModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Subir documento</h2>
+              <ModalTitulo>Subir documento</ModalTitulo>
               <button
                 type="button"
                 onClick={closeUploadModal}
                 disabled={uploading}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -473,7 +488,7 @@ function DocumentosAdmin() {
 
             {uploadSuccess ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-exito-100 text-exito-700">
                   <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
@@ -590,44 +605,40 @@ function DocumentosAdmin() {
                 )}
 
                 {uploadError && (
-                  <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  <Alerta tipo="error">
                     {uploadError}
-                  </p>
+                  </Alerta>
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">
-                  <button
+                  <Button
+                    variant="primary"
                     type="submit"
-                    disabled={!uploadValido || uploading}
-                    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-                  >
+                    disabled={!uploadValido || uploading}>
                     {uploading ? 'Subiendo...' : 'Subir documento'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={closeUploadModal}
-                    disabled={uploading}
-                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    disabled={uploading}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
+</Modal>
       )}
 
       {versionDoc && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Actualizar versión</h2>
+              <ModalTitulo>Actualizar versión</ModalTitulo>
               <button
                 type="button"
                 onClick={closeVersionModal}
                 disabled={versionUploading}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700 disabled:opacity-40"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -640,7 +651,7 @@ function DocumentosAdmin() {
 
             {versionSuccess ? (
               <div className="flex flex-col items-center gap-3 py-8 text-center">
-                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-green-100 text-green-600">
+                <span className="flex h-14 w-14 items-center justify-center rounded-full bg-exito-100 text-exito-700">
                   <svg className="h-8 w-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.5 12.75l6 6 9-13.5" />
                   </svg>
@@ -695,32 +706,29 @@ function DocumentosAdmin() {
                 )}
 
                 {versionError && (
-                  <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                  <Alerta tipo="error">
                     {versionError}
-                  </p>
+                  </Alerta>
                 )}
 
                 <div className="flex justify-end gap-3 pt-2">
-                  <button
+                  <Button
+                    variant="primary"
                     type="submit"
-                    disabled={!versionArchivo || versionUploading}
-                    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-                  >
+                    disabled={!versionArchivo || versionUploading}>
                     {versionUploading ? 'Subiendo...' : 'Guardar nueva versión'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={closeVersionModal}
-                    disabled={versionUploading}
-                    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    disabled={versionUploading}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </form>
             )}
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

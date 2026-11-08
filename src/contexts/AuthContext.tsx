@@ -65,6 +65,12 @@ interface AuthContextType {
   perfilActivo: PerfilActivo
   /** Cambia el perfil visible sin cerrar sesión (llama al backend para re-emitir el token con el rol correspondiente). Solo tiene efecto si el destino es válido para esta cuenta. */
   cambiarPerfil: (perfil: PerfilActivo) => Promise<void>
+  /**
+   * true cuando la sesión se cortó por un refresh fallido (el interceptor
+   * emitió `siapb:sesion-expirada`). Login.tsx lo usa para mostrar el banner
+   * de "Tu sesión ha expirado". Se apaga en login() y en logout().
+   */
+  sesionExpirada: boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
@@ -171,12 +177,19 @@ function guardarPerfil(userId: string, perfil: PerfilActivo): void {
 }
 
 // POST /auth/cambiar-perfil: re-emite el Access Token con el rol del
-// vínculo elegido (verificado en el backend, ver AuthService.cambiarPerfilToken).
-// 'base' no necesita llamada — el token que ya se tiene alcanza. Devuelve si
-// se pudo aplicar, para que quien llama decida si de verdad queda en ese
-// perfil o se queda/vuelve a 'base'.
-async function sincronizarPerfilActivo(perfil: PerfilActivo): Promise<boolean> {
-  if (perfil === 'base') return true
+// perfil elegido (verificado en el backend, ver AuthService.cambiarPerfilToken).
+// 'base' también acepta el backend (re-emite con el rol real de la cuenta),
+// así que la llamada se salta SOLO si el token actual ya es de rol base
+// (tokenEsBase): si el usuario venía de ver "como Abonado/Empleado", el
+// token vigente trae ese rol y hay que reemitirlo o las llamadas del
+// dashboard del rol base responderían 403. Devuelve si se pudo aplicar,
+// para que quien llama decida si de verdad queda en ese perfil o se
+// queda/vuelve a 'base'.
+async function sincronizarPerfilActivo(
+  perfil: PerfilActivo,
+  tokenEsBase: boolean,
+): Promise<boolean> {
+  if (perfil === 'base' && tokenEsBase) return true
   try {
     const { data } = await apiClient.post<{ accessToken: string }>('/auth/cambiar-perfil', {
       perfil,
@@ -193,6 +206,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] =
     useState<'restoring' | 'authenticated' | 'unauthenticated'>('restoring')
   const [perfilActivo, setPerfilActivo] = useState<PerfilActivo>('base')
+  // Banner de sesión expirada en Login.tsx. Se activa solo por el evento del
+  // interceptor (un logout voluntario o un login nuevo lo apagan).
+  const [sesionExpirada, setSesionExpirada] = useState(false)
 
   // Al recargar la página el Access Token se pierde (memoria volátil);
   // se intenta restaurar la sesión con el Refresh Token de la cookie httpOnly.
@@ -205,7 +221,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         aplicarSesion(data, setUser)
         const userId = String(data.user.id)
         const perfilGuardado = leerPerfilGuardado(userId)
-        const aplicado = await sincronizarPerfilActivo(perfilGuardado)
+        // El token recién emitido por /auth/refresh siempre es de rol base.
+        const aplicado = await sincronizarPerfilActivo(perfilGuardado, true)
         if (cancelado) return
         setPerfilActivo(aplicado ? perfilGuardado : 'base')
         setStatus('authenticated')
@@ -225,11 +242,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // redirige automáticamente al login.
   useEffect(() => {
     return alExpirarSesion(() => {
+      // Solo importa si había sesión: un refresh fallido con la pestaña ya
+      // deslogueada no debe marcar el banner en Login.
+      if (status !== 'authenticated') return
+      setSesionExpirada(true)
       setUser(null)
       setStatus('unauthenticated')
       setPerfilActivo('base')
     })
-  }, [])
+  }, [status])
 
   const login = useCallback(
     async (email: string, password: string): Promise<void> => {
@@ -238,9 +259,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         password,
       })
       aplicarSesion(data, setUser)
+      // El banner de sesión expirada ya cumplió: hay sesión nueva.
+      setSesionExpirada(false)
       const userId = String(data.user.id)
       const perfilGuardado = leerPerfilGuardado(userId)
-      const aplicado = await sincronizarPerfilActivo(perfilGuardado)
+      // El token recién emitido por /auth/login siempre es de rol base.
+      const aplicado = await sincronizarPerfilActivo(perfilGuardado, true)
       setPerfilActivo(aplicado ? perfilGuardado : 'base')
       setStatus('authenticated')
       void cargarDatosExtendidos(userId, setUser)
@@ -252,6 +276,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // Limpiar siempre el estado local primero para nunca quedar atrapado logueado;
     // la revocación del Refresh Token en el backend va aparte (fire-and-forget).
     tokenStore.clear()
+    // Cerrar la sesión a mano no es "se venció": no debe quedar el banner.
+    setSesionExpirada(false)
     setUser(null)
     setStatus('unauthenticated')
     setPerfilActivo('base')
@@ -267,15 +293,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (!user) return
       if (perfil === 'abonado' && !user.vinculos.abonado) return
       if (perfil === 'empleado' && !user.vinculos.empleado?.rol) return
+      // El token vigente refleja el perfil ACTUAL (perfilActivo): al volver
+      // a 'base' desde un perfil no-base hay que reemitirlo con el rol real
+      // de la cuenta, o el dashboard del rol base recibiría 403 del backend.
       // Solo queda en el perfil pedido si el backend de verdad re-emitió el
       // token con ese rol (ver sincronizarPerfilActivo) — si no, no tiene
       // sentido mostrar un menú al que las llamadas van a responder 403.
-      const aplicado = await sincronizarPerfilActivo(perfil)
+      const aplicado = await sincronizarPerfilActivo(perfil, perfilActivo === 'base')
       if (!aplicado) return
       setPerfilActivo(perfil)
       guardarPerfil(user.id, perfil)
     },
-    [user],
+    [user, perfilActivo],
   )
 
   // apiClient no es un componente de React: se le avisa por fuera cada vez
@@ -305,6 +334,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         rolEfectivo,
         perfilActivo,
         cambiarPerfil,
+        sesionExpirada,
       }}
     >
       {children}

@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi';
 
 export const IDENTIFICACION_REGEX =
   /^(\d{1}-\d{4}-\d{4}|\d{1}-\d{3}-\d{6}|\d{11,12})$/;
@@ -144,21 +144,10 @@ export interface SolicitudPajaAgua {
 export interface ActualizarEstadoSolicitudPajaAguaPayload {
   estado: 'En proceso' | 'Aprobada' | 'Rechazada'
   motivoRechazo?: string
+  /** Obligatorio al aprobar: documento firmado por la ASADA (PDF o Word). */
+  documentoAprobacion?: File
 }
 
-// Traduce errores de axios/backend a un mensaje legible, igual que en el
-// resto de servicios (abonados.service.ts, etc.)
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 // Ruta pública (sin sesión) — se usa apiClient de todas formas para que
 // tome la URL del backend de VITE_API_URL en vez de tener localhost
@@ -214,12 +203,7 @@ export const crearSolicitudPajaAgua = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(
-        error,
-        'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.',
-      ),
-    )
+    throw crearErrorApi(error, 'No se pudo guardar la solicitud en la base de datos. Inténtalo de nuevo.')
   }
 }
 
@@ -230,9 +214,7 @@ export const obtenerSolicitudesPajaAgua = async (): Promise<SolicitudPajaAgua[]>
     const { data } = await apiClient.get<SolicitudPajaAgua[]>('/solicitudes')
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de paja de agua.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes de paja de agua.')
   }
 }
 
@@ -244,14 +226,58 @@ export const cambiarEstadoSolicitudPajaAgua = async (
   payload: ActualizarEstadoSolicitudPajaAguaPayload,
 ): Promise<SolicitudPajaAgua> => {
   try {
+    // Multipart: al aprobar viaja el documento firmado por la ASADA.
+    const formData = new FormData()
+    formData.append('estado', payload.estado)
+    if (payload.motivoRechazo) formData.append('motivoRechazo', payload.motivoRechazo)
+    if (payload.documentoAprobacion) {
+      formData.append('documentoAprobacion', payload.documentoAprobacion)
+    }
     const { data } = await apiClient.patch<SolicitudPajaAgua>(
       `/solicitudes/${id}/estado`,
-      payload,
+      formData,
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
+  }
+}
+
+// Reportes estadísticos: mismo contrato que el endpoint de averías para que
+// la página de reportes use la misma lógica en los tres módulos. El backend
+// agrega tanto las solicitudes genéricas como las de paja de agua.
+export interface FiltrosEstadisticasSolicitudes {
+  fechaInicio?: string
+  fechaFin?: string
+  tipo?: string
+  estado?: string
+}
+
+export interface RegistroSolicitudEstadistica {
+  codigo: string
+  tipo: string
+  solicitante: string
+  estado: string
+  fecha: string
+}
+
+export interface EstadisticasSolicitudesBackend {
+  total: number
+  porTipo: { tipo: string; total: number }[]
+  porEstado: { estado: string; total: number }[]
+  registros: RegistroSolicitudEstadistica[]
+}
+
+export const obtenerEstadisticasSolicitudes = async (
+  params?: FiltrosEstadisticasSolicitudes,
+): Promise<EstadisticasSolicitudesBackend> => {
+  try {
+    const { data } = await apiClient.get<EstadisticasSolicitudesBackend>(
+      '/solicitudes/estadisticas',
+      { params },
     )
+    return data
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudieron cargar las estadísticas de solicitudes.')
   }
 }

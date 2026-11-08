@@ -1,4 +1,29 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import Alerta from '../../components/ui/Alerta'
+import { FilaVacia } from '../../components/ui/EmptyState'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  fecha as reglaFecha,
+  hayErrores,
+  longitud,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, enfocarPrimerError } from '../../components/common/CampoError'
+import {
+  FileDropZone,
+  validarImagen,
+  ACCEPT_IMAGEN,
+} from '../../components/common/FileDropZone'
+
+type CampoReporte = 'descripcion' | 'fecha' | 'tiempo'
 import {
   crearReporte,
   obtenerMisReportes,
@@ -9,18 +34,27 @@ import {
   type TipoActividad,
 } from '../../components/Services/reportesFontanero.service'
 import {
-  obtenerArticulos,
-  type Articulo,
-} from '../../components/Services/inventario.service'
-
-// Fila del selector de materiales. articuloId vacío = fila recién agregada,
-// todavía sin elegir.
-interface FilaMaterial {
-  articuloId: string
-  cantidad: string
-}
+  obtenerMisAveriasFontanero,
+  type AveriaBackend,
+} from '../../components/Services/averias.service'
+import {
+  obtenerMisLabores,
+  type LaborBackend,
+} from '../../components/Services/labores.service'
+import {
+  obtenerMisSolicitudesMaterial,
+  type SolicitudMaterial,
+} from '../../components/Services/solicitudesMaterial.service'
+import Button from '../../components/ui/Button'
+import Tabs from '../../components/ui/Tabs'
+import Table from '../../components/ui/Table'
+import Paginador from '../../components/ui/Paginador'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import DetalleReporteFontanero from '../../components/Reportes/DetalleReporteFontanero'
 
 const MINIMO_DESCRIPCION = 10
+const MAXIMO_LARGO_MATERIALES = 500
+const POR_PAGINA_REPORTES = 8
 
 function hoyISO(): string {
   // Fecha local en formato YYYY-MM-DD. Se arma a mano y no con toISOString(),
@@ -33,33 +67,106 @@ function hoyISO(): string {
 }
 
 function ReporteActividad() {
-  const [tipoActividad, setTipoActividad] = useState<TipoActividad>('reparacion')
-  const [descripcion, setDescripcion] = useState('')
-  const [fechaTrabajo, setFechaTrabajo] = useState(hoyISO())
-  const [horas, setHoras] = useState('')
-  const [minutos, setMinutos] = useState('')
-  const [filas, setFilas] = useState<FilaMaterial[]>([])
+  // Permite llegar desde el dashboard del fontanero con una avería concreta ya
+  // seleccionada y, si acaba de finalizar el cronómetro, con el tiempo real.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const averiaParam = searchParams.get('averia')
+  const laborParam = searchParams.get('labor')
+  const nuevoParam = searchParams.get('nuevo')
+  const minutosParam = searchParams.get('minutos')
+  const codigoParam = searchParams.get('codigo')
+  const fechaParam = searchParams.get('fecha')
+  const tipoParam = searchParams.get('tipo')
 
-  const [articulos, setArticulos] = useState<Articulo[]>([])
+  // Cuando el reporte viene del cronómetro de un trabajo (avería o labor), la
+  // fecha y el tiempo son los reales de la gestión y NO se editan: el
+  // fontanero solo describe el trabajo y los materiales.
+  const medicionBloqueada = Boolean((averiaParam || laborParam) && minutosParam)
+
+  const minutosIniciales = (() => {
+    const n = Number(minutosParam)
+    return Number.isFinite(n) && n > 0 ? Math.round(n) : null
+  })()
+
+  const tipoInicial = (() => {
+    if (averiaParam) return 'atencion_averia' as TipoActividad
+    if (
+      laborParam &&
+      tipoParam &&
+      (TIPOS_ACTIVIDAD as readonly string[]).includes(tipoParam)
+    ) {
+      return tipoParam as TipoActividad
+    }
+    return 'reparacion' as TipoActividad
+  })()
+
+  const [tipoActividad, setTipoActividad] = useState<TipoActividad>(tipoInicial)
+  const [descripcion, setDescripcion] = useState('')
+  const [fechaTrabajo, setFechaTrabajo] = useState(fechaParam ?? hoyISO())
+  const [horas, setHoras] = useState(() =>
+    minutosIniciales ? String(Math.floor(minutosIniciales / 60)) : '',
+  )
+  const [minutos, setMinutos] = useState(() =>
+    minutosIniciales ? String(minutosIniciales % 60) : '',
+  )
+  const [materialesTexto, setMaterialesTexto] = useState('')
+  // Evidencia opcional (una imagen) del trabajo realizado.
+  const [evidencia, setEvidencia] = useState<File | null>(null)
+  const [evidenciaPreview, setEvidenciaPreview] = useState<string | null>(null)
+  const [errorEvidencia, setErrorEvidencia] = useState('')
+  // Trabajo atendido, codificado como "averia:<id>" o "labor:<id>". '' =
+  // trabajo sin avería/labor específica (mantenimiento, revisión, etc.).
+  // Solo se vincula automáticamente cuando el reporte viene del cronómetro:
+  // un reporte hecho a mano no se puede ligar a un trabajo.
+  const [trabajoSeleccionado, setTrabajoSeleccionado] = useState<string>(
+    medicionBloqueada && averiaParam && Number.isInteger(Number(averiaParam))
+      ? `averia:${Number(averiaParam)}`
+      : medicionBloqueada &&
+          laborParam &&
+          Number.isInteger(Number(laborParam))
+        ? `labor:${Number(laborParam)}`
+        : '',
+  )
+
   const [misReportes, setMisReportes] = useState<ReporteFontanero[]>([])
+  const [averiasPendientes, setAveriasPendientes] = useState<AveriaBackend[]>([])
+  const [laboresPendientes, setLaboresPendientes] = useState<LaborBackend[]>([])
+  const [solicitudesMaterial, setSolicitudesMaterial] = useState<
+    SolicitudMaterial[]
+  >([])
   const [cargando, setCargando] = useState(true)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState('')
   const [exito, setExito] = useState('')
 
+  // Alterna entre el historial y el formulario, como en las solicitudes:
+  // se ve una cosa a la vez en vez de apilar ambas en la misma pantalla.
+  const [vista, setVista] = useState<'lista' | 'crear'>(
+    nuevoParam ? 'crear' : 'lista',
+  )
+
+  // Detalle de un reporte del historial y paginación de "Mis reportes".
+  const [detalle, setDetalle] = useState<ReporteFontanero | null>(null)
+  const [paginaReportes, setPaginaReportes] = useState(1)
+
   const cargar = async () => {
     setCargando(true)
+    setError('')
     try {
-      // Solo materiales activos: un artículo dado de baja no debería poder
-      // usarse en un trabajo nuevo.
-      const [listaArticulos, reportes] = await Promise.all([
-        obtenerArticulos({ estado: 'activo' }),
+      const [reportes, averias, labores, materiales] = await Promise.all([
         obtenerMisReportes(),
+        obtenerMisAveriasFontanero(),
+        obtenerMisLabores(),
+        obtenerMisSolicitudesMaterial(),
       ])
-      setArticulos(listaArticulos)
       setMisReportes(reportes)
+      setAveriasPendientes(averias)
+      setLaboresPendientes(labores)
+      setSolicitudesMaterial(materiales)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo cargar la información.')
+      setError(
+        err instanceof Error ? err.message : 'No se pudo cargar la información.',
+      )
     } finally {
       setCargando(false)
     }
@@ -69,40 +176,33 @@ function ReporteActividad() {
     void cargar()
   }, [])
 
+  const [errores, setErrores] = useState<ErroresFormulario<CampoReporte>>({})
   const totalMinutos = (Number(horas) || 0) * 60 + (Number(minutos) || 0)
 
-  // Cuánto queda disponible de un artículo descontando lo que ya se pidió en
-  // OTRAS filas: así, si el mismo material está dos veces, el tope de cada
-  // fila refleja lo que realmente se puede pedir.
-  const disponibleParaFila = (indice: number): number => {
-    const idActual = filas[indice]?.articuloId
-    if (!idActual) return 0
-    const articulo = articulos.find((a) => String(a.id) === idActual)
-    if (!articulo) return 0
-    const pedidoEnOtrasFilas = filas.reduce((suma, fila, i) => {
-      if (i === indice || fila.articuloId !== idActual) return suma
-      return suma + (Number(fila.cantidad) || 0)
-    }, 0)
-    return Math.max(0, articulo.cantidad_disponible - pedidoEnOtrasFilas)
-  }
-
-  const filasInvalidas = filas.some((fila, i) => {
-    if (!fila.articuloId) return true
-    const cantidad = Number(fila.cantidad)
-    return !Number.isInteger(cantidad) || cantidad < 1 || cantidad > disponibleParaFila(i)
-  })
-
-  const puedeEnviar =
-    descripcion.trim().length >= MINIMO_DESCRIPCION &&
-    fechaTrabajo !== '' &&
-    totalMinutos > 0 &&
-    !filasInvalidas &&
-    !guardando
-
-  const actualizarFila = (indice: number, cambios: Partial<FilaMaterial>) => {
-    setFilas((actuales) =>
-      actuales.map((fila, i) => (i === indice ? { ...fila, ...cambios } : fila)),
+  // Checklist común (PBI 511): en vez de deshabilitar el botón sin decir
+  // por qué, se valida al guardar y cada error aparece junto a su campo.
+  function validar(): ErroresFormulario<CampoReporte> {
+    const nuevos = validarCampos<CampoReporte>(
+      {
+        descripcion: [
+          requerido('La descripción del trabajo', true),
+          longitud('La descripción', MINIMO_DESCRIPCION, 2000),
+        ],
+        fecha: [requerido('La fecha del trabajo', true), reglaFecha({ noFutura: true })],
+        tiempo: [
+          () => (horas !== '' && !Number.isInteger(Number(horas))) || Number(horas) < 0
+            ? 'Las horas deben ser un número entero.'
+            : null,
+          () => (minutos !== '' && !Number.isInteger(Number(minutos))) || Number(minutos) < 0 || Number(minutos) > 59
+            ? 'Los minutos deben ser un número entero entre 0 y 59.'
+            : null,
+          () => (totalMinutos > 0 ? null : 'Indica cuánto tiempo te tomó el trabajo.'),
+          () => (totalMinutos > 1440 ? 'El tiempo no puede superar las 24 horas.' : null),
+        ],
+      },
+      { descripcion, fecha: fechaTrabajo, tiempo: '' },
     )
+    return nuevos
   }
 
   const limpiar = () => {
@@ -111,38 +211,175 @@ function ReporteActividad() {
     setFechaTrabajo(hoyISO())
     setHoras('')
     setMinutos('')
-    setFilas([])
+    setMaterialesTexto('')
+    setEvidencia(null)
+    setEvidenciaPreview(null)
+    setErrorEvidencia('')
+    setTrabajoSeleccionado('')
+    setErrores({})
+    // Se quitan los parámetros de la URL para que el formulario quede limpio y
+    // editable si el fontanero vuelve a abrir "Nuevo reporte".
+    setSearchParams({}, { replace: true })
+  }
+
+  const handleEvidenciaSelect = (file: File) => {
+    const mensaje = validarImagen(file)
+    if (mensaje) {
+      setErrorEvidencia(mensaje)
+      setEvidencia(null)
+      setEvidenciaPreview(null)
+      return
+    }
+    setErrorEvidencia('')
+    setEvidencia(file)
+    setEvidenciaPreview(
+      file.type.startsWith('image/') ? URL.createObjectURL(file) : null,
+    )
+  }
+
+  const handleEvidenciaRemove = () => {
+    setEvidencia(null)
+    setEvidenciaPreview(null)
+    setErrorEvidencia('')
   }
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
-    if (!puedeEnviar) return
+    if (guardando) return
+    const nuevos = validar()
+    setErrores(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
     setGuardando(true)
     setError('')
     setExito('')
 
+    const materiales = materialesTexto.trim()
+    const [selTipo, selId] = trabajoSeleccionado
+      ? (trabajoSeleccionado.split(':') as ['averia' | 'labor', string])
+      : ['', '']
     try {
       await crearReporte({
         tipoActividad,
         descripcion: descripcion.trim(),
         fechaTrabajo,
         tiempoMinutos: totalMinutos,
-        materiales: filas.map((fila) => ({
-          articuloId: Number(fila.articuloId),
-          cantidad: Number(fila.cantidad),
-        })),
+        materialesTexto: materiales.length > 0 ? materiales : undefined,
+        averiaId: selTipo === 'averia' ? Number(selId) : undefined,
+        laborId: selTipo === 'labor' ? Number(selId) : undefined,
+        evidencia: evidencia ?? undefined,
       })
       setExito('Reporte registrado correctamente.')
       limpiar()
-      // Se recarga todo: los reportes para ver el nuevo, y los artículos
-      // porque su stock acaba de bajar.
+      // Se recarga el historial para ver el nuevo reporte.
       await cargar()
+      setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo guardar el reporte.')
+      setErrores(erroresPorCampo<CampoReporte>(err, { fechaTrabajo: 'fecha', tiempoMinutos: 'tiempo' }))
+      enfocarPrimerError()
+      setError(
+        tieneErroresDeCampo(err)
+          ? ''
+          : err instanceof Error ? err.message : 'No se pudo guardar el reporte.',
+      )
     } finally {
       setGuardando(false)
     }
   }
+
+  const cancelar = () => {
+    limpiar()
+    setError('')
+    setExito('')
+  }
+
+  // Opciones del selector: averías y labores asignadas.
+  const opcionesTrabajo = [
+    ...averiasPendientes.map((a) => ({
+      valor: `averia:${a.id}`,
+      etiqueta: 'Avería',
+      texto: `${a.codigo_averia} — ${a.tipo_averia}`,
+    })),
+    ...laboresPendientes.map((l) => ({
+      valor: `labor:${l.id}`,
+      etiqueta: 'Labor',
+      texto: `${l.codigo_labor} - ${ETIQUETA_ACTIVIDAD[l.tipo_actividad]}${
+        l.datos_solicitud ? ` · ${l.datos_solicitud.abonado.nombre}` : ''
+      }`,
+    })),
+  ]
+
+  const [selTipo, selId] = trabajoSeleccionado
+    ? trabajoSeleccionado.split(':')
+    : ['', '']
+  const seleccionEnLista = opcionesTrabajo.some(
+    (o) => o.valor === trabajoSeleccionado,
+  )
+  const seleccionFijada =
+    !cargando && trabajoSeleccionado !== '' && !seleccionEnLista
+  const averiaVinculada =
+    selTipo === 'averia'
+      ? averiasPendientes.find((a) => a.id === Number(selId))
+      : undefined
+  const laborVinculada =
+    selTipo === 'labor'
+      ? laboresPendientes.find((l) => l.id === Number(selId))
+      : undefined
+  const trabajoDevuelto = averiaVinculada?.devuelta_revision
+    ? averiaVinculada.motivo_revision
+    : laborVinculada?.devuelta_revision
+      ? laborVinculada.motivo_revision
+      : null
+  // Si el trabajo seleccionado ya tiene un reporte rechazado, al guardar se
+  // actualizará ese reporte en vez de crear uno nuevo (aviso al fontanero).
+  const reporteRechazado = misReportes.find((r) => {
+    if (r.estado_revision !== 'Rechazado') return false
+    if (selTipo === 'averia') {
+      return r.averia_id !== null && r.averia_id === Number(selId)
+    }
+    if (selTipo === 'labor') {
+      return r.labor_id !== null && r.labor_id === Number(selId)
+    }
+    return false
+  })
+
+  // Materiales aprobados del trabajo seleccionado: se precargan en el campo
+  // de materiales para que el fontanero no tenga que escribirlos otra vez.
+  const materialesAprobados = (() => {
+    if (!trabajoSeleccionado) return []
+    const [tipo, idTexto] = trabajoSeleccionado.split(':')
+    const id = Number(idTexto)
+    if (!Number.isInteger(id) || id <= 0) return []
+    return solicitudesMaterial
+      .filter(
+        (s) =>
+          s.estado === 'Aprobada' &&
+          (tipo === 'averia' ? s.averia?.id === id : s.labor?.id === id),
+      )
+      .flatMap((s) =>
+        s.detalles.map(
+          (d) =>
+            `${d.cantidad} × ${d.articulo?.nombre ?? d.descripcion_libre ?? 'Material'}${
+              d.unidad ? ` (${d.unidad})` : ''
+            }`,
+        ),
+      )
+  })()
+
+  const textoMaterialesAprobados = materialesAprobados
+    .join('\n')
+    .slice(0, MAXIMO_LARGO_MATERIALES)
+
+  // Solo precarga al cambiar de trabajo (o al terminar de cargar los datos):
+  // si el fontanero edita el campo, no se vuelve a pisar.
+  const trabajoPrecargadoRef = useRef<string | null>(null)
+  useEffect(() => {
+    if (cargando) return
+    if (trabajoPrecargadoRef.current === trabajoSeleccionado) return
+    trabajoPrecargadoRef.current = trabajoSeleccionado
+    if (!trabajoSeleccionado) return
+    setMaterialesTexto(textoMaterialesAprobados)
+  }, [cargando, trabajoSeleccionado, textoMaterialesAprobados])
 
   const etiquetaCampo = 'block text-sm font-medium text-primary-900'
   const inputCls =
@@ -151,256 +388,345 @@ function ReporteActividad() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
-          Registro de actividad
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
+          Reporte Fontanero
         </h1>
         <p className="mt-1 text-sm text-primary-600">
           Anota el trabajo realizado, el tiempo que tomó y los materiales que
-          usaste. Los materiales se descuentan del inventario automáticamente.
+          usaste.
         </p>
       </div>
 
-      <form
-        onSubmit={handleSubmit}
-        className="space-y-4 rounded-2xl border border-gray-200 bg-gray-50 p-4"
-      >
-        <div className="grid gap-4 sm:grid-cols-2">
-          <div>
-            <label htmlFor="tipo" className={etiquetaCampo}>
-              Tipo de actividad
-            </label>
-            <select
-              id="tipo"
-              value={tipoActividad}
-              onChange={(e) => setTipoActividad(e.target.value as TipoActividad)}
-              className={inputCls}
-            >
-              {TIPOS_ACTIVIDAD.map((tipo) => (
-                <option key={tipo} value={tipo}>
-                  {ETIQUETA_ACTIVIDAD[tipo]}
-                </option>
-              ))}
-            </select>
+      {/* Pestañas: historial y formulario, como en las solicitudes. */}
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis reportes' },
+          { valor: 'crear', etiqueta: 'Nuevo reporte' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
+
+      {vista === 'crear' && (
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="space-y-4 rounded-2xl border border-primary-200 bg-primary-50 p-4"
+        >
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label htmlFor="tipo" className={etiquetaCampo}>
+                Tipo de actividad
+                <Obligatorio />
+              </label>
+              <select
+                id="tipo"
+                value={tipoActividad}
+                disabled={medicionBloqueada}
+                onChange={(e) => setTipoActividad(e.target.value as TipoActividad)}
+                className={`${inputCls} ${
+                  medicionBloqueada
+                    ? 'cursor-not-allowed bg-primary-100 text-primary-500'
+                    : ''
+                }`}
+              >
+                {TIPOS_ACTIVIDAD.map((tipo) => (
+                  <option key={tipo} value={tipo}>
+                    {ETIQUETA_ACTIVIDAD[tipo]}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label htmlFor="fecha" className={etiquetaCampo}>
+                Fecha del trabajo
+                <Obligatorio />
+              </label>
+              <input
+                id="fecha"
+                type="date"
+                value={fechaTrabajo}
+                // No se permiten fechas futuras: se reporta trabajo ya hecho.
+                max={hoyISO()}
+                disabled={medicionBloqueada}
+                onChange={(e) => setFechaTrabajo(e.target.value)}
+                className={`${inputCls} ${
+                  medicionBloqueada
+                    ? 'cursor-not-allowed bg-primary-100 text-primary-500'
+                    : ''
+                }`}
+              />
+              <CampoError mensaje={errores.fecha} />
+            </div>
           </div>
 
           <div>
-            <label htmlFor="fecha" className={etiquetaCampo}>
-              Fecha del trabajo
+            <label htmlFor="trabajo" className={etiquetaCampo}>
+              Trabajo atendido (opcional)
             </label>
-            <input
-              id="fecha"
-              type="date"
-              value={fechaTrabajo}
-              // No se permiten fechas futuras: se reporta trabajo ya hecho.
-              max={hoyISO()}
-              onChange={(e) => setFechaTrabajo(e.target.value)}
-              className={inputCls}
-            />
-          </div>
-        </div>
-
-        <div>
-          <label htmlFor="descripcion" className={etiquetaCampo}>
-            ¿Qué trabajo realizaste?
-          </label>
-          <textarea
-            id="descripcion"
-            rows={3}
-            value={descripcion}
-            onChange={(e) => setDescripcion(e.target.value)}
-            placeholder="Ej: Se cambió el tubo roto frente a la escuela y se repuso el relleno."
-            className={inputCls}
-          />
-          {descripcion.trim().length > 0 &&
-            descripcion.trim().length < MINIMO_DESCRIPCION && (
-              <p className="mt-1 text-xs text-amber-600">
-                Escribe al menos {MINIMO_DESCRIPCION} caracteres (llevas{' '}
-                {descripcion.trim().length}).
+            {seleccionFijada ? (
+              <div className="mt-1 flex items-center justify-between rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900">
+                <span className="min-w-0 truncate">
+                  {codigoParam || trabajoSeleccionado}
+                  <span className="ml-2 text-xs text-primary-500">
+                    (trabajo ya gestionado)
+                  </span>
+                </span>
+              </div>
+            ) : (
+              <select
+                id="trabajo"
+                value={trabajoSeleccionado}
+                // Solo se puede ligar el trabajo cuando el reporte viene del
+                // cronómetro (ahí el trabajo ya viene fijado). Un reporte
+                // manual queda sin trabajo específico.
+                disabled
+                className={`${inputCls} cursor-not-allowed bg-primary-100 text-primary-500`}
+              >
+                <option value="">Sin trabajo específico</option>
+                {opcionesTrabajo.map((o) => (
+                  <option key={o.valor} value={o.valor}>
+                    [{o.etiqueta}] {o.texto}
+                  </option>
+                ))}
+              </select>
+            )}
+            {!medicionBloqueada && (
+              <p className="mt-1 text-xs text-primary-500">
+                Para vincular una avería o labor, el tiempo debe tomarse con el
+                cronómetro desde tu panel.
               </p>
             )}
-        </div>
+            {trabajoDevuelto && (
+              <div className="mt-2">
+                <Alerta tipo="advertencia">
+                  Este trabajo fue devuelto: {trabajoDevuelto}
+                </Alerta>
+              </div>
+            )}
+            {reporteRechazado && (
+              <p className="mt-2 text-xs font-medium text-advertencia-700">
+                Este trabajo ya tiene un reporte rechazado. Al guardar se
+                actualizará ese reporte en vez de crear uno nuevo.
+              </p>
+            )}
+          </div>
 
+          {/* Primero los materiales (precargados si hay una solicitud
+              aprobada), después la descripción del trabajo realizado. */}
+          <div>
+            <label htmlFor="materiales" className={etiquetaCampo}>
+              Materiales utilizados (opcional)
+            </label>
+            <textarea
+              id="materiales"
+              rows={3}
+              value={materialesTexto}
+              maxLength={MAXIMO_LARGO_MATERIALES}
+              onChange={(e) => setMaterialesTexto(e.target.value)}
+              placeholder="Ej: 2 m de tubo PVC, 1 codo, 3 m de cable."
+              className={`${inputCls} scroll-visible`}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="descripcion" className={etiquetaCampo}>
+              ¿Qué trabajo realizaste?
+              <Obligatorio />
+            </label>
+            <textarea
+              id="descripcion"
+              rows={3}
+              value={descripcion}
+              maxLength={2000}
+              onChange={(e) => setDescripcion(e.target.value)}
+              placeholder="Ej: Se cambió el tubo roto frente a la escuela y se repuso el relleno."
+              className={inputCls}
+            />
+            <CampoError mensaje={errores.descripcion} />
+            {descripcion.trim().length > 0 &&
+              descripcion.trim().length < MINIMO_DESCRIPCION && (
+                <p className="mt-1 text-xs text-advertencia-700">
+                  Escribe al menos {MINIMO_DESCRIPCION} caracteres (llevas{' '}
+                  {descripcion.trim().length}).
+                </p>
+              )}
+          </div>
+
+          <FileDropZone
+            archivo={evidencia}
+            archivoPreview={evidenciaPreview}
+            onFileSelect={handleEvidenciaSelect}
+            onRemoveFile={handleEvidenciaRemove}
+            errorArchivo={errorEvidencia}
+            label="Evidencia (opcional)"
+            ayuda="Adjunta una foto del trabajo realizado si lo consideras útil."
+            obligatorio={false}
+            accept={ACCEPT_IMAGEN}
+            textoFormatos="JPG, PNG, WEBP o GIF hasta 5 MB"
+          />
+
+          <div>
+            <span className={etiquetaCampo}>
+              Tiempo empleado
+              <Obligatorio />
+            </span>
+            <div className="mt-1 flex items-center gap-3">
+              <input
+                type="number"
+                min={0}
+                value={horas}
+                disabled={medicionBloqueada}
+                onChange={(e) => setHoras(e.target.value)}
+                placeholder="0"
+                aria-label="Horas"
+                className={`w-20 rounded-lg border border-primary-200 px-3 py-2 text-sm ${
+                  medicionBloqueada
+                    ? 'cursor-not-allowed bg-primary-100 text-primary-500'
+                    : ''
+                }`}
+              />
+              <span className="text-sm text-primary-700">horas</span>
+              <input
+                type="number"
+                min={0}
+                max={59}
+                value={minutos}
+                disabled={medicionBloqueada}
+                onChange={(e) => setMinutos(e.target.value)}
+                placeholder="0"
+                aria-label="Minutos"
+                className={`w-20 rounded-lg border border-primary-200 px-3 py-2 text-sm ${
+                  medicionBloqueada
+                    ? 'cursor-not-allowed bg-primary-100 text-primary-500'
+                    : ''
+                }`}
+              />
+              <span className="text-sm text-primary-700">minutos</span>
+            </div>
+            <CampoError mensaje={errores.tiempo} />
+          </div>
+
+          {error && (
+            <Alerta tipo="error">
+              {error}
+            </Alerta>
+          )}
+          <Notificar mensaje={exito} />
+
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-1">
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={guardando}>
+              {guardando ? 'Guardando...' : 'Guardar reporte'}
+            </Button>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={cancelar}>
+              Cancelar
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {vista === 'lista' && (
         <div>
-          <span className={etiquetaCampo}>Tiempo empleado</span>
-          <div className="mt-1 flex items-center gap-3">
-            <input
-              type="number"
-              min={0}
-              value={horas}
-              onChange={(e) => setHoras(e.target.value)}
-              placeholder="0"
-              aria-label="Horas"
-              className="w-20 rounded-lg border border-primary-200 px-3 py-2 text-sm"
-            />
-            <span className="text-sm text-primary-700">horas</span>
-            <input
-              type="number"
-              min={0}
-              max={59}
-              value={minutos}
-              onChange={(e) => setMinutos(e.target.value)}
-              placeholder="0"
-              aria-label="Minutos"
-              className="w-20 rounded-lg border border-primary-200 px-3 py-2 text-sm"
-            />
-            <span className="text-sm text-primary-700">minutos</span>
+          <h2 className="text-lg font-semibold text-primary-900">
+            Mis reportes anteriores
+          </h2>
+
+          <div className="mt-3">
+            <Table
+              cabecera={['Fecha', 'Actividad', 'Tiempo', 'Materiales', 'Acciones']}
+              pie={
+                <>
+                  {misReportes.length > 0 && (
+                    <Paginador
+                      total={misReportes.length}
+                      pagina={paginaReportes}
+                      porPagina={POR_PAGINA_REPORTES}
+                      onCambiar={setPaginaReportes}
+                      etiqueta="reportes"
+                      deshabilitado={cargando}
+                    />
+                  )}
+                </>
+              }
+            >
+              {cargando ? (
+                <FilasEsqueleto columnas={5} />
+              ) : misReportes.length === 0 ? (
+                <FilaVacia columnas={5} titulo="Todavía no has registrado ninguna actividad." />
+              ) : (
+                misReportes
+                  .slice(
+                    (paginaReportes - 1) * POR_PAGINA_REPORTES,
+                    paginaReportes * POR_PAGINA_REPORTES,
+                  )
+                  .map((reporte) => (
+                    <tr key={reporte.id} className="hover:bg-primary-50">
+                      <td className="whitespace-nowrap px-4 py-3 text-primary-700">
+                        {reporte.fecha_trabajo}
+                      </td>
+                      <td className="px-4 py-3 text-primary-700">
+                        {ETIQUETA_ACTIVIDAD[reporte.tipo_actividad]}
+                        <span className="block max-w-xs truncate text-xs text-primary-500">
+                          {reporte.descripcion}
+                        </span>
+                      </td>
+                      <td className="whitespace-nowrap px-4 py-3 text-primary-700">
+                        {formatearTiempo(reporte.tiempo_minutos)}
+                      </td>
+                      <td className="max-w-xs px-4 py-3 text-primary-700">
+                        <span className="block truncate" title={
+                          reporte.materiales_texto ??
+                          reporte.materiales
+                            .map((m) => `${m.nombre_articulo} (${m.cantidad})`)
+                            .join(', ')
+                        }>
+                          {reporte.materiales_texto ??
+                            (reporte.materiales.length === 0
+                              ? '—'
+                              : reporte.materiales
+                                  .map((m) => `${m.nombre_articulo} (${m.cantidad})`)
+                                  .join(', '))}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="secondary"
+                          size="sm"
+                          type="button"
+                          onClick={() => setDetalle(reporte)}
+                        >
+                          Ver detalle
+                        </Button>
+                      </td>
+                    </tr>
+                  ))
+              )}
+            </Table>
           </div>
         </div>
+      )}
 
-        {/* Materiales */}
-        <div className="space-y-2">
-          <span className={etiquetaCampo}>Materiales utilizados (opcional)</span>
-
-          {filas.length === 0 && (
-            <p className="text-sm text-primary-500">
-              No agregaste materiales. Si el trabajo no consumió nada del
-              inventario, puedes enviarlo así.
-            </p>
-          )}
-
-          {filas.map((fila, indice) => {
-            const disponible = disponibleParaFila(indice)
-            const cantidad = Number(fila.cantidad)
-            const excede = Boolean(fila.articuloId) && cantidad > disponible
-            return (
-              <div key={indice} className="flex flex-wrap items-start gap-2">
-                <select
-                  value={fila.articuloId}
-                  onChange={(e) =>
-                    actualizarFila(indice, { articuloId: e.target.value })
-                  }
-                  aria-label="Material"
-                  className="min-w-[12rem] flex-1 rounded-lg border border-primary-200 px-3 py-2 text-sm"
-                >
-                  <option value="">Selecciona un material...</option>
-                  {articulos.map((articulo) => (
-                    <option key={articulo.id} value={articulo.id}>
-                      {articulo.nombre} ({articulo.cantidad_disponible} disp.)
-                    </option>
-                  ))}
-                </select>
-
-                <div>
-                  <input
-                    type="number"
-                    min={1}
-                    value={fila.cantidad}
-                    onChange={(e) =>
-                      actualizarFila(indice, { cantidad: e.target.value })
-                    }
-                    aria-label="Cantidad"
-                    className="w-24 rounded-lg border border-primary-200 px-3 py-2 text-sm"
-                  />
-                  {excede && (
-                    <p className="mt-1 text-xs text-red-600">
-                      Solo quedan {disponible}
-                    </p>
-                  )}
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setFilas((actuales) => actuales.filter((_, i) => i !== indice))
-                  }
-                  className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 hover:bg-primary-50"
-                >
-                  Quitar
-                </button>
-              </div>
-            )
-          })}
-
-          <button
-            type="button"
-            onClick={() =>
-              setFilas((actuales) => [...actuales, { articuloId: '', cantidad: '1' }])
-            }
-            disabled={articulos.length === 0}
-            className="rounded-full border border-primary-300 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-          >
-            + Agregar material
-          </button>
-        </div>
-
-        {error && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-            {error}
-          </p>
-        )}
-        {exito && (
-          <p className="rounded-lg border border-green-300 bg-green-50 p-3 text-sm font-medium text-green-800">
-            {exito}
-          </p>
-        )}
-
-        <button
-          type="submit"
-          disabled={!puedeEnviar}
-          className="rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {guardando ? 'Guardando...' : 'Guardar reporte'}
-        </button>
-      </form>
-
-      {/* Historial propio */}
-      <div>
-        <h2 className="text-lg font-semibold text-primary-900">
-          Mis reportes anteriores
-        </h2>
-
-        <div className="mt-3 overflow-x-auto rounded-2xl border border-gray-200">
-          <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-semibold text-primary-900">Fecha</th>
-                <th className="px-4 py-3 text-left font-semibold text-primary-900">Actividad</th>
-                <th className="px-4 py-3 text-left font-semibold text-primary-900">Tiempo</th>
-                <th className="px-4 py-3 text-left font-semibold text-primary-900">Materiales</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {cargando ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-primary-500">
-                    Cargando...
-                  </td>
-                </tr>
-              ) : misReportes.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="px-4 py-8 text-center text-primary-500">
-                    Todavía no has registrado ninguna actividad.
-                  </td>
-                </tr>
-              ) : (
-                misReportes.map((reporte) => (
-                  <tr key={reporte.id} className="hover:bg-gray-50">
-                    <td className="whitespace-nowrap px-4 py-3 text-primary-700">
-                      {reporte.fecha_trabajo}
-                    </td>
-                    <td className="px-4 py-3 text-primary-700">
-                      {ETIQUETA_ACTIVIDAD[reporte.tipo_actividad]}
-                      <span className="block text-xs text-primary-500">
-                        {reporte.descripcion}
-                      </span>
-                    </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-primary-700">
-                      {formatearTiempo(reporte.tiempo_minutos)}
-                    </td>
-                    <td className="px-4 py-3 text-primary-700">
-                      {reporte.materiales.length === 0
-                        ? '—'
-                        : reporte.materiales
-                            .map((m) => `${m.nombre_articulo} (${m.cantidad})`)
-                            .join(', ')}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      {/* Detalle de un reporte del historial. */}
+      {detalle && (
+        <Modal size="xl" onCerrar={() => setDetalle(null)}>
+          <ModalTitulo>Detalle del reporte</ModalTitulo>
+          <div className="mt-4">
+            <DetalleReporteFontanero reporte={detalle} />
+          </div>
+          <div className="mt-6 flex justify-end">
+            <Button variant="primary" type="button" onClick={() => setDetalle(null)}>
+              Cerrar
+            </Button>
+          </div>
+        </Modal>
+      )}
     </div>
   )
 }

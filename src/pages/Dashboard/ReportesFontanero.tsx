@@ -1,19 +1,40 @@
+import Paginador from '../../components/ui/Paginador'
+import { FilaVacia } from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Alerta from '../../components/ui/Alerta'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useCallback, useEffect, useState } from 'react'
 import {
   obtenerReportes,
+  revisarReporte,
   formatearTiempo,
   TIPOS_ACTIVIDAD,
   ETIQUETA_ACTIVIDAD,
+  ESTADOS_REVISION,
+  ETIQUETA_REVISION,
   type ReporteFontanero,
   type FiltrosReportes,
   type TipoActividad,
+  type EstadoRevision,
 } from '../../components/Services/reportesFontanero.service'
 import {
   obtenerEmpleados,
   type Empleado,
 } from '../../components/Services/empleados.service'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import DetalleReporteFontanero from '../../components/Reportes/DetalleReporteFontanero'
 
 const LIMITE_POR_PAGINA = 25
+
+// Colores del sello de revisión. Pendiente = por atender; aprobado = resuelto;
+// rechazado = la avería vuelve al fontanero.
+const CLASE_REVISION: Record<EstadoRevision, string> = {
+  Pendiente: 'bg-advertencia-100 text-advertencia-700',
+  Aprobado: 'bg-exito-100 text-exito-700',
+  Rechazado: 'bg-error-100 text-error-700',
+}
 
 function ReportesFontanero() {
   const [reportes, setReportes] = useState<ReporteFontanero[]>([])
@@ -23,9 +44,19 @@ function ReportesFontanero() {
   const [error, setError] = useState('')
   const [detalle, setDetalle] = useState<ReporteFontanero | null>(null)
 
+  // Revisión de la resolución: solo para reportes vinculados a una avería.
+  const [revisando, setRevisando] = useState(false)
+  const [errorRevision, setErrorRevision] = useState('')
+  // Motivo que verá el fontanero si se rechaza la resolución y si el admin ya
+  // pidió rechazar (el campo solo aparece en ese momento).
+  const [motivoRevision, setMotivoRevision] = useState('')
+  const [rechazando, setRechazando] = useState(false)
+
   const [fontaneros, setFontaneros] = useState<Empleado[]>([])
   const [empleadoId, setEmpleadoId] = useState('')
   const [tipoActividad, setTipoActividad] = useState<TipoActividad | ''>('')
+  const [estadoRevision, setEstadoRevision] = useState<EstadoRevision | ''>('')
+  const [origen, setOrigen] = useState<'' | 'asignado' | 'no_asignado'>('')
   const [desde, setDesde] = useState('')
   const [hasta, setHasta] = useState('')
 
@@ -46,6 +77,8 @@ function ReportesFontanero() {
       const filtros: FiltrosReportes = { pagina, limite: LIMITE_POR_PAGINA }
       if (empleadoId) filtros.empleadoId = Number(empleadoId)
       if (tipoActividad) filtros.tipoActividad = tipoActividad
+      if (estadoRevision) filtros.estadoRevision = estadoRevision
+      if (origen) filtros.origen = origen
       if (desde) filtros.desde = desde
       if (hasta) filtros.hasta = hasta
 
@@ -59,7 +92,7 @@ function ReportesFontanero() {
     } finally {
       setCargando(false)
     }
-  }, [pagina, empleadoId, tipoActividad, desde, hasta])
+  }, [pagina, empleadoId, tipoActividad, estadoRevision, origen, desde, hasta])
 
   useEffect(() => {
     void cargar()
@@ -75,20 +108,48 @@ function ReportesFontanero() {
   const limpiarFiltros = () => {
     setEmpleadoId('')
     setTipoActividad('')
+    setEstadoRevision('')
+    setOrigen('')
     setDesde('')
     setHasta('')
     setPagina(1)
   }
 
-  const hayFiltros = Boolean(empleadoId || tipoActividad || desde || hasta)
-  const totalPaginas = Math.max(1, Math.ceil(total / LIMITE_POR_PAGINA))
+  // La administración aprueba o rechaza la resolución de la avería del
+  // reporte. Al aprobar, la avería queda finalizada; al rechazar, vuelve al
+  // fontanero.
+  const handleRevisar = async (
+    reporte: ReporteFontanero,
+    aprobado: boolean,
+  ) => {
+    setRevisando(true)
+    setErrorRevision('')
+    try {
+      await revisarReporte(reporte.id, aprobado, motivoRevision.trim() || undefined)
+      setDetalle(null)
+      setRechazando(false)
+      await cargar()
+    } catch (err) {
+      setErrorRevision(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo registrar la revisión del reporte.',
+      )
+    } finally {
+      setRevisando(false)
+    }
+  }
+
+  const hayFiltros = Boolean(
+    empleadoId || tipoActividad || estadoRevision || origen || desde || hasta,
+  )
   const selectCls =
     'mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none'
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Reportes de actividad de fontaneros
         </h1>
         <p className="mt-1 text-sm text-primary-600">
@@ -98,8 +159,8 @@ function ReportesFontanero() {
       </div>
 
       {/* Filtros */}
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <div>
             <label htmlFor="f-fontanero" className="block text-sm font-medium text-primary-900">
               Fontanero
@@ -141,6 +202,49 @@ function ReportesFontanero() {
           </div>
 
           <div>
+            <label htmlFor="f-revision" className="block text-sm font-medium text-primary-900">
+              Revisión
+            </label>
+            <select
+              id="f-revision"
+              value={estadoRevision}
+              onChange={(e) =>
+                aplicarFiltro(setEstadoRevision)(
+                  e.target.value as EstadoRevision | '',
+                )
+              }
+              className={selectCls}
+            >
+              <option value="">Todas</option>
+              {ESTADOS_REVISION.map((estado) => (
+                <option key={estado} value={estado}>
+                  {ETIQUETA_REVISION[estado]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label htmlFor="f-origen" className="block text-sm font-medium text-primary-900">
+              Origen
+            </label>
+            <select
+              id="f-origen"
+              value={origen}
+              onChange={(e) =>
+                aplicarFiltro(setOrigen)(
+                  e.target.value as '' | 'asignado' | 'no_asignado',
+                )
+              }
+              className={selectCls}
+            >
+              <option value="">Todos</option>
+              <option value="asignado">Asignados</option>
+              <option value="no_asignado">No asignados</option>
+            </select>
+          </div>
+
+          <div>
             <label htmlFor="f-desde" className="block text-sm font-medium text-primary-900">
               Desde
             </label>
@@ -178,48 +282,39 @@ function ReportesFontanero() {
         )}
       </div>
 
-      {error && (
-        <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-          {error}
-        </p>
-      )}
+      {error && <ErrorState mensaje={error} onReintentar={cargar} />}
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Fontanero</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Fecha</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Actividad</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Tiempo</th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">Materiales</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <Table cabecera={['Fontanero', 'Fecha', 'Trabajo', 'Actividad', 'Tiempo', 'Materiales', 'Revisión', 'Acciones']} pie={<>{total > 0 && (
+          <Paginador total={total} pagina={pagina} porPagina={LIMITE_POR_PAGINA} onCambiar={setPagina} etiqueta="reportes" deshabilitado={cargando} />
+        )}</>}>
             {cargando ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  Cargando reportes...
-                </td>
-              </tr>
+              <FilasEsqueleto columnas={8} />
             ) : reportes.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  {hayFiltros
+              <FilaVacia columnas={8} titulo={hayFiltros
                     ? 'No hay reportes que coincidan con los filtros.'
-                    : 'Todavía no hay reportes de actividad registrados.'}
-                </td>
-              </tr>
+                    : 'Todavía no hay reportes de actividad registrados.'} />
             ) : (
               reportes.map((reporte) => (
-                <tr key={reporte.id} className="hover:bg-gray-50">
+                <tr key={reporte.id} className="hover:bg-primary-50/50">
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {reporte.empleado?.nombre ?? '—'}
                   </td>
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {reporte.fecha_trabajo}
+                  </td>
+                  <td className="whitespace-nowrap px-4 py-3">
+                    {reporte.origen === 'no_asignado' ? (
+                      <span className="inline-block rounded-full bg-advertencia-100 px-2 py-0.5 text-[11px] font-semibold text-advertencia-700">
+                        No asignado
+                      </span>
+                    ) : (
+                      <span className="font-mono text-xs text-primary-600">
+                        {reporte.averia?.codigo_averia ??
+                          reporte.labor?.codigo_labor ??
+                          '—'}
+                      </span>
+                    )}
                   </td>
                   <td className="px-4 py-3 text-primary-700">
                     {ETIQUETA_ACTIVIDAD[reporte.tipo_actividad]}
@@ -227,129 +322,170 @@ function ReportesFontanero() {
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {formatearTiempo(reporte.tiempo_minutos)}
                   </td>
-                  <td className="px-4 py-3 text-primary-700">
-                    {reporte.materiales.length === 0
-                      ? '—'
-                      : `${reporte.materiales.length} material${reporte.materiales.length === 1 ? '' : 'es'}`}
+                  <td className="max-w-xs px-4 py-3 text-primary-700">
+                    {reporte.materiales_texto ? (
+                      <span
+                        className="block truncate"
+                        title={reporte.materiales_texto}
+                      >
+                        {reporte.materiales_texto}
+                      </span>
+                    ) : reporte.materiales.length === 0 ? (
+                      '—'
+                    ) : (
+                      `${reporte.materiales.length} material${reporte.materiales.length === 1 ? '' : 'es'}`
+                    )}
                   </td>
-                  <td className="whitespace-nowrap px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      onClick={() => setDetalle(reporte)}
-                      className="text-sm font-medium text-primary-600 hover:text-primary-700 hover:underline"
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold ${CLASE_REVISION[reporte.estado_revision]}`}
                     >
+                      {ETIQUETA_REVISION[reporte.estado_revision]}
+                    </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <Button
+                      variant="secondary" size="sm"
+                      type="button"
+                      onClick={() => {
+                        setErrorRevision('')
+                        setMotivoRevision('')
+                        setRechazando(false)
+                        setDetalle(reporte)
+                      }}>
                       Ver detalle
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Paginación */}
-      {total > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-primary-600">
-            {total} reporte{total === 1 ? '' : 's'} · página {pagina} de {totalPaginas}
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.max(1, p - 1))}
-              disabled={pagina === 1 || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-              disabled={pagina >= totalPaginas || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
-      )}
+          </Table>
 
       {/* Detalle */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white p-6">
-            <h2 className="text-lg font-semibold text-primary-900">
-              Reporte #{detalle.id}
-            </h2>
+        <Modal size="xl" onCerrar={() => setDetalle(null)}>
+            <ModalTitulo>
+              Detalle del reporte
+            </ModalTitulo>
 
-            <dl className="mt-4 space-y-2 text-sm">
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Fontanero:</dt>
-                <dd className="text-primary-700">{detalle.empleado?.nombre ?? '—'}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Fecha del trabajo:</dt>
-                <dd className="text-primary-700">{detalle.fecha_trabajo}</dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Tipo de actividad:</dt>
-                <dd className="text-primary-700">
-                  {ETIQUETA_ACTIVIDAD[detalle.tipo_actividad]}
-                </dd>
-              </div>
-              <div className="flex gap-2">
-                <dt className="font-medium text-primary-900">Tiempo empleado:</dt>
-                <dd className="text-primary-700">
-                  {formatearTiempo(detalle.tiempo_minutos)}
-                </dd>
-              </div>
-              {detalle.averia?.codigo_averia && (
-                <div className="flex gap-2">
-                  <dt className="font-medium text-primary-900">Avería relacionada:</dt>
-                  <dd className="text-primary-700">{detalle.averia.codigo_averia}</dd>
+            <div className="mt-4">
+              <DetalleReporteFontanero
+                reporte={detalle}
+                mostrarFontanero
+                mostrarOrigen
+              />
+            </div>
+
+            <div className="mt-5 rounded-xl border border-primary-200 bg-primary-50 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-primary-900">
+                    {detalle.origen === 'no_asignado'
+                      ? 'Revisión de reporte no asignado'
+                      : detalle.averia_id
+                        ? 'Resolución de la avería'
+                        : detalle.labor_id
+                          ? 'Resolución de la labor'
+                          : 'Revisión del reporte'}
+                  </p>
+                  <p className="mt-0.5 text-xs text-primary-500">
+                    {detalle.origen === 'no_asignado'
+                      ? 'Aprueba o rechaza este reporte de actividad registrado sin un trabajo asignado.'
+                      : detalle.averia_id || detalle.labor_id
+                        ? 'Aprueba para dar el trabajo por resuelto; rechaza para devolvérselo al fontanero.'
+                        : 'Aprueba o rechaza este reporte de actividad.'}
+                  </p>
                 </div>
-              )}
-              <div>
-                <dt className="font-medium text-primary-900">Trabajo realizado:</dt>
-                <dd className="mt-1 whitespace-pre-line text-primary-700">
-                  {detalle.descripcion}
-                </dd>
+                <span
+                  className={`flex-none rounded-full px-2.5 py-1 text-[11px] font-semibold ${CLASE_REVISION[detalle.estado_revision]}`}
+                >
+                  {ETIQUETA_REVISION[detalle.estado_revision]}
+                </span>
               </div>
-            </dl>
 
-            <h3 className="mt-5 text-sm font-semibold text-primary-900">
-              Materiales utilizados
-            </h3>
-            {detalle.materiales.length === 0 ? (
-              <p className="mt-1 text-sm text-primary-500">
-                Este trabajo no consumió materiales del inventario.
-              </p>
-            ) : (
-              <ul className="mt-2 divide-y divide-gray-200 rounded-lg border border-gray-200">
-                {detalle.materiales.map((material) => (
-                  <li
-                    key={material.id}
-                    className="flex justify-between px-3 py-2 text-sm text-primary-700"
-                  >
-                    <span>{material.nombre_articulo}</span>
-                    <span className="font-medium">{material.cantidad}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
+                {errorRevision && (
+                  <div className="mt-3">
+                    <Alerta tipo="error">{errorRevision}</Alerta>
+                  </div>
+                )}
+
+                {rechazando ? (
+                  <>
+                    <div className="mt-3">
+                      <label
+                        htmlFor="motivo-revision"
+                        className="block text-xs font-medium text-primary-700"
+                      >
+                        Motivo del rechazo (se le mostrará al fontanero)
+                      </label>
+                      <textarea
+                        id="motivo-revision"
+                        rows={2}
+                        value={motivoRevision}
+                        maxLength={1000}
+                        onChange={(e) => setMotivoRevision(e.target.value)}
+                        placeholder="Ej: Falta reponer el relleno y adjuntar foto del arreglo."
+                        className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+                      />
+                    </div>
+                    <div className="mt-3 flex flex-wrap gap-2">
+                      <Button
+                        variant="danger"
+                        size="sm"
+                        type="button"
+                        loading={revisando}
+                        onClick={() => handleRevisar(detalle, false)}
+                      >
+                        Confirmar rechazo
+                      </Button>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        type="button"
+                        disabled={revisando}
+                        onClick={() => {
+                          setRechazando(false)
+                          setMotivoRevision('')
+                        }}
+                      >
+                        Cancelar
+                      </Button>
+                    </div>
+                  </>
+                ) : (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <Button
+                      variant="success"
+                      size="sm"
+                      type="button"
+                      loading={revisando}
+                      disabled={detalle.estado_revision === 'Aprobado'}
+                      onClick={() => handleRevisar(detalle, true)}
+                    >
+                      Aprobar resolución
+                    </Button>
+                    <Button
+                      variant="danger"
+                      size="sm"
+                      type="button"
+                      disabled={detalle.estado_revision === 'Rechazado'}
+                      onClick={() => setRechazando(true)}
+                    >
+                      Rechazar
+                    </Button>
+                  </div>
+                )}
+              </div>
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={() => setDetalle(null)}
-                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                onClick={() => setDetalle(null)}>
                 Cerrar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

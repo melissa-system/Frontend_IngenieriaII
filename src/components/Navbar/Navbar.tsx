@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import logo from '../../assets/logo.png'
+import Button from '../ui/Button'
 
 const NAV_LINKS = [
   { label: 'Inicio', to: '/' },
@@ -41,7 +42,7 @@ function Navbar() {
   }, [publicacionesOpen])
 
   return (
-    <header className="sticky top-0 z-50 bg-white text-gray-900 shadow-md">
+    <header className="sticky top-0 z-50 bg-white text-primary-900 shadow-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
         <Link to="/" className="flex items-center" aria-label="Inicio">
           <img
@@ -57,7 +58,7 @@ function Navbar() {
             <Link
               key={link.to}
               to={link.to}
-              className="rounded-full border border-transparent px-4 py-2 text-base font-medium text-gray-600 transition-colors hover:border-primary-700 hover:text-primary-700"
+              className="rounded-full border border-transparent px-4 py-2 text-base font-medium text-primary-600 transition-colors hover:border-primary-700 hover:text-primary-700"
             >
               {link.label}
             </Link>
@@ -68,7 +69,7 @@ function Navbar() {
               type="button"
               onClick={() => setPublicacionesOpen((prev) => !prev)}
               aria-expanded={publicacionesOpen}
-              className="flex items-center gap-1 rounded-full border border-transparent px-4 py-2 text-base font-medium text-gray-600 transition-colors hover:border-primary-700 hover:text-primary-700"
+              className="flex items-center gap-1 rounded-full border border-transparent px-4 py-2 text-base font-medium text-primary-600 transition-colors hover:border-primary-700 hover:text-primary-700"
             >
               Publicaciones
               <svg
@@ -84,13 +85,13 @@ function Navbar() {
             </button>
 
             {publicacionesOpen && (
-              <div className="absolute top-full left-1/2 mt-2 w-44 -translate-x-1/2 rounded-xl border border-gray-100 bg-white py-1.5 shadow-lg">
+              <div className="absolute top-full left-1/2 mt-2 w-44 -translate-x-1/2 rounded-xl border border-primary-100 bg-white py-1.5 shadow-lg">
                 {PUBLICACIONES_LINKS.map((link) => (
                   <Link
                     key={link.to}
                     to={link.to}
                     onClick={() => setPublicacionesOpen(false)}
-                    className="block px-4 py-2 text-sm font-medium text-gray-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
+                    className="block px-4 py-2 text-sm font-medium text-primary-600 transition-colors hover:bg-primary-50 hover:text-primary-700"
                   >
                     {link.label}
                   </Link>
@@ -99,13 +100,13 @@ function Navbar() {
             )}
           </div>
 
-          <button
+          <Button
+            variant="primary"
             type="button"
             onClick={() => navigate(isAuthenticated ? '/dashboard' : '/login')}
-            className="rounded-full bg-primary-700 px-5 py-2.5 text-base font-semibold text-white transition-colors hover:bg-primary-600"
-          >
+            className="text-base hover:bg-primary-600">
             {isAuthenticated ? 'Ir al Dashboard' : 'Acceder al sistema'}
-          </button>
+          </Button>
         </nav>
 
         {/* Botón hamburguesa mobile */}
@@ -116,21 +117,21 @@ function Navbar() {
           aria-expanded={open}
           onClick={() => setOpen((prev) => !prev)}
         >
-          <span className="h-0.5 w-6 bg-gray-800" />
-          <span className="h-0.5 w-6 bg-gray-800" />
-          <span className="h-0.5 w-6 bg-gray-800" />
+          <span className="h-0.5 w-6 bg-primary-800" />
+          <span className="h-0.5 w-6 bg-primary-800" />
+          <span className="h-0.5 w-6 bg-primary-800" />
         </button>
       </div>
 
       {/* Menú mobile */}
       {open && (
-        <nav className="flex flex-col gap-1 border-t border-gray-200 bg-white px-4 pb-4 xl:hidden">
+        <nav className="flex flex-col gap-1 border-t border-primary-200 bg-white px-4 pb-4 xl:hidden">
           {NAV_LINKS.map((link) => (
             <Link
               key={link.to}
               to={link.to}
               onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-primary-50 hover:text-primary-700"
+              className="rounded-lg px-3 py-3 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 hover:text-primary-700"
             >
               {link.label}
             </Link>
@@ -144,22 +145,22 @@ function Navbar() {
               key={link.to}
               to={link.to}
               onClick={() => setOpen(false)}
-              className="rounded-lg px-3 py-3 text-sm font-medium text-gray-700 transition-colors hover:bg-primary-50 hover:text-primary-700"
+              className="rounded-lg px-3 py-3 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 hover:text-primary-700"
             >
               {link.label}
             </Link>
           ))}
 
-          <button
+          <Button
+            variant="primary"
             type="button"
             onClick={() => {
               setOpen(false)
               navigate(isAuthenticated ? '/dashboard' : '/login')
             }}
-            className="mt-2 rounded-full bg-primary-700 px-4 py-3 text-center text-sm font-semibold text-white transition-colors hover:bg-primary-600"
-          >
+            className="mt-2 text-center hover:bg-primary-600">
             {isAuthenticated ? 'Ir al Dashboard' : 'Acceder al sistema'}
-          </button>
+          </Button>
         </nav>
       )}
     </header>

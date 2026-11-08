@@ -1,3 +1,7 @@
+import Paginador from '../../components/ui/Paginador'
+import { FilaVacia } from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
 import {
   obtenerBitacora,
@@ -10,15 +14,16 @@ import {
   type ModuloBitacora,
   type AccionBitacora,
 } from '../../components/Services/bitacora.service'
+import Table from '../../components/ui/Table'
 
 const LIMITE_POR_PAGINA = 25
 
 // Color del "chip" de acción, para distinguirlas de un vistazo en la tabla.
 const COLOR_ACCION: Record<AccionBitacora, string> = {
-  creacion: 'bg-green-100 text-green-800',
-  edicion: 'bg-blue-100 text-blue-800',
-  cambio_estado: 'bg-amber-100 text-amber-800',
-  eliminacion: 'bg-red-100 text-red-800',
+  creacion: 'bg-exito-100 text-exito-800',
+  edicion: 'bg-info-100 text-info-800',
+  cambio_estado: 'bg-advertencia-100 text-advertencia-800',
+  eliminacion: 'bg-error-100 text-error-800',
 }
 
 function formatearFecha(iso: string): string {
@@ -106,14 +111,12 @@ function Bitacora() {
     setHasta('')
     setPagina(1)
   }
-
-  const totalPaginas = Math.max(1, Math.ceil(total / LIMITE_POR_PAGINA))
   const hayFiltros = Boolean(modulo || accion || desde || hasta)
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Auditoría del sistema
         </h1>
         <p className="mt-1 text-sm text-primary-600">
@@ -123,7 +126,7 @@ function Bitacora() {
       </div>
 
       {/* Filtros */}
-      <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4">
+      <div className="rounded-2xl border border-primary-200 bg-primary-50 p-4">
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div>
             <label
@@ -217,55 +220,21 @@ function Bitacora() {
         )}
       </div>
 
-      {error && (
-        <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
-          {error}
-        </p>
-      )}
+      {error && <ErrorState mensaje={error} onReintentar={cargar} />}
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-2xl border border-gray-200">
-        <table className="min-w-full divide-y divide-gray-200 bg-white text-sm">
-          <thead className="bg-gray-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
-                Fecha
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
-                Módulo
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
-                Registro
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
-                Acción
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
-                Usuario
-              </th>
-              <th className="px-4 py-3 text-left font-semibold text-primary-900">
-                Detalle
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200">
+      <Table cabecera={['Fecha', 'Módulo', 'Registro', 'Acción', 'Usuario', 'Detalle']} pie={<>{total > 0 && (
+          <Paginador total={total} pagina={pagina} porPagina={LIMITE_POR_PAGINA} onCambiar={setPagina} etiqueta="movimientos" deshabilitado={cargando} />
+        )}</>}>
             {cargando ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  Cargando movimientos...
-                </td>
-              </tr>
+              <FilasEsqueleto columnas={6} />
             ) : registros.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="px-4 py-8 text-center text-primary-500">
-                  {hayFiltros
+              <FilaVacia columnas={6} titulo={hayFiltros
                     ? 'No hay movimientos que coincidan con los filtros.'
-                    : 'Todavía no hay movimientos registrados.'}
-                </td>
-              </tr>
+                    : 'Todavía no hay movimientos registrados.'} />
             ) : (
               registros.map((registro) => (
-                <tr key={registro.id} className="hover:bg-gray-50">
+                <tr key={registro.id} className="hover:bg-primary-50/50">
                   <td className="whitespace-nowrap px-4 py-3 text-primary-700">
                     {formatearFecha(registro.fecha)}
                   </td>
@@ -278,7 +247,7 @@ function Bitacora() {
                   <td className="whitespace-nowrap px-4 py-3">
                     <span
                       className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                        COLOR_ACCION[registro.accion] ?? 'bg-gray-100 text-gray-800'
+                        COLOR_ACCION[registro.accion] ?? 'bg-primary-100 text-primary-800'
                       }`}
                     >
                       {ETIQUETA_ACCION[registro.accion] ?? registro.accion}
@@ -296,37 +265,7 @@ function Bitacora() {
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-      </div>
-
-      {/* Paginación */}
-      {total > 0 && (
-        <div className="flex items-center justify-between">
-          <p className="text-sm text-primary-600">
-            {total} movimiento{total === 1 ? '' : 's'} · página {pagina} de{' '}
-            {totalPaginas}
-          </p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.max(1, p - 1))}
-              disabled={pagina === 1 || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Anterior
-            </button>
-            <button
-              type="button"
-              onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-              disabled={pagina >= totalPaginas || cargando}
-              className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              Siguiente
-            </button>
-          </div>
-        </div>
-      )}
+          </Table>
     </div>
   )
 }

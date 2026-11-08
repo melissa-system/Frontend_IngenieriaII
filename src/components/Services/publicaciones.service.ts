@@ -1,7 +1,11 @@
-import axios from 'axios';
 import apiClient from '../../lib/apiClient';
+import { crearErrorApi } from './erroresApi';
 
-const API_URL = 'http://localhost:3000/publicaciones';
+// Antes hardcodeado a localhost:3000 — nunca hubiera funcionado publicado
+// en Netlify (mismo bug que ya se corrigió en configuracion.service.ts y
+// solicitudes.service.ts). Ahora toma la URL real de VITE_API_URL.
+const API_BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3000';
+const API_URL = `${API_BASE_URL}/publicaciones`;
 const RESOURCE = '/publicaciones';
 
 export interface PublicacionPayload {
@@ -35,17 +39,6 @@ async function parseErrorMessage(response: Response, fallback: string): Promise<
   return body?.message || body?.error?.message || fallback;
 }
 
-function obtenerMensajeErrorAxios(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
-    }
-    const msg = error.response?.data?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg)) return msg.join('. ');
-  }
-  return fallback;
-}
 
 // Crea una publicación (usado desde el dashboard administrativo). Rutas de
 // administración: van por apiClient para que el interceptor adjunte el
@@ -57,9 +50,7 @@ export const crearPublicacion = async (
     const { data } = await apiClient.post<Publicacion>(RESOURCE, payload);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudo crear la publicación.'),
-    );
+    throw crearErrorApi(error, 'No se pudo crear la publicación.');
   }
 };
 
@@ -84,9 +75,7 @@ export const obtenerTodasLasPublicaciones = async (): Promise<Publicacion[]> => 
     const { data } = await apiClient.get<Publicacion[]>(`${RESOURCE}/todas`);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudieron cargar las publicaciones.'),
-    );
+    throw crearErrorApi(error, 'No se pudieron cargar las publicaciones.');
   }
 };
 
@@ -102,8 +91,18 @@ export const actualizarPublicacion = async (
     );
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudieron guardar los cambios.'),
-    );
+    throw crearErrorApi(error, 'No se pudieron guardar los cambios.');
+  }
+};
+
+// Eliminación definitiva (el backend borra el registro y lo audita en la
+// bitácora). Ruta de administración: va por apiClient con Access Token.
+export const eliminarPublicacion = async (
+  id: string | number,
+): Promise<void> => {
+  try {
+    await apiClient.delete(`${RESOURCE}/${id}`);
+  } catch (error) {
+    throw crearErrorApi(error, 'No se pudo eliminar la publicación.');
   }
 };

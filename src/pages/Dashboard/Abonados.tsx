@@ -1,3 +1,10 @@
+import { ordenar, siguienteOrden, type OrdenTabla } from '../../lib/tabla'
+import Paginador from '../../components/ui/Paginador'
+import Alerta from '../../components/ui/Alerta'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
   crearAbonado,
@@ -18,9 +25,28 @@ import {
 } from '../../components/Services/abonados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import {
+  cedula,
+  correo,
+  formatearTelefono,
+  hayErrores,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
+  erroresPorCampo,
+  tieneErroresDeCampo,
 } from '../../components/Services/erroresApi'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import PageHeader from '../../components/ui/PageHeader'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 interface FormState {
   tipo_abonado: TipoAbonado
@@ -46,19 +72,17 @@ const EMPTY_FORM: FormState = {
   numero_plano_catastrado: '',
 }
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
 // Paginación client-side de la tabla de abonados
 const ABONADOS_POR_PAGINA = 10
 
 function getEstadoColor(estado: string) {
-  if (estado === 'Activo') return 'bg-green-100 text-green-700'
-  return 'bg-red-100 text-red-700'
+  if (estado === 'Activo') return 'bg-exito-100 text-exito-700'
+  return 'bg-error-100 text-error-700'
 }
 
 function getTipoBadge(tipo: string) {
-  if (tipo === 'Física') return 'bg-blue-100 text-blue-700'
-  return 'bg-purple-100 text-purple-700'
+  if (tipo === 'Física') return 'bg-info-100 text-info-700'
+  return 'bg-acento-100 text-acento-700'
 }
 
 // Arma el estado del formulario a partir de un abonado (precarga del modal).
@@ -98,6 +122,22 @@ function formatearFechaHistorial(fecha: string) {
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// Mismo formato que la columna "Fecha Registro" de usuarios. Si viene solo
+// la fecha (YYYY-MM-DD) se arma una Date local para no correrla un día
+// por la zona horaria.
+function formatearFechaRegistro(fecha: string) {
+  const soloFecha = /^(\d{4})-(\d{2})-(\d{2})/.exec(fecha)
+  const d = soloFecha
+    ? new Date(Number(soloFecha[1]), Number(soloFecha[2]) - 1, Number(soloFecha[3]))
+    : new Date(fecha)
+  if (Number.isNaN(d.getTime())) return fecha
+  return d.toLocaleDateString('es-CR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
+
 // Interruptor para activar/desactivar un abonado. No guarda nada por sí
 // mismo: solo dispara la confirmación que luego llama al backend.
 function EstadoSwitch({
@@ -119,8 +159,8 @@ function EstadoSwitch({
       title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+      className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -142,28 +182,39 @@ function normalizarBusqueda(t: string) {
     .replace(/[^a-z0-9]/g, '')
 }
 
-function validarForm(form: FormState): string | null {
-  if (!form.nombre.trim()) {
-    return form.tipo_abonado === 'Jurídica'
-      ? 'La razón social es obligatoria.'
-      : 'El nombre es obligatorio.'
-  }
-  if (!form.cedula.trim()) return 'La cédula es obligatoria.'
-  if (!form.telefono.trim()) return 'El teléfono es obligatorio.'
-  if (!form.correo.trim()) return 'El correo es obligatorio.'
-  if (!EMAIL_REGEX.test(form.correo.trim())) {
-    return 'El correo electrónico no tiene un formato válido.'
-  }
-  if (!form.direccion.trim()) return 'La dirección es obligatoria.'
-  if (form.tipo_abonado === 'Jurídica') {
-    if (!form.nombre_representante_legal.trim()) {
-      return 'El nombre del representante legal es obligatorio para persona jurídica.'
-    }
-    if (!form.cedula_representante.trim()) {
-      return 'La cédula del representante legal es obligatoria para persona jurídica.'
-    }
-  }
-  return null
+type ErroresAbonado = ErroresFormulario<keyof FormState>
+
+// Checklist común de validaciones (PBI 511): obligatorios, formato de
+// cédula/teléfono/correo y longitudes máximas, con el mismo criterio que el
+// backend. Devuelve un error por campo para mostrarlo debajo de cada input.
+function validarForm(form: FormState, editando: boolean): ErroresAbonado {
+  const juridica = form.tipo_abonado === 'Jurídica'
+  return validarCampos<keyof FormState>(
+    {
+      // La cédula no se edita: solo se valida al registrar.
+      cedula: editando
+        ? []
+        : [requerido('La cédula', true), cedula(juridica ? ['juridica'] : ['fisica', 'dimex'])],
+      nombre: [
+        requerido(juridica ? 'La razón social' : 'El nombre', juridica),
+        maximo(juridica ? 'La razón social' : 'El nombre', 150),
+      ],
+      nombre_representante_legal: juridica
+        ? [
+            requerido('El nombre del representante legal'),
+            maximo('El nombre del representante', 150),
+          ]
+        : [],
+      cedula_representante: juridica
+        ? [requerido('La cédula del representante legal', true), cedula(['fisica', 'dimex'])]
+        : [],
+      telefono: [requerido('El teléfono'), telefono()],
+      correo: [requerido('El correo electrónico'), correo(), maximo('El correo', 150)],
+      direccion: [requerido('La dirección', true), maximo('La dirección', 255)],
+      numero_plano_catastrado: [maximo('El número de plano', 50)],
+    },
+    form,
+  )
 }
 
 function Abonados() {
@@ -172,10 +223,16 @@ function Abonados() {
   const [loadError, setLoadError] = useState<string | null>(null)
 
   const [search, setSearch] = useState('')
+  // Filtro de estado: por defecto solo activos, para que los abonados
+  // desactivados (eliminados) "desaparezcan" de la vista como si se
+  // hubieran borrado; se recuperan cambiando el filtro a "Todos".
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Activo')
+  const [filtroTipo, setFiltroTipo] = useState<'Todos' | TipoAbonado>('Todos')
   const [pagina, setPagina] = useState(1)
   const [modalOpen, setModalOpen] = useState(false)
   const [form, setForm] = useState<FormState>(EMPTY_FORM)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresAbonado>({})
   const [submitting, setSubmitting] = useState(false)
   const [editando, setEditando] = useState<Abonado | null>(null)
   // Id del abonado en edición: descarta respuestas tardías de la precarga
@@ -301,10 +358,19 @@ function Abonados() {
   }
 
   const q = normalizarBusqueda(search)
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
+  const conTipo =
+    filtroTipo === 'Todos'
+      ? abonados
+      : abonados.filter((a) => a.tipo_abonado === filtroTipo)
+  const conEstado =
+    filtroEstado === 'Todos'
+      ? conTipo
+      : conTipo.filter((a) => a.estado === filtroEstado)
   const filtered =
     q === ''
-      ? abonados
-      : abonados.filter(
+      ? conEstado
+      : conEstado.filter(
           (a) =>
             normalizarBusqueda(nombreVisible(a)).includes(q) ||
             normalizarBusqueda(a.cedula).includes(q) ||
@@ -321,11 +387,17 @@ function Abonados() {
   )
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * ABONADOS_POR_PAGINA
-  const filasVisibles = filtered.slice(
+  const ordenados = ordenar(filtered, orden, {
+    cedula: (a) => a.cedula,
+    nombre: (a) => nombreVisible(a),
+    tipo: (a) => a.tipo_abonado,
+    estado: (a) => a.estado,
+    registro: (a) => a.fecha_registro,
+  })
+  const filasVisibles = ordenados.slice(
     primeraFila,
     primeraFila + ABONADOS_POR_PAGINA,
   )
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   // Buscar siempre regresa a la primera página; navegar páginas NO toca el
   // término de búsqueda, así que el filtro se mantiene entre páginas.
@@ -344,6 +416,7 @@ function Abonados() {
     edicionIdRef.current = null
     setForm(EMPTY_FORM)
     setFormError(null)
+    setErrores({})
     setCedulaLookupStatus('idle')
     setModalOpen(true)
   }
@@ -356,6 +429,7 @@ function Abonados() {
     setEditando(abonado)
     setForm(formDesdeAbonado(abonado))
     setFormError(null)
+    setErrores({})
     setCedulaLookupStatus('idle')
     setReenvioMensaje(null)
     setReenvioError(null)
@@ -385,6 +459,7 @@ function Abonados() {
 
   function updateField(field: keyof FormState, value: string) {
     setForm((prev) => ({ ...prev, [field]: value }))
+    setErrores((prev) => ({ ...prev, [field]: undefined }))
     // Si cambian la cédula a mano, el resultado de la búsqueda anterior ya no aplica
     if (field === 'cedula' && cedulaLookupStatus !== 'idle') {
       setCedulaLookupStatus('idle')
@@ -442,9 +517,11 @@ function Abonados() {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault()
-    const validationError = validarForm(form)
-    if (validationError) {
-      setFormError(validationError)
+    const erroresForm = validarForm(form, !!editando)
+    setErrores(erroresForm)
+    enfocarPrimerError()
+    if (hayErrores(erroresForm)) {
+      setFormError(null)
       return
     }
 
@@ -481,8 +558,12 @@ function Abonados() {
         setConfirmacion('Abonado actualizado correctamente.')
         setTimeout(() => setConfirmacion(null), 3000)
       } catch (err) {
+        setErrores(erroresPorCampo<keyof FormState>(err))
+        enfocarPrimerError()
         setFormError(
-          err instanceof Error
+          tieneErroresDeCampo(err)
+            ? null
+            : err instanceof Error
             ? err.message
             : 'No se pudieron guardar los cambios. Intenta de nuevo.',
         )
@@ -530,8 +611,12 @@ function Abonados() {
         setConfirmacionCedula({ info: err.info, payload })
         return
       }
+      setErrores(erroresPorCampo<keyof FormState>(err))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error
           ? err.message
           : 'No se pudo registrar el abonado. Intenta de nuevo.',
       )
@@ -556,8 +641,12 @@ function Abonados() {
       setTimeout(() => setConfirmacion(null), 3000)
     } catch (err) {
       setConfirmacionCedula(null)
+      setErrores(erroresPorCampo<keyof FormState>(err))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error
           ? err.message
           : 'No se pudo registrar el abonado. Intenta de nuevo.',
       )
@@ -623,13 +712,12 @@ function Abonados() {
   const esJuridica = form.tipo_abonado === 'Jurídica'
 
   const modalFormEl = !modalOpen ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+      <Modal size="2xl">
           <div className="mb-6 flex items-center justify-between">
             <div>
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 {editando ? 'Editar Abonado' : 'Nuevo Abonado'}
-              </h2>
+              </ModalTitulo>
               {editando && (
                 <p className="mt-0.5 text-xs text-primary-500">
                   {editando.numero_abonado} · {editando.tipo_abonado} · Cédula{' '}
@@ -640,7 +728,7 @@ function Abonados() {
             <button
               type="button"
               onClick={() => cerrarModal()}
-              className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+              className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -648,7 +736,7 @@ function Abonados() {
             </button>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-5">
+          <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-primary-700">
                 Tipo de abonado
@@ -667,6 +755,7 @@ function Abonados() {
             <div>
               <label className="block text-sm font-medium text-primary-700">
                 {esJuridica ? 'Cédula jurídica' : 'Cédula'}
+                <Obligatorio />
               </label>
               <div className="mt-1 flex gap-2">
                 <input
@@ -682,7 +771,7 @@ function Abonados() {
                     )
                   }
                   readOnly={!!editando}
-                  className={`w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none ${
+                  className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.cedula)} ${
                     editando
                       ? 'cursor-not-allowed bg-primary-50 text-primary-500'
                       : ''
@@ -690,18 +779,19 @@ function Abonados() {
                   placeholder={esJuridica ? '3-101-123456' : '1-2345-6789'}
                 />
                 {!editando && (
-                  <button
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={buscarPorCedula}
                     disabled={buscandoCedula || !form.cedula.trim()}
-                    className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    className="flex-none">
                     {buscandoCedula ? 'Buscando...' : 'Buscar'}
-                  </button>
+                  </Button>
                 )}
               </div>
+              <CampoError mensaje={errores.cedula} />
               {cedulaLookupStatus === 'found' && (
-                <p className="mt-1.5 text-xs font-medium text-green-600">
+                <p className="mt-1.5 text-xs font-medium text-exito-700">
                   {esJuridica
                     ? 'Nombre encontrado y completado automáticamente.'
                     : 'Nombre encontrado y completado automáticamente.'}
@@ -722,14 +812,17 @@ function Abonados() {
             <div>
               <label className="block text-sm font-medium text-primary-700">
                 {esJuridica ? 'Razón social' : 'Nombre completo'}
+                <Obligatorio />
               </label>
               <input
                 type="text"
                 value={form.nombre}
                 onChange={(e) => updateField('nombre', e.target.value)}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.nombre)}`}
                 placeholder={esJuridica ? 'Nombre de la empresa' : 'Nombre y apellidos'}
+                maxLength={150}
               />
+              <CampoError mensaje={errores.nombre} />
             </div>
 
             {esJuridica && (
@@ -737,6 +830,7 @@ function Abonados() {
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
                     Nombre del representante legal
+                    <Obligatorio />
                   </label>
                   <input
                     type="text"
@@ -744,61 +838,77 @@ function Abonados() {
                     onChange={(e) =>
                       updateField('nombre_representante_legal', e.target.value)
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.nombre_representante_legal)}`}
                     placeholder="Nombre completo del representante"
+                    maxLength={150}
                   />
+                  <CampoError mensaje={errores.nombre_representante_legal} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
                     Cédula del representante
+                    <Obligatorio />
                   </label>
                   <input
                     type="text"
                     value={form.cedula_representante}
                     onChange={(e) =>
-                      updateField('cedula_representante', e.target.value)
+                      updateField('cedula_representante', formatearCedula(e.target.value, 'fisica'))
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.cedula_representante)}`}
                     placeholder="1-2345-6789"
                   />
+                  <CampoError mensaje={errores.cedula_representante} />
                 </div>
               </div>
             )}
 
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
-                <label className="block text-sm font-medium text-primary-700">Teléfono</label>
+                <label className="block text-sm font-medium text-primary-700">
+                  Teléfono
+                  <Obligatorio />
+                </label>
                 <input
                   type="text"
                   value={form.telefono}
-                  onChange={(e) => updateField('telefono', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  onChange={(e) => updateField('telefono', formatearTelefono(e.target.value))}
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.telefono)}`}
                   placeholder="8888-8888"
                 />
+                <CampoError mensaje={errores.telefono} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Correo electrónico
+                  <Obligatorio />
                 </label>
                 <input
                   type="email"
                   value={form.correo}
                   onChange={(e) => updateField('correo', e.target.value)}
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.correo)}`}
                   placeholder="correo@example.com"
+                  maxLength={150}
                 />
+                <CampoError mensaje={errores.correo} />
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-primary-700">Dirección</label>
+              <label className="block text-sm font-medium text-primary-700">
+                Dirección
+                <Obligatorio />
+              </label>
               <textarea
                 value={form.direccion}
                 onChange={(e) => updateField('direccion', e.target.value)}
                 rows={2}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.direccion)}`}
                 placeholder="Dirección completa"
+                maxLength={255}
               />
+              <CampoError mensaje={errores.direccion} />
             </div>
 
             {!esJuridica && (
@@ -812,9 +922,11 @@ function Abonados() {
                   onChange={(e) =>
                     updateField('numero_plano_catastrado', e.target.value)
                   }
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(errores.numero_plano_catastrado)}`}
                   placeholder="Ej. G-1234567-2024"
+                  maxLength={50}
                 />
+                <CampoError mensaje={errores.numero_plano_catastrado} />
               </div>
             )}
 
@@ -836,28 +948,23 @@ function Abonados() {
                       Si el enlace para definir la contraseña ya venció,
                       podés reenviarlo.
                     </p>
-                    {reenvioMensaje && (
-                      <p className="rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-                        {reenvioMensaje}
-                      </p>
-                    )}
+                    <Notificar mensaje={reenvioMensaje} />
                     {reenvioError && (
-                      <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                      <Alerta tipo="error">
                         {reenvioError}
-                      </p>
+                      </Alerta>
                     )}
-                    <button
+                    <Button
+                      variant="secondary"
                       type="button"
                       onClick={handleReenviarAcceso}
-                      disabled={reenviandoAcceso || reenvioCooldown > 0}
-                      className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-                    >
+                      disabled={reenviandoAcceso || reenvioCooldown > 0}>
                       {reenviandoAcceso
                         ? 'Enviando...'
                         : reenvioCooldown > 0
                           ? `Reenviar correo de acceso (${reenvioCooldown}s)`
                           : 'Reenviar correo de acceso'}
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="mt-2 space-y-2">
@@ -870,16 +977,15 @@ function Abonados() {
                           </span>{' '}
                           como cuenta.
                         </p>
-                        <button
+                        <Button
+                          variant="secondary"
                           type="button"
                           onClick={() => {
                             setErrorVincular(null)
                             setVincularConfirmando(true)
-                          }}
-                          className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                        >
+                          }}>
                           Vincular cuenta
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <>
@@ -890,32 +996,30 @@ function Abonados() {
                           la contraseña.
                         </p>
                         {errorVincular && (
-                          <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                          <Alerta tipo="error">
                             {errorVincular}
-                          </p>
+                          </Alerta>
                         )}
                         <div className="flex justify-end gap-2">
-                          <button
+                          <Button
+                            variant="primary"
                             type="button"
                             onClick={confirmarVincular}
-                            disabled={vinculandoId !== null}
-                            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
+                            disabled={vinculandoId !== null}>
                             {vinculandoId !== null
                               ? 'Vinculando...'
                               : 'Confirmar vinculación'}
-                          </button>
-                          <button
+                          </Button>
+                          <Button
+                            variant="secondary"
                             type="button"
                             onClick={() => {
                               setVincularConfirmando(false)
                               setErrorVincular(null)
                             }}
-                            disabled={vinculandoId !== null}
-                            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
+                            disabled={vinculandoId !== null}>
                             Cancelar
-                          </button>
+                          </Button>
                         </div>
                       </>
                     )}
@@ -925,45 +1029,41 @@ function Abonados() {
             )}
 
             {formError && (
-              <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+              <Alerta tipo="error">
                 {formError}
-              </p>
+              </Alerta>
             )}
 
             <div className="flex justify-end gap-3 pt-2">
-              <button
+              <Button
+                variant="primary"
                 type="submit"
-                disabled={submitting}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-              >
+                disabled={submitting}>
                 {submitting
                   ? 'Guardando...'
                   : editando
                     ? 'Guardar cambios'
                     : 'Crear abonado'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
-                onClick={() => cerrarModal()}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-              >
+                onClick={() => cerrarModal()}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </form>
-        </div>
-      </div>
+</Modal>
     )
 
   // Confirmación del cambio de estado: muestra de dónde a dónde va el
   // abonado antes de tocar la base de datos.
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-          <h2 className="text-lg font-semibold text-primary-900">
+      <Modal size="md" layer={60} scroll={false}>
+          <ModalTitulo>
             Cambiar estado del abonado
-          </h2>
+          </ModalTitulo>
           <p className="mt-3 text-sm text-primary-600">
             ¿Seguro que deseas cambiar el estado de{' '}
             <span className="font-semibold text-primary-800">
@@ -988,30 +1088,27 @@ function Abonados() {
             El cambio queda registrado en el historial con tu usuario.
           </p>
           {errorCambioEstado && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+            <Alerta tipo="error" className="mt-3">
               {errorCambioEstado}
-            </p>
+            </Alerta>
           )}
           <div className="mt-6 flex justify-end gap-2">
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={confirmarCambioEstado}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={cambiandoEstadoId !== null}>
               {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => setCambioEstado(null)}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={cambiandoEstadoId !== null}>
               Cancelar
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+</Modal>
     )
 
   // Confirmación de cédula cruzada: la cédula ya está registrada como
@@ -1019,47 +1116,42 @@ function Abonados() {
   // que "Cancelar" regrese al formulario tal cual quedó.
   const confirmacionCedulaModalEl =
     confirmacionCedula === null ? null : (
-      <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-          <h2 className="text-lg font-semibold text-primary-900">
+      <Modal size="md" layer={70} scroll={false}>
+          <ModalTitulo>
             Cédula ya registrada
-          </h2>
+          </ModalTitulo>
           <p className="mt-3 text-sm text-primary-600">
             {confirmacionCedula.info.message}
           </p>
           <div className="mt-6 flex justify-end gap-2">
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={confirmarVinculacionCedula}
-              disabled={confirmandoVinculacion}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={confirmandoVinculacion}>
               {confirmandoVinculacion ? 'Guardando...' : 'Sí, es la misma persona'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => setConfirmacionCedula(null)}
-              disabled={confirmandoVinculacion}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={confirmandoVinculacion}>
               Cancelar
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+</Modal>
     )
 
   const a = viewDetail
   const esJuridicaDetalle = a?.tipo_abonado === 'Jurídica'
   const detailModalEl = !a ? null : (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-        <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+      <Modal size="lg">
           <div className="mb-4 flex items-center justify-between">
-            <h2 className="text-xl font-semibold text-primary-900">Detalle del Abonado</h2>
+            <ModalTitulo>Detalle del Abonado</ModalTitulo>
             <button
               type="button"
               onClick={() => setViewDetail(null)}
-              className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+              className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
             >
               <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1067,7 +1159,7 @@ function Abonados() {
             </button>
           </div>
           <div className="space-y-3 text-sm">
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-2 gap-2 break-words">
               <span className="font-medium text-primary-700">N° Abonado:</span>
               <span className="font-mono text-primary-900">{a.numero_abonado}</span>
               <span className="font-medium text-primary-700">
@@ -1104,8 +1196,8 @@ function Abonados() {
               <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${getEstadoColor(a.estado)}`}>
                 {a.estado}
               </span>
-              <span className="font-medium text-primary-700">Registro:</span>
-              <span className="text-primary-900">{a.fecha_registro}</span>
+                  <span className="font-medium text-primary-700">Registro:</span>
+                  <span className="text-primary-900">{formatearFechaRegistro(a.fecha_registro)}</span>
             </div>
           </div>
 
@@ -1114,9 +1206,9 @@ function Abonados() {
               Historial de cambios
             </h3>
             {historialLoading ? (
-              <p className="text-xs text-primary-400">Cargando historial...</p>
+              <Cargando compacto texto="Cargando historial..." />
             ) : historialError ? (
-              <p className="text-xs font-medium text-red-500">{historialError}</p>
+              <p className="text-xs font-medium text-error-600">{historialError}</p>
             ) : historialDetalle.length === 0 ? (
               <p className="text-xs text-primary-400">Sin cambios registrados.</p>
             ) : (
@@ -1126,15 +1218,15 @@ function Abonados() {
                     {i < historialDetalle.length - 1 && (
                       <span className="absolute left-[5px] top-4 h-full w-px bg-primary-200" />
                     )}
-                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-blue-500" />
+                    <span className="mt-1 h-2.5 w-2.5 flex-none rounded-full bg-info-500" />
                     <div className="min-w-0 text-xs">
                       <p className="font-medium text-primary-900">
                         {CAMPO_LABELS[h.campo] ?? h.campo}:{' '}
-                        <span className="text-red-500 line-through">
+                        <span className="text-error-600 line-through">
                           {mostrarValorHistorial(h.valor_anterior)}
                         </span>
                         {' → '}
-                        <span className="text-green-600">
+                        <span className="text-exito-700">
                           {mostrarValorHistorial(h.valor_nuevo)}
                         </span>
                       </p>
@@ -1149,119 +1241,110 @@ function Abonados() {
           </div>
 
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={() => setViewDetail(null)}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={() => setViewDetail(null)}>
               Cerrar
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+</Modal>
     )
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Gestión de Abonados
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {loading ? 'Cargando...' : `${abonados.length} abonados registrados`}
-          </p>
-        </div>
-        <button
+      <PageHeader
+        titulo="Gestión de Abonados"
+        descripcion={loading ? 'Cargando...' : `${abonados.length} abonados registrados`}
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={openCreate}
-          className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-        >
+          className="self-start">
           + Nuevo abonado
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
 
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
-          value={search}
-          onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => manejarBusqueda('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+      {/* Búsqueda y filtro a la par, en una sola fila */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, cédula, N° de abonado, teléfono o dirección..."
+            value={search}
+            onChange={(e) => manejarBusqueda(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => manejarBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Filtro por tipo de abonado */}
+        <select
+          value={filtroTipo}
+          onChange={(e) => {
+            setFiltroTipo(e.target.value as 'Todos' | TipoAbonado)
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los tipos</option>
+          <option value="Física">Física</option>
+          <option value="Jurídica">Jurídica</option>
+        </select>
+
+        {/* Los desactivados quedan ocultos por defecto (soft delete) */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as 'Todos' | 'Activo' | 'Inactivo')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+          <option value="Todos">Todos los estados</option>
+        </select>
       </div>
 
       {loadError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-          <p className="text-sm font-medium text-red-600">{loadError}</p>
-          <button
-            type="button"
-            onClick={cargarAbonados}
-            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
+        <ErrorState mensaje={loadError} onReintentar={cargarAbonados} />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Nombre</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Teléfono</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Registro</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
+        <Table orden={orden} onOrdenar={(c) => { setOrden(siguienteOrden(orden, c)); setPagina(1) }} cabecera={[{ etiqueta: 'Cédula', clave: 'cedula' }, { etiqueta: 'Nombre', clave: 'nombre' }, { etiqueta: 'Tipo', clave: 'tipo' }, 'Teléfono', { etiqueta: 'Estado', clave: 'estado' }, { etiqueta: 'Registro', clave: 'registro' }, 'Acciones']} pie={<>{!loading && abonados.length > 0 && (
+            <Paginador total={filtered.length} pagina={paginaActual} porPagina={ABONADOS_POR_PAGINA} onCambiar={setPagina} etiqueta="abonados" filtro={search} />
+          )}</>}>
               {loading ? (
-                Array.from({ length: 5 }).map((_, fila) => (
-                  <tr key={`skeleton-${fila}`}>
-                    {Array.from({ length: 7 }).map((__, col) => (
-                      <td key={col} className="px-4 py-3.5">
-                        <div
-                          className={`animate-pulse rounded bg-primary-100 ${
-                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
-                          }`}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                <FilasEsqueleto columnas={7} />
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={7} className="px-4 py-12 text-center">
@@ -1286,18 +1369,19 @@ function Abonados() {
                         <p className="mt-1 text-xs text-primary-400">
                           Revisa el término escrito o prueba con otro criterio.
                         </p>
-                        <button
+                        <Button
+                          variant="secondary" size="sm"
                           type="button"
                           onClick={() => manejarBusqueda('')}
-                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                        >
+                          className="mt-4">
                           Limpiar búsqueda
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <p className="mt-3 text-sm font-medium text-primary-600">
-                        Aún no hay abonados registrados. Usa el botón "+ Nuevo
-                        abonado" para crear el primero.
+                        {filtroEstado !== 'Todos'
+                          ? 'No hay abonados que coincidan con los filtros actuales.'
+                          : 'Aún no hay abonados registrados. Usa el botón "+ Nuevo abonado" para crear el primero.'}
                       </p>
                     )}
                   </td>
@@ -1336,78 +1420,35 @@ function Abonados() {
                         </span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-primary-500">{abonado.fecha_registro}</td>
+                    <td className="px-4 py-3 text-primary-500">{formatearFechaRegistro(abonado.fecha_registro)}</td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <button
-                          type="button"
+                      <div className="flex items-center gap-1">
+                        <IconoEditar
+                          titulo={`Editar ${nombreVisible(abonado)}`}
                           onClick={() => openEditar(abonado)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
+                        />
+                        <IconoVer
+                          titulo={`Ver detalle de ${nombreVisible(abonado)}`}
                           onClick={() => openDetalle(abonado)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Ver
-                        </button>
+                        />
+                        {/* Eliminar = desactivar (soft delete), mismo criterio
+                            que en inventario: reutiliza el modal de
+                            confirmación de cambio de estado. */}
+                        {abonado.estado === 'Activo' && (
+                          <IconoEliminar
+                            titulo={`Desactivar ${nombreVisible(abonado)}`}
+                            onClick={() => {
+                              setErrorCambioEstado(null)
+                              setCambioEstado({ abonado, nuevo: 'Inactivo' })
+                            }}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
-
-          {!loading && abonados.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-primary-500">
-                Mostrando{' '}
-                {filtered.length === 0
-                  ? 0
-                  : `${primeraFila + 1}–${Math.min(primeraFila + ABONADOS_POR_PAGINA, filtered.length)}`}{' '}
-                de {filtered.length} abonados
-                {search ? ` (filtro: "${search}")` : ''}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPagina(paginaActual - 1)}
-                  disabled={paginaActual === 1}
-                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ‹ Anterior
-                </button>
-                {numerosPagina.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPagina(n)}
-                    disabled={n === paginaActual}
-                    aria-current={n === paginaActual ? 'page' : undefined}
-                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                      n === paginaActual
-                        ? 'bg-primary-700 text-white'
-                        : 'text-primary-700 hover:bg-primary-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setPagina(paginaActual + 1)}
-                  disabled={paginaActual === totalPaginas}
-                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Siguiente ›
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            </Table>
       )}
 
       {modalFormEl}

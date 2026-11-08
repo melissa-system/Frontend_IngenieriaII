@@ -1,4 +1,10 @@
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
+import Alerta from '../../components/ui/Alerta'
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
+import CampoError, { Obligatorio, enfocarPrimerError } from '../../components/common/CampoError'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -7,7 +13,6 @@ import {
   obtenerSolicitudesCambioMedidor,
   MOTIVOS_FALLA_MEDIDOR,
   type SolicitudCambioMedidor,
-  type EstadoSolicitud,
   type MotivoFallaMedidor,
 } from '../../components/Services/cambioMedidor.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
@@ -15,57 +20,31 @@ import {
   FileDropZone,
   validarDocumento,
 } from '../../components/common/FileDropZone'
-import Toast from '../../components/Dashboard/Toast'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
-
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-700'
-    case 'aprobado':
-      return 'bg-green-100 text-green-700'
-    case 'rechazado':
-      return 'bg-red-100 text-red-700'
-  }
-}
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import {
+  generarPdfSolicitudComun,
+  descargarPdfSolicitudComun,
+  type DatosCopiaComun,
+} from '../../lib/generarPdfSolicitudComun'
+import { obtenerPerfil, type PerfilCompleto } from '../../components/Services/perfil.service'
+import Toast from '../../components/ui/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
+import Tabs from '../../components/ui/Tabs'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(estado)}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
-
-function EmptyState({
-  titulo,
-  descripcion,
-}: {
-  titulo: string
-  descripcion: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
 }
 
 function SolicitudesCambioMedidor() {
@@ -75,7 +54,7 @@ function SolicitudesCambioMedidor() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Cambio de Medidor por Daños</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Cambio de Medidor por Daños</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Solicitá el cambio o revisión técnica del medidor registrado en tu propiedad'
@@ -93,6 +72,8 @@ function SolicitudesCambioMedidor() {
 // evidencia fotográfica opcional.
 // ---------------------------------------------------------------------------
 function VistaAbonado() {
+  const { user } = useAuth()
+  const [perfil, setPerfil] = useState<PerfilCompleto | null>(null)
   const [motivoFalla, setMotivoFalla] = useState<MotivoFallaMedidor | ''>('')
   const [direccionExacta, setDireccionExacta] = useState('')
   const [justificacion, setJustificacion] = useState('')
@@ -100,11 +81,16 @@ function VistaAbonado() {
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
 
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
   const [solicitudes, setSolicitudes] = useState<SolicitudCambioMedidor[]>([])
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [mensaje, setMensaje] = useState('')
 
   // Alterna entre ver el historial y generar una solicitud nueva, en vez de
@@ -130,6 +116,7 @@ function VistaAbonado() {
 
   useEffect(() => {
     cargar()
+    obtenerPerfil().then(setPerfil).catch(() => {})
   }, [cargar])
 
   const handleFileSelect = (file: File) => {
@@ -164,44 +151,96 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [motivoFalla, direccionExacta, justificacion])
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Medidor por Daños',
+    tipoSlug: 'cambio-medidor',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: perfil?.nombre ?? user?.nombre ?? 'Abonado',
+      identificacion: perfil?.cedula ?? '',
+      telefono: perfil?.telefono ?? '',
+      correo: perfil?.email ?? user?.email ?? '',
+      numeroAbonado: '',
+      direccion: direccionExacta || perfil?.direccion || '',
+    },
+    detalles: [
+      { etiqueta: 'Motivo de la falla', valor: motivoFalla || 'No especificado' },
+      { etiqueta: 'Dirección exacta / Señas escritas', valor: direccionExacta },
+      { etiqueta: 'Detalle técnico o justificación', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-medidor', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
 
     if (enviandoRef.current) return
 
-    if (!motivoFalla) {
-      setError('Debes seleccionar un motivo de falla.')
-      return
-    }
+    if (!motivoFalla) errs.motivoFalla ??= 'Debes seleccionar un motivo de falla.'
 
     const direccionLimpia = direccionExacta.trim()
     const justificacionLimpia = justificacion.trim()
-    if (direccionLimpia.length < 15) {
-      setError('Las señas escritas deben tener al menos 15 caracteres.')
-      return
-    }
-    if (justificacionLimpia.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
+    if (direccionLimpia.length < 15) errs.direccion ??= 'Las señas escritas deben tener al menos 15 caracteres.'
+    if (justificacionLimpia.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0) {
+      setErroresCampo(errs)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
-      await crearSolicitudCambioMedidor({
+      const resp = await crearSolicitudCambioMedidor({
         motivoFalla,
         direccionExacta: direccionLimpia,
         justificacion: justificacionLimpia,
         evidencia: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
+      setCodigoGenerado(resp.codigo_solicitud)
       setMensaje('Solicitud de cambio de medidor registrada correctamente. Te notificaremos por correo el resultado.')
       limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { direccionExacta: 'direccion', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -210,30 +249,32 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Mis solicitudes
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Nueva solicitud
-        </button>
-      </div>
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Medidor por Daños</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
+        />
+      )}
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis solicitudes' },
+          { valor: 'crear', etiqueta: 'Nueva solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -249,6 +290,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="motivoFallaAbonado" className="block text-sm font-medium text-primary-700">
               Motivo de la falla
+              <Obligatorio />
             </label>
             <select
               id="motivoFallaAbonado"
@@ -266,11 +308,13 @@ function VistaAbonado() {
                 </option>
               ))}
             </select>
+            <CampoError mensaje={erroresCampo.motivoFalla} />
           </div>
 
           <div className="sm:col-span-2">
             <label htmlFor="direccionExactaAbonado" className="block text-sm font-medium text-primary-700">
               Dirección exacta o señas escritas
+              <Obligatorio />
             </label>
             <input
               id="direccionExactaAbonado"
@@ -283,6 +327,7 @@ function VistaAbonado() {
               placeholder="Ej: 100 m sur de la escuela, casa blanca con portón negro"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.direccion} />
             <p className="mt-1 text-xs text-primary-400">
               Mínimo 15 caracteres para que el personal técnico ubique el medidor.
             </p>
@@ -291,6 +336,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="justificacionAbonado" className="block text-sm font-medium text-primary-700">
               Detalle técnico o justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacionAbonado"
@@ -303,6 +349,7 @@ function VistaAbonado() {
               placeholder="Describí qué le ocurre al medidor (fuga, números borrosos, rueda detenida, etc.)"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
@@ -320,37 +367,31 @@ function VistaAbonado() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-            {error}
-          </p>
+          <Alerta tipo="error" className="mt-3">
+            <p>{error}</p>
+          </Alerta>
         )}
-        {mensaje && (
-          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-            {mensaje}
-          </p>
-        )}
+        <Notificar mensaje={mensaje} />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={tieneAbierta || enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={tieneAbierta || enviando}>
             {enviando ? 'Subiendo solicitud…' : 'Enviar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
           {tieneAbierta && (
-            <p className="w-full text-center text-xs font-medium text-yellow-700">
+            <p className="w-full text-center text-xs font-medium text-advertencia-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
             </p>
           )}
@@ -363,26 +404,14 @@ function VistaAbonado() {
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Aún no tenés solicitudes de cambio de medidor"
             descripcion="Tus solicitudes aparecerán aquí junto con su estado y seguimiento."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Dirección</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Evidencia</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Motivo', 'Dirección', 'Evidencia', 'Estado', 'Fecha']}>
                 {solicitudes.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
@@ -398,7 +427,7 @@ function VistaAbonado() {
                               `evidencia-${s.codigo_solicitud}${extensionDesdeUrl(s.evidencia_url as string)}`,
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                          className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
                           Descargar
                         </button>
@@ -408,18 +437,13 @@ function VistaAbonado() {
                     </td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
-                      {s.motivo_rechazo && (
-                        <p className="mt-1 text-xs text-red-500">{s.motivo_rechazo}</p>
-                      )}
                     </td>
                     <td className="px-4 py-3 text-primary-500">
                       {formatearFecha(s.fecha_creacion)}
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       )}
@@ -448,6 +472,7 @@ function VistaAdministrador() {
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [mensaje, setMensaje] = useState('')
 
   const [detalle, setDetalle] = useState<SolicitudCambioMedidor | null>(null)
@@ -457,6 +482,13 @@ function VistaAdministrador() {
   // Alterna entre ver el listado y generar una solicitud nueva, en vez de
   // mostrar ambas cosas apiladas en la misma pantalla.
   const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [s.codigo_solicitud, s.nombre_abonado, s.numero_abonado, s.motivo_falla],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
 
   const cargar = useCallback(async () => {
     try {
@@ -523,50 +555,103 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [motivoFalla, direccionExacta, justificacion, busqueda])
+
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Medidor por Daños',
+    tipoSlug: 'cambio-medidor',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: abonadoElegido ? nombreVisible(abonadoElegido) : 'Abonado no seleccionado',
+      identificacion: abonadoElegido?.cedula ?? '',
+      telefono: abonadoElegido?.telefono ?? '',
+      correo: abonadoElegido?.correo ?? '',
+      numeroAbonado: abonadoElegido?.numero_abonado ?? '',
+      direccion: direccionExacta || abonadoElegido?.direccion || '',
+    },
+    detalles: [
+      { etiqueta: 'Motivo de la falla', valor: motivoFalla || 'No especificado' },
+      { etiqueta: 'Dirección exacta / Señas escritas', valor: direccionExacta },
+      { etiqueta: 'Detalle técnico o justificación', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-medidor', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
 
     if (enviandoRef.current) return
 
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
 
-    if (!motivoFalla) {
-      setError('Debes seleccionar un motivo de falla.')
-      return
-    }
+    if (!motivoFalla) errs.motivoFalla ??= 'Debes seleccionar un motivo de falla.'
 
     const direccionLimpia = direccionExacta.trim()
     const justificacionLimpia = justificacion.trim()
-    if (direccionLimpia.length < 15) {
-      setError('Las señas escritas deben tener al menos 15 caracteres.')
-      return
-    }
-    if (justificacionLimpia.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
+    if (direccionLimpia.length < 15) errs.direccion ??= 'Las señas escritas deben tener al menos 15 caracteres.'
+    if (justificacionLimpia.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !abonadoElegido) {
+      setErroresCampo(errs)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
-      await crearSolicitudCambioMedidor({
+      const resp = await crearSolicitudCambioMedidor({
         idAbonado: Number(abonadoElegido.id),
         motivoFalla,
         direccionExacta: direccionLimpia,
         justificacion: justificacionLimpia,
         evidencia: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
+      setCodigoGenerado(resp.codigo_solicitud)
       setMensaje('Solicitud de cambio de medidor registrada correctamente.')
       limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { direccionExacta: 'direccion', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -584,16 +669,23 @@ function VistaAdministrador() {
     setGestionando(true)
     setToast(null)
     try {
-      await cambiarEstadoSolicitudCambioMedidor(detalle.id, {
+      const respuesta = await cambiarEstadoSolicitudCambioMedidor(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
       })
+      const labor = respuesta.labor
       setToast({
         tipo: 'exito',
         mensaje:
           estado === 'aprobado'
-            ? `Solicitud ${detalle.codigo_solicitud} aprobada. Se notificó al abonado por correo.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
+            ? `Solicitud ${detalle.codigo_solicitud} aprobada.${
+                labor
+                  ? ` Se creó la labor ${labor.codigo_labor} en "Otros mantenimientos" para asignarle un fontanero.`
+                  : ''
+              } Se notificó al abonado por correo.`
+            : estado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -612,30 +704,32 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Solicitudes registradas
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Generar solicitud
-        </button>
-      </div>
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Cambio de Medidor por Daños</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
+        />
+      )}
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Solicitudes registradas' },
+          { valor: 'crear', etiqueta: 'Generar solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -654,7 +748,7 @@ function VistaAdministrador() {
             </label>
 
             {abonadoElegido ? (
-              <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
+              <div className="mt-1 flex items-center justify-between gap-2 rounded-lg border border-exito-200 bg-exito-50 px-3 py-2.5 text-sm shadow-sm">
                 <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                 <button
                   type="button"
@@ -662,7 +756,7 @@ function VistaAdministrador() {
                     setAbonadoSel('')
                     setBusqueda('')
                   }}
-                  className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                  className="shrink-0 rounded-full border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                 >
                   Quitar
                 </button>
@@ -677,6 +771,7 @@ function VistaAdministrador() {
                   placeholder="Buscar por nombre o cédula…"
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 />
+                <CampoError mensaje={erroresCampo.abonado} />
                 {busqueda.trim() !== '' && (
                   <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-primary-200 bg-white shadow-lg">
                     {cargandoAbonados ? (
@@ -704,8 +799,8 @@ function VistaAdministrador() {
                               <span
                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                   a.estado === 'Activo'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
+                                    ? 'bg-exito-100 text-exito-700'
+                                    : 'bg-error-100 text-error-700'
                                 }`}
                               >
                                 {a.estado}
@@ -724,6 +819,7 @@ function VistaAdministrador() {
           <div>
             <label htmlFor="motivoFallaAdmin" className="block text-sm font-medium text-primary-700">
               Motivo de la falla
+              <Obligatorio />
             </label>
             <select
               id="motivoFallaAdmin"
@@ -741,11 +837,13 @@ function VistaAdministrador() {
                 </option>
               ))}
             </select>
+            <CampoError mensaje={erroresCampo.motivoFalla} />
           </div>
 
           <div className="sm:col-span-2">
             <label htmlFor="direccionExactaAdmin" className="block text-sm font-medium text-primary-700">
               Dirección exacta o señas escritas
+              <Obligatorio />
             </label>
             <input
               id="direccionExactaAdmin"
@@ -758,11 +856,13 @@ function VistaAdministrador() {
               placeholder="Ubicación detallada del medidor para el personal técnico"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.direccion} />
           </div>
 
           <div className="sm:col-span-2">
             <label htmlFor="justificacionAdmin" className="block text-sm font-medium text-primary-700">
               Detalle técnico o justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacionAdmin"
@@ -775,6 +875,7 @@ function VistaAdministrador() {
               placeholder="Motivo de la solicitud reportado por ventanilla"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
@@ -792,35 +893,29 @@ function VistaAdministrador() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-            {error}
-          </p>
+          <Alerta tipo="error" className="mt-3">
+            <p>{error}</p>
+          </Alerta>
         )}
-        {mensaje && (
-          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-            {mensaje}
-          </p>
-        )}
+        <Notificar mensaje={mensaje} />
 
-        <div className="mt-5 flex justify-center gap-3">
-          <button
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Button
+            variant="primary"
             type="submit"
-            disabled={enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={enviando}>
             {enviando ? 'Subiendo solicitud…' : 'Registrar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       )}
@@ -829,28 +924,44 @@ function VistaAdministrador() {
       <div className="space-y-3">
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
+        {!cargando && solicitudes.length > 0 && (
+          <BarraFiltrosSolicitudes
+            busca={filtrosLista.busqueda}
+            manejarBusqueda={filtrosLista.cambiarBusqueda}
+            placeholder="Buscar por código, abonado o número de abonado…"
+            orden={filtrosLista.orden}
+            cambiarOrden={filtrosLista.cambiarOrden}
+            filtroEstado={filtrosLista.filtroEstado}
+            cambiarEstado={filtrosLista.cambiarEstado}
+            estados={ESTADOS_ABONADO}
+          />
+        )}
+
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="No hay solicitudes de cambio de medidor"
             descripcion="Las solicitudes registradas aparecerán aquí."
           />
+        ) : filtrosLista.filtradas.length === 0 ? (
+          <EmptyState
+            titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+            descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+          />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
-                {solicitudes.map((s) => (
+          <Table cabecera={['Código', 'Abonado', 'Motivo', 'Estado', 'Fecha', 'Acciones']} pie={<><PaginadorSolicitudes
+              total={filtrosLista.filtradas.length}
+              primeraFila={filtrosLista.primeraFila}
+              porPagina={filtrosLista.porPagina}
+              paginaActual={filtrosLista.paginaActual}
+              totalPaginas={filtrosLista.totalPaginas}
+              numerosPagina={filtrosLista.numerosPagina}
+              busca={filtrosLista.busqueda}
+              etiqueta="solicitudes"
+              irPagina={filtrosLista.irPagina}
+            /></>}>
+                {filtrosLista.filasVisibles.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
                     <td className="px-4 py-3 text-primary-600">
@@ -865,19 +976,16 @@ function VistaAdministrador() {
                       {formatearFecha(s.fecha_creacion)}
                     </td>
                     <td className="px-4 py-3">
-                      <button
+                      <Button
+                        variant="secondary" size="sm"
                         type="button"
-                        onClick={() => abrirDetalle(s)}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
+                        onClick={() => abrirDetalle(s)}>
                         Ver / gestionar
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       )}
@@ -915,35 +1023,34 @@ function ModalDetalle({
   setMotivoRechazo: (v: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
 
   // Mínimo de caracteres del motivo al rechazar. Un "no" o un "." no le
   // sirven al abonado, que recibe este texto por correo como única
   // explicación del rechazo.
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
   // (ya con motivo válido) confirma el rechazo.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar('rechazado')
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl" onCerrar={onCerrar}>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               {solicitud.codigo_solicitud}
-            </h3>
+            </ModalTitulo>
             <p className="mt-0.5 text-sm text-primary-500">
               Solicitud de cambio o revisión de medidor
             </p>
@@ -992,7 +1099,7 @@ function ModalDetalle({
                         `evidencia-${solicitud.codigo_solicitud}${extensionDesdeUrl(solicitud.evidencia_url as string)}`,
                       )
                     }
-                    className="group relative block overflow-hidden rounded-lg border border-primary-200 text-left"
+                    className="group relative block overflow-hidden rounded-full border border-primary-200 text-left"
                   >
                     <img
                       src={solicitud.evidencia_url}
@@ -1018,8 +1125,18 @@ function ModalDetalle({
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
-              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+              <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
+            </div>
+          )}
+          {solicitud.labor && (
+            <div className="sm:col-span-2 rounded-lg border border-info-200 bg-info-50 px-3 py-2">
+              <dt className="text-xs font-medium uppercase text-primary-400">Trabajo operativo</dt>
+              <dd className="mt-0.5 text-primary-800">
+                Labor <span className="font-mono">{solicitud.labor.codigo_labor}</span> —{' '}
+                {solicitud.labor.estado}
+                <span className="ml-1 text-xs text-primary-500">(Otros mantenimientos)</span>
+              </dd>
             </div>
           )}
           <div>
@@ -1030,77 +1147,63 @@ function ModalDetalle({
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label htmlFor="motivoRechazoMedidor" className="block text-sm font-medium text-primary-700">
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivoRechazoMedidor"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: La fotografía adjunta no corresponde al medidor o no se aprecia el daño"
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                    (llevas {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              {solicitud.estado !== 'en_proceso' && (
+                <Button
+                  variant="info"
+                  type="button"
+                  onClick={() => onGestionar('en_proceso')}
+                  disabled={gestionando}>
+                  {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                </Button>
+              )}
+              <Button
+                variant="success"
                 type="button"
-                onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
-                type="button"
-                onClick={() => onGestionar('aprobado')}
-                disabled={gestionando}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('aprobar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
+        )}
+</Modal>
   )
 }
 

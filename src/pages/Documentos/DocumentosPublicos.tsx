@@ -1,3 +1,6 @@
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState } from 'react'
 import {
   obtenerDocumentosPublicos,
@@ -7,6 +10,7 @@ import {
   type TipoDocumento,
 } from '../../components/Services/documentos.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fechaIso: string): string {
   try {
@@ -134,26 +138,13 @@ function DocumentosPublicos() {
       </div>
 
       {error ? (
-        <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-          <p className="text-sm font-medium text-red-600">{error}</p>
-          <button
-            type="button"
-            onClick={cargar}
-            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
+        <ErrorState mensaje={error} onReintentar={cargar} />
       ) : loading ? (
-        <p className="mt-10 py-10 text-center text-sm text-primary-400">
-          Cargando documentos...
-        </p>
+        <Cargando texto="Cargando documentos..." />
       ) : documentosFiltrados.length === 0 ? (
-        <p className="mt-10 py-10 text-center text-sm text-primary-400">
-          {filtroTipo
+        <EmptyState titulo={filtroTipo
             ? 'No hay documentos de ese tipo por ahora.'
-            : 'Todavía no hay documentos públicos disponibles.'}
-        </p>
+            : 'Todavía no hay documentos públicos disponibles.'} />
       ) : (
         <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {documentosFiltrados.map((doc) => (
@@ -183,7 +174,8 @@ function DocumentosPublicos() {
                 {doc.version > 1 ? ` · versión ${doc.version}` : ''}
               </p>
 
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() =>
                   descargarArchivo(
@@ -191,11 +183,10 @@ function DocumentosPublicos() {
                     `${doc.nombre}${extensionDesdeUrl(doc.ubicacion)}`,
                   )
                 }
-                className="mt-4 inline-flex items-center justify-center gap-2 rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-              >
+                className="mt-4 inline-flex items-center justify-center gap-2">
                 <DownloadIcon />
                 Descargar
-              </button>
+              </Button>
             </div>
           ))}
         </div>

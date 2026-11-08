@@ -1,4 +1,25 @@
+import { ordenar, siguienteOrden, type OrdenTabla } from '../../lib/tabla'
+import Paginador from '../../components/ui/Paginador'
+import Alerta from '../../components/ui/Alerta'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  entero,
+  fecha,
+  hayErrores,
+  maximo,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
 import {
   obtenerArticulos,
   crearArticulo,
@@ -10,27 +31,57 @@ import {
   type MovimientoInventario,
   type Proveedor,
   type CrearArticuloPayload,
+  type ClasificacionArticulo,
 } from '../../components/Services/inventario.service'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import PageHeader from '../../components/ui/PageHeader'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 const CLASIFICACIONES = [
   { valor: 'articulo', etiqueta: 'Artículo' },
-  { valor: 'inmueble', etiqueta: 'Inmueble' },
+  { valor: 'materiales', etiqueta: 'Materiales' },
+  { valor: 'herramientas', etiqueta: 'Herramientas' },
+  { valor: 'seguridad', etiqueta: 'Seguridad' },
+  { valor: 'productos', etiqueta: 'Productos' },
 ] as const
 
+// Etiqueta legible de una clasificación; 'inmueble' es un valor legado de
+// datos antiguos que ya no se puede elegir pero todavía puede existir.
+function etiquetaClasificacion(valor: string) {
+  const encontrada = CLASIFICACIONES.find((c) => c.valor === valor)
+  if (encontrada) return encontrada.etiqueta
+  if (valor === 'inmueble') return 'Inmueble'
+  return valor
+}
+
 const ARTICULOS_POR_PAGINA = 10
+
+type CampoArticulo =
+  | 'nombre'
+  | 'descripcion'
+  | 'ubicacion'
+  | 'personaRecibe'
+  | 'proveedorId'
+  | 'cantidad'
+  | 'fechaIngreso'
 
 function hoyIso(): string {
   return new Date().toISOString().slice(0, 10)
 }
 
 function getEstadoColor(estado: string) {
-  if (estado === 'activo') return 'bg-green-100 text-green-700'
-  return 'bg-red-100 text-red-700'
+  if (estado === 'activo') return 'bg-exito-100 text-exito-700'
+  return 'bg-error-100 text-error-700'
 }
 
 function getClasificacionBadge(clasificacion: string) {
-  if (clasificacion === 'articulo') return 'bg-blue-100 text-blue-700'
-  return 'bg-purple-100 text-purple-700'
+  if (clasificacion === 'materiales') return 'bg-acento-100 text-acento-700'
+  if (clasificacion === 'herramientas') return 'bg-exito-100 text-exito-700'
+  if (clasificacion === 'seguridad') return 'bg-error-100 text-error-700'
+  if (clasificacion === 'productos') return 'bg-primary-100 text-primary-700'
+  return 'bg-info-100 text-info-700'
 }
 
 function formatearFechaHora(fechaIso: string): string {
@@ -74,8 +125,8 @@ function EstadoSwitch({
       title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+      className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -98,8 +149,10 @@ function Inventario() {
   // Filtros & Búsqueda
   const [search, setSearch] = useState('')
   const [filtroClasificacion, setFiltroClasificacion] = useState('Todas')
-  const [filtroEstado, setFiltroEstado] = useState('Todos')
-  const [soloStockBajo, setSoloStockBajo] = useState(false)
+  // Por defecto solo activos: los artículos "eliminados" (inactivos) quedan
+  // fuera de la vista como si se hubieran borrado; se recuperan cambiando
+  // el filtro a "Inactivos" o "Todos los estados".
+  const [filtroEstado, setFiltroEstado] = useState('activo')
   const [pagina, setPagina] = useState(1)
 
   // Modales
@@ -107,6 +160,7 @@ function Inventario() {
   const [editando, setEditando] = useState<Articulo | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresFormulario<CampoArticulo>>({})
 
   // Modal Detalle
   const [viewDetail, setViewDetail] = useState<Articulo | null>(null)
@@ -128,12 +182,13 @@ function Inventario() {
     descripcion: '',
     clasificacion: 'articulo',
     cantidad: 0,
-    umbralMinimo: 5,
     fechaIngreso: hoyIso(),
     ubicacion: '',
     proveedorId: 0,
     personaRecibe: '',
   })
+  // Al tocar el formulario se limpian los errores; se recalculan al guardar.
+  useEffect(() => setErrores({}), [form])
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -146,7 +201,6 @@ function Inventario() {
         obtenerArticulos({
           clasificacion: filtroClasificacion,
           estado: filtroEstado,
-          soloStockBajo,
         }),
         obtenerProveedores(),
       ])
@@ -162,7 +216,7 @@ function Inventario() {
     } finally {
       setLoading(false)
     }
-  }, [filtroClasificacion, filtroEstado, soloStockBajo, form.proveedorId])
+  }, [filtroClasificacion, filtroEstado, form.proveedorId])
 
   useEffect(() => {
     void cargarDatos()
@@ -177,15 +231,13 @@ function Inventario() {
   // Filtrado & Paginación
   // ------------------------------------------------------------------
   const q = normalizarBusqueda(search)
+  const [orden, setOrden] = useState<OrdenTabla | null>(null)
   const filtered = useMemo(() => {
     return articulos.filter((a) => {
       if (filtroClasificacion !== 'Todas' && a.clasificacion !== filtroClasificacion) {
         return false
       }
       if (filtroEstado !== 'Todos' && a.estado !== filtroEstado) {
-        return false
-      }
-      if (soloStockBajo && !a.stockBajo) {
         return false
       }
       if (q === '') return true
@@ -196,13 +248,19 @@ function Inventario() {
         normalizarBusqueda(a.proveedor?.nombre || '').includes(q)
       )
     })
-  }, [articulos, filtroClasificacion, filtroEstado, soloStockBajo, q])
+  }, [articulos, filtroClasificacion, filtroEstado, q])
 
   const totalPaginas = Math.max(1, Math.ceil(filtered.length / ARTICULOS_POR_PAGINA))
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * ARTICULOS_POR_PAGINA
-  const filasVisibles = filtered.slice(primeraFila, primeraFila + ARTICULOS_POR_PAGINA)
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
+  const ordenados = ordenar(filtered, orden, {
+    nombre: (a) => a.nombre,
+    clasificacion: (a) => a.clasificacion,
+    stock: (a) => a.cantidad_disponible,
+    ubicacion: (a) => a.ubicacion,
+    estado: (a) => a.estado,
+  })
+  const filasVisibles = ordenados.slice(primeraFila, primeraFila + ARTICULOS_POR_PAGINA)
 
   function manejarBusqueda(val: string) {
     setSearch(val)
@@ -225,7 +283,6 @@ function Inventario() {
       descripcion: '',
       clasificacion: 'articulo',
       cantidad: 0,
-      umbralMinimo: 5,
       fechaIngreso: hoyIso(),
       ubicacion: '',
       proveedorId: proveedores[0]?.id ?? 0,
@@ -242,7 +299,6 @@ function Inventario() {
       descripcion: articulo.descripcion,
       clasificacion: articulo.clasificacion,
       cantidad: articulo.cantidad_disponible,
-      umbralMinimo: articulo.umbral_minimo ?? 5,
       fechaIngreso: articulo.fecha_ingreso ? articulo.fecha_ingreso.slice(0, 10) : hoyIso(),
       ubicacion: articulo.ubicacion,
       proveedorId: articulo.proveedor?.id ?? proveedores[0]?.id ?? 0,
@@ -275,26 +331,31 @@ function Inventario() {
     e.preventDefault()
     setFormError(null)
 
-    if (!form.nombre.trim()) {
-      setFormError('El nombre del artículo es obligatorio.')
-      return
-    }
-    if (!form.descripcion.trim()) {
-      setFormError('La descripción es obligatoria.')
-      return
-    }
-    if (!form.ubicacion.trim()) {
-      setFormError('La ubicación es obligatoria.')
-      return
-    }
-    if (!form.personaRecibe.trim()) {
-      setFormError('La persona que recibe es obligatoria.')
-      return
-    }
-    if (!form.proveedorId) {
-      setFormError('Debe seleccionar un proveedor válido.')
-      return
-    }
+    // Checklist común (PBI 511): obligatorios, longitudes máximas, números
+    // enteros no negativos y fecha de ingreso válida (no futura).
+    const nuevos = validarCampos<CampoArticulo>(
+      {
+        nombre: [requerido('El nombre del artículo'), maximo('El nombre', 150)],
+        descripcion: [requerido('La descripción', true), maximo('La descripción', 1000)],
+        ubicacion: [requerido('La ubicación', true), maximo('La ubicación', 255)],
+        personaRecibe: [requerido('La persona que recibe', true), maximo('La persona que recibe', 150)],
+        proveedorId: [(v) => (Number(v) > 0 ? null : 'Debe seleccionar un proveedor válido.')],
+        cantidad: editando ? [] : [requerido('La cantidad', true), entero('La cantidad', 0)],
+        fechaIngreso: editando ? [] : [requerido('La fecha de ingreso', true), fecha({ noFutura: true })],
+      },
+      {
+        nombre: form.nombre,
+        descripcion: form.descripcion,
+        ubicacion: form.ubicacion,
+        personaRecibe: form.personaRecibe,
+        proveedorId: String(form.proveedorId ?? ''),
+        cantidad: String(form.cantidad ?? ''),
+        fechaIngreso: form.fechaIngreso ?? '',
+      },
+    )
+    setErrores(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
 
     setSubmitting(true)
     try {
@@ -303,7 +364,6 @@ function Inventario() {
           nombre: form.nombre.trim(),
           descripcion: form.descripcion.trim(),
           clasificacion: form.clasificacion,
-          umbralMinimo: Number(form.umbralMinimo) || 5,
           ubicacion: form.ubicacion.trim(),
           proveedorId: Number(form.proveedorId),
           personaRecibe: form.personaRecibe.trim(),
@@ -321,7 +381,6 @@ function Inventario() {
           ubicacion: form.ubicacion.trim(),
           personaRecibe: form.personaRecibe.trim(),
           cantidad: Number(form.cantidad),
-          umbralMinimo: Number(form.umbralMinimo) || 5,
           proveedorId: Number(form.proveedorId),
         })
         setArticulos((prev) => [creado, ...prev])
@@ -329,8 +388,12 @@ function Inventario() {
       }
       cerrarModal()
     } catch (err) {
+      setErrores(erroresPorCampo<CampoArticulo>(err))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error ? err.message : 'Ocurrió un error al guardar el artículo.',
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'Ocurrió un error al guardar el artículo.',
       )
     } finally {
       setSubmitting(false)
@@ -370,23 +433,22 @@ function Inventario() {
 
   // 1. Modal Formulario (Crear / Editar)
   const modalFormEl = !modalOpen ? null : (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl">
         <div className="mb-6 flex items-center justify-between">
           <div>
-            <h2 className="text-xl font-semibold text-primary-900">
+            <ModalTitulo>
               {editando ? 'Editar Artículo' : 'Nuevo Artículo'}
-            </h2>
+            </ModalTitulo>
             {editando && (
-              <p className="mt-0.5 text-xs text-primary-500">
-                ID #{editando.id} · {editando.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'} · Stock: {editando.cantidad_disponible} uds
-              </p>
+                <p className="mt-0.5 text-xs text-primary-500">
+                  ID #{editando.id} · {etiquetaClasificacion(editando.clasificacion)} · Stock: {editando.cantidad_disponible} uds
+                </p>
             )}
           </div>
           <button
             type="button"
             onClick={cerrarModal}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -394,10 +456,11 @@ function Inventario() {
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-primary-700">
-              Nombre del artículo *
+              Nombre del artículo
+              <Obligatorio />
             </label>
             <input
               type="text"
@@ -405,13 +468,16 @@ function Inventario() {
               value={form.nombre}
               onChange={(e) => setForm((p) => ({ ...p, nombre: e.target.value }))}
               placeholder="Ej. Tubería PVC 1/2 pulgada"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.nombre)}`}
+              maxLength={150}
             />
+            <CampoError mensaje={errores.nombre} />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-primary-700">
-              Descripción detallada *
+              Descripción detallada
+              <Obligatorio />
             </label>
             <textarea
               rows={2}
@@ -419,24 +485,27 @@ function Inventario() {
               value={form.descripcion}
               onChange={(e) => setForm((p) => ({ ...p, descripcion: e.target.value }))}
               placeholder="Especificaciones técnicas, marca, uso..."
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.descripcion)}`}
+              maxLength={1000}
             />
+            <CampoError mensaje={errores.descripcion} />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Clasificación *
+                Clasificación
+                <Obligatorio />
               </label>
               <select
                 value={form.clasificacion}
                 onChange={(e) =>
                   setForm((p) => ({
                     ...p,
-                    clasificacion: e.target.value as 'inmueble' | 'articulo',
+                    clasificacion: e.target.value as ClasificacionArticulo,
                   }))
                 }
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
               >
                 {CLASIFICACIONES.map((c) => (
                   <option key={c.valor} value={c.valor}>
@@ -448,14 +517,15 @@ function Inventario() {
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Proveedor *
+                Proveedor
+                <Obligatorio />
               </label>
               <select
                 value={form.proveedorId}
                 onChange={(e) =>
                   setForm((p) => ({ ...p, proveedorId: Number(e.target.value) }))
                 }
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
               >
                 {proveedores.map((pr) => (
                   <option key={pr.id} value={pr.id}>
@@ -463,13 +533,15 @@ function Inventario() {
                   </option>
                 ))}
               </select>
+              <CampoError mensaje={errores.proveedorId} />
             </div>
 
             {!editando && (
               <>
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
-                    Cantidad inicial en stock *
+                    Cantidad inicial en stock
+                    <Obligatorio />
                   </label>
                   <input
                     type="number"
@@ -479,13 +551,15 @@ function Inventario() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, cantidad: Number(e.target.value) }))
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.cantidad)}`}
                   />
+                  <CampoError mensaje={errores.cantidad} />
                 </div>
 
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
-                    Fecha de ingreso *
+                    Fecha de ingreso
+                    <Obligatorio />
                   </label>
                   <input
                     type="date"
@@ -495,15 +569,17 @@ function Inventario() {
                     onChange={(e) =>
                       setForm((p) => ({ ...p, fechaIngreso: e.target.value }))
                     }
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.fechaIngreso)}`}
                   />
+                  <CampoError mensaje={errores.fechaIngreso} />
                 </div>
               </>
             )}
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Ubicación actual *
+                Ubicación actual
+                <Obligatorio />
               </label>
               <input
                 type="text"
@@ -511,13 +587,16 @@ function Inventario() {
                 value={form.ubicacion}
                 onChange={(e) => setForm((p) => ({ ...p, ubicacion: e.target.value }))}
                 placeholder="Ej. Bodega A / Taller Central"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.ubicacion)}`}
+                maxLength={255}
               />
+              <CampoError mensaje={errores.ubicacion} />
             </div>
 
             <div>
               <label className="block text-sm font-medium text-primary-700">
-                Persona que recibe *
+                Persona que recibe
+                <Obligatorio />
               </label>
               <input
                 type="text"
@@ -525,75 +604,50 @@ function Inventario() {
                 value={form.personaRecibe}
                 onChange={(e) => setForm((p) => ({ ...p, personaRecibe: e.target.value }))}
                 placeholder="Nombre del encargado"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.personaRecibe)}`}
+                maxLength={150}
               />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Umbral mínimo de alerta *
-              </label>
-              <input
-                type="number"
-                min={1}
-                required
-                value={form.umbralMinimo}
-                onChange={(e) =>
-                  setForm((p) => ({
-                    ...p,
-                    umbralMinimo: Math.max(1, parseInt(e.target.value, 10) || 1),
-                  }))
-                }
-                placeholder="5"
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
-              />
-              <p className="mt-1 text-xs text-primary-400">
-                Alerta cuando el stock disponible sea menor o igual a este valor.
-              </p>
+              <CampoError mensaje={errores.personaRecibe} />
             </div>
           </div>
 
           {formError && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <Alerta tipo="error">
               {formError}
-            </p>
+            </Alerta>
           )}
 
           <div className="flex justify-end gap-3 pt-2">
-            <button
+            <Button
+              variant="primary"
               type="submit"
-              disabled={submitting}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-            >
+              disabled={submitting}>
               {submitting
                 ? 'Guardando...'
                 : editando
                   ? 'Guardar cambios'
                   : 'Crear artículo'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
-              onClick={() => cerrarModal()}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-            >
+              onClick={() => cerrarModal()}>
               Cancelar
-            </button>
+            </Button>
           </div>
         </form>
-      </div>
-    </div>
+</Modal>
   )
 
   // 2. Modal Detalle con Línea de Tiempo de Movimientos
   const detailModalEl = !viewDetail ? null : (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="xl">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">Detalle del Artículo</h2>
+          <ModalTitulo>Detalle del Artículo</ModalTitulo>
           <button
             type="button"
             onClick={() => setViewDetail(null)}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
           >
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -602,7 +656,7 @@ function Inventario() {
         </div>
 
         <div className="space-y-3 text-sm">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-2 break-words">
             <span className="font-medium text-primary-700">Nombre:</span>
             <span className="text-primary-900 font-medium">{viewDetail.nombre}</span>
 
@@ -615,24 +669,12 @@ function Inventario() {
                 viewDetail.clasificacion,
               )}`}
             >
-              {viewDetail.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'}
+              {etiquetaClasificacion(viewDetail.clasificacion)}
             </span>
 
             <span className="font-medium text-primary-700">Stock disponible:</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono font-bold text-primary-900">
-                {viewDetail.cantidad_disponible} unidades
-              </span>
-              {viewDetail.stockBajo && (
-                <span className="inline-flex items-center rounded-full bg-amber-100 px-2 py-0.5 text-[11px] font-bold text-amber-800">
-                  ⚠️ Stock bajo
-                </span>
-              )}
-            </div>
-
-            <span className="font-medium text-primary-700">Umbral de alerta:</span>
-            <span className="text-primary-900">
-              {viewDetail.umbral_minimo ?? 5} unidades
+            <span className="font-mono font-bold text-primary-900">
+              {viewDetail.cantidad_disponible} unidades
             </span>
 
             <span className="font-medium text-primary-700">Ubicación actual:</span>
@@ -663,9 +705,9 @@ function Inventario() {
         <div className="mt-5 border-t border-primary-100 pt-4">
           <h3 className="mb-3 text-sm font-medium text-primary-700">Historial de movimientos</h3>
           {historialLoading ? (
-            <p className="text-xs text-primary-400">Cargando historial...</p>
+            <Cargando compacto texto="Cargando historial..." />
           ) : historialError ? (
-            <p className="text-xs font-medium text-red-500">{historialError}</p>
+            <p className="text-xs font-medium text-error-600">{historialError}</p>
           ) : historialDetalle.length === 0 ? (
             <p className="text-xs text-primary-400">Sin movimientos registrados aún.</p>
           ) : (
@@ -677,7 +719,7 @@ function Inventario() {
                   )}
                   <span
                     className={`mt-1 h-2.5 w-2.5 flex-none rounded-full ${
-                      m.tipo_movimiento === 'entrada' ? 'bg-emerald-500' : 'bg-red-500'
+                      m.tipo_movimiento === 'entrada' ? 'bg-exito-500' : 'bg-error-500'
                     }`}
                   />
                   <div className="min-w-0 text-xs">
@@ -685,8 +727,8 @@ function Inventario() {
                       <span
                         className={`inline-block rounded-full px-2 py-0.2 text-[11px] font-semibold ${
                           m.tipo_movimiento === 'entrada'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : 'bg-red-100 text-red-800'
+                            ? 'bg-exito-100 text-exito-800'
+                            : 'bg-error-100 text-error-800'
                         }`}
                       >
                         {m.tipo_movimiento === 'entrada' ? '+ Entrada' : '- Salida'}
@@ -706,24 +748,21 @@ function Inventario() {
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={() => setViewDetail(null)}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-          >
+            onClick={() => setViewDetail(null)}>
             Cerrar
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 
   // 3. Modal Cambio de Estado (Task 451)
   const cambioEstadoModalEl =
     cambioEstado === null ? null : (
-      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-        <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-          <h2 className="text-lg font-semibold text-primary-900">Cambiar estado del artículo</h2>
+      <Modal size="md" layer={60} scroll={false}>
+          <ModalTitulo>Cambiar estado del artículo</ModalTitulo>
           <p className="mt-3 text-sm text-primary-600">
             ¿Seguro que deseas cambiar el estado de{' '}
             <span className="font-semibold text-primary-800">{cambioEstado.articulo.nombre}</span>?
@@ -753,30 +792,27 @@ function Inventario() {
               : 'Al reactivar el artículo, volverá a estar disponible para movimientos en bodega.'}
           </p>
           {errorCambioEstado && (
-            <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+            <Alerta tipo="error" className="mt-3">
               {errorCambioEstado}
-            </p>
+            </Alerta>
           )}
           <div className="mt-6 flex justify-end gap-2">
-            <button
+            <Button
+              variant="primary"
               type="button"
               onClick={confirmarCambioEstado}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={cambiandoEstadoId !== null}>
               {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-            </button>
-            <button
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => setCambioEstado(null)}
-              disabled={cambiandoEstadoId !== null}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-            >
+              disabled={cambiandoEstadoId !== null}>
               Cancelar
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+</Modal>
     )
 
 
@@ -786,67 +822,62 @@ function Inventario() {
   return (
     <div className="space-y-6">
       {/* Encabezado */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Catálogo de Artículos</h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {loading ? 'Cargando...' : `${articulos.length} artículos registrados`}
-          </p>
-        </div>
-        <button
+      <PageHeader
+        titulo="Catálogo de Artículos"
+        descripcion={loading ? 'Cargando...' : `${articulos.length} artículos registrados`}
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={openCreate}
-          className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-        >
+          className="self-start">
           + Nuevo artículo
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
       {/* Alerta de confirmación */}
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
 
-      {/* Búsqueda */}
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, descripción o ubicación..."
-          value={search}
-          onChange={(e) => manejarBusqueda(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => manejarBusqueda('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
-          >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
-      </div>
-
-      {/* Filtros */}
+      {/* Búsqueda y filtros a la par, en una sola fila */}
       <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, descripción o ubicación..."
+            value={search}
+            onChange={(e) => manejarBusqueda(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => manejarBusqueda('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
         <select
           value={filtroClasificacion}
           onChange={(e) => {
@@ -856,8 +887,11 @@ function Inventario() {
           className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
         >
           <option value="Todas">Todas las clasificaciones</option>
-          <option value="articulo">Artículo</option>
-          <option value="inmueble">Inmueble</option>
+          {CLASIFICACIONES.map((c) => (
+            <option key={c.valor} value={c.valor}>
+              {c.etiqueta}
+            </option>
+          ))}
         </select>
 
         <select
@@ -872,65 +906,19 @@ function Inventario() {
           <option value="activo">Activos</option>
           <option value="inactivo">Inactivos</option>
         </select>
-
-        <button
-          type="button"
-          onClick={() => {
-            setSoloStockBajo(!soloStockBajo)
-            setPagina(1)
-          }}
-          className={`inline-flex h-10 items-center gap-1.5 rounded-full border px-4 text-sm font-medium transition-colors ${
-            soloStockBajo
-              ? 'border-amber-300 bg-amber-100 text-amber-800'
-              : 'border-primary-200 bg-white text-primary-700 hover:bg-primary-50'
-          }`}
-        >
-          <span>⚠️</span>
-          Solo stock bajo
-        </button>
       </div>
 
       {/* Error de carga */}
       {loadError ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-          <p className="text-sm font-medium text-red-600">{loadError}</p>
-          <button
-            type="button"
-            onClick={cargarDatos}
-            className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-          >
-            Reintentar
-          </button>
-        </div>
+        <ErrorState mensaje={loadError} onReintentar={cargarDatos} />
       ) : (
         /* Tabla de Artículos */
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Clasificación</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Stock Disp.</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Ubicación</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
+        <Table orden={orden} onOrdenar={(c) => { setOrden(siguienteOrden(orden, c)); setPagina(1) }} cabecera={[{ etiqueta: 'Artículo', clave: 'nombre' }, { etiqueta: 'Clasificación', clave: 'clasificacion' }, { etiqueta: 'Stock Disp.', clave: 'stock' }, { etiqueta: 'Ubicación', clave: 'ubicacion' }, { etiqueta: 'Estado', clave: 'estado' }, 'Acciones']} pie={<>{/* Barra de Paginación */}
+          {!loading && articulos.length > 0 && (
+            <Paginador total={filtered.length} pagina={paginaActual} porPagina={ARTICULOS_POR_PAGINA} onCambiar={setPagina} etiqueta="artículos" filtro={search} />
+          )}</>}>
               {loading ? (
-                Array.from({ length: 5 }).map((_, fila) => (
-                  <tr key={`skeleton-${fila}`}>
-                    {Array.from({ length: 6 }).map((__, col) => (
-                      <td key={col} className="px-4 py-3.5">
-                        <div
-                          className={`animate-pulse rounded bg-primary-100 ${
-                            ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
-                          }`}
-                        />
-                      </td>
-                    ))}
-                  </tr>
-                ))
+                <FilasEsqueleto columnas={6} />
               ) : filtered.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="px-4 py-12 text-center">
@@ -955,18 +943,19 @@ function Inventario() {
                         <p className="mt-1 text-xs text-primary-400">
                           Revisa el término escrito o prueba con otro criterio.
                         </p>
-                        <button
+                        <Button
+                          variant="secondary" size="sm"
                           type="button"
                           onClick={() => manejarBusqueda('')}
-                          className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                        >
+                          className="mt-4">
                           Limpiar búsqueda
-                        </button>
+                        </Button>
                       </>
                     ) : (
                       <p className="mt-3 text-sm font-medium text-primary-600">
-                        Aún no hay artículos registrados. Usa el botón "+ Nuevo artículo" para crear
-                        el primero.
+                        {filtroEstado !== 'activo' || filtroClasificacion !== 'Todas'
+                          ? 'No hay artículos que coincidan con los filtros actuales.'
+                          : 'Aún no hay artículos registrados. Usa el botón "+ Nuevo artículo" para crear el primero.'}
                       </p>
                     )}
                   </td>
@@ -984,7 +973,7 @@ function Inventario() {
                           item.clasificacion,
                         )}`}
                       >
-                        {item.clasificacion === 'articulo' ? 'Artículo' : 'Inmueble'}
+                        {etiquetaClasificacion(item.clasificacion)}
                       </span>
                     </td>
                     <td className="px-4 py-3 font-mono">
@@ -992,22 +981,12 @@ function Inventario() {
                         <span
                           className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-bold ${
                             item.cantidad_disponible === 0
-                              ? 'bg-red-100 text-red-700'
-                              : item.stockBajo
-                                ? 'bg-amber-100 text-amber-800'
-                                : 'bg-emerald-100 text-emerald-800'
+                              ? 'bg-error-100 text-error-700'
+                              : 'bg-exito-100 text-exito-800'
                           }`}
                         >
                           {item.cantidad_disponible} uds
                         </span>
-                        {item.stockBajo && (
-                          <span
-                            title={`Stock menor o igual al umbral mínimo (${item.umbral_minimo ?? 5})`}
-                            className="inline-flex items-center rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-700"
-                          >
-                            ⚠️ Stock bajo
-                          </span>
-                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-primary-600">{item.ubicacion || '—'}</td>
@@ -1034,80 +1013,33 @@ function Inventario() {
                       </div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
+                      <div className="flex items-center gap-1">
+                        <IconoEditar
+                          titulo={`Editar ${item.nombre}`}
                           onClick={() => openEditar(item)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Editar
-                        </button>
-                        <button
-                          type="button"
+                        />
+                        <IconoVer
+                          titulo={`Ver detalle de ${item.nombre}`}
                           onClick={() => openDetalle(item)}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Ver
-                        </button>
+                        />
+                        {/* Eliminar = desactivar (soft delete): reutiliza el
+                            mismo modal de confirmación de cambio de estado.
+                            Solo aparece en artículos activos. */}
+                        {item.estado === 'activo' && (
+                          <IconoEliminar
+                            titulo={`Desactivar ${item.nombre}`}
+                            onClick={() => {
+                              setErrorCambioEstado(null)
+                              setCambioEstado({ articulo: item, nuevo: 'inactivo' })
+                            }}
+                          />
+                        )}
                       </div>
                     </td>
                   </tr>
                 ))
               )}
-            </tbody>
-          </table>
-
-          {/* Barra de Paginación */}
-          {!loading && articulos.length > 0 && (
-            <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-xs text-primary-500">
-                Mostrando{' '}
-                {filtered.length === 0
-                  ? 0
-                  : `${primeraFila + 1}–${Math.min(
-                      primeraFila + ARTICULOS_POR_PAGINA,
-                      filtered.length,
-                    )}`}{' '}
-                de {filtered.length} artículos
-                {search ? ` (filtro: "${search}")` : ''}
-              </p>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setPagina(paginaActual - 1)}
-                  disabled={paginaActual === 1}
-                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  ‹ Anterior
-                </button>
-                {numerosPagina.map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => setPagina(n)}
-                    disabled={n === paginaActual}
-                    aria-current={n === paginaActual ? 'page' : undefined}
-                    className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                      n === paginaActual
-                        ? 'bg-primary-700 text-white'
-                        : 'text-primary-700 hover:bg-primary-50'
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => setPagina(paginaActual + 1)}
-                  disabled={paginaActual === totalPaginas}
-                  className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                >
-                  Siguiente ›
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+            </Table>
       )}
 
       {/* Modales */}

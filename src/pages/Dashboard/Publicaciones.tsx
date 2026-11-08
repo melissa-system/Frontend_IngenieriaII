@@ -1,11 +1,18 @@
+import Alerta from '../../components/ui/Alerta'
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState, type FormEvent } from 'react'
 import {
   crearPublicacion,
   obtenerTodasLasPublicaciones,
   actualizarPublicacion,
+  eliminarPublicacion,
   LIMITES_PUBLICACION,
   type Publicacion,
 } from '../../components/Services/publicaciones.service'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Button from '../../components/ui/Button'
 
 interface FormState {
   titulo: string
@@ -61,6 +68,7 @@ function Publicaciones() {
   const [submitting, setSubmitting] = useState(false)
 
   const [togglingId, setTogglingId] = useState<string | number | null>(null)
+  const [eliminandoId, setEliminandoId] = useState<string | number | null>(null)
 
   async function cargarPublicaciones() {
     setLoading(true)
@@ -171,10 +179,33 @@ function Publicaciones() {
     }
   }
 
+  // Eliminar es definitivo (mismo criterio que en documentos): se pide
+  // confirmación antes y el backend borra el registro y lo audita.
+  async function handleEliminar(pub: Publicacion) {
+    const confirmado = window.confirm(
+      `¿Eliminar PERMANENTEMENTE "${pub.titulo}"?\n\nEsta acción no se puede deshacer: se borra el registro completo de la publicación.`,
+    )
+    if (!confirmado) return
+
+    setEliminandoId(pub.id)
+    try {
+      await eliminarPublicacion(pub.id)
+      setPublicaciones((prev) => prev.filter((p) => p.id !== pub.id))
+    } catch (err) {
+      alert(
+        err instanceof Error
+          ? err.message
+          : 'No se pudo eliminar la publicación.',
+      )
+    } finally {
+      setEliminandoId(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Publicaciones
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -184,34 +215,20 @@ function Publicaciones() {
 
       <div className="space-y-4">
         <div className="flex justify-end">
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={openCreate}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
+            onClick={openCreate}>
             + Nueva publicación
-          </button>
+          </Button>
         </div>
 
         {loadError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-            <p className="text-sm font-medium text-red-600">{loadError}</p>
-            <button
-              type="button"
-              onClick={cargarPublicaciones}
-              className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-            >
-              Reintentar
-            </button>
-          </div>
+          <ErrorState mensaje={loadError} onReintentar={cargarPublicaciones} />
         ) : loading ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            Cargando publicaciones...
-          </p>
+          <Cargando texto="Cargando publicaciones..." />
         ) : publicaciones.length === 0 ? (
-          <p className="py-8 text-center text-sm text-primary-400">
-            Todavía no hay publicaciones.
-          </p>
+          <EmptyState titulo="Todavía no hay publicaciones." />
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             {publicaciones.map((pub) => (
@@ -225,7 +242,7 @@ function Publicaciones() {
                   </span>
                   <span
                     className={`text-xs font-medium ${
-                      pub.publicado ? 'text-green-600' : 'text-primary-400'
+                      pub.publicado ? 'text-exito-700' : 'text-primary-400'
                     }`}
                   >
                     {pub.publicado ? 'Publicado' : 'Borrador'}
@@ -261,6 +278,14 @@ function Publicaciones() {
                         ? 'Despublicar'
                         : 'Publicar'}
                   </button>
+                  <Button
+                    variant="danger"
+                    size="sm"
+                    type="button"
+                    onClick={() => handleEliminar(pub)}
+                    disabled={togglingId === pub.id || eliminandoId === pub.id}>
+                    {eliminandoId === pub.id ? 'Eliminando...' : 'Eliminar'}
+                  </Button>
                 </div>
               </div>
             ))}
@@ -269,16 +294,15 @@ function Publicaciones() {
       </div>
 
       {modalMode && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg" onCerrar={closeModal}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 {modalMode === 'edit' ? 'Editar publicación' : 'Nueva publicación'}
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={closeModal}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -346,34 +370,31 @@ function Publicaciones() {
               </div>
 
               {formError && (
-                <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+                <Alerta tipo="error">
                   {formError}
-                </p>
+                </Alerta>
               )}
 
               <div className="flex justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={submitting}
-                  className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-                >
+                  disabled={submitting}>
                   {submitting
                     ? 'Guardando...'
                     : modalMode === 'edit'
                       ? 'Guardar cambios'
                       : 'Crear publicación'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
-                  onClick={closeModal}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
+                  onClick={closeModal}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

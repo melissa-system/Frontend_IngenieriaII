@@ -1,4 +1,24 @@
+import Paginador from '../../components/ui/Paginador'
+import Alerta from '../../components/ui/Alerta'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import ErrorState from '../../components/ui/ErrorState'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useCallback, useMemo, type FormEvent } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  entero,
+  hayErrores,
+  maximo,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoMovimiento = 'articulo' | 'cantidad' | 'responsable' | 'destino' | 'motivo'
 import {
   obtenerArticulos,
   obtenerTodosLosMovimientos,
@@ -6,6 +26,8 @@ import {
   type Articulo,
   type MovimientoInventario,
 } from '../../components/Services/inventario.service'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
 
 const MOVIMIENTOS_POR_PAGINA = 10
 
@@ -43,6 +65,11 @@ function MovimientosStock() {
   const [filtroTipo, setFiltroTipo] = useState<'todos' | 'entrada' | 'salida'>('todos')
   const [pagina, setPagina] = useState(1)
 
+  // Alterna entre el formulario de registro y el historial general, en vez de
+  // mostrarlos apilados en la misma pantalla (mismo patrón que el resto del
+  // sistema, ej. Solicitudes de Cambio de Medidor).
+  const [pestana, setPestana] = useState<'registrar' | 'historial'>('registrar')
+
   // ------------------------------------------------------------------
   // Estado del Formulario de Registro Rápido
   // ------------------------------------------------------------------
@@ -55,6 +82,7 @@ function MovimientosStock() {
   const [motivo, setMotivo] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [errores, setErrores] = useState<ErroresFormulario<CampoMovimiento>>({})
 
   // ------------------------------------------------------------------
   // Carga de Datos
@@ -120,34 +148,38 @@ function MovimientosStock() {
     e.preventDefault()
     setFormError(null)
 
-    if (!articuloActual) {
-      setFormError('Debe seleccionar un artículo de la lista.')
-      return
-    }
-    if (cantNum <= 0) {
-      setFormError('La cantidad debe ser un número entero mayor a 0.')
-      return
-    }
-    if (tipoMovimiento === 'salida') {
-      if (!responsableRetira.trim()) {
-        setFormError('El campo "Responsable que retira" es obligatorio para salidas.')
-        return
-      }
-      if (!ubicacionDestino.trim()) {
-        setFormError('El campo "Ubicación / Destino" es obligatorio para salidas.')
-        return
-      }
-      if (esSalidaInvalida) {
-        setFormError(
-          `Stock insuficiente en bodega. Cantidad disponible: ${stockActual} unidades, solicitada: ${cantNum}.`,
-        )
-        return
-      }
-    }
-    if (!motivo.trim()) {
-      setFormError('El motivo del movimiento es obligatorio.')
-      return
-    }
+    // Checklist común (PBI 511): cada error se muestra junto a su campo.
+    const salida = tipoMovimiento === 'salida'
+    const nuevos = validarCampos<CampoMovimiento>(
+      {
+        articulo: [() => (articuloActual ? null : 'Debe seleccionar un artículo de la lista.')],
+        cantidad: [
+          requerido('La cantidad', true),
+          entero('La cantidad', 1),
+          () =>
+            salida && esSalidaInvalida
+              ? `Stock insuficiente: hay ${stockActual} unidades disponibles.`
+              : null,
+        ],
+        responsable: salida
+          ? [requerido('El responsable que retira'), maximo('El responsable', 120)]
+          : [],
+        destino: salida
+          ? [requerido('La ubicación / destino', true), maximo('La ubicación / destino', 120)]
+          : [],
+        motivo: [requerido('El motivo del movimiento'), maximo('El motivo', 255)],
+      },
+      {
+        articulo: articuloActual ? String(articuloActual.id) : '',
+        cantidad: String(cantidad),
+        responsable: responsableRetira,
+        destino: ubicacionDestino,
+        motivo,
+      },
+    )
+    setErrores(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos) || !articuloActual) return
 
     const responsableDestinoCombined =
       tipoMovimiento === 'salida'
@@ -185,8 +217,12 @@ function MovimientosStock() {
         `Movimiento registrado exitosamente: ${res.articulo.nombre} tiene ahora ${res.articulo.cantidad_disponible} unidades disponibles.`,
       )
     } catch (err) {
+      setErrores(erroresPorCampo<CampoMovimiento>(err, { responsableDestino: 'responsable' }))
+      enfocarPrimerError()
       setFormError(
-        err instanceof Error ? err.message : 'Error al registrar el movimiento de inventario.',
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'Error al registrar el movimiento de inventario.',
       )
     } finally {
       setSubmitting(false)
@@ -223,7 +259,6 @@ function MovimientosStock() {
     primeraFila,
     primeraFila + MOVIMIENTOS_POR_PAGINA,
   )
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   function manejarBusqueda(val: string) {
     setSearch(val)
@@ -234,22 +269,45 @@ function MovimientosStock() {
     <div className="space-y-6">
       {/* Encabezado Principal */}
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold text-primary-900">Movimientos de Stock</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Movimientos de Stock</h1>
         <p className="text-sm text-primary-500">
           Control de entradas y salidas de bodega, cálculo reactivo de stock y kardex cronológico
         </p>
       </div>
 
       {/* Alerta de confirmación */}
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
+
+      {/* Pestañas: registrar vs. historial */}
+      <div className="flex gap-6 border-b border-primary-100">
+        <button
+          type="button"
+          onClick={() => setPestana('registrar')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            pestana === 'registrar'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Registrar Movimiento
+        </button>
+        <button
+          type="button"
+          onClick={() => setPestana('historial')}
+          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
+            pestana === 'historial'
+              ? 'border-primary-700 text-primary-900'
+              : 'border-transparent text-primary-400 hover:text-primary-700'
+          }`}
+        >
+          Historial General
+        </button>
+      </div>
 
       {/* ------------------------------------------------------------------ */}
       {/* SECCIÓN 1: FORMULARIO DE REGISTRO RÁPIDO (Entrada / Salida) */}
       {/* ------------------------------------------------------------------ */}
+      {pestana === 'registrar' && (
       <div className="rounded-xl border border-primary-100 bg-white p-6 shadow-sm">
         <div className="mb-4">
           <h2 className="text-lg font-semibold text-primary-900">
@@ -260,7 +318,7 @@ function MovimientosStock() {
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {/* Selector de artículo con búsqueda predictiva */}
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
             <div className="lg:col-span-8">
@@ -278,7 +336,7 @@ function MovimientosStock() {
                 <select
                   value={articuloSeleccionadoId}
                   onChange={(e) => setArticuloSeleccionadoId(Number(e.target.value))}
-                  className="w-full sm:w-2/3 rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                  className="w-full sm:w-2/3 rounded-full border border-primary-200 bg-white px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
                 >
                   {articulosFiltradosSelector.length === 0 ? (
                     <option value="">No hay artículos coincidentes</option>
@@ -290,6 +348,7 @@ function MovimientosStock() {
                     ))
                   )}
                 </select>
+                <CampoError mensaje={errores.articulo} />
               </div>
             </div>
 
@@ -302,9 +361,9 @@ function MovimientosStock() {
                 <button
                   type="button"
                   onClick={() => setTipoMovimiento('entrada')}
-                  className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                  className={`rounded-full py-1.5 text-xs font-semibold transition-colors ${
                     tipoMovimiento === 'entrada'
-                      ? 'bg-emerald-600 text-white shadow'
+                      ? 'bg-exito-700 text-white shadow'
                       : 'text-primary-700 hover:text-primary-900'
                   }`}
                 >
@@ -313,9 +372,9 @@ function MovimientosStock() {
                 <button
                   type="button"
                   onClick={() => setTipoMovimiento('salida')}
-                  className={`rounded-md py-1.5 text-xs font-semibold transition-colors ${
+                  className={`rounded-full py-1.5 text-xs font-semibold transition-colors ${
                     tipoMovimiento === 'salida'
-                      ? 'bg-red-600 text-white shadow'
+                      ? 'bg-error-600 text-white shadow'
                       : 'text-primary-700 hover:text-primary-900'
                   }`}
                 >
@@ -341,7 +400,7 @@ function MovimientosStock() {
                   </span>
                   <p
                     className={`font-mono font-bold text-base ${
-                      tipoMovimiento === 'entrada' ? 'text-emerald-700' : 'text-red-700'
+                      tipoMovimiento === 'entrada' ? 'text-exito-700' : 'text-error-700'
                     }`}
                   >
                     {tipoMovimiento === 'entrada' ? '+' : '-'}
@@ -352,7 +411,7 @@ function MovimientosStock() {
                   <span className="text-xs text-primary-500">Stock Proyectado Resultante:</span>
                   <p
                     className={`font-mono font-bold text-base ${
-                      esSalidaInvalida ? 'text-red-600' : 'text-primary-900'
+                      esSalidaInvalida ? 'text-error-600' : 'text-primary-900'
                     }`}
                   >
                     {stockResultante} unidades
@@ -360,7 +419,7 @@ function MovimientosStock() {
                 </div>
               </div>
               {esSalidaInvalida && (
-                <p className="mt-2 text-xs font-semibold text-red-600">
+                <p className="mt-2 text-xs font-semibold text-error-600">
                   ⚠️ No se puede registrar la salida: la cantidad ({cantNum} uds) supera el stock
                   disponible ({stockActual} uds).
                 </p>
@@ -378,8 +437,9 @@ function MovimientosStock() {
                 required
                 value={cantidad}
                 onChange={(e) => setCantidad(e.target.value === '' ? '' : Number(e.target.value))}
-                className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.cantidad)}`}
               />
+              <CampoError mensaje={errores.cantidad} />
             </div>
 
             {tipoMovimiento === 'salida' && (
@@ -394,8 +454,10 @@ function MovimientosStock() {
                     value={responsableRetira}
                     onChange={(e) => setResponsableRetira(e.target.value)}
                     placeholder="Ej. Fontanero Mario Solano"
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.responsable)}`}
+                    maxLength={120}
                   />
+                  <CampoError mensaje={errores.responsable} />
                 </div>
 
                 <div>
@@ -408,8 +470,10 @@ function MovimientosStock() {
                     value={ubicacionDestino}
                     onChange={(e) => setUbicacionDestino(e.target.value)}
                     placeholder="Ej. Reparación tubería Sector 3"
-                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+                    className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.destino)}`}
+                    maxLength={120}
                   />
+                  <CampoError mensaje={errores.destino} />
                 </div>
               </>
             )}
@@ -426,18 +490,27 @@ function MovimientosStock() {
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               placeholder="Ej. Compra programada mensual / Reparación de fuga reportada en avería #14"
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+              className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm text-primary-900 focus:outline-none ${bordeCampo(errores.motivo)}`}
+              maxLength={255}
             />
+            <CampoError mensaje={errores.motivo} />
           </div>
 
           {formError && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <Alerta tipo="error">
               {formError}
-            </p>
+            </Alerta>
           )}
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button
+          <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+            <Button
+              variant="primary"
+              type="submit"
+              disabled={submitting || esSalidaInvalida || !articuloActual}>
+              {submitting ? 'Registrando...' : 'Confirmar Movimiento'}
+            </Button>
+            <Button
+              variant="secondary"
               type="button"
               onClick={() => {
                 setCantidad(1)
@@ -445,25 +518,19 @@ function MovimientosStock() {
                 setUbicacionDestino('')
                 setMotivo('')
                 setFormError(null)
-              }}
-              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-            >
-              Limpiar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting || esSalidaInvalida || !articuloActual}
-              className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-            >
-              {submitting ? 'Registrando...' : 'Confirmar Movimiento'}
-            </button>
+                setErrores({})
+              }}>
+              Cancelar
+            </Button>
           </div>
         </form>
       </div>
+      )}
 
       {/* ------------------------------------------------------------------ */}
       {/* SECCIÓN 2: TABLA DE HISTORIAL GENERAL DE MOVIMIENTOS */}
       {/* ------------------------------------------------------------------ */}
+      {pestana === 'historial' && (
       <div className="space-y-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
@@ -532,49 +599,14 @@ function MovimientosStock() {
         </div>
 
         {loadError ? (
-          <div className="rounded-xl border border-red-200 bg-red-50 p-5 text-center">
-            <p className="text-sm font-medium text-red-600">{loadError}</p>
-            <button
-              type="button"
-              onClick={cargarDatos}
-              className="mt-3 rounded-lg border border-red-300 px-4 py-2 text-sm font-semibold text-red-700 hover:bg-red-100"
-            >
-              Reintentar
-            </button>
-          </div>
+          <ErrorState mensaje={loadError} onReintentar={cargarDatos} />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha y Hora</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Artículo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Cantidad</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">
-                    Destino / Responsable
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">
-                    Registrado por
-                  </th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-50">
+          <Table cabecera={['Fecha y Hora', 'Artículo', 'Tipo', 'Cantidad', 'Destino / Responsable', 'Registrado por', 'Motivo']} pie={<>{/* Paginación */}
+            {!loading && movimientos.length > 0 && (
+              <Paginador total={filteredMovimientos.length} pagina={paginaActual} porPagina={MOVIMIENTOS_POR_PAGINA} onCambiar={setPagina} etiqueta="movimientos" filtro={search} />
+            )}</>}>
                 {loading ? (
-                  Array.from({ length: 5 }).map((_, fila) => (
-                    <tr key={`skeleton-${fila}`}>
-                      {Array.from({ length: 7 }).map((__, col) => (
-                        <td key={col} className="px-4 py-3.5">
-                          <div
-                            className={`animate-pulse rounded bg-primary-100 ${
-                              ['w-3/4', 'w-1/2', 'w-5/6', 'w-2/3'][col % 4]
-                            }`}
-                          />
-                        </td>
-                      ))}
-                    </tr>
-                  ))
+                  <FilasEsqueleto columnas={7} />
                 ) : filteredMovimientos.length === 0 ? (
                   <tr>
                     <td colSpan={7} className="px-4 py-12 text-center">
@@ -596,13 +628,13 @@ function MovimientosStock() {
                           <p className="mt-3 text-sm font-medium text-primary-600">
                             No encontramos movimientos para "{search}"
                           </p>
-                          <button
+                          <Button
+                            variant="secondary" size="sm"
                             type="button"
                             onClick={() => manejarBusqueda('')}
-                            className="mt-4 rounded-lg border border-primary-200 px-4 py-1.5 text-xs font-semibold text-primary-700 hover:bg-primary-50"
-                          >
+                            className="mt-4">
                             Limpiar búsqueda
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <p className="mt-3 text-sm font-medium text-primary-600">
@@ -624,8 +656,8 @@ function MovimientosStock() {
                         <span
                           className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-semibold ${
                             m.tipo_movimiento === 'entrada'
-                              ? 'bg-emerald-100 text-emerald-800'
-                              : 'bg-red-100 text-red-800'
+                              ? 'bg-exito-100 text-exito-800'
+                              : 'bg-error-100 text-error-800'
                           }`}
                         >
                           {m.tipo_movimiento === 'entrada' ? '+ Entrada' : '- Salida'}
@@ -644,62 +676,10 @@ function MovimientosStock() {
                     </tr>
                   ))
                 )}
-              </tbody>
-            </table>
-
-            {/* Paginación */}
-            {!loading && movimientos.length > 0 && (
-              <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-xs text-primary-500">
-                  Mostrando{' '}
-                  {filteredMovimientos.length === 0
-                    ? 0
-                    : `${primeraFila + 1}–${Math.min(
-                        primeraFila + MOVIMIENTOS_POR_PAGINA,
-                        filteredMovimientos.length,
-                      )}`}{' '}
-                  de {filteredMovimientos.length} movimientos
-                  {search ? ` (filtro: "${search}")` : ''}
-                </p>
-                <div className="flex items-center gap-1">
-                  <button
-                    type="button"
-                    onClick={() => setPagina(paginaActual - 1)}
-                    disabled={paginaActual === 1}
-                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    ‹ Anterior
-                  </button>
-                  {numerosPagina.map((n) => (
-                    <button
-                      key={n}
-                      type="button"
-                      onClick={() => setPagina(n)}
-                      disabled={n === paginaActual}
-                      aria-current={n === paginaActual ? 'page' : undefined}
-                      className={`h-7 min-w-[28px] rounded-lg px-2 text-xs font-medium ${
-                        n === paginaActual
-                          ? 'bg-primary-700 text-white'
-                          : 'text-primary-700 hover:bg-primary-50'
-                      }`}
-                    >
-                      {n}
-                    </button>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => setPagina(paginaActual + 1)}
-                    disabled={paginaActual === totalPaginas}
-                    className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    Siguiente ›
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              </Table>
         )}
       </div>
+      )}
     </div>
   )
 }

@@ -1,10 +1,16 @@
+import EmptyState from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useState } from 'react'
 import { obtenerMisAverias, type AveriaBackend } from '../../components/Services/averias.service'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
 
 const ESTADO_COLORS: Record<string, string> = {
-  Pendiente: 'bg-yellow-100 text-yellow-700',
-  'En proceso': 'bg-indigo-100 text-indigo-700',
-  Finalizado: 'bg-green-100 text-green-700',
+  Pendiente: 'bg-advertencia-100 text-advertencia-700',
+  'En proceso': 'bg-acento-100 text-acento-700',
+  Finalizado: 'bg-exito-100 text-exito-700',
 }
 
 function nombreFontanero(a: AveriaBackend) {
@@ -27,51 +33,29 @@ function MisAverias() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando tus averías…</p>
-      </div>
+      <Cargando texto="Cargando tus averías…" />
     )
   }
 
   if (errorCarga) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-      </div>
+      <ErrorState mensaje={errorCarga} onReintentar={() => window.location.reload()} />
     )
   }
 
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Mis reportes de averías</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Mis reportes de averías</h1>
         <p className="mt-1 text-sm text-primary-500">
           Consultá el estado de los reportes de averías que realizaste.
         </p>
       </div>
 
       {averias.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-          <p className="text-lg font-medium text-primary-700">Aún no tenés reportes de averías</p>
-          <p className="mt-1 text-sm text-primary-400">
-            Tus reportes aparecerán aquí junto con su estado.
-          </p>
-        </div>
+        <EmptyState titulo="Aún no tenés reportes de averías" descripcion="Tus reportes aparecerán aquí junto con su estado." />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Descripción</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fontanero</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
+        <Table cabecera={['Código', 'Tipo', 'Descripción', 'Estado', 'Fontanero', 'Fecha', 'Acciones']}>
               {averias.map((a) => (
                 <tr key={a.id} className="hover:bg-primary-50/50">
                   <td className="px-4 py-3 font-mono text-xs text-primary-500">{a.codigo_averia}</td>
@@ -87,16 +71,13 @@ function MisAverias() {
                     {new Date(a.fecha_reporte).toLocaleDateString('es-CR', { timeZone: 'America/Costa_Rica' })}
                   </td>
                   <td className="px-4 py-3">
-                    <button type="button" onClick={() => setDetalle(a)}
-                      className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
+                    <Button variant="secondary" size="sm" type="button" onClick={() => setDetalle(a)}>
                       Ver detalle
-                    </button>
+                    </Button>
                   </td>
                 </tr>
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table>
       )}
 
       {detalle && <DetalleModal averia={detalle} onClose={() => setDetalle(null)} />}
@@ -109,12 +90,11 @@ function DetalleModal({ averia, onClose }: { averia: AveriaBackend; onClose: () 
   const fontanero = nombreFontanero(a)
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl" onCerrar={onClose}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
+          <ModalTitulo>{a.tipo_averia}</ModalTitulo>
           <button type="button" onClick={onClose}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -122,7 +102,7 @@ function DetalleModal({ averia, onClose }: { averia: AveriaBackend; onClose: () 
         </div>
 
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-primary-50 p-4 text-sm">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 break-words rounded-lg bg-primary-50 p-4 text-sm">
             <span className="font-medium text-primary-700">Código:</span>
             <span className="font-mono text-primary-900">{a.codigo_averia}</span>
             <span className="font-medium text-primary-700">Tipo:</span>
@@ -158,7 +138,7 @@ function DetalleModal({ averia, onClose }: { averia: AveriaBackend; onClose: () 
                     <div className="flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {h.estado_anterior && (
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[h.estado_anterior] || 'bg-gray-100 text-gray-600'}`}>
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[h.estado_anterior] || 'bg-primary-100 text-primary-600'}`}>
                             {h.estado_anterior}
                           </span>
                         )}
@@ -181,13 +161,11 @@ function DetalleModal({ averia, onClose }: { averia: AveriaBackend; onClose: () 
         </div>
 
         <div className="mt-6 flex justify-end">
-          <button type="button" onClick={onClose}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
+          <Button variant="primary" type="button" onClick={onClose}>
             Cerrar
-          </button>
+          </Button>
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }
 

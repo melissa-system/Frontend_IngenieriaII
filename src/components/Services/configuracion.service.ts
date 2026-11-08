@@ -1,5 +1,5 @@
-import axios from 'axios';
 import apiClient from '../../lib/apiClient';
+import { crearErrorApi } from './erroresApi';
 
 const RESOURCE = '/configuracion';
 
@@ -23,17 +23,48 @@ export type ConfiguracionUpdatePayload = Partial<
   Omit<Configuracion, 'id' | 'created_at' | 'updated_at'>
 >;
 
-function obtenerMensajeErrorAxios(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.';
-    }
-    const msg = error.response?.data?.message;
-    if (typeof msg === 'string') return msg;
-    if (Array.isArray(msg)) return msg.join('. ');
+// --- Aviso de configuración actualizada ---
+// El footer y la sección Ubicación leen la configuración una sola vez al
+// montarse, así que un cambio guardado desde el dashboard (horario, contacto)
+// no se veía en la parte pública hasta recargar la página. Al guardar se
+// avisa con un evento de window (misma pestaña) y con una marca en
+// localStorage, que dispara el evento `storage` en las OTRAS pestañas abiertas
+// del sitio. Ver hooks/useConfiguracion.ts.
+const EVENTO_CONFIGURACION_ACTUALIZADA = 'siapb:configuracion-actualizada';
+const CLAVE_CONFIGURACION_ACTUALIZADA = 'siapb:configuracion-actualizada';
+
+function notificarConfiguracionActualizada(config: Configuracion): void {
+  window.dispatchEvent(
+    new CustomEvent<Configuracion>(EVENTO_CONFIGURACION_ACTUALIZADA, { detail: config }),
+  );
+  try {
+    localStorage.setItem(CLAVE_CONFIGURACION_ACTUALIZADA, String(Date.now()));
+  } catch {
+    // Sin localStorage (modo privado, bloqueado) solo se pierde el aviso a
+    // otras pestañas; esas igual se refrescan al volver a enfocarse.
   }
-  return fallback;
 }
+
+// Suscribe a cambios guardados de la configuración. `config` trae la
+// configuración nueva cuando el cambio viene de esta misma pestaña; si viene
+// de otra pestaña llega null y quien escucha debe volver a pedirla.
+export function alActualizarConfiguracion(
+  oyente: (config: Configuracion | null) => void,
+): () => void {
+  const enEstaPestana = (e: Event) => {
+    oyente((e as CustomEvent<Configuracion>).detail ?? null);
+  };
+  const enOtraPestana = (e: StorageEvent) => {
+    if (e.key === CLAVE_CONFIGURACION_ACTUALIZADA) oyente(null);
+  };
+  window.addEventListener(EVENTO_CONFIGURACION_ACTUALIZADA, enEstaPestana);
+  window.addEventListener('storage', enOtraPestana);
+  return () => {
+    window.removeEventListener(EVENTO_CONFIGURACION_ACTUALIZADA, enEstaPestana);
+    window.removeEventListener('storage', enOtraPestana);
+  };
+}
+
 
 // Lectura pública — landing y footer la necesitan sin autenticación. Usa
 // apiClient (en vez de fetch a una URL hardcodeada) para tomar el backend
@@ -44,9 +75,7 @@ export const obtenerConfiguracion = async (): Promise<Configuracion> => {
     const { data } = await apiClient.get<Configuracion>(RESOURCE);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudo cargar la configuración.'),
-    );
+    throw crearErrorApi(error, 'No se pudo cargar la configuración.');
   }
 };
 
@@ -56,10 +85,9 @@ export const actualizarConfiguracion = async (
 ): Promise<Configuracion> => {
   try {
     const { data } = await apiClient.patch<Configuracion>(RESOURCE, payload);
+    notificarConfiguracionActualizada(data);
     return data;
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudo guardar la configuración.'),
-    );
+    throw crearErrorApi(error, 'No se pudo guardar la configuración.');
   }
 };

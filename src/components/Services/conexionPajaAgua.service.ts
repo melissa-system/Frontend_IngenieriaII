@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 export type EstadoSolicitud = 'pendiente' | 'en_proceso' | 'aprobado' | 'rechazado'
 
@@ -167,6 +167,13 @@ export interface AdjuntoConexion {
   publicId: string
 }
 
+// Labor generada en "Otros mantenimientos" al aprobar la solicitud.
+export interface LaborDeSolicitud {
+  id: number
+  codigo_labor: string
+  estado: string
+}
+
 export interface SolicitudConexion {
   id: number
   codigo_solicitud: string
@@ -194,7 +201,7 @@ export interface SolicitudConexion {
   folio_real: string | null
   plano_catastro: string | null
   plano_agrimensura: string | null
-  numero_disponibilidad: string
+  numero_disponibilidad: string | null
   numero_nis: string | null
   servicio_solicitado: string
   tipo_tramite: string
@@ -206,6 +213,7 @@ export interface SolicitudConexion {
   adjuntos: AdjuntoConexion[]
   motivo_rechazo: string | null
   id_empleado: number | null
+  labor: LaborDeSolicitud | null
   fecha_creacion: string
   fecha_actualizacion: string
 }
@@ -219,7 +227,7 @@ export interface CrearSolicitudConexionPayload {
   folioReal?: string
   planoCatastro?: string
   planoAgrimensura?: string
-  numeroDisponibilidad: string
+  numeroDisponibilidad?: string
   numeroNis?: string
   servicioSolicitado: string
   tipoTramite: string
@@ -231,17 +239,6 @@ export interface CrearSolicitudConexionPayload {
   adjuntos: { tipo: string; etiqueta: string; archivo: File }[]
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const obtenerSolicitudesPajaAguaDisponibles = async (): Promise<
   SolicitudPajaAguaDisponible[]
@@ -252,9 +249,7 @@ export const obtenerSolicitudesPajaAguaDisponibles = async (): Promise<
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar tus solicitudes disponibles.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar tus solicitudes disponibles.')
   }
 }
 
@@ -263,9 +258,7 @@ export const obtenerSolicitudesConexion = async (): Promise<SolicitudConexion[]>
     const { data } = await apiClient.get<SolicitudConexion[]>('/solicitudes/conexion-paja-agua')
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de conexión.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes de conexión.')
   }
 }
 
@@ -287,7 +280,7 @@ export const crearSolicitudConexion = async (
   if (payload.folioReal) formData.append('folioReal', payload.folioReal)
   if (payload.planoCatastro) formData.append('planoCatastro', payload.planoCatastro)
   if (payload.planoAgrimensura) formData.append('planoAgrimensura', payload.planoAgrimensura)
-  formData.append('numeroDisponibilidad', payload.numeroDisponibilidad)
+  if (payload.numeroDisponibilidad) formData.append('numeroDisponibilidad', payload.numeroDisponibilidad)
   if (payload.numeroNis) formData.append('numeroNis', payload.numeroNis)
   formData.append('servicioSolicitado', payload.servicioSolicitado)
   formData.append('tipoTramite', payload.tipoTramite)
@@ -308,25 +301,33 @@ export const crearSolicitudConexion = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo guardar la solicitud de conexión.'),
-    )
+    throw crearErrorApi(error, 'No se pudo guardar la solicitud de conexión.')
   }
 }
 
 export const cambiarEstadoSolicitudConexion = async (
   id: number,
-  payload: { estado: 'en_proceso' | 'aprobado' | 'rechazado'; motivoRechazo?: string },
+  payload: {
+    estado: 'en_proceso' | 'aprobado' | 'rechazado'
+    motivoRechazo?: string
+    /** Obligatorio al aprobar: documento firmado por la ASADA (PDF o Word). */
+    documentoAprobacion?: File
+  },
 ): Promise<SolicitudConexion> => {
   try {
+    // Multipart: al aprobar viaja el documento que se enviará por correo.
+    const formData = new FormData()
+    formData.append('estado', payload.estado)
+    if (payload.motivoRechazo) formData.append('motivoRechazo', payload.motivoRechazo)
+    if (payload.documentoAprobacion) {
+      formData.append('documentoAprobacion', payload.documentoAprobacion)
+    }
     const { data } = await apiClient.patch<SolicitudConexion>(
       `/solicitudes/conexion-paja-agua/${id}/estado`,
-      payload,
+      formData,
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
   }
 }

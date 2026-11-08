@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/bitacora'
 
@@ -98,17 +98,6 @@ export interface RespuestaBitacora {
   limite: number
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 // Consulta general con filtros y paginación. Los filtros vacíos se omiten
 // para no mandar `?modulo=&accion=` al backend, que los rechazaría por no
@@ -126,9 +115,7 @@ export const obtenerBitacora = async (
     const { data } = await apiClient.get<RespuestaBitacora>(RESOURCE, { params })
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar la bitácora.'),
-    )
+    throw crearErrorApi(error, 'No se pudo cargar la bitácora.')
   }
 }
 
@@ -144,8 +131,6 @@ export const obtenerHistorialDeRegistro = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo cargar el historial.'),
-    )
+    throw crearErrorApi(error, 'No se pudo cargar el historial.')
   }
 }

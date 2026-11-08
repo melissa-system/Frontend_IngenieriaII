@@ -1,3 +1,6 @@
+import EmptyState from '../ui/EmptyState'
+import ErrorState from '../ui/ErrorState'
+import Cargando from '../ui/Cargando'
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import {
@@ -118,15 +121,11 @@ function News() {
       </div>
 
       {loading ? (
-        <p className="mt-10 text-center text-sm text-primary-400">
-          Cargando noticias...
-        </p>
+        <Cargando texto="Cargando noticias..." />
       ) : error ? (
-        <p className="mt-10 text-center text-sm text-red-500">{error}</p>
+        <ErrorState mensaje={error} />
       ) : noticias.length === 0 ? (
-        <p className="mt-10 text-center text-sm text-primary-400">
-          Aún no hay noticias publicadas.
-        </p>
+        <EmptyState titulo="Aún no hay noticias publicadas." />
       ) : (
         <div className="relative mx-auto mt-8 max-w-5xl sm:mt-12">
           <div className="overflow-hidden py-3">

@@ -1,6 +1,7 @@
+import Alerta from '../../components/ui/Alerta'
 import { useState, type FormEvent } from 'react'
+import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
-import axios from 'axios'
 import {
   passwordCumpleMinimos,
   calcularFortaleza,
@@ -8,21 +9,15 @@ import {
 } from '../../lib/passwordReset.service'
 import AuthLayout from '../../components/auth/AuthLayout'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
+import Button from '../../components/ui/Button'
 
+// Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return 'Ocurrió un error. Intenta de nuevo.'
+  return mensajeDeError(error, 'Ocurrió un error. Intenta de nuevo.')
 }
 
 const ETIQUETAS_FORTALEZA = ['', 'Débil', 'Media', 'Fuerte'] as const
-const COLORES_FORTALEZA = ['', 'bg-red-500', 'bg-yellow-500', 'bg-green-500'] as const
+const COLORES_FORTALEZA = ['', 'bg-error-500', 'bg-advertencia-500', 'bg-exito-500'] as const
 
 function RestablecerPassword() {
   const [searchParams] = useSearchParams()
@@ -168,25 +163,25 @@ function RestablecerPassword() {
             </button>
           </div>
           {noCoinciden && (
-            <p className="mt-1 text-xs text-red-600">
+            <p className="mt-1 text-xs text-error-600">
               Las contraseñas no coinciden
             </p>
           )}
         </div>
 
         {error && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+          <Alerta tipo="error">
             {error}
-          </p>
+          </Alerta>
         )}
 
-        <button
+        <Button
+          variant="primary"
           type="submit"
           disabled={!puedeEnviar}
-          className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+          className="w-full">
           {loading ? 'Restableciendo...' : 'Restablecer contraseña'}
-        </button>
+        </Button>
       </form>
 
       <Link

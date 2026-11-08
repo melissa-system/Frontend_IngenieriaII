@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 const RESOURCE = '/solicitudes/cambio-representante'
 
@@ -43,17 +43,6 @@ export interface ActualizarEstadoPayload {
   motivoRechazo?: string
 }
 
-function obtenerMensajeError(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const crearSolicitudCambioRepresentante = async (
   payload: CrearSolicitudCambioRepresentantePayload,
@@ -82,9 +71,7 @@ export const crearSolicitudCambioRepresentante = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo crear la solicitud de cambio de representante.'),
-    )
+    throw crearErrorApi(error, 'No se pudo crear la solicitud de cambio de representante.')
   }
 }
 
@@ -95,9 +82,7 @@ export const obtenerSolicitudesCambioRepresentante = async (): Promise<
     const { data } = await apiClient.get<SolicitudCambioRepresentante[]>(RESOURCE)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudieron cargar las solicitudes de cambio de representante.'),
-    )
+    throw crearErrorApi(error, 'No se pudieron cargar las solicitudes de cambio de representante.')
   }
 }
 
@@ -112,8 +97,6 @@ export const cambiarEstadoSolicitudCambioRepresentante = async (
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeError(error, 'No se pudo actualizar el estado de la solicitud.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el estado de la solicitud.')
   }
 }

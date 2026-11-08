@@ -1,5 +1,5 @@
-import axios from 'axios'
 import apiClient from '../../lib/apiClient'
+import { crearErrorApi } from './erroresApi'
 
 export interface PerfilCompleto {
   id: number
@@ -31,26 +31,13 @@ export interface ActualizarPerfilPayload {
   username?: string
 }
 
-function obtenerMensajeErrorAxios(error: unknown, fallback: string): string {
-  if (axios.isAxiosError(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return fallback
-}
 
 export const obtenerPerfil = async (): Promise<PerfilCompleto> => {
   try {
     const { data } = await apiClient.get<PerfilCompleto>('/auth/perfil')
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudo cargar el perfil.'),
-    )
+    throw crearErrorApi(error, 'No se pudo cargar el perfil.')
   }
 }
 
@@ -61,9 +48,7 @@ export const actualizarPerfil = async (
     const { data } = await apiClient.patch<PerfilCompleto>('/auth/perfil', payload)
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudo actualizar el perfil.'),
-    )
+    throw crearErrorApi(error, 'No se pudo actualizar el perfil.')
   }
 }
 
@@ -78,8 +63,6 @@ export const subirFoto = async (file: File): Promise<{ foto_url: string }> => {
     )
     return data
   } catch (error) {
-    throw new Error(
-      obtenerMensajeErrorAxios(error, 'No se pudo subir la foto.'),
-    )
+    throw crearErrorApi(error, 'No se pudo subir la foto.')
   }
 }

@@ -1,3 +1,4 @@
+import Alerta from '../ui/Alerta'
 import { useEffect, useRef, useState, useImperativeHandle, forwardRef } from 'react'
 
 // Clave de SITIO de reCAPTCHA v2 (la pública; la secreta vive en el backend).
@@ -11,6 +12,19 @@ const CLAVE_PRUEBA_GOOGLE = '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
 const CLAVE_SITIO =
   (import.meta.env.VITE_RECAPTCHA_SITE_KEY as string | undefined) ??
   (import.meta.env.DEV ? CLAVE_PRUEBA_GOOGLE : undefined)
+
+// Interruptor de reCAPTCHA. Está apagado mientras se revisa por qué la
+// verificación de Google no funciona; para volver a encenderlo basta con
+// VITE_RECAPTCHA_HABILITADO=true en el .env (y RECAPTCHA_HABILITADO=true en
+// el backend). Apagado, los formularios públicos no muestran la casilla y
+// envían este valor fijo, que el backend ignora.
+export const RECAPTCHA_HABILITADO = import.meta.env.VITE_RECAPTCHA_HABILITADO === 'true'
+export const TOKEN_SIN_RECAPTCHA = 'recaptcha-desactivado'
+
+// Valor inicial del token en un formulario: sin reCAPTCHA el envío queda
+// habilitado desde el principio.
+export const tokenInicialRecaptcha = (): string | null =>
+  RECAPTCHA_HABILITADO ? null : TOKEN_SIN_RECAPTCHA
 
 const URL_SCRIPT = 'https://www.google.com/recaptcha/api.js?render=explicit'
 const ID_SCRIPT = 'recaptcha-script'
@@ -186,15 +200,15 @@ const Recaptcha = forwardRef<RecaptchaRef, { onCambio: (token: string | null) =>
         )}
 
         {estado === 'error' && (
-          <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+          <Alerta tipo="error">
             No se pudo cargar la verificación de seguridad. Revisa tu conexión y
             recarga la página. Si el problema continúa, comunícate con la ASADA
             para hacer tu trámite.
-          </p>
+          </Alerta>
         )}
 
         {expirado && (
-          <p className="text-sm font-medium text-amber-600">
+          <p className="text-sm font-medium text-advertencia-700">
             La verificación venció. Vuelve a marcar la casilla.
           </p>
         )}

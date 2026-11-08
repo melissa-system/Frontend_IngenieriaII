@@ -1,4 +1,10 @@
+import ModalGestionEstado, { type AccionGestion, MIN_MOTIVO } from '../../components/Dashboard/ModalGestionEstado'
+import Alerta from '../../components/ui/Alerta'
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
+import CampoError, { Obligatorio, enfocarPrimerError } from '../../components/common/CampoError'
 import { useAuth } from '../../contexts/AuthContext'
 import { nombreVisible, obtenerAbonados, type Abonado } from '../../components/Services/abonados.service'
 import {
@@ -6,69 +12,42 @@ import {
   crearSolicitudOtro,
   obtenerSolicitudesOtro,
   type SolicitudOtro,
-  type EstadoSolicitud,
 } from '../../components/Services/otro.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
 import {
   FileDropZone,
   validarDocumento,
 } from '../../components/common/FileDropZone'
-import Toast from '../../components/Dashboard/Toast'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import {
+  generarPdfSolicitudComun,
+  descargarPdfSolicitudComun,
+  type DatosCopiaComun,
+} from '../../lib/generarPdfSolicitudComun'
+import { obtenerPerfil, type PerfilCompleto } from '../../components/Services/perfil.service'
+import Toast from '../../components/ui/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
+import Tabs from '../../components/ui/Tabs'
+import Button from '../../components/ui/Button'
 
 // Colores para el distintivo de estado: amarillo (pendiente), azul (en
 // proceso), verde (aprobado), rojo (rechazado).
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-700'
-    case 'aprobado':
-      return 'bg-green-100 text-green-700'
-    case 'rechazado':
-      return 'bg-red-100 text-red-700'
-  }
-}
-
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(estado)}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
-
 // Estado vacío compartido (mismo esquema visual que el resto del Dashboard).
-function EmptyState({
-  titulo,
-  descripcion,
-}: {
-  titulo: string
-  descripcion: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
-}
-
 function SolicitudesOtro() {
   const { rolEfectivo } = useAuth()
   const esAbonado = rolEfectivo === 'Abonado'
@@ -76,7 +55,7 @@ function SolicitudesOtro() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Otras solicitudes</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Otras solicitudes</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Solicitá un trámite que no encaja en los tipos predefinidos'
@@ -98,11 +77,17 @@ function SolicitudesOtro() {
 // propias solicitudes. Quien crea es siempre el abonado logueado.
 // ---------------------------------------------------------------------------
 function VistaAbonado() {
+  const { user } = useAuth()
+  const [perfil, setPerfil] = useState<PerfilCompleto | null>(null)
   const [asunto, setAsunto] = useState('')
   const [justificacion, setJustificacion] = useState('')
   const [adjunto, setAdjunto] = useState<File | null>(null)
   const [adjuntoPreview, setAdjuntoPreview] = useState<string | null>(null)
   const [errorArchivo, setErrorArchivo] = useState('')
+
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
 
   // Libera la URL del preview cuando el componente se desmonta o el archivo cambia
   useEffect(() => {
@@ -112,6 +97,7 @@ function VistaAbonado() {
   const [solicitudes, setSolicitudes] = useState<SolicitudOtro[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [mensaje, setMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
@@ -139,6 +125,7 @@ function VistaAbonado() {
 
   useEffect(() => {
     cargar()
+    obtenerPerfil().then(setPerfil).catch(() => {})
   }, [cargar])
 
   const handleFileSelect = (archivo: File) => {
@@ -172,45 +159,92 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [asunto, justificacion])
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Trámite Especial (Otro)',
+    tipoSlug: 'otro',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: perfil?.nombre ?? user?.nombre ?? 'Abonado',
+      identificacion: perfil?.cedula ?? '',
+      telefono: perfil?.telefono ?? '',
+      correo: perfil?.email ?? user?.email ?? '',
+      numeroAbonado: '',
+      direccion: perfil?.direccion ?? '',
+    },
+    detalles: [
+      { etiqueta: 'Asunto de la solicitud', valor: asunto },
+      { etiqueta: 'Justificación / Detalle del trámite', valor: justificacion },
+    ],
+    adjuntos: adjunto ? [adjunto.name] : [],
+    adjuntosDetalle: adjunto
+      ? [
+          {
+            nombre: adjunto.name,
+            tipo: adjunto.type,
+            url: adjuntoPreview,
+            archivo: adjunto,
+          },
+        ]
+      : [],
+    archivo: adjunto,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'otro', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
 
     if (enviandoRef.current) return
     const asuntoLimpio = asunto.trim()
     const justificacionLimpia = justificacion.trim()
-    if (asuntoLimpio.length < 20) {
-      setError('El asunto debe tener al menos 20 caracteres.')
-      return
-    }
-    if (asuntoLimpio.length > 150) {
-      setError('El asunto no puede superar los 150 caracteres.')
-      return
-    }
-    if (justificacionLimpia.length < 20) {
-      setError('La justificación debe tener al menos 20 caracteres.')
+    if (asuntoLimpio.length < 20) errs.justificacion ??= 'El asunto debe tener al menos 20 caracteres.'
+    if (asuntoLimpio.length > 150) errs.asunto ??= 'El asunto no puede superar los 150 caracteres.'
+    if (justificacionLimpia.length < 20) errs.justificacion ??= 'La justificación debe tener al menos 20 caracteres.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0) {
+      setErroresCampo(errs)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
-      await crearSolicitudOtro({
+      const resp = await crearSolicitudOtro({
         asunto: asuntoLimpio,
         justificacion: justificacionLimpia,
         adjunto: adjunto ?? undefined,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
+      setCodigoGenerado(resp.codigo_solicitud)
       setMensaje('Solicitud registrada correctamente. Te notificaremos por correo el resultado.')
-      setAsunto('')
-      setJustificacion('')
-      setAdjunto(null)
-      if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
-      setAdjuntoPreview(null)
+      limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -219,30 +253,32 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Mis solicitudes
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Nueva solicitud
-        </button>
-      </div>
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Solicitud Especial</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
+        />
+      )}
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis solicitudes' },
+          { valor: 'crear', etiqueta: 'Nueva solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -258,6 +294,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="asunto" className="block text-sm font-medium text-primary-700">
               Asunto
+              <Obligatorio />
             </label>
             <input
               id="asunto"
@@ -266,9 +303,11 @@ function VistaAbonado() {
               onChange={(e) => setAsunto(e.target.value)}
               required
               minLength={20}
+              maxLength={150}
               placeholder="Ej: Constancia de no adeudar para trámite bancario"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.asunto} />
             <p className="mt-1 text-xs text-primary-400">
               Resumen corto del trámite (entre 20 y 150 caracteres).
             </p>
@@ -277,6 +316,7 @@ function VistaAbonado() {
           <div className="sm:col-span-2">
             <label htmlFor="justificacion" className="block text-sm font-medium text-primary-700">
               Justificación
+              <Obligatorio />
             </label>
             <textarea
               id="justificacion"
@@ -284,10 +324,12 @@ function VistaAbonado() {
               onChange={(e) => setJustificacion(e.target.value)}
               required
               minLength={20}
+              maxLength={2000}
               rows={4}
               placeholder="Explicá en detalle el trámite que solicitás y el motivo"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
@@ -305,37 +347,31 @@ function VistaAbonado() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-            {error}
-          </p>
+          <Alerta tipo="error" className="mt-3">
+            <p>{error}</p>
+          </Alerta>
         )}
-        {mensaje && (
-          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-            {mensaje}
-          </p>
-        )}
+        <Notificar mensaje={mensaje} />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={tieneAbierta || enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={tieneAbierta || enviando}>
             {enviando ? 'Enviando solicitud…' : 'Enviar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
           {tieneAbierta && (
-            <p className="w-full text-center text-xs font-medium text-yellow-700">
+            <p className="w-full text-center text-xs font-medium text-advertencia-700">
               Ya tenés una solicitud en trámite; esperá a que se resuelva antes de crear otra.
             </p>
           )}
@@ -348,25 +384,14 @@ function VistaAbonado() {
         <h2 className="text-lg font-semibold text-primary-900">Mis solicitudes</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Aún no tenés solicitudes registradas"
             descripcion="Tus solicitudes aparecerán aquí junto con su estado."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Asunto</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Justificación</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Asunto', 'Justificación', 'Estado', 'Fecha']}>
                 {solicitudes.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/50">
                     <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
@@ -374,9 +399,6 @@ function VistaAbonado() {
                     <td className="max-w-xs px-4 py-3 text-primary-600">{s.justificacion}</td>
                     <td className="px-4 py-3">
                       <BadgeEstado estado={s.estado} />
-                      {s.motivo_rechazo && s.estado === 'rechazado' && (
-                        <p className="mt-1 text-xs text-red-500">Motivo: {s.motivo_rechazo}</p>
-                      )}
                       {s.motivo_rechazo && s.estado === 'aprobado' && (
                         <p className="mt-1 text-xs text-primary-500">Comentario: {s.motivo_rechazo}</p>
                       )}
@@ -386,9 +408,7 @@ function VistaAbonado() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       )}
@@ -414,6 +434,7 @@ function VistaAdministrador() {
   const [solicitudes, setSolicitudes] = useState<SolicitudOtro[]>([])
   const [cargando, setCargando] = useState(true)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [mensaje, setMensaje] = useState('')
   const [enviando, setEnviando] = useState(false)
   const enviandoRef = useRef(false)
@@ -425,6 +446,19 @@ function VistaAdministrador() {
   // Alterna entre ver el listado y generar una solicitud nueva, en vez de
   // mostrar ambas cosas apiladas en la misma pantalla.
   const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_abonado,
+      s.numero_abonado,
+      s.asunto,
+      s.tipo_solicitud,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
 
   // Libera la URL del preview cuando el componente se desmonta o el archivo cambia
   useEffect(() => {
@@ -498,49 +532,97 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [asunto, justificacion, busqueda])
+
+  const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Trámite Especial (Otro)',
+    tipoSlug: 'otro',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: abonadoElegido ? nombreVisible(abonadoElegido) : 'Abonado no seleccionado',
+      identificacion: abonadoElegido?.cedula ?? '',
+      telefono: abonadoElegido?.telefono ?? '',
+      correo: abonadoElegido?.correo ?? '',
+      numeroAbonado: abonadoElegido?.numero_abonado ?? '',
+      direccion: abonadoElegido?.direccion ?? '',
+    },
+    detalles: [
+      { etiqueta: 'Asunto de la solicitud', valor: asunto },
+      { etiqueta: 'Justificación / Detalle del trámite', valor: justificacion },
+    ],
+    adjuntos: adjunto ? [adjunto.name] : [],
+    adjuntosDetalle: adjunto
+      ? [
+          {
+            nombre: adjunto.name,
+            tipo: adjunto.type,
+            url: adjuntoPreview,
+            archivo: adjunto,
+          },
+        ]
+      : [],
+    archivo: adjunto,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'otro', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const onSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
     if (enviandoRef.current) return
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
     const asuntoLimpio = asunto.trim()
     const justificacionLimpia = justificacion.trim()
-    if (asuntoLimpio.length < 20) {
-      setError('El asunto debe tener al menos 20 caracteres.')
-      return
-    }
-    if (asuntoLimpio.length > 150) {
-      setError('El asunto no puede superar los 150 caracteres.')
-      return
-    }
-    if (justificacionLimpia.length < 20) {
-      setError('La justificación debe tener al menos 20 caracteres.')
+    if (asuntoLimpio.length < 20) errs.asunto ??= 'El asunto debe tener al menos 20 caracteres.'
+    if (asuntoLimpio.length > 150) errs.asunto ??= 'El asunto no puede superar los 150 caracteres.'
+    if (justificacionLimpia.length < 20) errs.justificacion ??= 'La justificación debe tener al menos 20 caracteres.'
+
+    enviandoRef.current = true
+    if (Object.keys(errs).length > 0 || !abonadoElegido) {
+      setErroresCampo(errs)
+      enfocarPrimerError()
       return
     }
 
-    enviandoRef.current = true
     setEnviando(true)
     try {
-      await crearSolicitudOtro({
+      const resp = await crearSolicitudOtro({
         idAbonado: Number(abonadoElegido.id),
         asunto: asuntoLimpio,
         justificacion: justificacionLimpia,
         adjunto: adjunto ?? undefined,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
+      setCodigoGenerado(resp.codigo_solicitud)
       setMensaje('Solicitud registrada correctamente.')
-      setAsunto('')
-      setJustificacion('')
-      setAdjunto(null)
-      if (adjuntoPreview) URL.revokeObjectURL(adjuntoPreview)
-      setAdjuntoPreview(null)
+      limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'No se pudo crear la solicitud.')
     } finally {
       enviandoRef.current = false
       setEnviando(false)
@@ -568,7 +650,9 @@ function VistaAdministrador() {
         mensaje:
           estado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada. Resolución documentada y notificada por correo.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[estado]}".`,
+            : estado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(estado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -587,30 +671,32 @@ function VistaAdministrador() {
 
   return (
     <div className="space-y-6">
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Solicitudes registradas
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Generar solicitud
-        </button>
-      </div>
+      {codigoGenerado && (
+        <ModalConfirmacion
+          codigo={codigoGenerado}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
+          titulo="¡Solicitud Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Solicitud Especial</strong> ha sido
+              recibido por la administración de la ASADA.
+            </>
+          }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
+        />
+      )}
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Solicitudes registradas' },
+          { valor: 'crear', etiqueta: 'Generar solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <form
@@ -629,7 +715,7 @@ function VistaAdministrador() {
             </label>
 
             {abonadoElegido ? (
-              <div className="flex items-center justify-between gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2.5 text-sm shadow-sm">
+              <div className="flex items-center justify-between gap-2 rounded-lg border border-exito-200 bg-exito-50 px-3 py-2.5 text-sm shadow-sm">
                 <p className="font-medium text-primary-900">{nombreVisible(abonadoElegido)}</p>
                 <button
                   type="button"
@@ -637,7 +723,7 @@ function VistaAdministrador() {
                     setAbonadoSel('')
                     setBusqueda('')
                   }}
-                  className="shrink-0 rounded-md border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
+                  className="shrink-0 rounded-full border border-primary-200 bg-white px-2.5 py-1 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50"
                 >
                   Quitar
                 </button>
@@ -652,6 +738,7 @@ function VistaAdministrador() {
                   placeholder="Buscar por nombre o cédula…"
                   className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
                 />
+                <CampoError mensaje={erroresCampo.abonado} />
                 {busqueda.trim() !== '' && (
                   <ul className="absolute z-10 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-primary-200 bg-white shadow-lg">
                     {cargandoAbonados ? (
@@ -679,8 +766,8 @@ function VistaAdministrador() {
                               <span
                                 className={`rounded-full px-2 py-0.5 text-xs font-medium ${
                                   a.estado === 'Activo'
-                                    ? 'bg-green-100 text-green-700'
-                                    : 'bg-red-100 text-red-700'
+                                    ? 'bg-exito-100 text-exito-700'
+                                    : 'bg-error-100 text-error-700'
                                 }`}
                               >
                                 {a.estado}
@@ -707,9 +794,11 @@ function VistaAdministrador() {
               onChange={(e) => setAsunto(e.target.value)}
               required
               minLength={20}
+              maxLength={150}
               placeholder="Resumen corto del trámite"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.asunto} />
           </div>
 
           <div className="sm:col-span-2">
@@ -722,10 +811,12 @@ function VistaAdministrador() {
               onChange={(e) => setJustificacion(e.target.value)}
               required
               minLength={20}
+              maxLength={2000}
               rows={3}
               placeholder="Descripción detallada del trámite"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
 
           <div className="sm:col-span-2">
@@ -743,35 +834,29 @@ function VistaAdministrador() {
         </div>
 
         {error && (
-          <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
-            {error}
-          </p>
+          <Alerta tipo="error" className="mt-3">
+            <p>{error}</p>
+          </Alerta>
         )}
-        {mensaje && (
-          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs font-medium text-green-700">
-            {mensaje}
-          </p>
-        )}
+        <Notificar mensaje={mensaje} />
 
-        <div className="mt-5 flex justify-center gap-3">
-          <button
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+          <Button
+            variant="primary"
             type="submit"
-            disabled={enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={enviando}>
             {enviando ? 'Registrando…' : 'Registrar solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       )}
@@ -781,60 +866,74 @@ function VistaAdministrador() {
         <h2 className="text-lg font-semibold text-primary-900">Solicitudes registradas</h2>
 
         {cargando ? (
-          <p className="text-sm text-primary-400">Cargando solicitudes…</p>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="No hay solicitudes registradas"
             descripcion="Las solicitudes de trámites no predefinidos aparecerán aquí."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="min-w-full divide-y divide-primary-100 text-sm">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Asunto</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
-                {solicitudes.map((s) => (
-                  <tr key={s.id} className="hover:bg-primary-50/50">
-                    <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
-                    <td className="px-4 py-3 text-primary-600">
-                      <div className="font-medium text-primary-800">{s.nombre_abonado}</div>
-                      <div className="text-xs text-primary-400">{s.numero_abonado}</div>
-                    </td>
-                    <td className="max-w-xs px-4 py-3 text-primary-600">
-                      <span className="font-medium text-primary-700">{s.asunto}</span>
-                      {s.adjunto_url && (
-                        <span className="mt-0.5 block text-xs text-primary-400">
-                          Con documento adjunto
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <BadgeEstado estado={s.estado} />
-                    </td>
-                    <td className="px-4 py-3 text-primary-500">
-                      {formatearFecha(s.fecha_creacion)}
-                    </td>
-                    <td className="px-4 py-3">
-                      <button
-                        type="button"
-                        onClick={() => abrirDetalle(s)}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
-                        Ver / gestionar
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="space-y-3">
+            <BarraFiltrosSolicitudes
+              busca={filtrosLista.busqueda}
+              manejarBusqueda={filtrosLista.cambiarBusqueda}
+              placeholder="Buscar por código, abonado o número de abonado…"
+              orden={filtrosLista.orden}
+              cambiarOrden={filtrosLista.cambiarOrden}
+              filtroEstado={filtrosLista.filtroEstado}
+              cambiarEstado={filtrosLista.cambiarEstado}
+              estados={ESTADOS_ABONADO}
+            />
+            {filtrosLista.filtradas.length === 0 ? (
+              <EmptyState
+                titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+                descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+              />
+            ) : (
+              <Table cabecera={['Código', 'Abonado', 'Asunto', 'Estado', 'Fecha', 'Acciones']} pie={<><PaginadorSolicitudes
+                  total={filtrosLista.filtradas.length}
+                  primeraFila={filtrosLista.primeraFila}
+                  porPagina={filtrosLista.porPagina}
+                  paginaActual={filtrosLista.paginaActual}
+                  totalPaginas={filtrosLista.totalPaginas}
+                  numerosPagina={filtrosLista.numerosPagina}
+                  busca={filtrosLista.busqueda}
+                  etiqueta="solicitudes"
+                  irPagina={filtrosLista.irPagina}
+                /></>}>
+                    {filtrosLista.filasVisibles.map((s) => (
+                      <tr key={s.id} className="hover:bg-primary-50/50">
+                        <td className="px-4 py-3 font-medium text-primary-800">{s.codigo_solicitud}</td>
+                        <td className="px-4 py-3 text-primary-600">
+                          <div className="font-medium text-primary-800">{s.nombre_abonado}</div>
+                          <div className="text-xs text-primary-400">{s.numero_abonado}</div>
+                        </td>
+                        <td className="max-w-xs px-4 py-3 text-primary-600">
+                          <span className="font-medium text-primary-700">{s.asunto}</span>
+                          {s.adjunto_url && (
+                            <span className="mt-0.5 block text-xs text-primary-400">
+                              Con documento adjunto
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3">
+                          <BadgeEstado estado={s.estado} />
+                        </td>
+                        <td className="px-4 py-3 text-primary-500">
+                          {formatearFecha(s.fecha_creacion)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <Button
+                            variant="secondary" size="sm"
+                            type="button"
+                            onClick={() => abrirDetalle(s)}>
+                            Ver / gestionar
+                          </Button>
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+            )}
           </div>
         )}
       </div>
@@ -874,36 +973,35 @@ function ModalDetalle({
   setMotivoRechazo: (v: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void | Promise<void>
 }) {
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
  
   // Mínimo de caracteres del comentario de resolución. En este tipo de
   // trámite es obligatorio tanto al aprobar como al rechazar: es la única
   // constancia de qué se resolvió.
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
   // Acá el comentario es obligatorio tanto al aprobar como al rechazar, así
   // que el primer clic en cualquiera de los dos solo despliega el campo; el
   // segundo clic (ya con el comentario válido) confirma esa misma acción.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
-  function manejarClic(estado: 'aprobado' | 'rechazado') {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) onGestionar(estado)
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl" onCerrar={onCerrar}>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-primary-900">
+            <ModalTitulo>
               {solicitud.codigo_solicitud}
-            </h3>
+            </ModalTitulo>
             <p className="mt-0.5 text-sm text-primary-500">
               Solicitud de trámite no predefinido
             </p>
@@ -952,14 +1050,14 @@ function ModalDetalle({
             <div className="sm:col-span-2">
               <dt
                 className={`text-xs font-medium uppercase ${
-                  solicitud.estado === 'rechazado' ? 'text-red-500' : 'text-green-600'
+                  solicitud.estado === 'rechazado' ? 'text-error-600' : 'text-exito-700'
                 }`}
               >
                 {solicitud.estado === 'rechazado' ? 'Motivo de rechazo' : 'Comentario del administrador'}
               </dt>
               <dd
                 className={`mt-0.5 ${
-                  solicitud.estado === 'rechazado' ? 'text-red-700' : 'text-green-700'
+                  solicitud.estado === 'rechazado' ? 'text-error-700' : 'text-exito-700'
                 }`}
               >
                 {solicitud.motivo_rechazo}
@@ -978,81 +1076,67 @@ function ModalDetalle({
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <p className="text-xs text-primary-500">
-                  Este trámite no actualiza ningún dato del abonado: dejá un comentario que documente
-                  cómo se resolvió. Se enviará por correo al solicitante.
-                </p>
-                <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                  Comentario de la resolución (obligatorio al aprobar o rechazar)
-                </label>
-                <textarea
-                  id="motivo"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: se gestionó la constancia solicitada y se entregó al abonado"
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
-                    Escribe al menos {MIN_MOTIVO} caracteres para resolver la
-                    solicitud (llevas {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
 
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              {solicitud.estado !== 'en_proceso' && (
+                <Button
+                  variant="info"
+                  type="button"
+                  onClick={() => onGestionar('en_proceso')}
+                  disabled={gestionando}>
+                  {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                </Button>
+              )}
+              <Button
+                variant="success"
                 type="button"
-                onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
-                type="button"
-                onClick={() => manejarClic('aprobado')}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('aprobar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
-                onClick={() => manejarClic('rechazado')}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            mostrarMotivo
+            motivoObligatorio
+            etiquetaMotivo="Comentario de la resolución"
+            ayudaMotivo={`Mínimo ${MIN_MOTIVO} caracteres. Este trámite no actualiza datos del abonado: documentá cómo se resolvió. Se enviará por correo al solicitante.`}
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
+        )}
+</Modal>
   )
 }
 

@@ -1,3 +1,8 @@
+import Alerta from '../../components/ui/Alerta'
+import { FilaVacia } from '../../components/ui/EmptyState'
+import { FilasEsqueleto } from '../../components/ui/Cargando'
+import ErrorState from '../../components/ui/ErrorState'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, useRef, useCallback, type FormEvent } from 'react'
 import {
   crearEmpleado,
@@ -14,9 +19,26 @@ import {
 } from '../../components/Services/empleados.service'
 import { formatearCedula } from '../../components/Services/solicitudes.service'
 import {
+  cedula,
+  correo,
+  esCorreo,
+  fecha,
+  formatearTelefono,
+  maximo,
+  requerido,
+  telefono,
+  validarCampos,
+} from '../../lib/validaciones'
+import {
   RequiereConfirmacionError,
   type RequiereConfirmacionInfo,
+  erroresPorCampo,
 } from '../../components/Services/erroresApi'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import Paginador from '../../components/ui/Paginador'
+import { IconoEditar, IconoEliminar, IconoVer } from '../../components/ui/IconosAccion'
 
 const PUESTOS = [
   'Junta Directiva',
@@ -45,15 +67,6 @@ const EMPTY_FORM: FormState = {
 
 const EMPLEADOS_POR_PAGINA = 10
 
-const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
-
-// Da formato al teléfono en el patrón costarricense 8888-8888 (8 dígitos).
-function formatearTelefono(valor: string): string {
-  const d = valor.replace(/\D/g, '').slice(0, 8)
-  if (!d) return ''
-  if (d.length <= 4) return d
-  return `${d.slice(0, 4)}-${d.slice(4)}`
-}
 
 function normalizarBusqueda(valor: string): string {
   return valor
@@ -65,8 +78,8 @@ function normalizarBusqueda(valor: string): string {
 
 function getEstadoColor(estado: string): string {
   return estado === 'Activo'
-    ? 'bg-green-100 text-green-800'
-    : 'bg-red-100 text-red-800'
+    ? 'bg-exito-100 text-exito-800'
+    : 'bg-error-100 text-error-800'
 }
 
 // Interruptor para activar/desactivar un empleado. No guarda nada por sí
@@ -90,8 +103,8 @@ function EstadoSwitch({
       title={`Cambiar estado a ${activo ? 'Inactivo' : 'Activo'}`}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+      className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -123,19 +136,29 @@ interface ErroresForm {
   correo?: string
 }
 
+// Checklist común (PBI 511): además de los obligatorios, la cédula, el
+// teléfono, el correo y la fecha se validan con las mismas reglas que el
+// backend (antes solo se revisaba que no estuvieran vacíos).
+// Errores que devuelve la API: si vienen por campo se muestran junto a cada
+// input; si no, el mensaje general queda bajo el nombre (como antes).
+function erroresDelServidor(err: unknown, fallback = 'No se pudieron guardar los cambios.'): ErroresForm {
+  const porCampo = erroresPorCampo<keyof ErroresForm>(err, { email: 'correo' })
+  if (Object.keys(porCampo).length > 0) return porCampo
+  return { nombre: err instanceof Error && err.message ? err.message : fallback }
+}
+
 function validarForm(form: FormState): ErroresForm {
-  const e: ErroresForm = {}
-  if (!form.nombre.trim()) e.nombre = 'El nombre completo es obligatorio'
-  if (!form.cedula.trim()) e.cedula = 'La cédula es obligatoria'
-  if (!form.puesto.trim()) e.puesto = 'El puesto es obligatorio'
-  if (!form.telefono.trim()) e.telefono = 'El teléfono es obligatorio'
-  if (!form.fecha_ingreso) e.fecha_ingreso = 'La fecha de ingreso es obligatoria'
-  if (!form.correo.trim()) {
-    e.correo = 'El correo es obligatorio'
-  } else if (!EMAIL_REGEX.test(form.correo.trim())) {
-    e.correo = 'El correo no tiene un formato válido'
-  }
-  return e
+  return validarCampos<keyof ErroresForm>(
+    {
+      nombre: [requerido('El nombre completo'), maximo('El nombre', 150)],
+      cedula: [requerido('La cédula', true), cedula(['fisica', 'dimex'])],
+      puesto: [requerido('El puesto'), maximo('El puesto', 100)],
+      telefono: [requerido('El teléfono'), telefono()],
+      fecha_ingreso: [requerido('La fecha de ingreso', true), fecha({ noFutura: true })],
+      correo: [requerido('El correo'), correo(), maximo('El correo', 150)],
+    },
+    form,
+  )
 }
 
 type CedulaLookupStatus = 'idle' | 'found' | 'not-found' | 'error' | 'dimex'
@@ -145,6 +168,11 @@ function EmpleadosPage() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
+  // Filtro de estado: por defecto solo activos, para que los empleados
+  // desactivados (eliminados) "desaparezcan" de la vista como si se
+  // hubieran borrado; se recuperan cambiando el filtro a "Todos".
+  const [filtroEstado, setFiltroEstado] = useState<'Todos' | 'Activo' | 'Inactivo'>('Activo')
+  const [filtroPuesto, setFiltroPuesto] = useState('Todos')
   const [pagina, setPagina] = useState(1)
 
   const [modalOpen, setModalOpen] = useState(false)
@@ -205,7 +233,18 @@ function EmpleadosPage() {
     cargarEmpleados()
   }, [cargarEmpleados])
 
-  const filtered = empleados.filter((emp) => {
+  // Tipos de puesto presentes en los datos (por si llegan puestos fuera
+  // de la lista PUESTOS).
+  const puestosUnicos = [...new Set(empleados.map((emp) => emp.puesto))].sort()
+  const conPuesto =
+    filtroPuesto === 'Todos'
+      ? empleados
+      : empleados.filter((emp) => emp.puesto === filtroPuesto)
+  const conEstado =
+    filtroEstado === 'Todos'
+      ? conPuesto
+      : conPuesto.filter((emp) => emp.estado === filtroEstado)
+  const filtered = conEstado.filter((emp) => {
     if (!search) return true
     const t = normalizarBusqueda(search)
     return (
@@ -230,7 +269,7 @@ function EmpleadosPage() {
   useEffect(() => {
     const correo = form.correo.trim()
     // Solo consulta cuando el correo parece completo (formato básico).
-    if (!EMAIL_REGEX.test(correo)) {
+    if (!esCorreo(correo)) {
       setCorreoLookupStatus('idle')
       setCorreoUsuario(null)
       return
@@ -376,7 +415,7 @@ function EmpleadosPage() {
           setTimeout(() => setConfirmacion(null), 3000)
         })
         .catch((err: Error) => {
-          setFormError({ nombre: err.message })
+          setFormError(erroresDelServidor(err))
         })
         .finally(() => setSubmitting(false))
     } else {
@@ -400,12 +439,7 @@ function EmpleadosPage() {
             setConfirmacionCedula({ info: err.info, payload })
             return
           }
-          setFormError({
-            nombre:
-              err instanceof Error
-                ? err.message
-                : 'No se pudo registrar el empleado.',
-          })
+          setFormError(erroresDelServidor(err, 'No se pudo registrar el empleado.'))
         })
         .finally(() => setSubmitting(false))
     }
@@ -476,13 +510,13 @@ function EmpleadosPage() {
   const inputClass =
     'mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
   const inputErrorClass =
-    'mt-1 w-full rounded-lg border border-red-300 px-4 py-2.5 text-sm text-primary-900 focus:border-red-500 focus:outline-none'
+    'mt-1 w-full rounded-lg border border-error-300 px-4 py-2.5 text-sm text-primary-900 focus:border-error-500 focus:outline-none'
 
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold text-primary-900">Personal</h1>
+          <h1 className="text-titulo-pagina font-semibold text-primary-900">Personal</h1>
           <p className="mt-1 text-sm text-primary-500">
             Gestión de empleados de la ASADA
           </p>
@@ -495,87 +529,104 @@ function EmpleadosPage() {
         </button>
       </div>
 
-      {confirmacion && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-          {confirmacion}
-        </div>
-      )}
+      <Notificar mensaje={confirmacion} />
 
-      {loadError && (
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {loadError}
-        </div>
-      )}
+      {loadError && <ErrorState mensaje={loadError} onReintentar={cargarEmpleados} />}
 
-      <div className="relative w-full sm:w-96">
-        <svg
-          className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
-          />
-        </svg>
-        <input
-          type="text"
-          placeholder="Buscar por nombre, cédula, puesto o teléfono…"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
-        />
-        {search && (
-          <button
-            type="button"
-            onClick={() => setSearch('')}
-            title="Limpiar búsqueda"
-            className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+      {/* Búsqueda y filtro a la par, en una sola fila */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative w-full sm:w-96">
+          <svg
+            className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
           >
-            <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        )}
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"
+            />
+          </svg>
+          <input
+            type="text"
+            placeholder="Buscar por nombre, cédula, puesto o teléfono…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full rounded-full border border-primary-200 py-2.5 pl-10 pr-9 text-sm text-primary-900 focus:border-primary-500 focus:ring-1 focus:ring-primary-500 focus:outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch('')}
+              title="Limpiar búsqueda"
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-0.5 text-primary-300 hover:bg-primary-100 hover:text-primary-700"
+            >
+              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          )}
+        </div>
+
+        {/* Filtro por tipo de puesto */}
+        <select
+          value={filtroPuesto}
+          onChange={(e) => {
+            setFiltroPuesto(e.target.value)
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los puestos</option>
+          {puestosUnicos.map((p) => (
+            <option key={p} value={p}>
+              {p}
+            </option>
+          ))}
+        </select>
+
+        {/* Los desactivados quedan ocultos por defecto (soft delete) */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as 'Todos' | 'Activo' | 'Inactivo')
+            setPagina(1)
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Activo">Activos</option>
+          <option value="Inactivo">Inactivos</option>
+          <option value="Todos">Todos los estados</option>
+        </select>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-primary-100 bg-primary-50">
-              <th className="px-4 py-3 font-medium text-primary-700">Nombre</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Cédula</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Puesto</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Teléfono</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody>
+      <Table
+        cabecera={['Nombre', 'Cédula', 'Puesto', 'Teléfono', 'Estado', 'Acciones']}
+        pie={
+          <>
+            {!loading && filtered.length > 0 && (
+              <Paginador
+                total={filtered.length}
+                pagina={paginaActual}
+                porPagina={EMPLEADOS_POR_PAGINA}
+                onCambiar={setPagina}
+                etiqueta="empleados"
+                filtro={search}
+              />
+            )}
+          </>
+        }
+      >
             {loading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <tr key={i} className="border-b border-primary-50">
-                  {Array.from({ length: 6 }).map((_, j) => (
-                    <td key={j} className="px-4 py-3">
-                      <div className="h-4 animate-pulse rounded bg-primary-100" />
-                    </td>
-                  ))}
-                </tr>
-              ))
+              <FilasEsqueleto columnas={6} />
             ) : filasVisibles.length === 0 ? (
-              <tr>
-                <td
-                  colSpan={6}
-                  className="px-4 py-10 text-center text-primary-400"
-                >
-                  {search
+              <FilaVacia columnas={6} titulo={search
                     ? 'No se encontraron empleados con ese criterio.'
-                    : 'No hay empleados registrados.'}
-                </td>
-              </tr>
+                    : filtroEstado === 'Todos'
+                      ? 'No hay empleados registrados.'
+                      : 'No hay empleados que coincidan con los filtros actuales.'} />
             ) : (
               filasVisibles.map((emp) => (
                 <tr
@@ -605,70 +656,43 @@ function EmpleadosPage() {
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
+                    <div className="flex items-center gap-1">
+                      <IconoEditar
+                        titulo={`Editar ${nombreVisible(emp)}`}
                         onClick={() => openEditar(emp)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Editar
-                      </button>
-                      <button
-                        type="button"
+                      />
+                      <IconoVer
+                        titulo={`Ver detalle de ${nombreVisible(emp)}`}
                         onClick={() => openDetalle(emp)}
-                        className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                      >
-                        Ver
-                      </button>
+                      />
+                      {/* Eliminar = desactivar (soft delete), mismo criterio
+                          que en inventario: reutiliza el modal de
+                          confirmación de cambio de estado. */}
+                      {emp.estado === 'Activo' && (
+                        <IconoEliminar
+                          titulo={`Desactivar ${nombreVisible(emp)}`}
+                          onClick={() => setCambioEstado(emp)}
+                        />
+                      )}
                     </div>
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
-
-        {totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-primary-100 px-4 py-3">
-            <p className="text-xs text-primary-500">
-              Página {paginaActual} de {totalPaginas} ({filtered.length}{' '}
-              resultado{filtered.length !== 1 ? 's' : ''})
-            </p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                disabled={paginaActual <= 1}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                disabled={paginaActual >= totalPaginas}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 transition-colors hover:bg-primary-50 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+          </Table>
 
       {/* ── Modal crear/editar ────────────────────────────── */}
       {modalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-primary-900">
+        <Modal size="lg" scroll={false}>
+            <ModalTitulo>
               {editando ? 'Editar empleado' : 'Nuevo empleado'}
-            </h2>
+            </ModalTitulo>
             <p className="mt-1 text-sm text-primary-500">
               Los campos marcados con * son obligatorios.
             </p>
 
             {formError.nombre && formError.nombre.length > 80 && (
-              <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                {formError.nombre}
-              </div>
+              <Alerta tipo="error" className="mt-4">{formError.nombre}</Alerta>
             )}
 
             <form onSubmit={handleSubmit} className="mt-5 space-y-4">
@@ -697,18 +721,18 @@ function EmpleadosPage() {
                     className={`${formError.cedula ? inputErrorClass : inputClass} ${editando ? 'cursor-not-allowed bg-primary-50 text-primary-500' : ''}`}
                   />
                   {!editando && (
-                    <button
+                    <Button
+                      variant="secondary"
                       type="button"
                       onClick={buscarPorCedula}
                       disabled={buscandoCedula || !form.cedula.trim()}
-                      className="flex-none rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                    >
+                      className="flex-none">
                       {buscandoCedula ? 'Buscando...' : 'Buscar'}
-                    </button>
+                    </Button>
                   )}
                 </div>
                 {cedulaLookupStatus === 'found' && (
-                  <p className="mt-1.5 text-xs font-medium text-green-600">
+                  <p className="mt-1.5 text-xs font-medium text-exito-700">
                     Nombre encontrado y completado automáticamente.
                   </p>
                 )}
@@ -723,12 +747,12 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {cedulaLookupStatus === 'dimex' && (
-                  <p className="mt-1.5 text-xs text-amber-600">
+                  <p className="mt-1.5 text-xs text-advertencia-700">
                     DIMEX no se puede verificar con Hacienda. Ingrese los datos manualmente.
                   </p>
                 )}
                 {formError.cedula && (
-                  <p className="mt-1 text-xs text-red-600">{formError.cedula}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.cedula}</p>
                 )}
               </div>
 
@@ -748,7 +772,7 @@ function EmpleadosPage() {
                   className={formError.nombre ? inputErrorClass : inputClass}
                 />
                 {formError.nombre && (
-                  <p className="mt-1 text-xs text-red-600">{formError.nombre}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.nombre}</p>
                 )}
               </div>
 
@@ -775,12 +799,12 @@ function EmpleadosPage() {
                   ))}
                 </select>
                 {formError.puesto && (
-                  <p className="mt-1 text-xs text-red-600">{formError.puesto}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.puesto}</p>
                 )}
               </div>
 
               {/* ── Teléfono + Fecha ──────────────────────── */}
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <label className="block text-sm font-medium text-primary-700">
                     Teléfono *
@@ -797,7 +821,7 @@ function EmpleadosPage() {
                     className={formError.telefono ? inputErrorClass : inputClass}
                   />
                   {formError.telefono && (
-                    <p className="mt-1 text-xs text-red-600">{formError.telefono}</p>
+                    <p data-campo-error className="mt-1 text-xs text-error-600">{formError.telefono}</p>
                   )}
                 </div>
                 <div>
@@ -814,7 +838,7 @@ function EmpleadosPage() {
                     className={formError.fecha_ingreso ? inputErrorClass : inputClass}
                   />
                   {formError.fecha_ingreso && (
-                    <p className="mt-1 text-xs text-red-600">{formError.fecha_ingreso}</p>
+                    <p data-campo-error className="mt-1 text-xs text-error-600">{formError.fecha_ingreso}</p>
                   )}
                 </div>
               </div>
@@ -835,7 +859,7 @@ function EmpleadosPage() {
                   className={formError.correo ? inputErrorClass : inputClass}
                 />
                 {correoLookupStatus === 'found' && correoUsuario && (
-                  <p className="mt-1.5 text-xs font-medium text-green-600">
+                  <p className="mt-1.5 text-xs font-medium text-exito-700">
                     El usuario <strong>{correoUsuario}</strong> existe y se asociará
                     a este empleado como su cuenta.
                   </p>
@@ -846,7 +870,7 @@ function EmpleadosPage() {
                   </p>
                 )}
                 {formError.correo && (
-                  <p className="mt-1 text-xs text-red-600">{formError.correo}</p>
+                  <p data-campo-error className="mt-1 text-xs text-error-600">{formError.correo}</p>
                 )}
               </div>
 
@@ -883,21 +907,20 @@ function EmpleadosPage() {
                             puesto ({empleadoEdicion.puesto}).
                           </p>
                           {correoDesactualizado && (
-                            <p className="text-xs font-medium text-amber-600">
+                            <p className="text-xs font-medium text-advertencia-700">
                               Modificaste el correo arriba sin guardar: la
                               vinculación usará el correo guardado.
                             </p>
                           )}
-                          <button
+                          <Button
+                            variant="secondary"
                             type="button"
                             onClick={() => {
                               setErrorVincular(null)
                               setVincularConfirmando(true)
-                            }}
-                            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                          >
+                            }}>
                             Vincular cuenta
-                          </button>
+                          </Button>
                         </>
                       ) : (
                         <>
@@ -911,32 +934,30 @@ function EmpleadosPage() {
                             ) y se enviará un correo para definir la contraseña.
                           </p>
                           {errorVincular && (
-                            <p className="rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+                            <Alerta tipo="error">
                               {errorVincular}
-                            </p>
+                            </Alerta>
                           )}
                           <div className="flex justify-end gap-2">
-                            <button
+                            <Button
+                              variant="primary"
                               type="button"
                               onClick={confirmarVincular}
-                              disabled={vinculandoId !== null}
-                              className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
+                              disabled={vinculandoId !== null}>
                               {vinculandoId !== null
                                 ? 'Vinculando...'
                                 : 'Confirmar vinculación'}
-                            </button>
-                            <button
+                            </Button>
+                            <Button
+                              variant="secondary"
                               type="button"
                               onClick={() => {
                                 setVincularConfirmando(false)
                                 setErrorVincular(null)
                               }}
-                              disabled={vinculandoId !== null}
-                              className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-                            >
+                              disabled={vinculandoId !== null}>
                               Cancelar
-                            </button>
+                            </Button>
                           </div>
                         </>
                       )}
@@ -947,17 +968,16 @@ function EmpleadosPage() {
 
               {/* ── Botones ───────────────────────────────── */}
               <div className="flex items-center justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={submitting}
-                  className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                  disabled={submitting}>
                   {submitting
                     ? 'Guardando…'
                     : editando
                       ? 'Guardar cambios'
                       : 'Crear empleado'}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
@@ -968,20 +988,18 @@ function EmpleadosPage() {
                 </button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ── Modal detalle ────────────────────────────────── */}
       {viewDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="lg">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">Detalle del Empleado</h2>
+              <ModalTitulo>Detalle del Empleado</ModalTitulo>
               <button
                 type="button"
                 onClick={() => setViewDetail(null)}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -989,7 +1007,7 @@ function EmpleadosPage() {
               </button>
             </div>
             <div className="space-y-3 text-sm">
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-2 break-words">
                 <span className="font-medium text-primary-700">Nombre:</span>
                 <span className="text-primary-900">{nombreVisible(viewDetail)}</span>
                 <span className="font-medium text-primary-700">Cédula:</span>
@@ -1008,57 +1026,50 @@ function EmpleadosPage() {
             </div>
 
             <div className="mt-6 flex justify-end">
-              <button
+              <Button
+                variant="primary"
                 type="button"
-                onClick={() => setViewDetail(null)}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-              >
+                onClick={() => setViewDetail(null)}>
                 Cerrar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ── Modal confirmación cédula cruzada ────────────── */}
       {confirmacionCedula && (
-        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-primary-900">
+        <Modal size="md" layer={70} scroll={false}>
+            <ModalTitulo>
               Cédula ya registrada
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               {confirmacionCedula.info.message}
             </p>
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={confirmarVinculacionCedula}
-                disabled={confirmandoVinculacion}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={confirmandoVinculacion}>
                 {confirmandoVinculacion ? 'Guardando...' : 'Sí, es la misma persona'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setConfirmacionCedula(null)}
-                disabled={confirmandoVinculacion}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={confirmandoVinculacion}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* ── Modal cambio de estado ───────────────────────── */}
       {cambioEstado && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-primary-900">
+        <Modal size="md" layer={60} scroll={false}>
+            <ModalTitulo>
               Cambiar estado del empleado
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               ¿Seguro que deseas cambiar el estado de{' '}
               <span className="font-semibold text-primary-800">
@@ -1080,25 +1091,22 @@ function EmpleadosPage() {
               </span>
             </p>
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={confirmarCambioEstado}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 {cambiandoEstadoId !== null ? 'Guardando...' : 'Sí, cambiar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setCambioEstado(null)}
-                disabled={cambiandoEstadoId !== null}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={cambiandoEstadoId !== null}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
     </div>
   )

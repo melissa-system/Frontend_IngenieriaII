@@ -1,3 +1,5 @@
+import EmptyState from '../../components/ui/EmptyState'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useMemo, useState, useEffect } from 'react'
 import {
   BarChart,
@@ -11,19 +13,43 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
+  AreaChart,
+  Area,
+  RadialBarChart,
+  RadialBar,
+  PolarAngleAxis,
 } from 'recharts'
-import {
-  MOCK_ABONADOS,
-  MOCK_SOLICITUDES,
-  MOCK_INVENTARIO,
-} from '../../lib/mockData'
 import {
   obtenerEstadisticasAverias,
   type EstadisticasAveriasBackend,
-  type FiltrosEstadisticasAverias,
 } from '../../components/Services/averias.service'
+import {
+  obtenerEstadisticasAbonados,
+  nombreVisible,
+  type EstadisticasAbonadosBackend,
+} from '../../components/Services/abonados.service'
+import {
+  obtenerEstadisticasSolicitudes,
+  type EstadisticasSolicitudesBackend,
+} from '../../components/Services/solicitudes.service'
+import {
+  generarPdfReporteEstadistico,
+  descargarPdfReporte,
+  type ParametrosReportePdf,
+} from '../../lib/generarPdfReporteEstadistico'
+import { generarExcelReporte } from '../../lib/generarExcelReporte'
+import { colorGrafico } from '../../lib/paletaGraficos'
+import {
+  motivoNoExportable,
+  nombreArchivoReporte,
+  puedeVerReportes,
+  validarRangoFechas,
+} from '../../lib/exportacionReportes'
+import { useAuth } from '../../contexts/AuthContext'
+import Button from '../../components/ui/Button'
+import PageHeader from '../../components/ui/PageHeader'
 
-const MODULES = ['Averías', 'Abonados', 'Solicitudes', 'Inventario'] as const
+const MODULES = ['Averías', 'Abonados', 'Solicitudes'] as const
 type ModuleName = (typeof MODULES)[number]
 
 const RANGE_OPTIONS = [
@@ -35,23 +61,27 @@ const RANGE_OPTIONS = [
 ] as const
 type RangeValue = (typeof RANGE_OPTIONS)[number]['value']
 
-const COLORS = ['#073763', '#13416b', '#395f82', '#6a87a1', '#9cafc1']
+const MESES_CORTO = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic']
 
-const ESTADO_COLORS: Record<string, string> = {
-  Activo: 'bg-green-100 text-green-700',
-  Inactivo: 'bg-red-100 text-red-700',
-  Pendiente: 'bg-yellow-100 text-yellow-700',
-  'En proceso': 'bg-blue-100 text-blue-700',
-  Finalizado: 'bg-green-100 text-green-700',
-  Aprobada: 'bg-green-100 text-green-700',
-  Rechazada: 'bg-red-100 text-red-700',
-  Completada: 'bg-blue-100 text-blue-700',
-  Asignada: 'bg-blue-100 text-blue-700',
-  'En progreso': 'bg-indigo-100 text-indigo-700',
-  Resuelta: 'bg-green-100 text-green-700',
-  Normal: 'bg-green-100 text-green-700',
-  Bajo: 'bg-yellow-100 text-yellow-700',
-  Crítico: 'bg-red-100 text-red-700',
+// Agrupa una lista de fechas (YYYY-MM-...) por mes, ordenadas cronológicamente,
+// con etiquetas legibles tipo "Ene 26". Se calcula en el cliente a partir de
+// los registros que devuelve el backend.
+function agruparPorMes(fechas: (string | undefined)[]): { mes: string; cantidad: number }[] {
+  const buckets = new Map<string, number>()
+  for (const fecha of fechas) {
+    if (!fecha) continue
+    const anio = Number(fecha.slice(0, 4))
+    const mes = Number(fecha.slice(5, 7))
+    if (Number.isNaN(anio) || Number.isNaN(mes)) continue
+    const clave = `${anio}-${mes}`
+    buckets.set(clave, (buckets.get(clave) ?? 0) + 1)
+  }
+  return Array.from(buckets.entries())
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([clave, cantidad]) => ({
+      mes: `${MESES_CORTO[Number(clave.slice(5, 7)) - 1]} ${clave.slice(2, 4)}`,
+      cantidad,
+    }))
 }
 
 function getRange(range: RangeValue, desdeCustom: string, hastaCustom: string) {
@@ -72,18 +102,53 @@ function getRange(range: RangeValue, desdeCustom: string, hastaCustom: string) {
   return { desde: `${y}-01-01`, hasta: `${y}-${m}-${d}` } // anual
 }
 
-function enRango(fecha: string, rango: { desde: string; hasta: string } | null) {
-  if (!rango) return true
-  return fecha >= rango.desde && fecha <= rango.hasta
+interface FiltroModulo {
+  tipoLabel: string
+  tipoOpciones: string[]
+  estadoLabel: string
+  estadoOpciones: string[]
 }
 
-function contarPor<T>(items: T[], getKey: (item: T) => string) {
-  const conteo = new Map<string, number>()
-  for (const item of items) {
-    const key = getKey(item)
-    conteo.set(key, (conteo.get(key) ?? 0) + 1)
-  }
-  return Array.from(conteo.entries()).map(([name, cantidad]) => ({ name, cantidad }))
+// Valores exactos que entiende el backend (tipo_averia para averías,
+// tipo_abonado / estado para abonados y las etiquetas normalizadas de
+// solicitudes) — el endpoint filtra contra estos mismos strings.
+const FILTROS_MODULO: Record<ModuleName, FiltroModulo> = {
+  Averías: {
+    tipoLabel: 'Tipo de avería',
+    tipoOpciones: [
+      'Fuga en vía pública',
+      'Fuga en domicilio',
+      'Falta de presión / sin agua',
+      'Medidor dañado',
+      'Otro',
+    ],
+    estadoLabel: 'Estado',
+    estadoOpciones: ['Pendiente', 'En proceso', 'Finalizado'],
+  },
+  Abonados: {
+    tipoLabel: 'Tipo de abonado',
+    tipoOpciones: ['Física', 'Jurídica'],
+    estadoLabel: 'Estado',
+    estadoOpciones: ['Activo', 'Inactivo'],
+  },
+  Solicitudes: {
+    tipoLabel: 'Tipo de solicitud',
+    tipoOpciones: [
+      'Paja de agua',
+      'Cambio de propietario',
+      'Cambio de representante',
+      'Cambio de medidor',
+      'Otro',
+    ],
+    estadoLabel: 'Estado',
+    estadoOpciones: ['Pendiente', 'En proceso', 'Aprobada', 'Rechazada', 'Completada'],
+  },
+}
+
+interface StatsBackend {
+  averias: EstadisticasAveriasBackend | null
+  abonados: EstadisticasAbonadosBackend | null
+  solicitudes: EstadisticasSolicitudesBackend | null
 }
 
 interface Column {
@@ -97,29 +162,25 @@ interface ReportData {
   barLabel: string
   pieData: { name: string; cantidad: number }[]
   pieLabel: string
+  evolucionMensual: { mes: string; cantidad: number }[]
   columns: Column[]
   rows: Record<string, string>[]
-  csvHeaders: string[]
   fechaAplica: boolean
 }
 
-function buildReport(
-  mod: ModuleName,
-  rango: { desde: string; hasta: string } | null,
-  estadisticasAverias: EstadisticasAveriasBackend | null,
-): ReportData {
+function buildReport(mod: ModuleName, stats: StatsBackend): ReportData {
   if (mod === 'Averías') {
-    const stats = estadisticasAverias ?? {
+    const s = stats.averias ?? {
       total: 0,
       porTipo: [],
       porEstado: [],
       registros: [],
     }
     return {
-      total: stats.total,
-      barData: stats.porTipo.map((t) => ({ name: t.tipo, cantidad: t.total })),
+      total: s.total,
+      barData: s.porTipo.map((t) => ({ name: t.tipo, cantidad: t.total })),
       barLabel: 'Averías por tipo',
-      pieData: stats.porEstado.map((e) => ({ name: e.estado, cantidad: e.total })),
+      pieData: s.porEstado.map((e) => ({ name: e.estado, cantidad: e.total })),
       pieLabel: 'Averías por estado',
       columns: [
         { key: 'codigo', label: 'Código' },
@@ -128,25 +189,30 @@ function buildReport(
         { key: 'estado', label: 'Estado' },
         { key: 'fecha', label: 'Fecha' },
       ],
-      rows: stats.registros.map((a) => ({
+      rows: s.registros.map((a) => ({
         codigo: a.codigo_averia || '—',
         tipo: a.tipo_averia,
         reportadoPor: `${a.nombre_reportante} ${a.apellido1_reportante || ''}`.trim(),
         estado: a.estado,
         fecha: a.fecha_reporte ? a.fecha_reporte.slice(0, 10) : '—',
       })),
-      csvHeaders: ['Código', 'Tipo', 'Reportado por', 'Estado', 'Fecha'],
+      evolucionMensual: agruparPorMes(s.registros.map((a) => a.fecha_reporte)),
       fechaAplica: true,
     }
   }
 
   if (mod === 'Abonados') {
-    const filtrados = MOCK_ABONADOS.filter((a) => enRango(a.fechaRegistro, rango))
+    const s = stats.abonados ?? {
+      total: 0,
+      porTipo: [],
+      porEstado: [],
+      registros: [],
+    }
     return {
-      total: filtrados.length,
-      barData: contarPor(filtrados, (a) => a.tipo),
+      total: s.total,
+      barData: s.porTipo.map((t) => ({ name: t.tipo, cantidad: t.total })),
       barLabel: 'Abonados por tipo',
-      pieData: contarPor(filtrados, (a) => a.estado),
+      pieData: s.porEstado.map((e) => ({ name: e.estado, cantidad: e.total })),
       pieLabel: 'Abonados por estado',
       columns: [
         { key: 'cedula', label: 'Cédula' },
@@ -155,191 +221,334 @@ function buildReport(
         { key: 'estado', label: 'Estado' },
         { key: 'fechaRegistro', label: 'Registro' },
       ],
-      rows: filtrados.map((a) => ({
+      rows: s.registros.map((a) => ({
         cedula: a.cedula,
-        nombre: a.nombre,
-        tipo: a.tipo,
+        nombre: nombreVisible(a),
+        tipo: a.tipo_abonado,
         estado: a.estado,
-        fechaRegistro: a.fechaRegistro,
+        fechaRegistro: a.fecha_registro ? a.fecha_registro.slice(0, 10) : '—',
       })),
-      csvHeaders: ['Cédula', 'Nombre', 'Tipo', 'Estado', 'Registro'],
+      evolucionMensual: agruparPorMes(s.registros.map((a) => a.fecha_registro)),
       fechaAplica: true,
     }
   }
 
-  if (mod === 'Solicitudes') {
-    const filtradas = MOCK_SOLICITUDES.filter((s) => enRango(s.fecha, rango))
-    return {
-      total: filtradas.length,
-      barData: contarPor(filtradas, (s) => s.tipo),
-      barLabel: 'Solicitudes por tipo',
-      pieData: contarPor(filtradas, (s) => s.estado),
-      pieLabel: 'Solicitudes por estado',
-      columns: [
-        { key: 'codigo', label: 'Código' },
-        { key: 'tipo', label: 'Tipo' },
-        { key: 'solicitante', label: 'Solicitante' },
-        { key: 'estado', label: 'Estado' },
-        { key: 'fecha', label: 'Fecha' },
-      ],
-      rows: filtradas.map((s) => ({
-        codigo: s.codigo,
-        tipo: s.tipo,
-        solicitante: s.solicitante,
-        estado: s.estado,
-        fecha: s.fecha,
-      })),
-      csvHeaders: ['Código', 'Tipo', 'Solicitante', 'Estado', 'Fecha'],
-      fechaAplica: true,
-    }
+  // Solicitudes (último módulo disponible)
+  const s = stats.solicitudes ?? {
+    total: 0,
+    porTipo: [],
+    porEstado: [],
+    registros: [],
   }
-
-  // Inventario: es una foto del stock actual, no se filtra por fecha
-  const nivel = (stock: number, minimo: number) => {
-    if (stock <= Math.floor(minimo / 2)) return 'Crítico'
-    if (stock <= minimo) return 'Bajo'
-    return 'Normal'
-  }
-  const conNivel = MOCK_INVENTARIO.map((i) => ({ ...i, nivel: nivel(i.stock, i.stockMinimo) }))
   return {
-    total: conNivel.length,
-    barData: Object.values(
-      conNivel.reduce<Record<string, { name: string; cantidad: number }>>((acc, i) => {
-        acc[i.categoria] = acc[i.categoria] ?? { name: i.categoria, cantidad: 0 }
-        acc[i.categoria].cantidad += i.stock
-        return acc
-      }, {}),
-    ),
-    barLabel: 'Stock por categoría',
-    pieData: contarPor(conNivel, (i) => i.nivel),
-    pieLabel: 'Items por nivel de stock',
+    total: s.total,
+    barData: s.porTipo.map((t) => ({ name: t.tipo, cantidad: t.total })),
+    barLabel: 'Solicitudes por tipo',
+    pieData: s.porEstado.map((e) => ({ name: e.estado, cantidad: e.total })),
+    pieLabel: 'Solicitudes por estado',
     columns: [
-      { key: 'nombre', label: 'Nombre' },
-      { key: 'categoria', label: 'Categoría' },
-      { key: 'stock', label: 'Stock' },
-      { key: 'stockMinimo', label: 'Mínimo' },
-      { key: 'nivel', label: 'Nivel' },
+      { key: 'codigo', label: 'Código' },
+      { key: 'tipo', label: 'Tipo' },
+      { key: 'solicitante', label: 'Solicitante' },
+      { key: 'estado', label: 'Estado' },
+      { key: 'fecha', label: 'Fecha' },
     ],
-    rows: conNivel.map((i) => ({
-      nombre: i.nombre,
-      categoria: i.categoria,
-      stock: String(i.stock),
-      stockMinimo: String(i.stockMinimo),
-      nivel: i.nivel,
+    rows: s.registros.map((sl) => ({
+      codigo: sl.codigo,
+      tipo: sl.tipo,
+      solicitante: sl.solicitante,
+      estado: sl.estado,
+      fecha: sl.fecha,
     })),
-    csvHeaders: ['Nombre', 'Categoría', 'Stock', 'Mínimo', 'Nivel'],
-    fechaAplica: false,
+    evolucionMensual: agruparPorMes(s.registros.map((sl) => sl.fecha)),
+    fechaAplica: true,
   }
 }
 
+interface ViewBoxPolar {
+  cx: number
+  cy: number
+  innerRadius: number
+  outerRadius: number
+  startAngle: number
+  endAngle: number
+}
+
+function esViewBoxPolar(viewBox: unknown): viewBox is ViewBoxPolar {
+  return typeof viewBox === 'object' && viewBox !== null && 'innerRadius' in viewBox
+}
+
+// Etiqueta de cada aro del gráfico radial. La etiqueta por defecto de
+// recharts gira junto con el arco y el número queda acostado; esta se ubica
+// al inicio del aro pero se dibuja derecha, como el resto del texto.
+function EtiquetaAroRadial({ value, viewBox }: { value?: unknown; viewBox?: unknown }) {
+  if (!esViewBoxPolar(viewBox) || value === undefined || value === null) return null
+  const { cx, cy, innerRadius, outerRadius, startAngle, endAngle } = viewBox
+  const radio = (innerRadius + outerRadius) / 2
+  const recorrido = endAngle - startAngle
+  // Se separa ~12 px del extremo del aro (más grados en los aros internos,
+  // que son más cortos) para que el número no se salga del arco.
+  const separacion = ((12 / Math.max(radio, 1)) * 180) / Math.PI
+  const angulo = startAngle + Math.sign(recorrido) * Math.min(Math.abs(recorrido) / 2, separacion)
+  const rad = (-angulo * Math.PI) / 180
+  return (
+    <text
+      x={cx + radio * Math.cos(rad)}
+      y={cy + radio * Math.sin(rad)}
+      fill="#ffffff"
+      fontSize={11}
+      fontWeight={700}
+      textAnchor="middle"
+      dominantBaseline="central"
+    >
+      {String(value)}
+    </text>
+  )
+}
+
 function Reportes() {
+  const { rolEfectivo } = useAuth()
   const [modulo, setModulo] = useState<ModuleName>('Averías')
   const [rango, setRango] = useState<RangeValue>('historico')
   const [desdeCustom, setDesdeCustom] = useState('')
   const [hastaCustom, setHastaCustom] = useState('')
-  const [filtroTipoAveria, setFiltroTipoAveria] = useState<string>('Todos')
-  const [filtroEstadoAveria, setFiltroEstadoAveria] = useState<string>('Todos')
+  const [filtroTipo, setFiltroTipo] = useState<string>('Todos')
+  const [filtroEstado, setFiltroEstado] = useState<string>('Todos')
   const [estadisticasAverias, setEstadisticasAverias] = useState<EstadisticasAveriasBackend | null>(null)
-  const [loadingAverias, setLoadingAverias] = useState(false)
-  const [errorAverias, setErrorAverias] = useState<string | null>(null)
+  const [estadisticasAbonados, setEstadisticasAbonados] = useState<EstadisticasAbonadosBackend | null>(null)
+  const [estadisticasSolicitudes, setEstadisticasSolicitudes] = useState<EstadisticasSolicitudesBackend | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [generandoPdf, setGenerandoPdf] = useState(false)
+  const [generandoExcel, setGenerandoExcel] = useState(false)
 
   const rangoResuelto = useMemo(
     () => getRange(rango, desdeCustom, hastaCustom),
     [rango, desdeCustom, hastaCustom],
   )
 
+  // Un rango personalizado incompleto o invertido no se consulta ni se
+  // exporta: antes caía en silencio al histórico y el documento quedaba
+  // rotulado con un período distinto al de los datos.
+  const errorRango = useMemo(
+    () => validarRangoFechas(rango, desdeCustom, hastaCustom),
+    [rango, desdeCustom, hastaCustom],
+  )
+
+  // Al cambiar de módulo se resetean los filtros: cada módulo tiene sus
+  // propias opciones de tipo/estado y un valor heredado no existiría.
   useEffect(() => {
-    if (modulo !== 'Averías') return
+    setFiltroTipo('Todos')
+    setFiltroEstado('Todos')
+  }, [modulo])
 
+  useEffect(() => {
     let cancelado = false
-    setLoadingAverias(true)
-    setErrorAverias(null)
+    setError(null)
 
-    const params: FiltrosEstadisticasAverias = {}
+    if (errorRango) {
+      setLoading(false)
+      if (modulo === 'Averías') setEstadisticasAverias(null)
+      else if (modulo === 'Abonados') setEstadisticasAbonados(null)
+      else setEstadisticasSolicitudes(null)
+      return
+    }
+
+    setLoading(true)
+
+    const params: {
+      fechaInicio?: string
+      fechaFin?: string
+      tipo?: string
+      estado?: string
+    } = {}
     if (rangoResuelto?.desde) params.fechaInicio = rangoResuelto.desde
     if (rangoResuelto?.hasta) params.fechaFin = rangoResuelto.hasta
-    if (filtroTipoAveria && filtroTipoAveria !== 'Todos') params.tipo = filtroTipoAveria
-    if (filtroEstadoAveria && filtroEstadoAveria !== 'Todos') params.estado = filtroEstadoAveria
+    if (filtroTipo && filtroTipo !== 'Todos') params.tipo = filtroTipo
+    if (filtroEstado && filtroEstado !== 'Todos') params.estado = filtroEstado
 
-    obtenerEstadisticasAverias(params)
+    // Mismo contrato de filtros (rango/tipo/estado) para los tres módulos:
+    // el backend aplica los mismos y devuelve total/conteos/registros.
+    const promesa =
+      modulo === 'Averías'
+        ? obtenerEstadisticasAverias(params)
+        : modulo === 'Abonados'
+          ? obtenerEstadisticasAbonados(params)
+          : obtenerEstadisticasSolicitudes(params)
+
+    promesa
       .then((data) => {
-        if (!cancelado) {
-          setEstadisticasAverias(data)
+        if (cancelado) return
+        if (modulo === 'Averías') {
+          setEstadisticasAverias(data as EstadisticasAveriasBackend)
+        } else if (modulo === 'Abonados') {
+          setEstadisticasAbonados(data as EstadisticasAbonadosBackend)
+        } else {
+          setEstadisticasSolicitudes(data as EstadisticasSolicitudesBackend)
         }
       })
       .catch((err) => {
         if (!cancelado) {
-          setErrorAverias(err instanceof Error ? err.message : 'Error al cargar estadísticas.')
+          setError(err instanceof Error ? err.message : 'Error al cargar estadísticas.')
         }
       })
       .finally(() => {
         if (!cancelado) {
-          setLoadingAverias(false)
+          setLoading(false)
         }
       })
 
     return () => {
       cancelado = true
     }
-  }, [modulo, rangoResuelto, filtroTipoAveria, filtroEstadoAveria])
+  }, [modulo, rangoResuelto, errorRango, filtroTipo, filtroEstado])
 
-  const reporte = useMemo(
-    () => buildReport(modulo, reporteAplicaRango(modulo) ? rangoResuelto : null, estadisticasAverias),
-    [modulo, rangoResuelto, estadisticasAverias],
+  const stats = useMemo<StatsBackend>(
+    () => ({
+      averias: estadisticasAverias,
+      abonados: estadisticasAbonados,
+      solicitudes: estadisticasSolicitudes,
+    }),
+    [estadisticasAverias, estadisticasAbonados, estadisticasSolicitudes],
   )
 
-  function reporteAplicaRango(mod: ModuleName) {
-    return mod !== 'Inventario'
+  const reporte = useMemo(
+    () => buildReport(modulo, stats),
+    [modulo, stats],
+  )
+
+  // Datos del gráfico radial: mismos conteos que la dona de estados pero con
+  // color por segmento y escala contra el total. Cada estado conserva su
+  // color de la dona y los aros se ordenan alfabéticamente (del centro hacia
+  // afuera) para que coincidan con el orden de la leyenda.
+  const radialData = reporte.pieData
+    .map((d, i) => ({
+      name: d.name,
+      value: d.cantidad,
+      fill: colorGrafico(i),
+    }))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+
+  // Metadatos del reporte que acompañan tanto el PDF como el Excel.
+  function metadatosExportacion() {
+    const rangoLabel =
+      rango === 'personalizado'
+        ? `Personalizado: ${desdeCustom || '—'} a ${hastaCustom || '—'}`
+        : (RANGE_OPTIONS.find((o) => o.value === rango)?.label ?? rango)
+    const filtrosResumen = [
+      `${FILTROS_MODULO[modulo].tipoLabel}: ${filtroTipo === 'Todos' || !filtroTipo ? 'Todos' : filtroTipo}`,
+      `${FILTROS_MODULO[modulo].estadoLabel}: ${filtroEstado === 'Todos' || !filtroEstado ? 'Todos' : filtroEstado}`,
+    ].join(' · ')
+    const fechaGeneracion = new Date().toLocaleString('es-CR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+    })
+    return { rangoLabel, filtrosResumen, fechaGeneracion }
   }
 
-  function downloadCSV() {
-    const csv = [
-      reporte.csvHeaders,
-      ...reporte.rows.map((r) => reporte.columns.map((c) => r[c.key])),
-    ]
-      .map((r) => r.join(','))
-      .join('\n')
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `${modulo}-reporte.csv`
-    a.click()
-    URL.revokeObjectURL(url)
+  function datosParaPdf(): ParametrosReportePdf {
+    const { rangoLabel, filtrosResumen, fechaGeneracion } = metadatosExportacion()
+    return {
+      modulo,
+      rango: rangoLabel,
+      filtros: filtrosResumen,
+      fechaGeneracion,
+      reporte: {
+        total: reporte.total,
+        barLabel: reporte.barLabel,
+        pieLabel: reporte.pieLabel,
+        barData: reporte.barData,
+        pieData: reporte.pieData,
+        evolucionMensual: reporte.evolucionMensual.map((e) => ({
+          name: e.mes,
+          cantidad: e.cantidad,
+        })),
+        columns: reporte.columns,
+        rows: reporte.rows,
+      },
+    }
   }
 
-  function exportPDF() {
-    window.print()
+  // Se valida antes de generar cualquier documento: rango correcto, datos ya
+  // cargados y al menos un registro que exportar.
+  const motivoBloqueo = motivoNoExportable({
+    total: reporte.total,
+    cargando: loading,
+    errorRango,
+    errorCarga: error,
+  })
+  const puedeExportar = puedeVerReportes(rolEfectivo)
+
+  async function exportExcel() {
+    if (!puedeExportar || motivoBloqueo) return
+    setGenerandoExcel(true)
+    try {
+      const { rangoLabel, filtrosResumen, fechaGeneracion } = metadatosExportacion()
+      const blob = await generarExcelReporte(reporte, {
+        modulo,
+        rangoLabel,
+        filtrosResumen,
+        fechaGeneracion,
+      })
+      descargarPdfReporte(blob, nombreArchivoReporte(modulo, rangoResuelto, 'xlsx'))
+    } catch {
+      setError('No se pudo generar el Excel. Inténtelo de nuevo.')
+    } finally {
+      setGenerandoExcel(false)
+    }
+  }
+
+  async function exportPDF() {
+    if (!puedeExportar || motivoBloqueo) return
+    setGenerandoPdf(true)
+    try {
+      const blob = await generarPdfReporteEstadistico(datosParaPdf())
+      descargarPdfReporte(blob, nombreArchivoReporte(modulo, rangoResuelto, 'pdf'))
+    } catch {
+      setError('No se pudo generar el PDF. Inténtelo de nuevo.')
+    } finally {
+      setGenerandoPdf(false)
+    }
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Reportes estadísticos
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            Datos generados a partir de la información registrada en cada módulo
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={downloadCSV}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
-            Exportar CSV
-          </button>
-          <button
-            type="button"
-            onClick={exportPDF}
-            className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
-            Exportar PDF
-          </button>
-        </div>
-      </div>
+      <PageHeader
+        titulo="Reportes estadísticos"
+        descripcion="Datos generados a partir de la información registrada en cada módulo"
+        accion={
+          <>
+{puedeExportar && (
+          <div className="flex flex-col items-start gap-1 sm:items-end">
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="primary"
+                type="button"
+                onClick={exportExcel}
+                disabled={generandoExcel || !!motivoBloqueo}
+                title={motivoBloqueo ?? undefined}>
+                {generandoExcel ? 'Generando Excel...' : 'Exportar Excel'}
+              </Button>
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={exportPDF}
+                disabled={generandoPdf || !!motivoBloqueo}
+                title={motivoBloqueo ?? undefined}>
+                {generandoPdf ? 'Generando PDF...' : 'Exportar PDF'}
+              </Button>
+            </div>
+            {motivoBloqueo && !loading && (
+              <p className="text-xs text-primary-500">{motivoBloqueo}</p>
+            )}
+          </div>
+        )}
+          </>
+        }
+      />
 
       <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
         <div className="flex flex-wrap items-end gap-4">
@@ -356,89 +565,80 @@ function Reportes() {
             </select>
           </div>
 
-          {reporte.fechaAplica ? (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Rango</label>
-                <select
-                  value={rango}
-                  onChange={(e) => setRango(e.target.value as RangeValue)}
-                  className="mt-1 h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-                >
-                  {RANGE_OPTIONS.map((r) => (
-                    <option key={r.value} value={r.value}>{r.label}</option>
-                  ))}
-                </select>
-              </div>
+          <div>
+            <label className="block text-sm font-medium text-primary-700">Rango</label>
+            <select
+              value={rango}
+              onChange={(e) => setRango(e.target.value as RangeValue)}
+              className="mt-1 h-10 rounded-full border border-primary-200 px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+            >
+              {RANGE_OPTIONS.map((r) => (
+                <option key={r.value} value={r.value}>{r.label}</option>
+              ))}
+            </select>
+          </div>
 
-              {rango === 'personalizado' && (
-                <div className="flex items-end gap-2">
-                  <input
-                    type="date"
-                    value={desdeCustom}
-                    onChange={(e) => setDesdeCustom(e.target.value)}
-                    className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-                  />
-                  <span className="pb-2 text-sm text-primary-400">a</span>
-                  <input
-                    type="date"
-                    value={hastaCustom}
-                    onChange={(e) => setHastaCustom(e.target.value)}
-                    className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
-                  />
-                </div>
-              )}
-            </>
-          ) : (
-            <p className="pb-2 text-sm text-primary-400">
-              El inventario muestra el stock actual; no aplica filtro por fecha.
-            </p>
+          {rango === 'personalizado' && (
+            <div className="flex items-end gap-2">
+              <input
+                type="date"
+                value={desdeCustom}
+                max={hastaCustom || undefined}
+                onChange={(e) => setDesdeCustom(e.target.value)}
+                className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+              />
+              <span className="pb-2 text-sm text-primary-400">a</span>
+              <input
+                type="date"
+                value={hastaCustom}
+                min={desdeCustom || undefined}
+                onChange={(e) => setHastaCustom(e.target.value)}
+                className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none"
+              />
+            </div>
           )}
 
-          {modulo === 'Averías' && (
-            <>
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Tipo de avería</label>
-                <select
-                  value={filtroTipoAveria}
-                  onChange={(e) => setFiltroTipoAveria(e.target.value)}
-                  className="mt-1 h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-                >
-                  <option value="Todos">Todos los tipos</option>
-                  <option value="Fuga de agua">Fuga de agua</option>
-                  <option value="Tubería rota">Tubería rota</option>
-                  <option value="Falta de presión / sin agua">Falta de presión / sin agua</option>
-                  <option value="Contador dañado">Contador dañado</option>
-                  <option value="Fuga en la vía pública">Fuga en la vía pública</option>
-                  <option value="Otro">Otro</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-primary-700">Estado</label>
-                <select
-                  value={filtroEstadoAveria}
-                  onChange={(e) => setFiltroEstadoAveria(e.target.value)}
-                  className="mt-1 h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-                >
-                  <option value="Todos">Todos los estados</option>
-                  <option value="Pendiente">Pendiente</option>
-                  <option value="En proceso">En proceso</option>
-                  <option value="Finalizado">Finalizado</option>
-                </select>
-              </div>
-            </>
+          {errorRango && (
+            <p className="w-full text-sm font-medium text-error-600">{errorRango}</p>
           )}
+
+          <div>
+            <label className="block text-sm font-medium text-primary-700">
+              {FILTROS_MODULO[modulo].tipoLabel}
+            </label>
+            <select
+              value={filtroTipo}
+              onChange={(e) => setFiltroTipo(e.target.value)}
+              className="mt-1 h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="Todos">Todos los tipos</option>
+              {FILTROS_MODULO[modulo].tipoOpciones.map((op) => (
+                <option key={op} value={op}>{op}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-primary-700">
+              {FILTROS_MODULO[modulo].estadoLabel}
+            </label>
+            <select
+              value={filtroEstado}
+              onChange={(e) => setFiltroEstado(e.target.value)}
+              className="mt-1 h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
+            >
+              <option value="Todos">Todos los estados</option>
+              {FILTROS_MODULO[modulo].estadoOpciones.map((op) => (
+                <option key={op} value={op}>{op}</option>
+              ))}
+            </select>
+          </div>
         </div>
       </div>
 
-      {errorAverias && modulo === 'Averías' && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600">
-          {errorAverias}
-        </div>
-      )}
+      <Notificar mensaje={error} tipo="error" />
 
-      {loadingAverias && modulo === 'Averías' && (
+      {loading && (
         <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-3 text-center text-xs font-medium text-primary-600">
           Consultando estadísticas en el servidor...
         </div>
@@ -471,11 +671,7 @@ function Reportes() {
           <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-primary-900">{reporte.barLabel}</h2>
             {reporte.barData.length === 0 ? (
-              <p className="py-10 text-center text-sm text-primary-400">
-                {modulo === 'Averías'
-                  ? 'No se encontraron averías para los filtros seleccionados.'
-                  : 'No hay datos en el rango seleccionado.'}
-              </p>
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
                 <BarChart data={reporte.barData} layout="vertical">
@@ -492,26 +688,22 @@ function Reportes() {
           <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-lg font-semibold text-primary-900">{reporte.pieLabel}</h2>
             {reporte.pieData.length === 0 ? (
-              <p className="py-10 text-center text-sm text-primary-400">
-                {modulo === 'Averías'
-                  ? 'No se encontraron averías para los filtros seleccionados.'
-                  : 'No hay datos en el rango seleccionado.'}
-              </p>
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
             ) : (
               <ResponsiveContainer width="100%" height={280}>
-                <PieChart>
+                <PieChart margin={{ top: 16, right: 16, bottom: 0, left: 16 }}>
                   <Pie
                     data={reporte.pieData}
                     cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={100}
+                    cy="45%"
+                    innerRadius={48}
+                    outerRadius={78}
                     dataKey="cantidad"
                     nameKey="name"
                     label={({ name, percent }) => `${name} ${((percent ?? 0) * 100).toFixed(0)}%`}
                   >
                     {reporte.pieData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill={colorGrafico(index)} />
                     ))}
                   </Pie>
                   <Tooltip />
@@ -520,55 +712,56 @@ function Reportes() {
               </ResponsiveContainer>
             )}
           </div>
-        </div>
 
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                {reporte.columns.map((col) => (
-                  <th key={col.key} className="px-4 py-3 text-left font-medium text-primary-700">
-                    {col.label}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
-              {reporte.rows.length === 0 ? (
-                <tr>
-                  <td colSpan={reporte.columns.length} className="px-4 py-8 text-center text-primary-400">
-                    {modulo === 'Averías'
-                      ? 'No se encontraron averías para los filtros seleccionados.'
-                      : `No hay registros de ${modulo.toLowerCase()} en el rango seleccionado.`}
-                  </td>
-                </tr>
-              ) : (
-                reporte.rows.map((row, i) => (
-                  <tr key={i} className="hover:bg-primary-50/50">
-                    {reporte.columns.map((col) => {
-                      const value = row[col.key]
-                      const isEstadoCol = ['estado', 'nivel'].includes(col.key)
-                      return (
-                        <td key={col.key} className="px-4 py-3 text-primary-700">
-                          {isEstadoCol ? (
-                            <span
-                              className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                                ESTADO_COLORS[value] ?? 'bg-gray-100 text-gray-600'
-                              }`}
-                            >
-                              {value}
-                            </span>
-                          ) : (
-                            value
-                          )}
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+          <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-primary-900">Evolución mensual</h2>
+            {reporte.evolucionMensual.length === 0 ? (
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <AreaChart data={reporte.evolucionMensual}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e6ebef" />
+                  <XAxis dataKey="mes" tick={{ fontSize: 11, fill: '#395f82' }} />
+                  <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: '#395f82' }} />
+                  <Tooltip />
+                  <Area type="monotone" dataKey="cantidad" stroke="#073763" fill="#6a87a1" />
+                </AreaChart>
+              </ResponsiveContainer>
+            )}
+          </div>
+
+          <div className="rounded-xl border border-primary-100 bg-white p-5 shadow-sm">
+            <h2 className="mb-4 text-lg font-semibold text-primary-900">Distribución de estados</h2>
+            {radialData.length === 0 ? (
+              <EmptyState compacto titulo="No se encontraron registros para los filtros seleccionados." />
+            ) : (
+              <ResponsiveContainer width="100%" height={280}>
+                <RadialBarChart data={radialData} innerRadius="20%" outerRadius="90%">
+                  <PolarAngleAxis type="number" domain={[0, reporte.total]} tick={false} />
+                  <RadialBar
+                    dataKey="value"
+                    background={{ fill: '#eaeff5' }}
+                    cornerRadius={6}
+                    // Número blanco y en negrita al inicio de cada aro: en el
+                    // color por defecto se perdía sobre los aros oscuros.
+                    label={EtiquetaAroRadial}
+                  >
+                    {radialData.map((d, i) => (
+                      <Cell key={`radial-${i}`} fill={d.fill} />
+                    ))}
+                  </RadialBar>
+                  <Legend
+                    iconSize={12}
+                    formatter={(value: string) => {
+                      const dato = radialData.find((d) => d.name === value)
+                      return dato ? `${value} (${dato.value})` : value
+                    }}
+                  />
+                  <Tooltip />
+                </RadialBarChart>
+              </ResponsiveContainer>
+            )}
+          </div>
         </div>
       </div>
     </div>

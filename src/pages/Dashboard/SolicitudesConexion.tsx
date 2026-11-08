@@ -1,4 +1,31 @@
+import Telefono from '../../components/ui/Telefono'
+import { MENSAJE_TELEFONO_INVALIDO, esTelefonoValido } from '../../lib/telefono'
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
+import Alerta from '../../components/ui/Alerta'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  cedula,
+  correo,
+  hayErrores,
+  maximo,
+  requerido,
+  validarCampos,
+  type ErroresFormulario,
+  type Regla,
+} from '../../lib/validaciones'
+import CampoError, { bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoConexion =
+  | 'valorPrincipal'
+  | 'valorSecundario'
+  | 'nombreFirmante'
+  | 'identificacionFirmante'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   cambiarEstadoSolicitudConexion,
@@ -15,7 +42,6 @@ import {
   SERVICIO_OPCIONES,
   TIPO_TRAMITE_OPCIONES,
   type AdjuntoConexion,
-  type EstadoSolicitud,
   type SolicitudConexion,
   type SolicitudPajaAguaDisponible,
 } from '../../components/Services/conexionPajaAgua.service'
@@ -23,51 +49,24 @@ import { FileDropZone, validarDocumento } from '../../components/common/FileDrop
 import { FirmaCanvas } from '../../components/common/FirmaCanvas'
 import { extensionDesdeUrl } from '../../lib/descargarArchivo'
 import { descargarPdfConexion, generarPdfConexion } from '../../lib/generarPdfConexion'
-import Toast, { type TipoToast } from '../../components/Dashboard/Toast'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
-
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-700'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-700'
-    case 'aprobado':
-      return 'bg-green-100 text-green-700'
-    case 'rechazado':
-      return 'bg-red-100 text-red-700'
-  }
-}
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(estado)}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
+import Toast, { type TipoToast } from '../../components/ui/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import ModalConfirmacion from '../../components/common/ModalConfirmacion'
+import Table from '../../components/ui/Table'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado from '../../components/ui/BadgeEstado'
+import Button from '../../components/ui/Button'
 
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function EmptyState({ titulo, descripcion }: { titulo: string; descripcion: string }) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
 }
 
 function SolicitudesConexion() {
@@ -77,7 +76,7 @@ function SolicitudesConexion() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Conexión de servicio</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Conexión de servicio</h1>
         <p className="mt-1 text-sm text-primary-500">
           {esAbonado
             ? 'Segunda parte del trámite de paja de agua: la Solicitud de conexión de servicio'
@@ -100,6 +99,8 @@ function VistaAbonado() {
   const [misSolicitudes, setMisSolicitudes] = useState<SolicitudConexion[]>([])
   const [mostrarFormulario, setMostrarFormulario] = useState(false)
   const [toast, setToast] = useState<{ mensaje: string; tipo: TipoToast } | null>(null)
+  const [solicitudExitosa, setSolicitudExitosa] = useState<SolicitudConexion | null>(null)
+  const [descargandoCopiaModal, setDescargandoCopiaModal] = useState(false)
 
   async function cargar() {
     setCargando(true)
@@ -124,17 +125,13 @@ function VistaAbonado() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando...</p>
-      </div>
+      <Cargando texto="Cargando..." />
     )
   }
 
   if (error) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{error}</p>
-      </div>
+      <ErrorState mensaje={error} onReintentar={cargar} />
     )
   }
 
@@ -143,8 +140,9 @@ function VistaAbonado() {
       <FormularioConexion
         disponibles={disponibles}
         onCancelar={() => setMostrarFormulario(false)}
-        onExito={() => {
+        onExito={(creada) => {
           setMostrarFormulario(false)
+          setSolicitudExitosa(creada)
           setToast({ mensaje: 'Solicitud de conexión enviada correctamente.', tipo: 'exito' })
           cargar()
         }}
@@ -154,6 +152,34 @@ function VistaAbonado() {
 
   return (
     <div className="space-y-6">
+      {solicitudExitosa && (
+        <ModalConfirmacion
+          codigo={solicitudExitosa.codigo_solicitud}
+          titulo="¡Solicitud de Conexión Registrada con Éxito!"
+          descripcion={
+            <>
+              Tu trámite de <strong>Conexión de Servicio</strong> ha sido recibido por la
+              administración de la ASADA.
+            </>
+          }
+          onCerrar={() => setSolicitudExitosa(null)}
+          onDescargarCopia={async () => {
+            setDescargandoCopiaModal(true)
+            try {
+              const blob = await generarPdfConexion(solicitudExitosa)
+              descargarPdfConexion(
+                blob,
+                solicitudExitosa.codigo_solicitud,
+                solicitudExitosa.fecha_creacion,
+              )
+            } finally {
+              setDescargandoCopiaModal(false)
+            }
+          }}
+          descargandoCopia={descargandoCopiaModal}
+        />
+      )}
+
       {toast && (
         <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />
       )}
@@ -168,13 +194,12 @@ function VistaAbonado() {
               Podés iniciar la Solicitud de conexión de servicio correspondiente.
             </p>
           </div>
-          <button
+          <Button
+            variant="primary"
             type="button"
-            onClick={() => setMostrarFormulario(true)}
-            className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-          >
+            onClick={() => setMostrarFormulario(true)}>
             Iniciar solicitud
-          </button>
+          </Button>
         </div>
       )}
 
@@ -186,24 +211,11 @@ function VistaAbonado() {
       )}
 
       {misSolicitudes.length > 0 && (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
+        <Table cabecera={['Código', 'Trámite', 'Fecha', 'Estado', 'Documento']}>
               {misSolicitudes.map((s) => (
                 <FilaMiSolicitud key={s.id} solicitud={s} />
               ))}
-            </tbody>
-          </table>
-        </div>
+            </Table>
       )}
     </div>
   )
@@ -231,14 +243,13 @@ function FilaMiSolicitud({ solicitud }: { solicitud: SolicitudConexion }) {
         <BadgeEstado estado={solicitud.estado} />
       </td>
       <td className="px-4 py-3">
-        <button
+        <Button
+          variant="secondary" size="sm"
           type="button"
           onClick={descargar}
-          disabled={generando}
-          className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-        >
+          disabled={generando}>
           {generando ? 'Generando…' : 'Descargar PDF'}
-        </button>
+        </Button>
       </td>
     </tr>
   )
@@ -254,7 +265,7 @@ function FormularioConexion({
 }: {
   disponibles: SolicitudPajaAguaDisponible[]
   onCancelar: () => void
-  onExito: () => void
+  onExito: (creada: SolicitudConexion) => void
 }) {
   const [idSeleccionado, setIdSeleccionado] = useState(disponibles[0]?.id ?? 0)
   const seleccionada = useMemo(
@@ -270,7 +281,6 @@ function FormularioConexion({
   const [folioReal, setFolioReal] = useState('')
   const [planoCatastro, setPlanoCatastro] = useState('')
   const [planoAgrimensura, setPlanoAgrimensura] = useState('')
-  const [numeroDisponibilidad, setNumeroDisponibilidad] = useState('')
   const [numeroNis, setNumeroNis] = useState('')
 
   const [servicio, setServicio] = useState('agua_potable')
@@ -278,6 +288,7 @@ function FormularioConexion({
   const [codigoApcCfia, setCodigoApcCfia] = useState('')
   const [formaPago, setFormaPago] = useState('efectivo_previo')
 
+  const [erroresCampo, setErroresCampo] = useState<ErroresFormulario<CampoConexion>>({})
   const [nombreFirmante, setNombreFirmante] = useState(seleccionada?.nombre_solicitante ?? '')
   const [identificacionFirmante, setIdentificacionFirmante] = useState(
     seleccionada?.identificacion ?? '',
@@ -317,6 +328,33 @@ function FormularioConexion({
     setErrorGeneral(null)
 
     if (!seleccionada) return
+
+    // Checklist común (PBI 511): medio de notificación coherente con el
+    // tipo elegido, identificación del firmante con formato válido y
+    // longitudes máximas, igual que en el backend.
+    const reglaTelefono: Regla = (v) =>
+      !v.trim() || esTelefonoValido(v) ? null : MENSAJE_TELEFONO_INVALIDO
+    const reglaValor = (medio: string): Regla[] =>
+      medio === 'correo'
+        ? [correo()]
+        : medio === 'fax'
+          ? [reglaTelefono]
+          : [maximo('El medio de notificación', 255)]
+    const nuevos = validarCampos<CampoConexion>(
+      {
+        valorPrincipal: [requerido('El medio de notificación principal'), ...reglaValor(medioPrincipal)],
+        valorSecundario: medioSecundario
+          ? [requerido('El medio de notificación secundario'), ...reglaValor(medioSecundario)]
+          : [],
+        nombreFirmante: [requerido('El nombre del firmante'), maximo('El nombre del firmante', 150)],
+        identificacionFirmante: [requerido('La identificación del firmante', true), cedula()],
+      },
+      { valorPrincipal, valorSecundario, nombreFirmante, identificacionFirmante },
+    )
+    setErroresCampo(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
+
     if (!firma) {
       setErrorGeneral('Debes firmar la solicitud antes de enviarla.')
       return
@@ -331,7 +369,7 @@ function FormularioConexion({
 
     setEnviando(true)
     try {
-      await crearSolicitudConexion({
+      const creada = await crearSolicitudConexion({
         idSolicitudPajaAgua: seleccionada.id,
         medioNotificacionPrincipal: medioPrincipal,
         valorNotificacionPrincipal: valorPrincipal,
@@ -340,7 +378,6 @@ function FormularioConexion({
         folioReal: folioReal || undefined,
         planoCatastro: planoCatastro || undefined,
         planoAgrimensura: planoAgrimensura || undefined,
-        numeroDisponibilidad,
         numeroNis: numeroNis || undefined,
         servicioSolicitado: servicio,
         tipoTramite,
@@ -353,9 +390,20 @@ function FormularioConexion({
           .filter((r) => archivos[r.tipo])
           .map((r) => ({ tipo: r.tipo, etiqueta: r.etiqueta, archivo: archivos[r.tipo]! })),
       })
-      onExito()
+      onExito(creada)
     } catch (err) {
-      setErrorGeneral(err instanceof Error ? err.message : 'No se pudo enviar la solicitud.')
+      setErroresCampo(
+        erroresPorCampo<CampoConexion>(err, {
+          valorNotificacionPrincipal: 'valorPrincipal',
+          valorNotificacionSecundario: 'valorSecundario',
+        }),
+      )
+      enfocarPrimerError()
+      setErrorGeneral(
+        tieneErroresDeCampo(err)
+          ? null
+          : err instanceof Error ? err.message : 'No se pudo enviar la solicitud.',
+      )
     } finally {
       setEnviando(false)
     }
@@ -364,7 +412,7 @@ function FormularioConexion({
   if (!seleccionada) return null
 
   return (
-    <form onSubmit={manejarEnvio} className="space-y-6">
+    <form onSubmit={manejarEnvio} noValidate className="space-y-6">
       {disponibles.length > 1 && (
         <div>
           <label className="mb-1 block text-sm font-medium text-primary-700">
@@ -424,7 +472,13 @@ function FormularioConexion({
           <div className="flex gap-2">
             <select
               value={medioPrincipal}
-              onChange={(e) => setMedioPrincipal(e.target.value)}
+              onChange={(e) => {
+                const medio = e.target.value
+                setMedioPrincipal(medio)
+                // Cada medio tiene su propio formato: se parte de cero (el
+                // correo del abonado se vuelve a sugerir al elegir "correo").
+                setValorPrincipal(medio === 'correo' ? (seleccionada?.correo ?? '') : '')
+              }}
               className="h-10 rounded-full border border-primary-200 bg-white px-3 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
             >
               {MEDIO_NOTIFICACION_OPCIONES.map((o) => (
@@ -433,19 +487,34 @@ function FormularioConexion({
                 </option>
               ))}
             </select>
-            <input
-              type="text"
-              required
-              value={valorPrincipal}
-              onChange={(e) => setValorPrincipal(e.target.value)}
-              placeholder="Medio principal"
-              className="h-10 flex-1 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-            />
+            {medioPrincipal === 'fax' ? (
+              <div className="flex-1">
+                <Telefono
+                  value={valorPrincipal}
+                  onChange={setValorPrincipal}
+                  error={erroresCampo.valorPrincipal}
+                />
+              </div>
+            ) : (
+              <input
+                type="text"
+                required
+                value={valorPrincipal}
+                maxLength={255}
+                onChange={(e) => setValorPrincipal(e.target.value)}
+                placeholder="Medio principal *"
+                className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.valorPrincipal)}`}
+              />
+            )}
           </div>
+          <CampoError mensaje={erroresCampo.valorPrincipal} />
           <div className="flex gap-2">
             <select
               value={medioSecundario}
-              onChange={(e) => setMedioSecundario(e.target.value)}
+              onChange={(e) => {
+                setMedioSecundario(e.target.value)
+                setValorSecundario('')
+              }}
               className="h-10 rounded-full border border-primary-200 bg-white px-3 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
             >
               <option value="">Sin medio secundario</option>
@@ -455,15 +524,27 @@ function FormularioConexion({
                 </option>
               ))}
             </select>
-            <input
-              type="text"
-              value={valorSecundario}
-              onChange={(e) => setValorSecundario(e.target.value)}
-              disabled={!medioSecundario}
-              placeholder="Medio secundario (opcional)"
-              className="h-10 flex-1 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none disabled:bg-primary-50"
-            />
+            {medioSecundario === 'fax' ? (
+              <div className="flex-1">
+                <Telefono
+                  value={valorSecundario}
+                  onChange={setValorSecundario}
+                  error={erroresCampo.valorSecundario}
+                />
+              </div>
+            ) : (
+              <input
+                type="text"
+                value={valorSecundario}
+                onChange={(e) => setValorSecundario(e.target.value)}
+                disabled={!medioSecundario}
+                maxLength={255}
+                placeholder="Medio secundario (opcional)"
+                className={`h-10 flex-1 rounded-lg border px-3 text-sm focus:outline-none disabled:bg-primary-50 ${bordeCampo(erroresCampo.valorSecundario)}`}
+              />
+            )}
           </div>
+          <CampoError mensaje={erroresCampo.valorSecundario} />
         </div>
       </div>
 
@@ -490,14 +571,6 @@ function FormularioConexion({
             value={planoAgrimensura}
             onChange={(e) => setPlanoAgrimensura(e.target.value)}
             placeholder="Plano de agrimensura"
-            className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-          />
-          <input
-            type="text"
-            required
-            value={numeroDisponibilidad}
-            onChange={(e) => setNumeroDisponibilidad(e.target.value)}
-            placeholder="Número de disponibilidad *"
             className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
           />
           <input
@@ -582,22 +655,27 @@ function FormularioConexion({
       <div>
         <p className="mb-2 text-sm font-semibold text-primary-900">Firma del solicitante</p>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <input
-            type="text"
-            required
-            value={nombreFirmante}
-            onChange={(e) => setNombreFirmante(e.target.value)}
-            placeholder="Nombre completo"
-            className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-          />
-          <input
-            type="text"
-            required
-            value={identificacionFirmante}
-            onChange={(e) => setIdentificacionFirmante(e.target.value)}
-            placeholder="Identificación"
-            className="h-10 rounded-lg border border-primary-200 px-3 text-sm focus:border-primary-500 focus:outline-none"
-          />
+          <div>
+            <input
+              type="text"
+              value={nombreFirmante}
+              maxLength={150}
+              onChange={(e) => setNombreFirmante(e.target.value)}
+              placeholder="Nombre completo *"
+              className={`h-10 w-full rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.nombreFirmante)}`}
+            />
+            <CampoError mensaje={erroresCampo.nombreFirmante} />
+          </div>
+          <div>
+            <input
+              type="text"
+              value={identificacionFirmante}
+              onChange={(e) => setIdentificacionFirmante(e.target.value)}
+              placeholder="Identificación * (ej. 1-2345-6789)"
+              className={`h-10 w-full rounded-lg border px-3 text-sm focus:outline-none ${bordeCampo(erroresCampo.identificacionFirmante)}`}
+            />
+            <CampoError mensaje={erroresCampo.identificacionFirmante} />
+          </div>
         </div>
         <div className="mt-3">
           <FirmaCanvas onChange={setFirma} />
@@ -605,27 +683,25 @@ function FormularioConexion({
       </div>
 
       {errorGeneral && (
-        <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700">
-          {errorGeneral}
-        </p>
+        <Alerta tipo="error">
+          <p>{errorGeneral}</p>
+        </Alerta>
       )}
 
-      <div className="flex flex-wrap justify-end gap-2 border-t border-primary-100 pt-4">
-        <button
+      <div className="mt-5 flex flex-wrap items-center justify-center gap-3">
+        <Button
+          variant="primary"
           type="submit"
-          disabled={enviando}
-          className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
-        >
+          disabled={enviando}>
           {enviando ? 'Enviando...' : 'Enviar solicitud'}
-        </button>
-        <button
+        </Button>
+        <Button
+          variant="secondary"
           type="button"
           onClick={onCancelar}
-          disabled={enviando}
-          className="rounded-full border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-        >
+          disabled={enviando}>
           Cancelar
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -634,7 +710,6 @@ function FormularioConexion({
 // ---------------------------------------------------------------------------
 // Vista del ADMINISTRADOR
 // ---------------------------------------------------------------------------
-const MIN_MOTIVO = 10
 
 function VistaAdministrador() {
   const [solicitudes, setSolicitudes] = useState<SolicitudConexion[]>([])
@@ -661,20 +736,42 @@ function VistaAdministrador() {
     cargar()
   }, [])
 
-  async function gestionar(estado: 'en_proceso' | 'aprobado' | 'rechazado') {
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_abonado,
+      s.numero_abonado,
+      s.cedula,
+      s.tipo_tramite,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
+
+  async function gestionar(
+    estado: 'en_proceso' | 'aprobado' | 'rechazado',
+    documentoAprobacion?: File,
+  ) {
     if (!detalle) return
     setGestionando(true)
     try {
-      await cambiarEstadoSolicitudConexion(detalle.id, {
+      const respuesta = await cambiarEstadoSolicitudConexion(detalle.id, {
         estado,
         motivoRechazo: estado === 'rechazado' ? motivoRechazo : undefined,
+        documentoAprobacion,
       })
+      const labor = respuesta.labor
       setToast({
         mensaje:
           estado === 'aprobado'
-            ? 'Solicitud aprobada.'
+            ? `Solicitud aprobada.${
+                labor
+                  ? ` Se creó la labor ${labor.codigo_labor} en "Otros mantenimientos" para asignarle un fontanero.`
+                  : ''
+              } Se envió al solicitante el documento de aprobación por correo.`
             : estado === 'rechazado'
-              ? 'Solicitud rechazada.'
+              ? 'Solicitud rechazada. Se notificó al solicitante por correo con el motivo.'
               : 'Solicitud marcada en proceso.',
         tipo: 'exito',
       })
@@ -693,17 +790,13 @@ function VistaAdministrador() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando solicitudes...</p>
-      </div>
+      <Cargando texto="Cargando solicitudes..." />
     )
   }
 
   if (errorCarga) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-      </div>
+      <ErrorState mensaje={errorCarga} onReintentar={cargar} />
     )
   }
 
@@ -719,41 +812,55 @@ function VistaAdministrador() {
           descripcion="Las solicitudes de conexión de servicio que envíen los abonados aparecerán aquí."
         />
       ) : (
-        <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-primary-100 text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Abonado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Trámite</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50">
-              {solicitudes.map((s) => (
-                <tr key={s.id}>
-                  <td className="px-4 py-3 font-medium text-primary-900">{s.codigo_solicitud}</td>
-                  <td className="px-4 py-3 text-primary-700">{s.nombre_abonado}</td>
-                  <td className="px-4 py-3 text-primary-700">{etiquetaTipoTramite(s.tipo_tramite)}</td>
-                  <td className="px-4 py-3 text-primary-500">{formatearFecha(s.fecha_creacion)}</td>
-                  <td className="px-4 py-3">
-                    <BadgeEstado estado={s.estado} />
-                  </td>
-                  <td className="px-4 py-3">
-                    <button
-                      type="button"
-                      onClick={() => setDetalle(s)}
-                      className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                    >
-                      Ver detalle
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="space-y-3">
+          <BarraFiltrosSolicitudes
+            busca={filtrosLista.busqueda}
+            manejarBusqueda={filtrosLista.cambiarBusqueda}
+            placeholder="Buscar por código, abonado, cédula o tipo de trámite…"
+            orden={filtrosLista.orden}
+            cambiarOrden={filtrosLista.cambiarOrden}
+            filtroEstado={filtrosLista.filtroEstado}
+            cambiarEstado={filtrosLista.cambiarEstado}
+            estados={ESTADOS_ABONADO}
+          />
+          {filtrosLista.filtradas.length === 0 ? (
+            <EmptyState
+              titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+              descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+            />
+          ) : (
+            <Table cabecera={['Código', 'Abonado', 'Trámite', 'Fecha', 'Estado', 'Acciones']} pie={<><PaginadorSolicitudes
+                total={filtrosLista.filtradas.length}
+                primeraFila={filtrosLista.primeraFila}
+                porPagina={filtrosLista.porPagina}
+                paginaActual={filtrosLista.paginaActual}
+                totalPaginas={filtrosLista.totalPaginas}
+                numerosPagina={filtrosLista.numerosPagina}
+                busca={filtrosLista.busqueda}
+                etiqueta="solicitudes"
+                irPagina={filtrosLista.irPagina}
+              /></>}>
+                  {filtrosLista.filasVisibles.map((s) => (
+                    <tr key={s.id}>
+                      <td className="px-4 py-3 font-medium text-primary-900">{s.codigo_solicitud}</td>
+                      <td className="px-4 py-3 text-primary-700">{s.nombre_abonado}</td>
+                      <td className="px-4 py-3 text-primary-700">{etiquetaTipoTramite(s.tipo_tramite)}</td>
+                      <td className="px-4 py-3 text-primary-500">{formatearFecha(s.fecha_creacion)}</td>
+                      <td className="px-4 py-3">
+                        <BadgeEstado estado={s.estado} />
+                      </td>
+                      <td className="px-4 py-3">
+                        <Button
+                          variant="secondary" size="sm"
+                          type="button"
+                          onClick={() => setDetalle(s)}>
+                          Ver / gestionar
+                        </Button>
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+          )}
         </div>
       )}
 
@@ -787,21 +894,30 @@ function ModalDetalle({
   setMotivoRechazo: (valor: string) => void
   gestionando: boolean
   onCerrar: () => void
-  onGestionar: (estado: 'en_proceso' | 'aprobado' | 'rechazado') => void
+  onGestionar: (
+    estado: 'en_proceso' | 'aprobado' | 'rechazado',
+    documentoAprobacion?: File,
+  ) => void | Promise<void>
 }) {
   const [expandido, setExpandido] = useState(false)
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
+  const [documentoAprobacion, setDocumentoAprobacion] = useState<File | null>(null)
   const [generando, setGenerando] = useState(false)
 
   const esFinal = solicitud.estado === 'aprobado' || solicitud.estado === 'rechazado'
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
 
-  function manejarClicRechazar() {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  // Aprobar y Rechazar no cambian el estado directamente: abren el modal de
+  // confirmación (con el motivo al rechazar) y recién al confirmar se envía.
+  async function confirmarAccion() {
+    try {
+      await onGestionar(
+        confirmar === 'aprobar' ? 'aprobado' : 'rechazado',
+        confirmar === 'aprobar' ? (documentoAprobacion ?? undefined) : undefined,
+      )
+    } finally {
+      setConfirmar(null)
+      setDocumentoAprobacion(null)
     }
-    if (motivoValido) onGestionar('rechazado')
   }
 
   async function manejarDescargarDocumento() {
@@ -815,11 +931,10 @@ function ModalDetalle({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+    <Modal size="2xl" onCerrar={onCerrar}>
         <div className="flex items-start justify-between">
           <div>
-            <h3 className="text-lg font-semibold text-primary-900">{solicitud.codigo_solicitud}</h3>
+            <ModalTitulo>{solicitud.codigo_solicitud}</ModalTitulo>
             <p className="mt-0.5 text-sm text-primary-500">
               Solicitud de conexión de servicio — {solicitud.solicitud_paja_agua_codigo}
             </p>
@@ -832,12 +947,23 @@ function ModalDetalle({
           <Campo etiqueta="Cédula" valor={solicitud.cedula} />
           <Campo etiqueta="Trámite" valor={etiquetaTipoTramite(solicitud.tipo_tramite)} />
           <Campo etiqueta="Servicio solicitado" valor={etiquetaServicioSolicitado(solicitud.servicio_solicitado)} />
-          <Campo etiqueta="Número de disponibilidad" valor={solicitud.numero_disponibilidad} />
+          <Campo etiqueta="Número de disponibilidad" valor={solicitud.numero_disponibilidad ?? '—'} />
+
+          {solicitud.labor && (
+            <div className="sm:col-span-2 rounded-lg border border-info-200 bg-info-50 px-3 py-2">
+              <dt className="text-xs font-medium uppercase text-primary-400">Trabajo operativo</dt>
+              <dd className="mt-0.5 text-primary-800">
+                Labor <span className="font-mono">{solicitud.labor.codigo_labor}</span> —{' '}
+                {solicitud.labor.estado}
+                <span className="ml-1 text-xs text-primary-500">(Otros mantenimientos)</span>
+              </dd>
+            </div>
+          )}
 
           {solicitud.motivo_rechazo && (
             <div className="sm:col-span-2">
-              <dt className="text-xs font-medium uppercase text-red-500">Motivo de rechazo</dt>
-              <dd className="mt-0.5 text-red-700">{solicitud.motivo_rechazo}</dd>
+              <dt className="text-xs font-medium uppercase text-error-600">Motivo de rechazo</dt>
+              <dd className="mt-0.5 text-error-700">{solicitud.motivo_rechazo}</dd>
             </div>
           )}
         </dl>
@@ -910,92 +1036,91 @@ function ModalDetalle({
             </div>
 
             <div className="mt-5 border-t border-primary-100 pt-4">
-              <button
+              <Button
+                variant="secondary" size="sm"
                 type="button"
                 onClick={manejarDescargarDocumento}
-                disabled={generando}
-                className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-60"
-              >
+                disabled={generando}>
                 {generando ? 'Generando…' : 'Descargar documento (PDF)'}
-              </button>
+              </Button>
             </div>
           </>
         )}
 
         {esFinal ? (
           <div className="mt-6 flex justify-end">
-            <button
+            <Button
+              variant="primary"
               type="button"
-              onClick={onCerrar}
-              className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-            >
+              onClick={onCerrar}>
               Cerrar
-            </button>
+            </Button>
           </div>
         ) : (
           <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-            {mostrarMotivo && (
-              <>
-                <label
-                  htmlFor="motivoRechazoConexion"
-                  className="block text-sm font-medium text-primary-700"
-                >
-                  Motivo (obligatorio al rechazar)
-                </label>
-                <textarea
-                  id="motivoRechazoConexion"
-                  value={motivoRechazo}
-                  onChange={(e) => setMotivoRechazo(e.target.value)}
-                  rows={3}
-                  placeholder="Ej: Documentación incompleta o ilegible..."
-                  className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                />
-                {motivoRechazo.trim().length > 0 && !motivoValido && (
-                  <p className="text-xs text-amber-600">
-                    Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar (llevas{' '}
-                    {motivoRechazo.trim().length}).
-                  </p>
-                )}
-              </>
-            )}
             <div className="flex flex-wrap justify-end gap-2">
-              <button
+              {solicitud.estado !== 'en_proceso' && (
+                <Button
+                  variant="info"
+                  type="button"
+                  onClick={() => onGestionar('en_proceso')}
+                  disabled={gestionando}>
+                  {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                </Button>
+              )}
+              <Button
+                variant="success"
                 type="button"
-                onClick={() => onGestionar('en_proceso')}
-                disabled={gestionando || solicitud.estado === 'en_proceso'}
-                className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-              >
-                {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-              </button>
-              <button
-                type="button"
-                onClick={() => onGestionar('aprobado')}
-                disabled={gestionando}
-                className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('aprobar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Aprobar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="danger"
                 type="button"
-                onClick={manejarClicRechazar}
-                disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-              >
+                onClick={() => setConfirmar('rechazar')}
+                disabled={gestionando}>
                 {gestionando ? 'Guardando...' : 'Rechazar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={onCerrar}
-                disabled={gestionando}
-                className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-              >
+                disabled={gestionando}>
                 Cancelar
-              </button>
+              </Button>
             </div>
           </div>
         )}
-      </div>
-    </div>
+
+        {confirmar && (
+          <ModalGestionEstado
+            accion={confirmar}
+            codigo={solicitud.codigo_solicitud}
+            motivo={motivoRechazo}
+            onMotivoChange={setMotivoRechazo}
+            aviso={
+              confirmar === 'aprobar'
+                ? 'Al confirmar, el solicitante recibirá un correo con el documento de aprobación adjunto.'
+                : undefined
+            }
+            documento={
+              confirmar === 'aprobar'
+                ? {
+                    archivo: documentoAprobacion,
+                    onChange: setDocumentoAprobacion,
+                    etiqueta: 'Documento de aprobación (firmado por la ASADA)',
+                    ayuda: 'PDF o Word, máximo 5 MB. Se enviará por correo al solicitante.',
+                    accept: '.pdf,.doc,.docx',
+                  }
+                : undefined
+            }
+            cargando={gestionando}
+            onConfirmar={confirmarAccion}
+            onCancelar={() => setConfirmar(null)}
+          />
+        )}
+</Modal>
   )
 }
 

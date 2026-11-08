@@ -16,9 +16,9 @@ import ReportesFontanero from './ReportesFontanero'
  * (GET /reportes-fontanero está restringido a administración).
  */
 function ActividadFontanero() {
-  const { user } = useAuth()
+  const { rolEfectivo } = useAuth()
 
-  if (user?.rol === 'Fontanero') {
+  if (rolEfectivo === 'Fontanero') {
     return <ReporteActividad />
   }
 

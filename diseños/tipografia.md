@@ -82,3 +82,7 @@ También Inter, peso normal, en `primary-700` u `800`:
 | Texto plano / párrafos | Inter | sin clase de peso especial, `text-primary-700` u `800` |
 
 Si en algún momento agregan una tercera fuente para algo puntual, que quede documentado acá con el motivo — así el resto del equipo sabe que fue una decisión y no un descuido.
+
+## Tamaños semánticos del dashboard
+
+Definidos como tokens en `index.css` (`text-titulo-pagina`, `text-subtitulo`, `text-cuerpo`, `text-etiqueta`); tabla completa en `espaciados-y-formas.md`.

@@ -1,10 +1,13 @@
 import { useRef, useState, type ChangeEvent, type DragEvent } from 'react'
+import Button from '../ui/Button'
 
 export const ACCEPT_DOCUMENTO = '.pdf,.jpg,.jpeg,.png'
+export const ACCEPT_IMAGEN = '.jpg,.jpeg,.png,.webp,.gif'
 export const MAX_BYTES = 5 * 1024 * 1024 // 5 MB
 export const MAX_MB = 5
 
 const EXTENSIONES_VALIDAS = ['pdf', 'jpg', 'jpeg', 'png']
+const EXTENSIONES_IMAGEN = ['jpg', 'jpeg', 'png', 'webp', 'gif']
 
 // Valida tamaño y extensión de un documento de respaldo (la misma regla para
 // todas las solicitudes). Devuelve un mensaje de error o null si es válido.
@@ -15,6 +18,18 @@ export function validarDocumento(file: File): string | null {
   const ext = file.name.split('.').pop()?.toLowerCase() || ''
   if (!EXTENSIONES_VALIDAS.includes(ext)) {
     return `Formato inválido. Solo se admiten archivos .pdf, .jpg, .jpeg o .png.`
+  }
+  return null
+}
+
+// Valida tamaño y extensión de una imagen de evidencia (JPG, PNG, WEBP o GIF).
+export function validarImagen(file: File): string | null {
+  if (file.size > MAX_BYTES) {
+    return `La imagen no puede superar los ${MAX_MB} MB.`
+  }
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  if (!EXTENSIONES_IMAGEN.includes(ext)) {
+    return 'Formato inválido. Solo se admiten imágenes .jpg, .jpeg, .png, .webp o .gif.'
   }
   return null
 }
@@ -31,6 +46,8 @@ export function FileDropZone({
   label,
   ayuda,
   obligatorio = true,
+  accept = ACCEPT_DOCUMENTO,
+  textoFormatos = `PDF, JPG o PNG hasta ${MAX_MB} MB`,
 }: {
   archivo: File | null
   archivoPreview: string | null
@@ -40,6 +57,10 @@ export function FileDropZone({
   label: string
   ayuda?: string
   obligatorio?: boolean
+  /** Tipos aceptados por el <input type="file"> (por defecto, documentos). */
+  accept?: string
+  /** Texto de ayuda bajo el ícono con los formatos admitidos. */
+  textoFormatos?: string
 }) {
   const [arrastrando, setArrastrando] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -93,8 +114,8 @@ export function FileDropZone({
             arrastrando
               ? 'border-primary-500 bg-primary-50'
               : errorArchivo
-              ? 'border-red-300 bg-red-50/50 hover:bg-red-50'
-              : 'border-primary-200 bg-gray-50/50 hover:bg-primary-50/40'
+              ? 'border-error-300 bg-error-50/50 hover:bg-error-50'
+              : 'border-primary-200 bg-primary-50/50 hover:bg-primary-50/40'
           }`}
         >
           <svg
@@ -114,13 +135,11 @@ export function FileDropZone({
             Arrastrá y soltá el archivo aquí o{' '}
             <span className="text-primary-600 underline">examiná tus archivos</span>
           </p>
-          <p className="mt-1 text-xs text-gray-400">
-            PDF, JPG o PNG hasta {MAX_MB} MB
-          </p>
+          <p className="mt-1 text-xs text-primary-400">{textoFormatos}</p>
           <input
             ref={inputRef}
             type="file"
-            accept={ACCEPT_DOCUMENTO}
+            accept={accept}
             onChange={handleInputChange}
             className="hidden"
           />
@@ -137,7 +156,7 @@ export function FileDropZone({
             ) : (
               <div className="flex h-16 w-16 items-center justify-center rounded-lg border border-primary-200 bg-white text-primary-700 shadow-sm">
                 <svg
-                  className="h-8 w-8 text-red-500"
+                  className="h-8 w-8 text-error-600"
                   fill="currentColor"
                   viewBox="0 0 24 24"
                 >
@@ -155,18 +174,14 @@ export function FileDropZone({
               </span>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onRemoveFile}
-            className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-600 shadow-sm transition hover:bg-red-50"
-          >
+          <Button variant="danger" size="sm" type="button" onClick={onRemoveFile}>
             Descartar archivo
-          </button>
+          </Button>
         </div>
       )}
 
       {errorArchivo && (
-        <p className="mt-1.5 text-xs font-medium text-red-600">{errorArchivo}</p>
+        <p data-campo-error className="mt-1.5 text-xs font-medium text-error-600">{errorArchivo}</p>
       )}
     </div>
   )

@@ -1,4 +1,12 @@
+import Alerta from '../ui/Alerta'
+import { FilaVacia } from '../ui/EmptyState'
+import { Notificar } from '../ui/ToastProvider'
+import { FilasEsqueleto } from '../ui/Cargando'
 import React, { useEffect, useState } from 'react';
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../Services/erroresApi';
 import {
   obtenerUsuarios,
   obtenerRolesDisponibles,
@@ -10,6 +18,17 @@ import {
 } from '../Services/usuarios.service';
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../auth/EyeIcons';
 import { useAuth } from '../../contexts/AuthContext';
+import { esCorreo, MENSAJES_VALIDACION } from '../../lib/validaciones';
+import { passwordCumpleMinimos } from '../../lib/passwordReset.service';
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../common/CampoError';
+import Modal, { ModalTitulo } from '../ui/Modal'
+import { IconoEditar, IconoVer } from '../ui/IconosAccion'
+import Table from '../ui/Table'
+import Button from '../ui/Button'
+import Paginador from '../ui/Paginador'
+import PageHeader from '../ui/PageHeader'
+
+type ErroresUsuario = Partial<Record<'email' | 'password' | 'rol', string>>;
 
 const ROL_LABELS: Record<string, string> = {
   super_admin: 'Junta Directiva',
@@ -23,18 +42,28 @@ const ROLES_VISIBLES = ['super_admin', 'admin', 'fontanero', 'abonado'];
 function getRoleBadgeColor(roleName: string) {
   const normalized = roleName.toLowerCase();
   if (normalized.includes('super') || normalized.includes('junta')) {
-    return 'bg-purple-100 text-purple-800 border-purple-200';
+    return 'bg-acento-100 text-acento-800 border-acento-200';
   }
   if (normalized.includes('admin')) {
-    return 'bg-blue-100 text-blue-800 border-blue-200';
+    return 'bg-info-100 text-info-800 border-info-200';
   }
   if (normalized.includes('fontanero')) {
-    return 'bg-amber-100 text-amber-800 border-amber-200';
+    return 'bg-advertencia-100 text-advertencia-800 border-advertencia-200';
   }
-  return 'bg-slate-100 text-slate-700 border-slate-200';
+  return 'bg-primary-100 text-primary-700 border-primary-200';
 }
 
 const USUARIOS_POR_PAGINA = 8;
+
+function formatearFechaCorta(fecha: string) {
+  const d = new Date(fecha);
+  if (Number.isNaN(d.getTime())) return fecha;
+  return d.toLocaleDateString('es-CR', {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  });
+}
 
 // Interruptor para activar/desactivar un usuario. No guarda nada por sí
 // mismo: solo dispara la confirmación que luego llama al backend.
@@ -59,8 +88,8 @@ function EstadoSwitch({
       title={title ?? tituloPorDefecto}
       disabled={disabled}
       onClick={onChange}
-      className={`relative inline-flex h-5 w-9 flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
-        activo ? 'bg-green-500' : 'bg-gray-300'
+      className={`relative inline-flex h-5 w-9 pointer-coarse:before:absolute pointer-coarse:before:-inset-3 pointer-coarse:before:content-[''] flex-none items-center rounded-full transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 disabled:cursor-not-allowed disabled:opacity-50 ${
+        activo ? 'bg-exito-500' : 'bg-primary-300'
       }`}
     >
       <span
@@ -92,6 +121,7 @@ export const Usuarios: React.FC = () => {
   const [nuevoRoleId, setNuevoRoleId] = useState<number | ''>('');
   const [guardandoUsuario, setGuardandoUsuario] = useState(false);
   const [errorModalCrear, setErrorModalCrear] = useState<string | null>(null);
+  const [erroresCrear, setErroresCrear] = useState<ErroresUsuario>({});
 
   // Modal Editar Rol
   const [modalEditarRol, setModalEditarRol] = useState<{
@@ -107,6 +137,9 @@ export const Usuarios: React.FC = () => {
     nuevoEstado: boolean;
   } | null>(null);
   const [guardandoEstado, setGuardandoEstado] = useState(false);
+
+  // Modal Ver Detalle
+  const [usuarioDetalle, setUsuarioDetalle] = useState<Usuario | null>(null);
 
   const cargarDatos = async () => {
     try {
@@ -147,19 +180,24 @@ export const Usuarios: React.FC = () => {
   const cerrarModalCrear = () => {
     setModalCrearAbierto(false);
     setErrorModalCrear(null);
+    setErroresCrear({});
   };
 
   const handleCrearUsuario = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!nuevoEmail.trim() || !nuevoPassword || nuevoRoleId === '') {
-      setErrorModalCrear('Todos los campos son obligatorios');
-      return;
-    }
-
-    if (nuevoPassword.length < 8) {
-      setErrorModalCrear('La contraseña debe tener al menos 8 caracteres');
-      return;
-    }
+    // Checklist común (PBI 511): correo con el mismo formato que el resto del
+    // sistema y contraseña con las mismas reglas que el registro.
+    const nuevos: ErroresUsuario = {};
+    if (!nuevoEmail.trim()) nuevos.email = 'El correo electrónico es obligatorio.';
+    else if (!esCorreo(nuevoEmail)) nuevos.email = MENSAJES_VALIDACION.correo;
+    if (!nuevoPassword) nuevos.password = 'La contraseña es obligatoria.';
+    else if (!passwordCumpleMinimos(nuevoPassword))
+      nuevos.password =
+        'La contraseña debe tener al menos 8 caracteres, una letra mayúscula y un número.';
+    if (nuevoRoleId === '') nuevos.rol = 'Seleccione un rol.';
+    setErroresCrear(nuevos);
+    enfocarPrimerError();
+    if (Object.keys(nuevos).length > 0) return;
 
     try {
       setGuardandoUsuario(true);
@@ -184,7 +222,13 @@ export const Usuarios: React.FC = () => {
       cerrarModalCrear();
       await cargarDatos();
     } catch (err: any) {
-      setErrorModalCrear(err.message || 'No se pudo crear el usuario');
+      setErroresCrear(erroresPorCampo<'email' | 'password' | 'rol'>(err, { role_id: 'rol' }));
+      enfocarPrimerError();
+      setErrorModalCrear(
+        tieneErroresDeCampo(err)
+          ? null
+          : err.message || 'No se pudo crear el usuario',
+      );
     } finally {
       setGuardandoUsuario(false);
     }
@@ -293,52 +337,30 @@ export const Usuarios: React.FC = () => {
   return (
     <div className="space-y-6">
       {/* Encabezado Principal */}
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-primary-900">
-            Gestión de Usuarios del Sistema
-          </h1>
-          <p className="mt-1 text-sm text-primary-500">
-            {usuarios.length} usuarios registrados en la plataforma
-          </p>
-        </div>
-        <button
+      <PageHeader
+        titulo="Gestión de Usuarios del Sistema"
+        descripcion="{usuarios.length} usuarios registrados en la plataforma"
+        accion={
+          <>
+<Button
+          variant="primary"
           type="button"
           onClick={abrirModalCrear}
-          className="self-start rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800"
-        >
+          className="self-start">
           + Nuevo usuario
-        </button>
-      </div>
+        </Button>
+          </>
+        }
+      />
 
       {/* Mensajes de Notificación */}
-      {mensajeExito && (
-        <div className="flex items-center gap-3 rounded-lg bg-green-50 border border-green-200 p-4 text-sm font-medium text-green-800">
-          <svg className="h-5 w-5 text-green-600 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-          </svg>
-          <span>{mensajeExito}</span>
-        </div>
-      )}
+      <Notificar mensaje={mensajeExito} />
 
-      {error && (
-        <div className="flex items-center gap-3 rounded-lg bg-red-50 border border-red-200 p-4 text-sm font-medium text-red-800">
-          <svg className="h-5 w-5 text-red-600 flex-none" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          <span className="flex-1">{error}</span>
-          <button
-            type="button"
-            onClick={() => setError(null)}
-            className="text-xs underline hover:text-red-900"
-          >
-            Cerrar
-          </button>
-        </div>
-      )}
+      <Notificar mensaje={error} tipo="error" />
 
-      {/* Barra de Filtros y Búsqueda */}
-      <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
+      {/* Barra de Filtros y Búsqueda, a la par en una sola fila (unificado
+          con Inventario, Proveedores, Abonados y Empleados) */}
+      <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-96">
           <svg
             className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-primary-400"
@@ -377,74 +399,61 @@ export const Usuarios: React.FC = () => {
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Selector de Rol */}
-          <select
-            value={filtroRol}
-            onChange={(e) => {
-              setFiltroRol(e.target.value);
-              setPagina(1);
-            }}
-            className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-          >
-            <option value="Todos">Todos los roles</option>
-            {rolesUnicos.map((rol) => (
-              <option key={rol} value={rol}>
-                {ROL_LABELS[rol] || rol}
-              </option>
-            ))}
-          </select>
+        {/* Selector de Rol */}
+        <select
+          value={filtroRol}
+          onChange={(e) => {
+            setFiltroRol(e.target.value);
+            setPagina(1);
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="Todos">Todos los roles</option>
+          {rolesUnicos.map((rol) => (
+            <option key={rol} value={rol}>
+              {ROL_LABELS[rol] || rol}
+            </option>
+          ))}
+        </select>
 
-          {/* Selector de Estado */}
-          <select
-            value={filtroEstado}
-            onChange={(e) => {
-              setFiltroEstado(e.target.value as any);
-              setPagina(1);
-            }}
-            className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm font-medium text-primary-700 focus:border-primary-500 focus:outline-none"
-          >
-            <option value="todos">Todos los estados</option>
-            <option value="activos">Solo Activos</option>
-            <option value="inactivos">Solo Inactivos</option>
-          </select>
-        </div>
+        {/* Selector de Estado */}
+        <select
+          value={filtroEstado}
+          onChange={(e) => {
+            setFiltroEstado(e.target.value as any);
+            setPagina(1);
+          }}
+          className="h-10 rounded-full border border-primary-200 bg-white px-4 text-sm text-primary-900 focus:border-primary-500 focus:outline-none"
+        >
+          <option value="todos">Todos los estados</option>
+          <option value="activos">Solo Activos</option>
+          <option value="inactivos">Solo Inactivos</option>
+        </select>
       </div>
 
       {/* Tabla de Usuarios */}
-      <div className="rounded-xl border border-primary-100 bg-white shadow-sm overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full divide-y divide-primary-100 text-left text-sm">
-            <thead className="bg-primary-50">
-              <tr>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">ID</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Usuario / Correo</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Rol Asignado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Vinculado a</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha Registro</th>
-                <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-primary-50 text-primary-800">
+      <Table
+        cabecera={['ID', 'Usuario / Correo', 'Rol Asignado', 'Vinculado a', 'Estado', 'Fecha Registro', 'Acciones']}
+        pie={
+          <>
+            {/* Paginador */}
+            {!cargando && usuariosFiltrados.length > 0 && (
+              <Paginador
+                total={usuariosFiltrados.length}
+                pagina={paginaActual}
+                porPagina={USUARIOS_POR_PAGINA}
+                onCambiar={setPagina}
+                etiqueta="usuarios"
+                filtro={busqueda}
+              />
+            )}
+          </>
+        }
+      >
               {cargando ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
-                    <div className="inline-flex items-center gap-2">
-                      <div className="h-4 w-4 border-2 border-primary-700 border-t-transparent rounded-full animate-spin" />
-                      <span>Cargando usuarios desde el backend...</span>
-                    </div>
-                  </td>
-                </tr>
+                <FilasEsqueleto columnas={7} />
               ) : usuariosFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-primary-500">
-                    <p className="font-medium">No se encontraron usuarios coincidentes.</p>
-                    <p className="text-xs text-primary-400 mt-1">
-                      Intenta ajustar el término de búsqueda o los filtros seleccionados.
-                    </p>
-                  </td>
-                </tr>
+                <FilaVacia columnas={7} titulo="No se encontraron usuarios." descripcion="Ajustá la búsqueda o los filtros seleccionados." />
               ) : (
                 usuariosPaginados.map((u) => {
                   const nombreUsuario = u.username ?? u.email.split('@')[0];
@@ -520,7 +529,7 @@ export const Usuarios: React.FC = () => {
                           />
                           <span
                             className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
-                              u.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                              u.isActive ? 'bg-exito-100 text-exito-800' : 'bg-error-100 text-error-800'
                             }`}
                           >
                             {u.isActive ? 'Activo' : 'Inactivo'}
@@ -528,75 +537,43 @@ export const Usuarios: React.FC = () => {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-xs text-primary-500">
-                        {new Date(u.createdAt).toLocaleDateString('es-CR', {
-                          year: 'numeric',
-                          month: 'short',
-                          day: 'numeric',
-                        })}
+                        {formatearFechaCorta(u.createdAt)}
                       </td>
                       <td className="px-4 py-3">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setModalEditarRol({
-                              usuario: u,
+                        <div className="flex items-center gap-1">
+                          <IconoVer
+                            titulo={`Ver detalle de ${u.email}`}
+                            onClick={() => setUsuarioDetalle(u)}
+                          />
+                          <IconoEditar
+                            titulo={`Editar rol de ${u.email}`}
+                            onClick={() => {
+                              setModalEditarRol({
+                                usuario: u,
                                 nuevoRoleId: u.role_id || rolesVisibles[0]?.id || 1,
-                            });
-                            setErrorModalRol(null);
-                          }}
-                          className="text-sm font-medium text-primary-500 hover:text-primary-700 hover:underline"
-                        >
-                          Editar
-                        </button>
+                              });
+                              setErrorModalRol(null);
+                            }}
+                          />
+                        </div>
                       </td>
                     </tr>
                   );
                 })
               )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* Paginador */}
-        {totalPaginas > 1 && (
-          <div className="flex items-center justify-between border-t border-primary-100 px-6 py-3.5 text-sm bg-gray-50/50">
-            <span className="text-xs text-primary-600">
-              Página {paginaActual} de {totalPaginas} ({usuariosFiltrados.length} usuarios)
-            </span>
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                disabled={paginaActual === 1}
-                onClick={() => setPagina((p) => Math.max(1, p - 1))}
-                className="rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
-              >
-                Anterior
-              </button>
-              <button
-                type="button"
-                disabled={paginaActual === totalPaginas}
-                onClick={() => setPagina((p) => Math.min(totalPaginas, p + 1))}
-                className="rounded-lg border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-40"
-              >
-                Siguiente
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
+            </Table>
 
       {/* MODAL PARA CREAR NUEVO USUARIO */}
       {modalCrearAbierto && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md" onCerrar={cerrarModalCrear}>
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 Registrar Nuevo Usuario
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={cerrarModalCrear}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -604,39 +581,48 @@ export const Usuarios: React.FC = () => {
               </button>
             </div>
 
-            <form onSubmit={handleCrearUsuario} className="space-y-5">
+            <form onSubmit={handleCrearUsuario} noValidate className="space-y-5">
               {errorModalCrear && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+                <Alerta tipo="error">
                   {errorModalCrear}
-                </div>
+                </Alerta>
               )}
 
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Correo Electrónico
+                  <Obligatorio />
                 </label>
                 <input
                   type="email"
-                  required
                   value={nuevoEmail}
-                  onChange={(e) => setNuevoEmail(e.target.value)}
+                  maxLength={150}
+                  onChange={(e) => {
+                    setNuevoEmail(e.target.value);
+                    setErroresCrear((p) => ({ ...p, email: undefined }));
+                  }}
                   placeholder="ejemplo@asada.com"
-                  className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                  className={`mt-1 w-full rounded-lg border px-3 py-2 text-sm focus:outline-none ${bordeCampo(erroresCrear.email)}`}
                 />
+                <CampoError mensaje={erroresCrear.email} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-primary-700">
-                  Contraseña Inicial (mínimo 8 caracteres)
+                  Contraseña Inicial
+                  <Obligatorio />
                 </label>
                 <div className="relative mt-1">
                   <input
                     type={mostrarNuevoPassword ? 'text' : 'password'}
-                    required
                     value={nuevoPassword}
-                    onChange={(e) => setNuevoPassword(e.target.value)}
+                    maxLength={72}
+                    onChange={(e) => {
+                      setNuevoPassword(e.target.value);
+                      setErroresCrear((p) => ({ ...p, password: undefined }));
+                    }}
                     placeholder="••••••••"
-                    className="w-full rounded-lg border border-primary-200 px-3 py-2 pr-11 text-sm focus:border-primary-500 focus:outline-none"
+                    className={`w-full rounded-lg border px-3 py-2 pr-11 text-sm focus:outline-none ${bordeCampo(erroresCrear.password)}`}
                   />
                   <button
                     type="button"
@@ -647,11 +633,16 @@ export const Usuarios: React.FC = () => {
                     {mostrarNuevoPassword ? <OjoCerradoIcon /> : <OjoAbiertoIcon />}
                   </button>
                 </div>
+                <p className="mt-1 text-xs text-primary-400">
+                  Mínimo 8 caracteres, con al menos una mayúscula y un número.
+                </p>
+                <CampoError mensaje={erroresCrear.password} />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Rol Asignado
+                  <Obligatorio />
                 </label>
                 <select
                   required
@@ -669,41 +660,38 @@ export const Usuarios: React.FC = () => {
                     ))
                   )}
                 </select>
+                <CampoError mensaje={erroresCrear.rol} />
               </div>
 
               <div className="flex justify-end gap-3 pt-2">
-                <button
+                <Button
+                  variant="primary"
                   type="submit"
-                  disabled={guardandoUsuario}
-                  className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-                >
+                  disabled={guardandoUsuario}>
                   {guardandoUsuario ? 'Guardando...' : 'Registrar Usuario'}
-                </button>
-                <button
+                </Button>
+                <Button
+                  variant="secondary"
                   type="button"
-                  onClick={cerrarModalCrear}
-                  className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-                >
+                  onClick={cerrarModalCrear}>
                   Cancelar
-                </button>
+                </Button>
               </div>
             </form>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* MODAL PARA EDITAR ROL */}
       {modalEditarRol && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="md">
             <div className="mb-6 flex items-center justify-between">
-              <h2 className="text-xl font-semibold text-primary-900">
+              <ModalTitulo>
                 Editar Rol de Usuario
-              </h2>
+              </ModalTitulo>
               <button
                 type="button"
                 onClick={() => setModalEditarRol(null)}
-                className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
+                className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700"
               >
                 <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -713,9 +701,9 @@ export const Usuarios: React.FC = () => {
 
             <div className="space-y-5">
               {errorModalRol && (
-                <div className="p-3 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg">
+                <Alerta tipo="error">
                   {errorModalRol}
-                </div>
+                </Alerta>
               )}
 
               <div>
@@ -749,36 +737,32 @@ export const Usuarios: React.FC = () => {
             </div>
 
             <div className="mt-6 flex justify-end gap-3">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={handleConfirmarCambioRol}
-                disabled={guardandoRol}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
-              >
+                disabled={guardandoRol}>
                 {guardandoRol ? 'Guardando...' : 'Guardar Cambios'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setModalEditarRol(null)}
-                disabled={guardandoRol}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
-              >
+                disabled={guardandoRol}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
       )}
 
       {/* MODAL PARA CAMBIO DE ESTADO (ACTIVAR / INHABILITAR) */}
       {modalCambioEstado && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-md rounded-xl bg-white p-6 shadow-xl">
-            <h2 className="text-lg font-semibold text-primary-900">
+        <Modal size="md" scroll={false}>
+            <ModalTitulo>
               {modalCambioEstado.nuevoEstado
                 ? 'Confirmar activación de usuario'
                 : 'Confirmar inhabilitación de usuario'}
-            </h2>
+            </ModalTitulo>
             <p className="mt-3 text-sm text-primary-600">
               ¿Estás seguro de que deseas{' '}
               <span className="font-semibold text-primary-800">
@@ -794,8 +778,8 @@ export const Usuarios: React.FC = () => {
               <span
                 className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                   modalCambioEstado.usuario.isActive
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-exito-100 text-exito-800'
+                    : 'bg-error-100 text-error-800'
                 }`}
               >
                 {modalCambioEstado.usuario.isActive ? 'Activo' : 'Inactivo'}
@@ -804,48 +788,167 @@ export const Usuarios: React.FC = () => {
               <span
                 className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
                   modalCambioEstado.nuevoEstado
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-red-100 text-red-800'
+                    ? 'bg-exito-100 text-exito-800'
+                    : 'bg-error-100 text-error-800'
                 }`}
               >
                 {modalCambioEstado.nuevoEstado ? 'Activo' : 'Inactivo'}
               </span>
             </p>
             {!modalCambioEstado.nuevoEstado && (
-              <p className="mt-3 text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+              <p className="mt-3 text-xs text-advertencia-700 bg-advertencia-50 p-2.5 rounded-lg border border-advertencia-200">
                 ⚠️ Al inhabilitar al usuario, se cerrarán de inmediato todas sus sesiones activas en cualquier dispositivo.
               </p>
             )}
             {error && (
-              <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs font-medium text-red-600">
+              <Alerta tipo="error" className="mt-3">
                 {error}
-              </p>
+              </Alerta>
             )}
 
             <div className="mt-6 flex justify-end gap-2">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={handleConfirmarCambioEstado}
-                disabled={guardandoEstado}
-                className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={guardandoEstado}>
                 {guardandoEstado
                   ? 'Guardando...'
                   : modalCambioEstado.nuevoEstado
                   ? 'Sí, activar'
                   : 'Sí, inhabilitar'}
-              </button>
-              <button
+              </Button>
+              <Button
+                variant="secondary"
                 type="button"
                 onClick={() => setModalCambioEstado(null)}
-                disabled={guardandoEstado}
-                className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={guardandoEstado}>
                 Cancelar
-              </button>
+              </Button>
             </div>
-          </div>
-        </div>
+</Modal>
+      )}
+
+      {/* MODAL VER DETALLE DE USUARIO */}
+      {usuarioDetalle && (
+        <Modal size="md">
+            <ModalTitulo>
+              Detalle del usuario
+            </ModalTitulo>
+
+            <div className="mt-4 space-y-4">
+              {/* Datos de la cuenta */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">
+                  Cuenta
+                </p>
+                <dl className="mt-2 space-y-1.5 text-sm">
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">ID</dt>
+                    <dd className="font-medium text-primary-900">{usuarioDetalle.id}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Correo</dt>
+                    <dd className="font-medium break-all text-right text-primary-900">
+                      {usuarioDetalle.email}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Usuario</dt>
+                    <dd className="font-medium text-primary-900">
+                      {usuarioDetalle.username || '—'}
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Estado</dt>
+                    <dd>
+                      <span
+                        className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${
+                          usuarioDetalle.isActive
+                            ? 'bg-exito-100 text-exito-800'
+                            : 'bg-error-100 text-error-800'
+                        }`}
+                      >
+                        {usuarioDetalle.isActive ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-4">
+                    <dt className="text-primary-500">Fecha de registro</dt>
+                    <dd className="font-medium text-primary-900">
+                      {formatearFechaCorta(usuarioDetalle.createdAt)}
+                    </dd>
+                  </div>
+                </dl>
+              </div>
+
+              {/* Rol asignado */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">
+                  Rol asignado
+                </p>
+                <span
+                  className={`mt-2 inline-block rounded-full border px-2.5 py-1 text-xs font-semibold ${getRoleBadgeColor(usuarioDetalle.role)}`}
+                >
+                  {ROL_LABELS[usuarioDetalle.role] || usuarioDetalle.role}
+                </span>
+                {(() => {
+                  const rolDisponible = rolesDisponibles.find(
+                    (r) => r.name === usuarioDetalle.role || r.id === usuarioDetalle.role_id,
+                  );
+                  return rolDisponible?.description ? (
+                    <p className="mt-2 text-xs text-primary-500">
+                      {rolDisponible.description}
+                    </p>
+                  ) : null;
+                })()}
+              </div>
+
+              {/* Perfiles asociados (vínculos con abonados / empleados) */}
+              <div className="rounded-xl border border-primary-100 bg-primary-50/50 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-primary-500">
+                  Perfiles asociados
+                </p>
+                {usuarioDetalle.vinculos.length === 0 ? (
+                  <p className="mt-2 text-sm text-primary-500">
+                    Esta cuenta no tiene abonados ni empleados asociados.
+                  </p>
+                ) : (
+                  <ul className="mt-2 space-y-2">
+                    {usuarioDetalle.vinculos.map((v) => (
+                      <li
+                        key={`${v.tipo}-${v.id}`}
+                        className="flex items-center justify-between gap-3 rounded-lg border border-primary-100 bg-white px-3 py-2"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-primary-900">{v.nombre}</p>
+                          <p className="text-xs text-primary-500">Cédula: {v.cedula}</p>
+                        </div>
+                        <span
+                          className={`flex-none rounded-full px-2 py-0.5 text-xs font-semibold ${
+                            v.tipo === 'Abonado'
+                              ? 'bg-primary-100 text-primary-700 border border-primary-200'
+                              : 'bg-info-100 text-info-800 border border-info-200'
+                          }`}
+                        >
+                          {v.tipo}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="mt-6 flex justify-end">
+              <Button
+                variant="secondary"
+                type="button"
+                onClick={() => setUsuarioDetalle(null)}>
+                Cerrar
+              </Button>
+            </div>
+</Modal>
       )}
     </div>
   );

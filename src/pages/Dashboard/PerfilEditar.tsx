@@ -1,4 +1,27 @@
+import Alerta from '../../components/ui/Alerta'
+import { Notificar } from '../../components/ui/ToastProvider'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef, type FormEvent } from 'react'
+import {
+  erroresPorCampo,
+  tieneErroresDeCampo,
+} from '../../components/Services/erroresApi'
+import {
+  correo as reglaCorreo,
+  formatearTelefono,
+  hayErrores,
+  maximo,
+  MB,
+  requerido,
+  telefono as telefonoRegla,
+  validarArchivo,
+  validarCampos,
+  type ErroresFormulario,
+} from '../../lib/validaciones'
+import CampoError, { Obligatorio, bordeCampo, enfocarPrimerError } from '../../components/common/CampoError'
+
+type CampoPerfil = 'correo' | 'telefono' | 'usuario'
 import {
   obtenerPerfil,
   actualizarPerfil,
@@ -6,6 +29,7 @@ import {
   type PerfilCompleto,
 } from '../../components/Services/perfil.service'
 import { resolverUrlArchivo } from '../../lib/urlArchivos'
+import Button from '../../components/ui/Button'
 
 // obtenerPerfil/actualizarPerfil/subirFoto (perfil.service.ts) ya extraen el
 // mensaje del backend y lo relanzan como Error normal (err.message) — acá
@@ -58,6 +82,7 @@ function PerfilEditar() {
   const usuarioInicialRef = useRef('')
   const [guardandoDatos, setGuardandoDatos] = useState(false)
   const [errorDatos, setErrorDatos] = useState<string | null>(null)
+  const [erroresPerfil, setErroresPerfil] = useState<ErroresFormulario<CampoPerfil>>({})
   const [exitoDatos, setExitoDatos] = useState(false)
 
   useEffect(() => {
@@ -85,19 +110,15 @@ function PerfilEditar() {
 
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-primary-500">Cargando perfil…</p>
-      </div>
+      <Cargando texto="Cargando perfil…" />
     )
   }
 
   if (errorCarga) {
     return (
       <div className="max-w-5xl space-y-6">
-        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
-        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-          {errorCarga}
-        </div>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Configuración</h1>
+        <ErrorState mensaje={errorCarga} onReintentar={() => window.location.reload()} />
       </div>
     )
   }
@@ -115,6 +136,17 @@ function PerfilEditar() {
   function manejarFoto(e: React.ChangeEvent<HTMLInputElement>) {
     const archivo = e.target.files?.[0]
     if (!archivo) return
+    // Mismo límite que el backend: imágenes JPG, PNG, GIF o WEBP de hasta 2 MB.
+    const errorArchivo = validarArchivo(archivo, {
+      extensiones: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+      maxBytes: 2 * MB,
+      mensajeTipo: 'La foto debe ser una imagen JPG, PNG, GIF o WEBP.',
+    })
+    if (errorArchivo) {
+      setErrorFoto(errorArchivo)
+      e.target.value = ''
+      return
+    }
     setErrorFoto(null)
     setExitoFoto(false)
     setArchivoSeleccionado(archivo)
@@ -152,6 +184,25 @@ function PerfilEditar() {
     setErrorDatos(null)
     setExitoDatos(false)
 
+    // Checklist común (PBI 511): mismo formato de correo, teléfono y nombre
+    // de usuario que valida el backend.
+    const nuevos = validarCampos<CampoPerfil>(
+      {
+        correo: [requerido('El correo electrónico'), reglaCorreo(), maximo('El correo', 150)],
+        telefono: [telefonoRegla()],
+        usuario: [
+          (v) =>
+            !v.trim() || /^[a-zA-Z0-9._-]{3,30}$/.test(v.trim())
+              ? null
+              : 'El nombre de usuario debe tener entre 3 y 30 caracteres: letras, números, ".", "_" o "-", sin espacios.',
+        ],
+      },
+      { correo: correo, telefono, usuario: usuarioInput },
+    )
+    setErroresPerfil(nuevos)
+    enfocarPrimerError()
+    if (hayErrores(nuevos)) return
+
     setGuardandoDatos(true)
     try {
       const actualizado = await actualizarPerfil({
@@ -170,7 +221,13 @@ function PerfilEditar() {
       usuarioInicialRef.current = usuarioActualizado
       setExitoDatos(true)
     } catch (err) {
-      setErrorDatos(obtenerMensajeError(err))
+      setErroresPerfil(erroresPorCampo<CampoPerfil>(err, { email: 'correo', username: 'usuario' }))
+      enfocarPrimerError()
+      setErrorDatos(
+        tieneErroresDeCampo(err)
+          ? null
+          : obtenerMensajeError(err),
+      )
     } finally {
       setGuardandoDatos(false)
     }
@@ -188,30 +245,32 @@ function PerfilEditar() {
     'mt-1 w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm text-primary-900 focus:border-primary-500 focus:outline-none'
   const inputReadonlyClass =
     'mt-1 w-full rounded-lg border border-primary-200 bg-primary-50 px-4 py-2.5 text-sm text-primary-500'
+  const inputConError = (error?: string) =>
+    `${inputClass.replace('border-primary-200', '').replace('focus:border-primary-500', '')} ${bordeCampo(error)}`
 
   return (
     <div className="mx-auto max-w-4xl space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">Configuración</h1>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Configuración</h1>
         <p className="mt-1 text-sm text-primary-500">
           Información de tu cuenta en SIAPB
         </p>
       </div>
 
       <div className="rounded-2xl border border-primary-100 bg-white p-6 shadow-sm sm:p-8">
-        {(exitoFoto || exitoDatos) && (
-          <div className="mb-6 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-800">
-            {exitoFoto && exitoDatos
+        <Notificar
+          mensaje={
+            exitoFoto && exitoDatos
               ? 'Foto y datos actualizados correctamente.'
               : exitoFoto
                 ? 'Foto actualizada correctamente.'
-                : 'Datos actualizados correctamente.'}
-          </div>
-        )}
+                : exitoDatos
+                  ? 'Datos actualizados correctamente.'
+                  : null
+          }
+        />
         {(errorFoto || errorDatos) && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-            {errorFoto || errorDatos}
-          </div>
+          <Alerta tipo="error" className="mb-6">{errorFoto || errorDatos}</Alerta>
         )}
 
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[13rem_1fr]">
@@ -235,15 +294,15 @@ function PerfilEditar() {
                   {inicial}
                 </div>
               )}
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
                 disabled={subiendoFoto}
                 aria-label="Cambiar foto de perfil"
-                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full bg-primary-700 text-white ring-2 ring-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+                className="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center ring-2 ring-white">
                 <IconCamara />
-              </button>
+              </Button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -262,14 +321,13 @@ function PerfilEditar() {
 
             {previewFoto && (
               <div className="flex items-center gap-2">
-                <button
+                <Button
+                  variant="primary" size="sm"
                   type="button"
                   onClick={guardarFoto}
-                  disabled={subiendoFoto}
-                  className="rounded-full bg-primary-700 px-4 py-1.5 text-xs font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-                >
+                  disabled={subiendoFoto}>
                   {subiendoFoto ? 'Guardando…' : 'Guardar foto'}
-                </button>
+                </Button>
                 <button
                   type="button"
                   onClick={cancelarFoto}
@@ -286,7 +344,7 @@ function PerfilEditar() {
           </div>
 
           {/* ── Columna derecha: campos en grilla de 2 columnas ── */}
-          <form onSubmit={manejarActualizarDatos} className="space-y-5">
+          <form onSubmit={manejarActualizarDatos} noValidate className="space-y-5">
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium text-primary-700">
@@ -324,10 +382,10 @@ function PerfilEditar() {
                   placeholder={usuario}
                   minLength={3}
                   maxLength={30}
-                  pattern="[a-zA-Z0-9._-]{3,30}"
                   title='Entre 3 y 30 caracteres: letras, números, ".", "_" o "-", sin espacios'
-                  className={inputClass}
+                  className={inputConError(erroresPerfil.usuario)}
                 />
+                <CampoError mensaje={erroresPerfil.usuario} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">
@@ -346,14 +404,16 @@ function PerfilEditar() {
               <div>
                 <label className="block text-sm font-medium text-primary-700">
                   Correo electrónico
+                  <Obligatorio />
                 </label>
                 <input
                   type="email"
                   value={correo}
+                  maxLength={150}
                   onChange={(e) => setCorreo(e.target.value)}
-                  required
-                  className={inputClass}
+                  className={inputConError(erroresPerfil.correo)}
                 />
+                <CampoError mensaje={erroresPerfil.correo} />
               </div>
               <div>
                 <label className="block text-sm font-medium text-primary-700">
@@ -362,21 +422,22 @@ function PerfilEditar() {
                 <input
                   type="tel"
                   value={telefono}
-                  onChange={(e) => setTelefono(e.target.value)}
+                  inputMode="numeric"
+                  onChange={(e) => setTelefono(formatearTelefono(e.target.value))}
                   placeholder="8741-8543"
-                  className={inputClass}
+                  className={inputConError(erroresPerfil.telefono)}
                 />
+                <CampoError mensaje={erroresPerfil.telefono} />
               </div>
             </div>
 
             <div className="flex items-center justify-end gap-3 pt-2">
-              <button
+              <Button
+                variant="primary"
                 type="submit"
-                disabled={guardandoDatos}
-                className="rounded-full bg-primary-700 px-6 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-              >
+                disabled={guardandoDatos}>
                 {guardandoDatos ? 'Guardando…' : 'Guardar cambios'}
-              </button>
+              </Button>
               <button
                 type="button"
                 onClick={cancelarDatos}

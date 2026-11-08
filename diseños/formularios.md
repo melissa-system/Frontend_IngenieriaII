@@ -119,14 +119,14 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 <div className="flex justify-end gap-3 pt-2">
   <button
     type="submit"
-    className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-60"
+    className="rounded-full bg-primary-700 px-5 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50"
   >
     Guardar cambios
   </button>
   <button
     type="button"
     onClick={cerrarModal}
-    className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
+    className="rounded-full border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50"
   >
     Cancelar
   </button>
@@ -141,16 +141,18 @@ Regla estándar para **todos** los modales del dashboard que tienen una acción 
 
 Cuando un modal tiene varias acciones posibles además de cancelar (por ejemplo "Marcar en proceso" / "Aprobar" / "Rechazar" en los modales de gestión de solicitudes), "Cancelar" siempre va **al final** (más a la derecha), después de todas las acciones. Las acciones van en el orden que tenga más sentido para el flujo (ej. de menos a más definitiva), y "Cancelar" cierra la fila.
 
-Estos botones son **siempre `rounded-full`** (píldora completa, no `rounded-lg`), con fondo sólido y saturado (`bg-color-500`/texto blanco) para las 3 acciones semánticas — no pastel, no color plano tipo `primary-700` para todas:
+Estos botones son **siempre `rounded-full`** y van en estilo **contorno de color**: fondo blanco, borde claro y texto del color de la acción, con sombra suave (`shadow-sm`). Se usan con `<Button variant="info" | "success" | "danger">` (azul = en proceso, verde = aprobar, rojo = rechazar/descartar/eliminar). No usar fondos sólidos saturados.
 
 ```jsx
 <div className="flex flex-wrap justify-end gap-2">
-  <button className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50">Marcar en proceso</button>
-  <button className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50">Aprobar</button>
-  <button className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50">Rechazar</button>
-  <button className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50">Cancelar</button>
+  {solicitud.estado !== 'en_proceso' && <Button variant="info" onClick={() => onGestionar('en_proceso')}>Marcar en proceso</Button>}
+  <Button variant="success" onClick={() => onGestionar('aprobado')}>Aprobar</Button>
+  <Button variant="danger" onClick={manejarClicRechazar}>Rechazar</Button>
+  <Button variant="secondary" onClick={onCerrar}>Cancelar</Button>
 </div>
 ```
+
+**"Marcar en proceso" desaparece cuando la solicitud ya está en proceso**: en ese estado solo quedan Aprobar, Rechazar y Cancelar.
 
 El botón "Cerrar" que reemplaza a este bloque cuando la solicitud ya quedó en estado final también es `rounded-full` (fondo sólido `bg-primary-700`, texto blanco).
 
@@ -182,7 +184,7 @@ Regla estándar para todas las páginas del dashboard que muestran una tabla/lis
 <div className="space-y-6">
   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
     <div>
-      <h1 className="text-2xl font-semibold text-primary-900">Título</h1>
+      <h1 className="text-titulo-pagina font-semibold text-primary-900">Título</h1>
       <p className="mt-1 text-sm text-primary-500">Descripción / conteo</p>
     </div>
     {/* Solo si esta página permite crear algo */}
@@ -193,8 +195,8 @@ Regla estándar para todas las páginas del dashboard que muestran una tabla/lis
 
   {/* Buscar/filtrar/ordenar: fila propia, alineada a la izquierda */}
   <div className="flex flex-wrap items-center gap-2">
-    <input placeholder="Buscar..." className="w-full rounded-lg border border-primary-200 px-4 py-2.5 text-sm sm:w-96" />
-    <select className="rounded-lg border border-primary-200 px-3 py-2 text-sm text-primary-700">...</select>
+    <input placeholder="Buscar..." className="h-10 w-full rounded-full border border-primary-200 px-4 text-sm sm:w-96" />
+    <select className="h-10 rounded-full border border-primary-200 px-4 text-sm text-primary-700">...</select>
   </div>
 </div>
 ```
@@ -203,19 +205,19 @@ Si la página no tiene botón de crear (por ejemplo Solicitudes, que solo se gen
 
 ### Botón de orden + select de filtro, misma fila
 
-Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más antiguas / ↓ Más recientes") como un `<select>` de filtro por estado, ambos van en la misma fila de controles, con **la misma altura fija** (`h-10`) para que no se vean descuadrados entre sí. El botón de orden usa el estilo de botón primario (fondo azul), el select mantiene el borde normal:
+Cuando una lista tiene tanto un botón para cambiar el orden (ej. "↑ Más antiguas / ↓ Más recientes") como un `<select>` de filtro por estado, ambos van en la misma fila de controles, con **la misma altura fija** (`h-10`) para que no se vean descuadrados entre sí. El botón de orden usa el estilo de botón primario (fondo azul, `rounded-full`), el select mantiene el borde normal:
 
 ```jsx
 <div className="flex flex-wrap items-center gap-2">
   <button
     type="button"
     onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-    className="flex h-10 items-center gap-1 rounded-lg bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
+    className="flex h-10 items-center gap-1 rounded-full bg-primary-700 px-4 text-sm font-medium text-white hover:bg-primary-800"
   >
     {sortOrder === 'asc' ? '↑ Más antiguas' : '↓ Más recientes'}
   </button>
 
-  <select className="h-10 rounded-lg border border-primary-200 px-3 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
+  <select className="h-10 rounded-full border border-primary-200 px-4 text-sm text-primary-700 focus:border-primary-500 focus:outline-none">
     ...
   </select>
 </div>
@@ -267,3 +269,11 @@ Aplica a: SolicitudesCambioMedidor, SolicitudesCambioPropietario, SolicitudesCam
   </Link>
 </div>
 ```
+
+## Aprobar / rechazar solicitudes (vistas de gestión)
+
+- **Aprobar** y **Rechazar** en el detalle de la solicitud no cambian el estado directamente: abren `ModalGestionEstado` (`components/Dashboard/ModalGestionEstado.tsx`) y el estado solo se envía al backend al confirmar ahí. "Marcar en proceso" sigue siendo directo y desaparece cuando la solicitud ya está en proceso.
+- **Rechazar:** el modal pide el **motivo (obligatorio, mínimo 10 caracteres)**, con contador/error integrado, y no deja confirmar sin él. El backend lo vuelve a validar (`MIN_MOTIVO_RECHAZO`) y lo incluye en el correo al solicitante.
+- **Aprobar:** confirmación sin motivo (en "Otro" el comentario de la resolución sí es obligatorio, porque ese trámite no actualiza datos).
+- Ambos modales avisan antes de confirmar que **el solicitante recibirá un correo**, y al terminar el toast de éxito lo confirma ("Se notificó al solicitante por correo…").
+- Una vista nueva de gestión debe usar este mismo modal (un test lo verifica en las 6 vistas actuales).

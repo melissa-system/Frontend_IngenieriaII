@@ -1,3 +1,7 @@
+import ModalGestionEstado, { type AccionGestion } from '../../components/Dashboard/ModalGestionEstado'
+import Alerta from '../../components/ui/Alerta'
+import Cargando from '../../components/ui/Cargando'
+import { Notificar } from '../../components/ui/ToastProvider'
 import {
   useCallback,
   useEffect,
@@ -5,6 +9,14 @@ import {
   useState,
   type FormEvent,
 } from 'react'
+import CampoError, { enfocarPrimerError } from '../../components/common/CampoError'
+import { erroresPorCampo, tieneErroresDeCampo } from '../../components/Services/erroresApi'
+import {
+  esCorreo,
+  esIdentificacion,
+  esTelefono,
+  MENSAJES_VALIDACION,
+} from '../../lib/validaciones'
 import { useAuth } from '../../contexts/AuthContext'
 import {
   nombreVisible,
@@ -21,7 +33,6 @@ import {
   obtenerSolicitudesCambioPropietario,
   MOTIVOS_TRASPASO,
   type SolicitudCambioPropietario,
-  type EstadoSolicitud,
   type MotivoTraspaso,
 } from '../../components/Services/cambioPropietario.service'
 import { descargarArchivo, extensionDesdeUrl } from '../../lib/descargarArchivo'
@@ -30,16 +41,26 @@ import {
   validarDocumento,
 } from '../../components/common/FileDropZone'
 import ModalConfirmacion from '../../components/common/ModalConfirmacion'
-import Toast from '../../components/Dashboard/Toast'
-
-const ESTADO_LABELS: Record<EstadoSolicitud, string> = {
-  pendiente: 'Pendiente',
-  en_proceso: 'En proceso',
-  aprobado: 'Aprobada',
-  rechazado: 'Rechazada',
-}
-
-const CORREO_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+import {
+  generarPdfSolicitudComun,
+  descargarPdfSolicitudComun,
+  type DatosCopiaComun,
+} from '../../lib/generarPdfSolicitudComun'
+import Toast from '../../components/ui/Toast'
+import BarraFiltrosSolicitudes from '../../components/Dashboard/BarraFiltrosSolicitudes'
+import PaginadorSolicitudes from '../../components/Dashboard/PaginadorSolicitudes'
+import {
+  useFiltrosSolicitudes,
+  ESTADOS_ABONADO,
+} from '../../lib/useFiltrosSolicitudes'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
+import EmptyState from '../../components/ui/EmptyState'
+import BadgeEstado, { etiquetaEstado } from '../../components/ui/BadgeEstado'
+import Tabs from '../../components/ui/Tabs'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import { Spinner } from '../../components/ui/Cargando'
+import { useAutocompletarCedula } from '../../hooks/useCedulaLookup'
 
 function formatearCedula(valor: string): string {
   const digitos = valor.replace(/\D/g, '').slice(0, 12)
@@ -64,50 +85,10 @@ function formatearTelefono(valor: string): string {
   return `${digitos.slice(0, 4)}-${digitos.slice(4)}`
 }
 
-function estadoColor(estado: EstadoSolicitud): string {
-  switch (estado) {
-    case 'pendiente':
-      return 'bg-yellow-100 text-yellow-800'
-    case 'en_proceso':
-      return 'bg-blue-100 text-blue-800'
-    case 'aprobado':
-      return 'bg-green-100 text-green-800'
-    case 'rechazado':
-      return 'bg-red-100 text-red-800'
-  }
-}
-
 function formatearFecha(fecha: string): string {
   const d = new Date(fecha)
   if (Number.isNaN(d.getTime())) return fecha
   return d.toLocaleString('es-CR', { dateStyle: 'medium', timeStyle: 'short' })
-}
-
-function BadgeEstado({ estado }: { estado: EstadoSolicitud }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2.5 py-0.5 text-xs font-medium ${estadoColor(
-        estado,
-      )}`}
-    >
-      {ESTADO_LABELS[estado]}
-    </span>
-  )
-}
-
-function EmptyState({
-  titulo,
-  descripcion,
-}: {
-  titulo: string
-  descripcion: string
-}) {
-  return (
-    <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-primary-200 bg-white py-16 text-center shadow-sm">
-      <p className="text-lg font-medium text-primary-700">{titulo}</p>
-      <p className="mt-1 text-sm text-primary-400">{descripcion}</p>
-    </div>
-  )
 }
 
 // ---------------------------------------------------------------------------
@@ -120,7 +101,7 @@ export default function SolicitudesCambioPropietario() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold text-primary-900">
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">
           Cambio de Propietario
         </h1>
         <p className="mt-1 text-sm text-primary-500">
@@ -146,6 +127,11 @@ function VistaAbonado() {
   // Datos del nuevo propietario
   const [nombreNuevo, setNombreNuevo] = useState('')
   const [cedulaNueva, setCedulaNueva] = useState('')
+  const {
+    cargando: buscandoNombre,
+    consultar: consultarCedula,
+    resetearConsulta,
+  } = useAutocompletarCedula(setNombreNuevo)
   const [telefonoNuevo, setTelefonoNuevo] = useState('')
   const [correoNuevo, setCorreoNuevo] = useState('')
   const [motivoTraspaso, setMotivoTraspaso] = useState<MotivoTraspaso | ''>('')
@@ -161,6 +147,7 @@ function VistaAbonado() {
   const [cargando, setCargando] = useState(true)
   const [enviando, setEnviando] = useState(false)
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   // Alterna entre ver el historial y generar una solicitud nueva, en vez de
@@ -229,6 +216,7 @@ function VistaAbonado() {
   const limpiarFormulario = () => {
     setNombreNuevo('')
     setCedulaNueva('')
+    resetearConsulta()
     setTelefonoNuevo('')
     setCorreoNuevo('')
     setMotivoTraspaso('')
@@ -238,41 +226,89 @@ function VistaAbonado() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nombreNuevo, cedulaNueva, telefonoNuevo, correoNuevo, motivoTraspaso, justificacion])
+
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Propietario',
+    tipoSlug: 'cambio-propietario',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: perfil?.nombre ?? 'Abonado',
+      identificacion: perfil?.cedula ?? '',
+      telefono: perfil?.telefono ?? '',
+      correo: perfil?.email ?? '',
+      numeroAbonado: '',
+    },
+    detalles: [
+      { etiqueta: 'Nombre del nuevo propietario', valor: nombreNuevo },
+      { etiqueta: 'Cédula del nuevo propietario', valor: cedulaNueva },
+      { etiqueta: 'Teléfono del nuevo propietario', valor: telefonoNuevo },
+      { etiqueta: 'Correo del nuevo propietario', valor: correoNuevo },
+      { etiqueta: 'Motivo del traspaso', valor: motivoTraspaso },
+      { etiqueta: 'Justificación / Detalle legal', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-propietario', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
 
     const nombre = nombreNuevo.trim()
     const cedula = cedulaNueva.trim()
     const telefono = telefonoNuevo.trim()
     const correo = correoNuevo.trim()
     const just = justificacion.trim()
-    if (nombre.length < 5) {
-      setError('El nombre del nuevo propietario es obligatorio.')
-      return
-    }
-    if (cedula.length < 9) {
-      setError('La cédula del nuevo propietario es obligatoria.')
-      return
-    }
-    if (telefono.length < 8) {
-      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
-      return
-    }
-    if (!CORREO_REGEX.test(correo)) {
-      setError('El correo electrónico del nuevo propietario no es válido.')
-      return
-    }
-    if (motivoTraspaso === '') {
-      setError('Seleccioná el motivo del traspaso.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar el documento legal de respaldo del traspaso.')
+    if (nombre.length < 5) errs.nombre ??= nombre
+          ? 'El nombre del nuevo propietario debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo propietario es obligatorio.'
+    if (!esIdentificacion(cedula)) errs.cedula ??= cedula
+          ? `Cédula del nuevo propietario: ${MENSAJES_VALIDACION.identificacion}`
+          : 'La cédula del nuevo propietario es obligatoria.'
+    if (!esTelefono(telefono)) errs.telefono ??= telefono
+          ? MENSAJES_VALIDACION.telefono
+          : 'El teléfono de contacto del nuevo propietario es obligatorio.'
+    if (!esCorreo(correo)) errs.correo ??= 'El correo electrónico del nuevo propietario no es válido.'
+    if (motivoTraspaso === '') errs.motivo ??= 'Seleccioná el motivo del traspaso.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar el documento legal de respaldo del traspaso.'
+
+    if (Object.keys(errs).length > 0 || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
@@ -287,12 +323,15 @@ function VistaAbonado() {
         justificacion: just,
         documentoSoporte: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
       setCodigoGenerado(resp.codigo_solicitud)
       limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { nombreNuevoPropietario: 'nombre', cedulaNuevoPropietario: 'cedula', telefonoNuevoPropietario: 'telefono', correoNuevoPropietario: 'correo', motivoTraspaso: 'motivo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'Error al registrar la solicitud.')
     } finally {
       setEnviando(false)
     }
@@ -303,52 +342,41 @@ function VistaAbonado() {
       {codigoGenerado && (
         <ModalConfirmacion
           codigo={codigoGenerado}
-          onCerrar={() => setCodigoGenerado(null)}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
           titulo="¡Solicitud Registrada con Éxito!"
           descripcion={
             <>
               Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
             </>
           }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
         />
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <Alerta tipo="error">
           {error}
-        </div>
+        </Alerta>
       )}
 
       {tieneAbierta && (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+        <div className="rounded-xl border border-advertencia-200 bg-advertencia-50 p-4 text-sm text-advertencia-800">
           Actualmente tenés una solicitud de cambio de propietario en proceso. No podés crear otra hasta que sea resuelta.
         </div>
       )}
 
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Mis solicitudes
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Nueva solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Mis solicitudes' },
+          { valor: 'crear', etiqueta: 'Nueva solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <>
@@ -373,36 +401,36 @@ function VistaAbonado() {
           </h3>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-primary-500">
                 Nombre del Titular
               </label>
               <input
                 type="text"
                 disabled
                 value={cargandoPerfil ? 'Cargando…' : nombreTitular}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-primary-500">
                 Cédula del Titular
               </label>
               <input
                 type="text"
                 disabled
                 value={cargandoPerfil ? 'Cargando…' : cedulaTitular}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-500">
+              <label className="block text-xs font-medium text-primary-500">
                 Número de Abonado
               </label>
               <input
                 type="text"
                 disabled
                 value={cargandoPerfil ? 'Cargando…' : numeroAbonadoTitular}
-                className="mt-1 w-full rounded-lg border border-gray-200 bg-gray-100 px-3 py-2 text-sm text-gray-700 shadow-inner"
+                className="mt-1 w-full rounded-lg border border-primary-200 bg-primary-100 px-3 py-2 text-sm text-primary-700 shadow-inner"
               />
             </div>
           </div>
@@ -415,9 +443,16 @@ function VistaAbonado() {
           </h3>
           <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium text-primary-700">
-                Nombre Completo *
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-primary-700">
+                  Nombre Completo *
+                </label>
+                {buscandoNombre && (
+                  <span className="flex items-center gap-1.5 text-xs text-primary-600 font-normal">
+                    <Spinner className="h-3 w-3" /> Cargando nombre...
+                  </span>
+                )}
+              </div>
               <input
                 type="text"
                 required
@@ -427,9 +462,7 @@ function VistaAbonado() {
                 placeholder="Ej. Roberto Fernández Gómez"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {nombreNuevo.length > 0 && nombreNuevo.trim().length < 5 && (
-                <p className="mt-1 text-xs text-red-500">Mínimo 5 caracteres</p>
-              )}
+              <CampoError mensaje={erroresCampo.nombre} />
             </div>
 
             <div>
@@ -441,13 +474,16 @@ function VistaAbonado() {
                 required
                 disabled={tieneAbierta}
                 value={cedulaNueva}
-                onChange={(e) => setCedulaNueva(formatearCedula(e.target.value))}
+                onChange={(e) => {
+                  const formateado = formatearCedula(e.target.value)
+                  setCedulaNueva(formateado)
+                  consultarCedula(formateado)
+                }}
+                onBlur={() => consultarCedula(cedulaNueva)}
                 placeholder="1-2345-6789 o 3-101-123456"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {cedulaNueva.length > 0 && cedulaNueva.trim().length < 9 && (
-                <p className="mt-1 text-xs text-red-500">Ingresá una identificación válida</p>
-              )}
+              <CampoError mensaje={erroresCampo.cedula} />
             </div>
 
             <div>
@@ -463,6 +499,7 @@ function VistaAbonado() {
                 placeholder="8888-8888"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              <CampoError mensaje={erroresCampo.telefono} />
             </div>
 
             <div>
@@ -478,9 +515,7 @@ function VistaAbonado() {
                 placeholder="nuevo.titular@correo.com"
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
-              {correoNuevo.length > 0 && !CORREO_REGEX.test(correoNuevo.trim()) && (
-                <p className="mt-1 text-xs text-red-500">Formato de correo no válido</p>
-              )}
+              <CampoError mensaje={erroresCampo.correo} />
             </div>
 
             <div className="sm:col-span-2">
@@ -492,7 +527,7 @@ function VistaAbonado() {
                 disabled={tieneAbierta}
                 value={motivoTraspaso}
                 onChange={(e) => setMotivoTraspaso(e.target.value as MotivoTraspaso)}
-                className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+                className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               >
                 <option value="">-- Seleccioná un motivo --</option>
                 {MOTIVOS_TRASPASO.map((m) => (
@@ -501,6 +536,7 @@ function VistaAbonado() {
                   </option>
                 ))}
               </select>
+              <CampoError mensaje={erroresCampo.motivo} />
             </div>
 
             <div className="sm:col-span-2">
@@ -508,7 +544,7 @@ function VistaAbonado() {
                 <label className="block text-sm font-medium text-primary-700">
                   Justificación del Traspaso *
                 </label>
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-primary-400">
                   {justificacion.trim().length} / 255 (mínimo 10)
                 </span>
               </div>
@@ -522,8 +558,9 @@ function VistaAbonado() {
                 placeholder="Explicá brevemente las razones legales del traspaso..."
                 className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              <CampoError mensaje={erroresCampo.justificacion} />
               {justificacion.length > 0 && justificacion.trim().length < 10 && (
-                <p className="mt-1 text-xs text-red-500">
+                <p className="mt-1 text-xs text-error-600">
                   La justificación debe tener al menos 10 caracteres.
                 </p>
               )}
@@ -550,23 +587,21 @@ function VistaAbonado() {
 
         {/* Botones */}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={tieneAbierta || enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={tieneAbierta || enviando}>
             {enviando ? 'Enviando solicitud…' : 'Enviar Solicitud de Traspaso'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       </>
@@ -581,28 +616,14 @@ function VistaAbonado() {
         </h2>
 
         {cargando ? (
-          <div className="py-12 text-center text-sm text-primary-500">
-            Cargando solicitudes…
-          </div>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Sin solicitudes registradas"
             descripcion="Cuando generes una solicitud de cambio de propietario aparecerá en este listado."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="w-full text-left text-sm text-primary-800">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Documento</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
+          <Table cabecera={['Código', 'Nuevo Propietario', 'Motivo', 'Documento', 'Fecha', 'Estado']}>
                 {solicitudes.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/40">
                     <td className="px-4 py-3 font-mono font-medium text-primary-900">
@@ -631,12 +652,12 @@ function VistaAbonado() {
                               )}`,
                             )
                           }
-                          className="inline-flex items-center gap-1 rounded-md border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
+                          className="inline-flex items-center gap-1 rounded-full border border-primary-200 bg-primary-50 px-2 py-1 text-xs font-medium text-primary-700 hover:bg-primary-100"
                         >
                           Ver documento
                         </button>
                       ) : (
-                        <span className="text-xs text-gray-400">Sin archivo</span>
+                        <span className="text-xs text-primary-400">Sin archivo</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-primary-500">
@@ -647,9 +668,7 @@ function VistaAbonado() {
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
+              </Table>
         )}
       </div>
       </>
@@ -679,6 +698,12 @@ function VistaAdministrador() {
   const [motivoTraspaso, setMotivoTraspaso] = useState<MotivoTraspaso | ''>('')
   const [justificacion, setJustificacion] = useState('')
 
+  const {
+    cargando: buscandoNombre,
+    consultar: consultarCedula,
+    resetearConsulta,
+  } = useAutocompletarCedula(setNombreNuevo)
+
   // Archivo
   const [archivo, setArchivo] = useState<File | null>(null)
   const [archivoPreview, setArchivoPreview] = useState<string | null>(null)
@@ -690,22 +715,35 @@ function VistaAdministrador() {
   // sirven al abonado, que recibe este texto por correo como única
   // explicación del rechazo.
   const [motivoRechazo, setMotivoRechazo] = useState('')
-  const MIN_MOTIVO = 10
-  const motivoValido = motivoRechazo.trim().length >= MIN_MOTIVO
   const [gestionando, setGestionando] = useState(false)
   // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
   // (ya con motivo válido) confirma el rechazo.
-  const [mostrarMotivo, setMostrarMotivo] = useState(false)
+  const [confirmar, setConfirmar] = useState<AccionGestion | null>(null)
 
   // Notificaciones
   const [enviando, setEnviando] = useState(false)
   const [mensaje, setMensaje] = useState('')
   const [error, setError] = useState('')
+  const [erroresCampo, setErroresCampo] = useState<Partial<Record<string, string>>>({})
   const [codigoGenerado, setCodigoGenerado] = useState<string | null>(null)
 
   // Alterna entre ver el listado y generar una solicitud nueva, en vez de
   // mostrar ambas cosas apiladas en la misma pantalla.
   const [vista, setVista] = useState<'lista' | 'crear'>('lista')
+
+  const filtrosLista = useFiltrosSolicitudes(solicitudes, {
+    estados: ESTADOS_ABONADO,
+    camposBusqueda: (s) => [
+      s.codigo_solicitud,
+      s.nombre_abonado,
+      s.numero_abonado,
+      s.cedula,
+      s.nombre_nuevo_propietario,
+      s.motivo_traspaso,
+    ],
+    estadoDe: (s) => s.estado,
+    fechaDe: (s) => s.fecha_creacion,
+  })
 
   const cargar = useCallback(async () => {
     try {
@@ -761,6 +799,7 @@ function VistaAdministrador() {
   }
 
   const limpiarFormulario = () => {
+    resetearConsulta()
     setAbonadoElegido(null)
     setBusqueda('')
     setNombreNuevo('')
@@ -774,46 +813,95 @@ function VistaAdministrador() {
     setErrorArchivo('')
   }
 
+  // Al corregir un campo se limpian los errores; se recalculan al enviar.
+  useEffect(() => setErroresCampo({}), [nombreNuevo, cedulaNueva, telefonoNuevo, correoNuevo, motivoTraspaso, justificacion, busqueda])
+
+  const [generandoCopia, setGenerandoCopia] = useState(false)
+  const [datosUltimoEnvio, setDatosUltimoEnvio] = useState<DatosCopiaComun | null>(null)
+
+  const armarDatosCopia = (codigo?: string | null): DatosCopiaComun => ({
+    tipoTramite: 'Solicitud de Cambio de Propietario',
+    tipoSlug: 'cambio-propietario',
+    codigoSolicitud: codigo ?? null,
+    fecha: new Date(),
+    solicitante: {
+      nombre: abonadoElegido ? nombreVisible(abonadoElegido) : 'Abonado',
+      identificacion: abonadoElegido?.cedula ?? '',
+      telefono: abonadoElegido?.telefono ?? '',
+      correo: abonadoElegido?.correo ?? '',
+      numeroAbonado: abonadoElegido?.numero_abonado ?? '',
+    },
+    detalles: [
+      {
+        etiqueta: 'Abonado cedente',
+        valor: abonadoElegido ? `${abonadoElegido.numero_abonado} - ${nombreVisible(abonadoElegido)}` : '',
+      },
+      { etiqueta: 'Nombre del nuevo propietario', valor: nombreNuevo },
+      { etiqueta: 'Cédula del nuevo propietario', valor: cedulaNueva },
+      { etiqueta: 'Teléfono del nuevo propietario', valor: telefonoNuevo },
+      { etiqueta: 'Correo del nuevo propietario', valor: correoNuevo },
+      { etiqueta: 'Motivo del traspaso', valor: motivoTraspaso },
+      { etiqueta: 'Justificación / Detalle legal', valor: justificacion },
+    ],
+    adjuntos: archivo ? [archivo.name] : [],
+    adjuntosDetalle: archivo
+      ? [
+          {
+            nombre: archivo.name,
+            tipo: archivo.type,
+            url: archivoPreview,
+            archivo,
+          },
+        ]
+      : [],
+    archivo,
+  })
+
+  const descargarCopiaPrevia = async () => {
+    setGenerandoCopia(true)
+    setError('')
+    try {
+      const datosCopia = datosUltimoEnvio ?? armarDatosCopia(codigoGenerado)
+      const blob = await generarPdfSolicitudComun(datosCopia)
+      descargarPdfSolicitudComun(blob, 'cambio-propietario', new Date())
+    } catch {
+      setError('No se pudo generar la copia de respaldo en este momento.')
+    } finally {
+      setGenerandoCopia(false)
+    }
+  }
+
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError('')
+    setErroresCampo({})
+    const errs: Record<string, string> = {}
     setMensaje('')
 
-    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') {
-      setError('Seleccioná un abonado activo para la solicitud.')
-      return
-    }
+    if (!abonadoElegido || abonadoElegido.estado !== 'Activo') errs.abonado ??= 'Seleccioná un abonado activo para la solicitud.'
     const nombre = nombreNuevo.trim()
     const cedula = cedulaNueva.trim()
     const telefono = telefonoNuevo.trim()
     const correo = correoNuevo.trim()
     const just = justificacion.trim()
-    if (nombre.length < 5) {
-      setError('El nombre del nuevo propietario es obligatorio.')
-      return
-    }
-    if (cedula.length < 9) {
-      setError('La cédula del nuevo propietario es obligatoria.')
-      return
-    }
-    if (telefono.length < 8) {
-      setError('El teléfono de contacto del nuevo propietario es obligatorio.')
-      return
-    }
-    if (!CORREO_REGEX.test(correo)) {
-      setError('El correo electrónico del nuevo propietario no es válido.')
-      return
-    }
-    if (motivoTraspaso === '') {
-      setError('Seleccioná el motivo del traspaso.')
-      return
-    }
-    if (just.length < 10) {
-      setError('La justificación debe tener al menos 10 caracteres.')
-      return
-    }
-    if (!archivo) {
-      setError('Debes adjuntar el documento legal de respaldo del traspaso.')
+    if (nombre.length < 5) errs.nombre ??= nombre
+          ? 'El nombre del nuevo propietario debe tener al menos 5 caracteres.'
+          : 'El nombre del nuevo propietario es obligatorio.'
+    if (!esIdentificacion(cedula)) errs.cedula ??= cedula
+          ? `Cédula del nuevo propietario: ${MENSAJES_VALIDACION.identificacion}`
+          : 'La cédula del nuevo propietario es obligatoria.'
+    if (!esTelefono(telefono)) errs.telefono ??= telefono
+          ? MENSAJES_VALIDACION.telefono
+          : 'El teléfono de contacto del nuevo propietario es obligatorio.'
+    if (!esCorreo(correo)) errs.correo ??= 'El correo electrónico del nuevo propietario no es válido.'
+    if (motivoTraspaso === '') errs.motivo ??= 'Seleccioná el motivo del traspaso.'
+    if (just.length < 10) errs.justificacion ??= 'La justificación debe tener al menos 10 caracteres.'
+    if (!archivo) errs.archivo ??= 'Debes adjuntar el documento legal de respaldo del traspaso.'
+
+    if (Object.keys(errs).length > 0 || !abonadoElegido || !archivo) {
+      setErroresCampo(errs)
+      if (errs.archivo) setErrorArchivo(errs.archivo)
+      enfocarPrimerError()
       return
     }
 
@@ -829,13 +917,16 @@ function VistaAdministrador() {
         justificacion: just,
         documentoSoporte: archivo,
       })
+      setDatosUltimoEnvio(armarDatosCopia(resp.codigo_solicitud))
       setCodigoGenerado(resp.codigo_solicitud)
       setMensaje(`Solicitud ${resp.codigo_solicitud} registrada correctamente en ventanilla.`)
       limpiarFormulario()
       await cargar()
       setVista('lista')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al registrar la solicitud.')
+      setErroresCampo(erroresPorCampo(err, { nombreNuevoPropietario: 'nombre', cedulaNuevoPropietario: 'cedula', telefonoNuevoPropietario: 'telefono', correoNuevoPropietario: 'correo', motivoTraspaso: 'motivo', idAbonado: 'abonado' }))
+      enfocarPrimerError()
+      setError(tieneErroresDeCampo(err) ? '' : err instanceof Error ? err.message : 'Error al registrar la solicitud.')
     } finally {
       setEnviando(false)
     }
@@ -862,7 +953,9 @@ function VistaAdministrador() {
         mensaje:
           nuevoEstado === 'aprobado'
             ? `Solicitud ${detalle.codigo_solicitud} aprobada exitosamente. Se traspasaron los datos y se notificó al nuevo propietario.`
-            : `Solicitud ${detalle.codigo_solicitud} actualizada a "${ESTADO_LABELS[nuevoEstado]}".`,
+            : nuevoEstado === 'rechazado'
+              ? `Solicitud ${detalle.codigo_solicitud} rechazada. Se notificó al solicitante por correo con el motivo.`
+              : `Solicitud ${detalle.codigo_solicitud} actualizada a "${etiquetaEstado(nuevoEstado)}".`,
       })
       setDetalle(null)
       setMotivoRechazo('')
@@ -874,14 +967,14 @@ function VistaAdministrador() {
     }
   }
 
-  // Primer clic en "Rechazar" solo despliega el campo de motivo; el segundo
-  // (ya con motivo válido) confirma el rechazo.
-  const manejarClicRechazar = () => {
-    if (!mostrarMotivo) {
-      setMostrarMotivo(true)
-      return
+  // Aprobar y Rechazar abren el modal de confirmación (con el motivo al
+  // rechazar); el estado solo cambia cuando se confirma ahí.
+  const confirmarAccion = async () => {
+    try {
+      await gestionar(confirmar === 'aprobar' ? 'aprobado' : 'rechazado')
+    } finally {
+      setConfirmar(null)
     }
-    if (motivoValido) gestionar('rechazado')
   }
 
   return (
@@ -889,52 +982,37 @@ function VistaAdministrador() {
       {codigoGenerado && (
         <ModalConfirmacion
           codigo={codigoGenerado}
-          onCerrar={() => setCodigoGenerado(null)}
+          onCerrar={() => {
+            setCodigoGenerado(null)
+            setDatosUltimoEnvio(null)
+          }}
           titulo="¡Solicitud Registrada con Éxito!"
           descripcion={
             <>
               Tu trámite de <strong>Cambio de Propietario (Cesión de Derechos)</strong> ha sido recibido por la administración de la ASADA.
             </>
           }
+          onDescargarCopia={descargarCopiaPrevia}
+          descargandoCopia={generandoCopia}
         />
       )}
 
-      {mensaje && (
-        <div className="rounded-xl border border-green-200 bg-green-50 p-4 text-sm font-medium text-green-800">
-          {mensaje}
-        </div>
-      )}
+      <Notificar mensaje={mensaje} />
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <Alerta tipo="error">
           {error}
-        </div>
+        </Alerta>
       )}
 
-      <div className="flex gap-6 border-b border-primary-100">
-        <button
-          type="button"
-          onClick={() => setVista('lista')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'lista'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Solicitudes registradas
-        </button>
-        <button
-          type="button"
-          onClick={() => setVista('crear')}
-          className={`border-b-2 pb-2 text-sm font-semibold transition-colors ${
-            vista === 'crear'
-              ? 'border-primary-700 text-primary-900'
-              : 'border-transparent text-primary-400 hover:text-primary-700'
-          }`}
-        >
-          Generar solicitud
-        </button>
-      </div>
+      <Tabs
+        pestanas={[
+          { valor: 'lista', etiqueta: 'Solicitudes registradas' },
+          { valor: 'crear', etiqueta: 'Generar solicitud' },
+        ]}
+        activa={vista}
+        onCambiar={setVista}
+      />
 
       {vista === 'crear' && (
       <>
@@ -958,20 +1036,20 @@ function VistaAdministrador() {
             Abonado Titular Actual *
           </label>
           {abonadoElegido ? (
-            <div className="mt-1.5 flex items-center justify-between rounded-xl border border-green-200 bg-green-50/60 p-3 shadow-sm">
+            <div className="mt-1.5 flex items-center justify-between rounded-xl border border-exito-200 bg-exito-50/60 p-3 shadow-sm">
               <div>
                 <p className="text-sm font-bold text-primary-900">
                   {nombreVisible(abonadoElegido)}
                 </p>
                 <p className="text-xs text-primary-600">
                   Cédula: {abonadoElegido.cedula} | N° Abonado: {abonadoElegido.numero_abonado} | Estado:{' '}
-                  <span className="font-semibold text-green-700">{abonadoElegido.estado}</span>
+                  <span className="font-semibold text-exito-700">{abonadoElegido.estado}</span>
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => setAbonadoElegido(null)}
-                className="rounded-md border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
+                className="rounded-full border border-primary-200 bg-white px-3 py-1 text-xs font-medium text-primary-700 hover:bg-primary-50"
               >
                 Cambiar
               </button>
@@ -985,6 +1063,7 @@ function VistaAdministrador() {
                 placeholder="Escribí el nombre, cédula o número de abonado para buscar..."
                 className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
               />
+              <CampoError mensaje={erroresCampo.abonado} />
               {busqueda.trim() !== '' && (
                 <ul className="absolute z-20 mt-1 max-h-52 w-full overflow-y-auto rounded-xl border border-primary-200 bg-white shadow-xl">
                   {cargandoAbonados ? (
@@ -1002,7 +1081,7 @@ function VistaAdministrador() {
                           setBusqueda('')
                         }}
                         className={`flex cursor-pointer items-center justify-between px-4 py-2.5 text-sm transition hover:bg-primary-50 ${
-                          a.estado !== 'Activo' ? 'opacity-60 bg-gray-50 cursor-not-allowed' : ''
+                          a.estado !== 'Activo' ? 'opacity-60 bg-primary-50 cursor-not-allowed' : ''
                         }`}
                       >
                         <div>
@@ -1014,8 +1093,8 @@ function VistaAdministrador() {
                         <span
                           className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
                             a.estado === 'Activo'
-                              ? 'bg-green-100 text-green-800'
-                              : 'bg-gray-200 text-gray-700'
+                              ? 'bg-exito-100 text-exito-800'
+                              : 'bg-primary-200 text-primary-700'
                           }`}
                         >
                           {a.estado}
@@ -1032,9 +1111,16 @@ function VistaAdministrador() {
         {/* Datos Cesionario */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label className="block text-sm font-medium text-primary-700">
-              Nombre Completo del Nuevo Propietario *
-            </label>
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-primary-700">
+                Nombre Completo del Nuevo Propietario *
+              </label>
+              {buscandoNombre && (
+                <span className="flex items-center gap-1.5 text-xs text-primary-600 font-normal">
+                  <Spinner className="h-3 w-3" /> Cargando nombre...
+                </span>
+              )}
+            </div>
             <input
               type="text"
               required
@@ -1043,6 +1129,7 @@ function VistaAdministrador() {
               placeholder="Ej. Maria Elena Solano"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.nombre} />
           </div>
 
           <div>
@@ -1053,10 +1140,16 @@ function VistaAdministrador() {
               type="text"
               required
               value={cedulaNueva}
-              onChange={(e) => setCedulaNueva(formatearCedula(e.target.value))}
+              onChange={(e) => {
+                const formateado = formatearCedula(e.target.value)
+                setCedulaNueva(formateado)
+                consultarCedula(formateado)
+              }}
+              onBlur={() => consultarCedula(cedulaNueva)}
               placeholder="1-2345-6789 o 3-101-123456"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.cedula} />
           </div>
 
           <div>
@@ -1071,6 +1164,7 @@ function VistaAdministrador() {
               placeholder="8888-8888"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.telefono} />
           </div>
 
           <div>
@@ -1085,6 +1179,7 @@ function VistaAdministrador() {
               placeholder="nuevo.titular@correo.com"
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.correo} />
           </div>
 
           <div className="sm:col-span-2">
@@ -1095,7 +1190,7 @@ function VistaAdministrador() {
               required
               value={motivoTraspaso}
               onChange={(e) => setMotivoTraspaso(e.target.value as MotivoTraspaso)}
-              className="mt-1 w-full rounded-lg border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
+              className="mt-1 w-full rounded-full border border-primary-200 bg-white px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             >
               <option value="">-- Seleccioná un motivo --</option>
               {MOTIVOS_TRASPASO.map((m) => (
@@ -1104,6 +1199,7 @@ function VistaAdministrador() {
                 </option>
               ))}
             </select>
+            <CampoError mensaje={erroresCampo.motivo} />
           </div>
 
           <div className="sm:col-span-2">
@@ -1111,7 +1207,7 @@ function VistaAdministrador() {
               <label className="block text-sm font-medium text-primary-700">
                 Justificación del Traspaso *
               </label>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-primary-400">
                 {justificacion.trim().length} / 255 (mínimo 10)
               </span>
             </div>
@@ -1124,6 +1220,7 @@ function VistaAdministrador() {
               placeholder="Descripción del documento o trámite de traspaso formal..."
               className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
             />
+            <CampoError mensaje={erroresCampo.justificacion} />
           </div>
         </div>
 
@@ -1140,24 +1237,22 @@ function VistaAdministrador() {
         />
 
         <div className="mt-5 flex flex-wrap items-center justify-center gap-3 pt-4 border-t border-primary-100">
-          <button
+          <Button
+            variant="primary"
             type="submit"
-            disabled={enviando}
-            className="rounded-lg bg-primary-700 px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-          >
+            disabled={enviando}>
             {enviando ? 'Registrando en ventanilla…' : 'Registrar Solicitud'}
-          </button>
-          <button
+          </Button>
+          <Button
+            variant="secondary"
             type="button"
             onClick={() => {
               limpiarFormulario()
               setError('')
               setMensaje('')
-            }}
-            className="rounded-lg border border-primary-200 px-5 py-2 text-sm font-medium text-primary-700 transition-colors hover:bg-primary-50"
-          >
+            }}>
             Cancelar
-          </button>
+          </Button>
         </div>
       </form>
       </>
@@ -1172,29 +1267,42 @@ function VistaAdministrador() {
         </h2>
 
         {cargando ? (
-          <div className="py-12 text-center text-sm text-primary-500">
-            Cargando solicitudes…
-          </div>
+          <Cargando texto="Cargando solicitudes…" />
         ) : solicitudes.length === 0 ? (
           <EmptyState
             titulo="Sin solicitudes registradas"
             descripcion="Actualmente no hay trámites de cambio de propietario en el sistema."
           />
         ) : (
-          <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-            <table className="w-full text-left text-sm text-primary-800">
-              <thead className="bg-primary-50">
-                <tr>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Titular Anterior</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Nuevo Propietario</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Motivo</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-                  <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-primary-100">
-                {solicitudes.map((s) => (
+          <div className="space-y-3">
+            <BarraFiltrosSolicitudes
+              busca={filtrosLista.busqueda}
+              manejarBusqueda={filtrosLista.cambiarBusqueda}
+              placeholder="Buscar por código, abonado, cédula o nuevo propietario…"
+              orden={filtrosLista.orden}
+              cambiarOrden={filtrosLista.cambiarOrden}
+              filtroEstado={filtrosLista.filtroEstado}
+              cambiarEstado={filtrosLista.cambiarEstado}
+              estados={ESTADOS_ABONADO}
+            />
+            {filtrosLista.filtradas.length === 0 ? (
+              <EmptyState
+                titulo="Ninguna solicitud coincide con la búsqueda o los filtros."
+                descripcion="Probá con otro término, cambiá el estado o limpiá la búsqueda."
+              />
+            ) : (
+              <Table cabecera={['Código', 'Titular Anterior', 'Nuevo Propietario', 'Motivo', 'Estado', 'Acciones']} pie={<><PaginadorSolicitudes
+              total={filtrosLista.filtradas.length}
+              primeraFila={filtrosLista.primeraFila}
+              porPagina={filtrosLista.porPagina}
+              paginaActual={filtrosLista.paginaActual}
+              totalPaginas={filtrosLista.totalPaginas}
+              numerosPagina={filtrosLista.numerosPagina}
+              busca={filtrosLista.busqueda}
+              etiqueta="solicitudes"
+              irPagina={filtrosLista.irPagina}
+            /></>}>
+                    {filtrosLista.filasVisibles.map((s) => (
                   <tr key={s.id} className="hover:bg-primary-50/40">
                     <td className="px-4 py-3 font-mono font-medium text-primary-900">
                       {s.codigo_solicitud}
@@ -1220,37 +1328,35 @@ function VistaAdministrador() {
                       <BadgeEstado estado={s.estado} />
                     </td>
                     <td className="px-4 py-3">
-                      <button
+                      <Button
+                        variant="secondary" size="sm"
                         type="button"
                         onClick={() => {
                           setDetalle(s)
                           setMotivoRechazo(s.motivo_rechazo ?? '')
-                          setMostrarMotivo(false)
-                        }}
-                        className="rounded-lg border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50"
-                      >
+                          setConfirmar(null)
+                        }}>
                         Ver / gestionar
-                      </button>
+                      </Button>
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+              </Table>
+          )}
+        </div>
+      )}
       </div>
       </>
       )}
 
       {/* Modal de Detalle y Gestión */}
       {detalle && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl">
+        <Modal size="2xl">
             <div className="flex items-start justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-primary-900">
+                <ModalTitulo>
                   {detalle.codigo_solicitud}
-                </h3>
+                </ModalTitulo>
                 <p className="mt-0.5 text-sm text-primary-500">
                   Solicitud de cambio de propietario
                 </p>
@@ -1327,10 +1433,10 @@ function VistaAdministrador() {
 
               {detalle.motivo_rechazo && (
                 <div className="sm:col-span-2">
-                  <dt className="text-xs font-medium uppercase text-red-500">
+                  <dt className="text-xs font-medium uppercase text-error-600">
                     Motivo de rechazo
                   </dt>
-                  <dd className="mt-0.5 text-red-700">{detalle.motivo_rechazo}</dd>
+                  <dd className="mt-0.5 text-error-700">{detalle.motivo_rechazo}</dd>
                 </div>
               )}
 
@@ -1354,77 +1460,67 @@ function VistaAdministrador() {
 
             {detalle.estado === 'aprobado' || detalle.estado === 'rechazado' ? (
               <div className="mt-6 flex justify-end">
-                <button
+                <Button
+                  variant="primary"
                   type="button"
-                  onClick={() => setDetalle(null)}
-                  className="rounded-full bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800"
-                >
+                  onClick={() => setDetalle(null)}>
                   Cerrar
-                </button>
+                </Button>
               </div>
             ) : (
               <div className="mt-6 space-y-3 border-t border-primary-100 pt-4">
-                {mostrarMotivo && (
-                  <>
-                    <label htmlFor="motivo" className="block text-sm font-medium text-primary-700">
-                      Motivo (obligatorio al rechazar)
-                    </label>
-                    <textarea
-                      id="motivo"
-                      value={motivoRechazo}
-                      onChange={(e) => setMotivoRechazo(e.target.value)}
-                      rows={3}
-                      placeholder="Ej: la documentación de respaldo no acredita la cesión de derechos de la paja de agua"
-                      className="w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none"
-                    />
-
-                    {motivoRechazo.trim().length > 0 && !motivoValido && (
-                      <p className="text-xs text-amber-600">
-                        Escribe al menos {MIN_MOTIVO} caracteres para poder rechazar
-                        (llevas {motivoRechazo.trim().length}).
-                      </p>
-                    )}
-                  </>
-                )}
 
                 <div className="flex flex-wrap justify-end gap-2">
-                  <button
+                  {detalle.estado !== 'en_proceso' && (
+                    <Button
+                      variant="info"
+                      type="button"
+                      onClick={() => gestionar('en_proceso')}
+                      disabled={gestionando}>
+                      {gestionando ? 'Guardando...' : 'Marcar en proceso'}
+                    </Button>
+                  )}
+                  <Button
+                    variant="success"
                     type="button"
-                    onClick={() => gestionar('en_proceso')}
-                    disabled={gestionando || detalle.estado === 'en_proceso'}
-                    className="rounded-full bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:opacity-50"
-                  >
-                    {gestionando ? 'Guardando...' : 'Marcar en proceso'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => gestionar('aprobado')}
-                    disabled={gestionando}
-                    className="rounded-full bg-green-500 px-4 py-2 text-sm font-semibold text-white hover:bg-green-600 disabled:opacity-50"
-                  >
+                    onClick={() => setConfirmar('aprobar')}
+                    disabled={gestionando}>
                     {gestionando ? 'Guardando...' : 'Aprobar'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="danger"
                     type="button"
-                    onClick={manejarClicRechazar}
-                    disabled={gestionando || (mostrarMotivo && !motivoValido)}
-                    className="rounded-full bg-red-500 px-4 py-2 text-sm font-semibold text-white hover:bg-red-600 disabled:opacity-50"
-                  >
+                    onClick={() => setConfirmar('rechazar')}
+                    disabled={gestionando}>
                     {gestionando ? 'Guardando...' : 'Rechazar'}
-                  </button>
-                  <button
+                  </Button>
+                  <Button
+                    variant="secondary"
                     type="button"
                     onClick={() => setDetalle(null)}
-                    disabled={gestionando}
-                    className="rounded-full border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50 disabled:opacity-50"
-                  >
+                    disabled={gestionando}>
                     Cancelar
-                  </button>
+                  </Button>
                 </div>
               </div>
             )}
-          </div>
-        </div>
+</Modal>
+      )}
+      {detalle && confirmar && (
+        <ModalGestionEstado
+          accion={confirmar}
+          codigo={detalle.codigo_solicitud}
+          motivo={motivoRechazo}
+          onMotivoChange={setMotivoRechazo}
+          aviso={
+            confirmar === 'aprobar'
+              ? 'Al confirmar, se traspasan los datos al nuevo propietario y se le notifica por correo.'
+              : 'Al confirmar, el solicitante recibirá un correo con el resultado y el motivo del rechazo.'
+          }
+          cargando={gestionando}
+          onConfirmar={confirmarAccion}
+          onCancelar={() => setConfirmar(null)}
+        />
       )}
       {toast && (
         <Toast mensaje={toast.mensaje} tipo={toast.tipo} onCerrar={() => setToast(null)} />

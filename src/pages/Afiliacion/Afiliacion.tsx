@@ -1,14 +1,20 @@
+import Alerta from '../../components/ui/Alerta'
+import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useRef } from 'react'
-import Recaptcha, { type RecaptchaRef } from '../../components/common/Recaptcha'
+import { MB } from '../../lib/validaciones'
+import { UBICACION_ASADA } from '../../lib/asadaInfo'
+
+const MAX_TAMANO_DOCUMENTO = 5 * MB
+import Recaptcha, { type RecaptchaRef, RECAPTCHA_HABILITADO, tokenInicialRecaptcha } from '../../components/common/Recaptcha'
 import type { ChangeEvent } from 'react'
 import { Link } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
 import {
   crearSolicitudPajaAgua,
   formatearCedula,
   normalizarIdentificacion,
   detectarTipoIdentificacion,
   IDENTIFICACION_REGEX,
-  TELEFONO_REGEX,
   EMAIL_REGEX,
   NATURALEZA_INMUEBLE_OPCIONES,
   CALIDAD_TITULAR_OPCIONES,
@@ -25,12 +31,15 @@ import {
   extensionFotoIdentificacionPermitida,
   MENSAJE_FORMATO_FOTO_NO_PERMITIDO,
 } from '../../lib/extensionesPermitidas'
-import { obtenerConfiguracion } from '../../components/Services/configuracion.service'
 import {
-  generarDocumentoSolicitud,
-  descargarDocumentoSolicitud,
+  generarPdfSolicitud,
+  descargarPdfSolicitud,
   type DatosDocumentoSolicitud,
-} from '../../lib/generarDocumentoSolicitud'
+} from '../../lib/generarPdfSolicitud'
+import { obtenerPerfil } from '../../components/Services/perfil.service'
+import Button from '../../components/ui/Button'
+import Telefono from '../../components/ui/Telefono'
+import { MENSAJE_TELEFONO_INVALIDO, esTelefonoValido, normalizarTelefono } from '../../lib/telefono'
 
 type LookupStatus = 'idle' | 'loading' | 'found' | 'not-found' | 'error'
 
@@ -75,6 +84,10 @@ const DRAFT_INICIAL: DraftData = {
 }
 
 const DRAFT_KEY = 'siapb:solicitud-paja-agua:draft:v1'
+// Cuando el wizard se usa desde el dashboard del Abonado (segunda propiedad),
+// el borrador se guarda aparte: si la misma persona tiene abierto el
+// formulario público en otra pestaña, no queremos que se pisen entre sí.
+const DRAFT_KEY_DASHBOARD = 'siapb:solicitud-paja-agua:draft:dashboard:v1'
 
 // El borrador guardado en el navegador solo es válido por 3 días desde que
 // se empezó a llenar. Pasado ese plazo, se descarta y el formulario arranca
@@ -113,7 +126,28 @@ function etiquetaTipo(tipo: TipoIdentificacionDetectado): string {
   return ''
 }
 
-function Afiliacion() {
+interface AfiliacionProps {
+  // 'publico': wizard de /afiliacion, con navegación "Volver al inicio".
+  // 'dashboard': el mismo wizard embebido en /dashboard/solicitudes/nueva-paja-de-agua
+  // para un Abonado que ya tiene sesión y pide una conexión adicional a su
+  // nombre — mismo proceso y mismo machote, sin los enlaces al landing.
+  variante?: 'publico' | 'dashboard'
+}
+
+function Afiliacion({ variante = 'publico' }: AfiliacionProps) {
+  const esDashboard = variante === 'dashboard'
+  const draftKey = esDashboard ? DRAFT_KEY_DASHBOARD : DRAFT_KEY
+  // AuthProvider envuelve toda la app (incluido /afiliacion), así que este
+  // hook siempre es válido; en el wizard público rolEfectivo simplemente da
+  // null (no hay sesión) y bloquearIdentidad queda en false más abajo.
+  const { rolEfectivo } = useAuth()
+  // Quemar la identidad (cédula/nombre) solo tiene sentido para un Abonado
+  // pidiendo una paja de agua adicional A SU PROPIO NOMBRE. Un Administrador
+  // o Junta Directiva que entra a esta misma pantalla es personal que puede
+  // estar tramitando la solicitud a nombre de otra persona (ej. un vecino
+  // que se presenta en la oficina), así que para ellos el paso 1 se comporta
+  // igual que el formulario público: cédula editable con búsqueda en Hacienda.
+  const bloquearIdentidad = esDashboard && rolEfectivo === 'Abonado'
   const [paso, setPaso] = useState(0)
   const [draft, setDraft] = useState<DraftData>(DRAFT_INICIAL)
   const [hidratado, setHidratado] = useState(false)
@@ -139,17 +173,63 @@ function Afiliacion() {
   const [enviado, setEnviado] = useState(false)
   const [enviando, setEnviando] = useState(false)
   // Token de la casilla "No soy un robot" del último paso.
-  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(null)
+  const [tokenRecaptcha, setTokenRecaptcha] = useState<string | null>(tokenInicialRecaptcha)
   const recaptchaRef = useRef<RecaptchaRef>(null)
   const [errorSubmit, setErrorSubmit] = useState<string | null>(null)
   const [solicitudCreada, setSolicitudCreada] = useState<SolicitudPajaAgua | null>(null)
   const [documentoBlob, setDocumentoBlob] = useState<Blob | null>(null)
   const [errorDocumento, setErrorDocumento] = useState<string | null>(null)
 
+  // --- Modo dashboard + rol Abonado: identidad quemada desde el perfil ---
+  // Un Abonado ya autenticado no puede escribir cualquier cédula/nombre en
+  // este formulario: se precargan desde su propia cuenta y quedan de solo
+  // lectura, para que no pueda hacerse pasar por otra persona. Un
+  // Administrador o Junta Directiva que entra a la misma pantalla SÍ puede
+  // estar tramitando la solicitud a nombre de otra persona (ej. un vecino
+  // en la oficina), así que para ellos no se bloquea nada (ver
+  // bloquearIdentidad más arriba).
+  const [cargandoPerfil, setCargandoPerfil] = useState(bloquearIdentidad)
+  const [errorPerfil, setErrorPerfil] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!bloquearIdentidad) return
+    let cancelado = false
+    setCargandoPerfil(true)
+    obtenerPerfil()
+      .then((perfil) => {
+        if (cancelado) return
+        setDraft((prev) => ({
+          ...prev,
+          identificacion: perfil.cedula
+            ? formatearCedula(perfil.cedula, perfil.cedula.replace(/\D/g, '').length > 9 ? 'juridica' : 'fisica')
+            : prev.identificacion,
+          nombreSolicitante: perfil.nombre || prev.nombreSolicitante,
+          nombreRepresentante:
+            perfil.juridico?.nombre_representante_legal || prev.nombreRepresentante,
+          cedulaRepresentante: perfil.juridico?.cedula_representante
+            ? formatearCedula(perfil.juridico.cedula_representante, 'fisica')
+            : prev.cedulaRepresentante,
+        }))
+      })
+      .catch(() => {
+        if (!cancelado) {
+          setErrorPerfil(
+            'No pudimos cargar los datos de tu cuenta. Recargá la página e intentá de nuevo.',
+          )
+        }
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoPerfil(false)
+      })
+    return () => {
+      cancelado = true
+    }
+  }, [bloquearIdentidad])
+
   // --- Cargar borrador guardado (si existe) al montar ---
   useEffect(() => {
     try {
-      const guardado = localStorage.getItem(DRAFT_KEY)
+      const guardado = localStorage.getItem(draftKey)
       if (guardado) {
         const datos = JSON.parse(guardado) as {
           draft?: Partial<DraftData>
@@ -164,7 +244,7 @@ function Afiliacion() {
         if (expirado) {
           // Pasaron más de 3 días: se descarta el borrador y el formulario
           // arranca en blanco, sin restaurar nada.
-          localStorage.removeItem(DRAFT_KEY)
+          localStorage.removeItem(draftKey)
           setHuboDraftExpirado(true)
         } else {
           if (datos.draft) {
@@ -186,7 +266,7 @@ function Afiliacion() {
     } finally {
       setHidratado(true)
     }
-  }, [])
+  }, [draftKey])
 
   // --- Guardar borrador en cada cambio (nunca los archivos: File no es serializable) ---
   useEffect(() => {
@@ -195,17 +275,17 @@ function Afiliacion() {
       const marcaInicio = iniciadoEn ?? Date.now()
       if (iniciadoEn === null) setIniciadoEn(marcaInicio)
       localStorage.setItem(
-        DRAFT_KEY,
+        draftKey,
         JSON.stringify({ draft, paso, iniciadoEn: marcaInicio }),
       )
     } catch {
       // se ignora: si falla, el peor caso es que no se pueda retomar después
     }
-  }, [draft, paso, hidratado, enviado, iniciadoEn])
+  }, [draft, paso, hidratado, enviado, iniciadoEn, draftKey])
 
   const limpiarBorrador = () => {
     try {
-      localStorage.removeItem(DRAFT_KEY)
+      localStorage.removeItem(draftKey)
     } catch {
       // se ignora
     }
@@ -328,6 +408,7 @@ function Afiliacion() {
   const esJuridica = tipoDetectado === 'juridica'
 
   const paso0Valido =
+    (!bloquearIdentidad || (!cargandoPerfil && !errorPerfil)) &&
     tipoDetectado !== null &&
     nombreValido &&
     (!esJuridica ||
@@ -335,17 +416,14 @@ function Afiliacion() {
         IDENTIFICACION_REGEX.test(draft.cedulaRepresentante)))
 
   // ---------- Paso 1: contacto ----------
-  const telefonoValido = TELEFONO_REGEX.test(draft.telefono)
+  const telefonoValido = esTelefonoValido(draft.telefono)
   const telefonoSecundarioValido =
-    draft.telefonoSecundario.trim() === '' || TELEFONO_REGEX.test(draft.telefonoSecundario)
+    draft.telefonoSecundario.trim() === '' || esTelefonoValido(draft.telefonoSecundario)
   const correoValido = EMAIL_REGEX.test(draft.correo)
   const paso1Valido = telefonoValido && correoValido && telefonoSecundarioValido
 
   // ---------- Paso 2: ubicación ----------
   const paso2Valido =
-    draft.provincia !== '' &&
-    draft.canton !== '' &&
-    draft.distrito !== '' &&
     draft.direccion.trim() !== '' &&
     draft.numeroPlano.trim() !== ''
 
@@ -368,6 +446,13 @@ function Afiliacion() {
       const file = e.target.files?.[0] ?? null
       if (file && !validarExtension(file.name)) {
         setError(mensajeError)
+        setter(null)
+        e.target.value = ''
+        return
+      }
+      // Mismo límite de peso que el backend (PBI 511).
+      if (file && file.size > MAX_TAMANO_DOCUMENTO) {
+        setError(`El archivo no puede superar los ${MAX_TAMANO_DOCUMENTO / MB} MB.`)
         setter(null)
         e.target.value = ''
         return
@@ -395,6 +480,34 @@ function Afiliacion() {
 
   const nombreFinal = draft.nombreSolicitante || 'vecino/a'
 
+  const armarDatosDocumento = (
+    codigo?: string | null,
+    fecha?: Date | string | null,
+  ): DatosDocumentoSolicitud => ({
+    codigoSolicitud: codigo ?? null,
+    fecha: fecha ?? new Date(),
+    tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
+    nombreSolicitante: draft.nombreSolicitante,
+    identificacion: normalizarIdentificacion(draft.identificacion),
+    nombreRepresentante: esJuridica ? draft.nombreRepresentante : null,
+    cedulaRepresentante: esJuridica
+      ? normalizarIdentificacion(draft.cedulaRepresentante)
+      : null,
+    telefono: normalizarTelefono(draft.telefono),
+    telefonoSecundario: normalizarTelefono(draft.telefonoSecundario) || null,
+    correo: draft.correo,
+    provincia: UBICACION_ASADA.provincia,
+    canton: UBICACION_ASADA.canton,
+    distrito: UBICACION_ASADA.distrito,
+    direccion: draft.direccion,
+    numeroPlano: draft.numeroPlano,
+    naturalezaInmueble: draft.naturalezaInmueble,
+    calidadTitular: draft.calidadTitular,
+    tipoServicio: draft.tipoServicio,
+    tipoConexion: draft.tipoConexion,
+    observaciones: draft.observaciones || null,
+  })
+
   const handleSubmit = async () => {
     if (!paso4Valido || !permisosMunicipales || !cartaSolicitud || !cedulaFrente || !cedulaDorso)
       return
@@ -410,12 +523,12 @@ function Afiliacion() {
         cedulaRepresentante: esJuridica
           ? normalizarIdentificacion(draft.cedulaRepresentante)
           : undefined,
-        telefono: draft.telefono,
-        telefonoSecundario: draft.telefonoSecundario || undefined,
+        telefono: normalizarTelefono(draft.telefono),
+        telefonoSecundario: normalizarTelefono(draft.telefonoSecundario) || undefined,
         correo: draft.correo,
-        provincia: draft.provincia,
-        canton: draft.canton,
-        distrito: draft.distrito,
+        provincia: UBICACION_ASADA.provincia,
+        canton: UBICACION_ASADA.canton,
+        distrito: UBICACION_ASADA.distrito,
         direccion: draft.direccion,
         numeroPlano: draft.numeroPlano,
         naturalezaInmueble: draft.naturalezaInmueble,
@@ -433,36 +546,9 @@ function Afiliacion() {
       setEnviado(true)
 
       // Generar el documento lleno para poder verlo/descargarlo de una vez.
-      // Se arma con los datos que la persona ACABA de escribir (no hace
-      // falta volver a pedirle nada al backend) + los datos reales de la
-      // ASADA (dirección/teléfono/correo), que sí vienen de Configuracion.
       try {
-        const configuracion = await obtenerConfiguracion()
-        const datosDocumento: DatosDocumentoSolicitud = {
-          codigoSolicitud: creada.codigo_solicitud,
-          fecha: creada.fecha_solicitud,
-          tipoPersona: tipoDetectado === 'juridica' ? 'juridica' : 'fisica',
-          nombreSolicitante: draft.nombreSolicitante,
-          identificacion: normalizarIdentificacion(draft.identificacion),
-          nombreRepresentante: esJuridica ? draft.nombreRepresentante : null,
-          cedulaRepresentante: esJuridica
-            ? normalizarIdentificacion(draft.cedulaRepresentante)
-            : null,
-          telefono: draft.telefono,
-          telefonoSecundario: draft.telefonoSecundario || null,
-          correo: draft.correo,
-          provincia: draft.provincia,
-          canton: draft.canton,
-          distrito: draft.distrito,
-          direccion: draft.direccion,
-          numeroPlano: draft.numeroPlano,
-          naturalezaInmueble: draft.naturalezaInmueble,
-          calidadTitular: draft.calidadTitular,
-          tipoServicio: draft.tipoServicio,
-          tipoConexion: draft.tipoConexion,
-          observaciones: draft.observaciones || null,
-        }
-        setDocumentoBlob(await generarDocumentoSolicitud(datosDocumento, configuracion))
+        const datosDocumento = armarDatosDocumento(creada.codigo_solicitud, creada.fecha_solicitud)
+        setDocumentoBlob(await generarPdfSolicitud(datosDocumento))
       } catch {
         // No es crítico: la solicitud YA se guardó. Solo no se podrá
         // ver/descargar el documento formal desde esta pantalla.
@@ -475,7 +561,7 @@ function Afiliacion() {
       // reiniciar la casilla, porque reintentar con el mismo token siempre
       // sería rechazado por el backend.
       recaptchaRef.current?.reiniciar()
-      setTokenRecaptcha(null)
+      setTokenRecaptcha(tokenInicialRecaptcha())
       const mensaje =
         error instanceof Error && error.message
           ? error.message
@@ -487,14 +573,24 @@ function Afiliacion() {
   }
 
   return (
-    <section className="mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8">
-      <Link to="/" className="text-sm font-medium text-primary-700 hover:underline">
-        ← Volver al inicio
-      </Link>
+    <section
+      className={
+        esDashboard
+          ? 'mx-auto max-w-2xl'
+          : 'mx-auto max-w-2xl px-4 py-6 sm:px-6 lg:px-8'
+      }
+    >
+      {!esDashboard && (
+        <Link to="/" className="text-sm font-medium text-primary-700 hover:underline">
+          ← Volver al inicio
+        </Link>
+      )}
 
-      <h1 className="mt-2 text-center text-2xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-3xl">
-        Solicitud de paja de agua
-      </h1>
+      {!esDashboard && (
+        <h1 className="mt-2 text-center text-2xl font-title font-bold tracking-normal text-primary-900 uppercase sm:text-3xl">
+          Solicitud de paja de agua
+        </h1>
+      )}
 
       {enviado ? (
         <div className="mt-8 rounded-2xl bg-primary-50 p-8 text-center">
@@ -514,18 +610,18 @@ function Afiliacion() {
 
           {documentoBlob && (
             <div className="mt-5 flex flex-wrap justify-center gap-3">
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={() =>
-                  descargarDocumentoSolicitud(
+                  descargarPdfSolicitud(
                     documentoBlob,
-                    solicitudCreada?.codigo_solicitud ?? 'paja-de-agua',
+                    solicitudCreada?.codigo_solicitud ?? null,
+                    solicitudCreada?.fecha_solicitud ?? new Date(),
                   )
-                }
-                className="rounded-full bg-primary-700 px-5 py-2.5 text-sm font-semibold text-white hover:bg-primary-800"
-              >
-                Descargar documento (Word)
-              </button>
+                }>
+                Descargar copia (PDF)
+              </Button>
             </div>
           )}
           {errorDocumento && (
@@ -533,10 +629,10 @@ function Afiliacion() {
           )}
 
           <Link
-            to="/"
+            to={esDashboard ? '/dashboard' : '/'}
             className="mt-6 inline-block text-sm font-medium text-primary-700 hover:underline"
           >
-            Volver al inicio
+            {esDashboard ? 'Volver al panel' : 'Volver al inicio'}
           </Link>
         </div>
       ) : (
@@ -586,7 +682,7 @@ function Afiliacion() {
           )}
 
           {huboDraftExpirado && paso === 0 && (
-            <p className="mt-2 rounded-lg bg-yellow-50 px-3 py-2 text-center text-xs text-yellow-700">
+            <p className="mt-2 rounded-lg bg-advertencia-50 px-3 py-2 text-center text-xs text-advertencia-700">
               Tu solicitud anterior venció (pasaron más de 3 días) y tuvimos que reiniciarla.
               Empezá de nuevo cuando quieras.
             </p>
@@ -597,7 +693,61 @@ function Afiliacion() {
               la altura de la pantalla dejando un vacío enorme abajo. El
               valor cubre el paso más cargado (Ubicación) sin scroll. */}
           <div className="mt-4 min-h-[280px] rounded-2xl border border-primary-100 p-4 sm:min-h-[300px] sm:p-5">
-            {paso === 0 && (
+            {paso === 0 && bloquearIdentidad && (
+              <div className="space-y-3">
+                <p className="text-xs text-primary-600">
+                  Tu identidad se toma de tu cuenta registrada y no se puede modificar acá, para
+                  que nadie pueda tramitar una solicitud a nombre de otra persona. Si necesitás
+                  hacer este trámite a nombre de alguien más, hacelo directamente con la
+                  administración.
+                </p>
+
+                {cargandoPerfil && (
+                  <Cargando texto="Cargando tus datos..." />
+                )}
+
+                {errorPerfil && (
+                  <Alerta tipo="error">
+                    {errorPerfil}
+                  </Alerta>
+                )}
+
+                {!cargandoPerfil && !errorPerfil && (
+                  <div className="rounded-lg bg-primary-50 px-3 py-2 text-sm text-primary-800">
+                    {tipoDetectado && (
+                      <p className="text-xs font-medium text-primary-600">
+                        {etiquetaTipo(tipoDetectado)}
+                      </p>
+                    )}
+                    <p className="mt-1">
+                      {esJuridica ? 'Razón social:' : 'Nombre:'}{' '}
+                      <span className="font-semibold">{draft.nombreSolicitante}</span>
+                    </p>
+                    <p className="mt-1">
+                      Identificación: <span className="font-semibold">{draft.identificacion}</span>
+                    </p>
+                    {esJuridica && (
+                      <>
+                        <p className="mt-2 border-t border-primary-100 pt-2">
+                          Representante legal:{' '}
+                          <span className="font-semibold">
+                            {draft.nombreRepresentante || '—'}
+                          </span>
+                        </p>
+                        <p className="mt-1">
+                          Cédula del representante:{' '}
+                          <span className="font-semibold">
+                            {draft.cedulaRepresentante || '—'}
+                          </span>
+                        </p>
+                      </>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {paso === 0 && !bloquearIdentidad && (
               <div className="space-y-3">
                 <p className="text-xs text-primary-600">
                   Ingresá tu número de identificación: detectamos automáticamente si sos
@@ -618,14 +768,14 @@ function Afiliacion() {
                       disabled={lookupStatus === 'found'}
                     />
                     {lookupStatus !== 'found' && (
-                      <button
+                      <Button
+                        variant="primary" size="sm"
                         type="button"
                         onClick={buscarIdentificacion}
                         disabled={!tipoDetectado || lookupStatus === 'loading'}
-                        className="flex-none rounded-full bg-primary-700 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                      >
+                        className="flex-none">
                         {lookupStatus === 'loading' ? 'Buscando...' : 'Buscar'}
-                      </button>
+                      </Button>
                     )}
                   </div>
                   {tipoDetectado && (
@@ -695,17 +845,17 @@ function Afiliacion() {
                           placeholder="Ej. 1-2345-6789"
                           className={`${inputCls} mt-0 flex-1`}
                         />
-                        <button
+                        <Button
+                          variant="primary" size="sm"
                           type="button"
                           onClick={buscarRepresentante}
                           disabled={
                             draft.cedulaRepresentante.replace(/\D/g, '').length !== 9 ||
                             lookupRepStatus === 'loading'
                           }
-                          className="flex-none rounded-full bg-primary-700 px-4 py-2 text-xs font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
+                          className="flex-none">
                           {lookupRepStatus === 'loading' ? 'Buscando...' : 'Buscar'}
-                        </button>
+                        </Button>
                       </div>
                     </div>
                     <div>
@@ -732,33 +882,27 @@ function Afiliacion() {
                     <label htmlFor="telefono" className={labelCls}>
                       Teléfono principal
                     </label>
-                    <input
+                    <Telefono
                       id="telefono"
-                      type="tel"
                       value={draft.telefono}
-                      onChange={(e) => actualizar('telefono', e.target.value)}
-                      placeholder="8888-8888"
-                      className={inputCls}
+                      onChange={(v) => actualizar('telefono', v)}
+                      error={draft.telefono.trim() !== '' && !telefonoValido ? MENSAJE_TELEFONO_INVALIDO : null}
                     />
-                    {draft.telefono.trim() !== '' && !telefonoValido && (
-                      <p className="mt-1 text-xs text-red-500">Formato inválido. Usa 8888-8888</p>
-                    )}
                   </div>
                   <div>
                     <label htmlFor="telefonoSecundario" className={labelCls}>
                       Teléfono secundario (opcional)
                     </label>
-                    <input
+                    <Telefono
                       id="telefonoSecundario"
-                      type="tel"
                       value={draft.telefonoSecundario}
-                      onChange={(e) => actualizar('telefonoSecundario', e.target.value)}
-                      placeholder="8888-8888"
-                      className={inputCls}
+                      onChange={(v) => actualizar('telefonoSecundario', v)}
+                      error={
+                        draft.telefonoSecundario.trim() !== '' && !telefonoSecundarioValido
+                          ? MENSAJE_TELEFONO_INVALIDO
+                          : null
+                      }
                     />
-                    {draft.telefonoSecundario.trim() !== '' && !telefonoSecundarioValido && (
-                      <p className="mt-1 text-xs text-red-500">Formato inválido. Usa 8888-8888</p>
-                    )}
                   </div>
                 </div>
                 <div>
@@ -773,7 +917,7 @@ function Afiliacion() {
                     className={inputCls}
                   />
                   {draft.correo.trim() !== '' && !correoValido && (
-                    <p className="mt-1 text-xs text-red-500">El correo no es válido</p>
+                    <p className="mt-1 text-xs text-error-600">El correo no es válido</p>
                   )}
                 </div>
                 <p className="text-xs text-primary-500">
@@ -784,47 +928,6 @@ function Afiliacion() {
 
             {paso === 2 && (
               <div className="space-y-3">
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                  <div>
-                    <label htmlFor="provincia" className={labelCls}>
-                      Provincia
-                    </label>
-                    <input
-                      id="provincia"
-                      type="text"
-                      value={draft.provincia}
-                      onChange={(e) => actualizar('provincia', e.target.value)}
-                      placeholder="Ej. Puntarenas"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="canton" className={labelCls}>
-                      Cantón
-                    </label>
-                    <input
-                      id="canton"
-                      type="text"
-                      value={draft.canton}
-                      onChange={(e) => actualizar('canton', e.target.value)}
-                      placeholder="Ej. Puntarenas"
-                      className={inputCls}
-                    />
-                  </div>
-                  <div>
-                    <label htmlFor="distrito" className={labelCls}>
-                      Distrito
-                    </label>
-                    <input
-                      id="distrito"
-                      type="text"
-                      value={draft.distrito}
-                      onChange={(e) => actualizar('distrito', e.target.value)}
-                      placeholder="Ej. Paquera"
-                      className={inputCls}
-                    />
-                  </div>
-                </div>
                 <div>
                   <label htmlFor="direccion" className={labelCls}>
                     Dirección exacta del inmueble
@@ -967,7 +1070,7 @@ function Afiliacion() {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoCedulaFrente && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaFrente}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoCedulaFrente}</p>
                     )}
                   </div>
                   <div>
@@ -987,7 +1090,7 @@ function Afiliacion() {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoCedulaDorso && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoCedulaDorso}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoCedulaDorso}</p>
                     )}
                   </div>
                 </div>
@@ -1004,7 +1107,7 @@ function Afiliacion() {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoPermisos && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoPermisos}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoPermisos}</p>
                     )}
                   </div>
                   <div>
@@ -1019,7 +1122,7 @@ function Afiliacion() {
                       className="mt-1 w-full text-xs text-primary-700 file:mr-3 file:rounded-full file:border-0 file:bg-primary-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold file:text-primary-700 hover:file:bg-primary-200"
                     />
                     {errorArchivoCarta && (
-                      <p className="mt-1 text-xs text-red-500">{errorArchivoCarta}</p>
+                      <p className="mt-1 text-xs text-error-600">{errorArchivoCarta}</p>
                     )}
                   </div>
                 </div>
@@ -1042,45 +1145,42 @@ function Afiliacion() {
 
                 {/* Verificación anti-bots: va en el último paso, justo
                     antes de enviar, porque el token dura pocos minutos. */}
+                {RECAPTCHA_HABILITADO && (
                 <Recaptcha ref={recaptchaRef} onCambio={setTokenRecaptcha} />
+              )}
 
-                {errorSubmit && (
-                  <p className="rounded-lg bg-red-50 p-2 text-xs font-medium text-red-600">
-                    {errorSubmit}
-                  </p>
-                )}
+                {errorSubmit && <Alerta tipo="error">{errorSubmit}</Alerta>}
               </div>
             )}
           </div>
 
           {/* Navegación: Atrás / Siguiente (o Enviar en el último paso) */}
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <button
+          <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
+            <Button
+              variant="secondary"
               type="button"
               onClick={irAtras}
-              disabled={paso === 0}
-              className="rounded-full border border-primary-200 px-5 py-2 text-sm font-semibold text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40"
-            >
+              disabled={paso === 0}>
               Atrás
-            </button>
+            </Button>
             {paso < TOTAL_PASOS - 1 ? (
-              <button
+              <Button
+                variant="primary"
                 type="button"
                 onClick={irSiguiente}
-                disabled={!pasoActualValido}
-                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
+                disabled={!pasoActualValido}>
                 Siguiente
-              </button>
+              </Button>
             ) : (
-              <button
-                type="button"
-                onClick={handleSubmit}
-                disabled={!paso4Valido || enviando || !tokenRecaptcha}
-                className="rounded-full bg-primary-700 px-6 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {enviando ? 'Enviando...' : 'Enviar solicitud'}
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                <Button
+                  variant="primary"
+                  type="button"
+                  onClick={handleSubmit}
+                  disabled={!paso4Valido || enviando || !tokenRecaptcha}>
+                  {enviando ? 'Enviando...' : 'Enviar solicitud'}
+                </Button>
+              </div>
             )}
           </div>
         </div>

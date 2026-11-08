@@ -1,21 +1,17 @@
+import Alerta from '../../components/ui/Alerta'
+import { Notificar } from '../../components/ui/ToastProvider'
 import { useState, useEffect, type FormEvent } from 'react'
-import { useNavigate, useLocation, Link } from 'react-router-dom'
+import { obtenerMensajeError as mensajeDeError } from '../../components/Services/erroresApi'
+import { useNavigate, useLocation, Link, type To } from 'react-router-dom'
 import axios from 'axios'
 import { useAuth } from '../../contexts/AuthContext'
 import AuthLayout from '../../components/auth/AuthLayout'
 import { OjoAbiertoIcon, OjoCerradoIcon } from '../../components/auth/EyeIcons'
+import Button from '../../components/ui/Button'
 
-// Traduce errores de red/validación del backend a un mensaje legible.
+// Lector único de errores de la API (PBI 511 / Task 516).
 function obtenerMensajeError(error: unknown): string {
-  if (axios.isAxiosError<{ message?: string | string[] }>(error)) {
-    if (error.code === 'ERR_NETWORK') {
-      return 'No se pudo conectar con el servidor. Inténtalo más tarde.'
-    }
-    const msg = error.response?.data?.message
-    if (typeof msg === 'string') return msg
-    if (Array.isArray(msg)) return msg.join('. ')
-  }
-  return 'Ocurrió un error. Intenta de nuevo.'
+  return mensajeDeError(error, 'Ocurrió un error. Intenta de nuevo.')
 }
 
 // El backend envía Retry-After en segundos (tiempo restante real de bloqueo).
@@ -30,12 +26,14 @@ function formatearTiempo(segundos: number): string {
 }
 
 function Login() {
-  const { login } = useAuth()
+  const { login, sesionExpirada } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from =
-    (location.state as { from?: { pathname: string } })?.from?.pathname ||
-    '/dashboard'
+  // Ruta original a la que regresar al iniciar sesión (la marca ProtectedRoute
+  // con `state={{ from: location }}`). Se conserva COMPLETA como `To`
+  // (pathname + search + hash), no solo el pathname: si no, se pierden los
+  // query params de la sección a la que intentaba volver.
+  const from = (location.state as { from?: To } | null)?.from ?? '/dashboard'
   // Mensaje de éxito opcional que llega al redirigir desde otro flujo (por
   // ejemplo, tras restablecer la contraseña — ver RestablecerPassword.tsx).
   const mensajeExito = (
@@ -92,12 +90,15 @@ function Login() {
 
   return (
     <AuthLayout subtitle="Sistema de Información de Abonados Pueblo Nuevo">
-      {mensajeExito && (
-        <div
-          role="status"
-          className="mb-4 rounded-lg border border-green-300 bg-green-50 p-3 text-sm text-green-800"
-        >
-          {mensajeExito}
+      <Notificar mensaje={mensajeExito} />
+
+      {/* Señal de que llegó hasta aquí con la sesión cortada (AuthContext la
+          enciende cuando falla el refresh del interceptor). */}
+      {sesionExpirada && (
+        <div className="mb-4">
+          <Alerta tipo="advertencia">
+            Tu sesión ha expirado. Inicia de nuevo para continuar donde ibas.
+          </Alerta>
         </div>
       )}
 
@@ -157,7 +158,7 @@ function Login() {
         {bloqueoSegundos > 0 ? (
           <div
             role="alert"
-            className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800"
+            className="rounded-lg border border-advertencia-300 bg-advertencia-50 p-3 text-sm text-advertencia-800"
           >
             <p className="font-semibold">
               Demasiados intentos fallidos de inicio de sesión.
@@ -173,19 +174,19 @@ function Login() {
           </div>
         ) : (
           error && (
-            <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-600">
+            <Alerta tipo="error">
               {error}
-            </p>
+            </Alerta>
           )
         )}
 
-        <button
+        <Button
+          variant="primary"
           type="submit"
           disabled={!puedeEnviar || loading || bloqueoSegundos > 0}
-          className="w-full rounded-full bg-primary-700 px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-primary-800 disabled:cursor-not-allowed disabled:opacity-60"
-        >
+          className="w-full">
           {loading ? 'Ingresando...' : 'Iniciar sesión'}
-        </button>
+        </Button>
 
         <Link
           to="/recuperar-password"

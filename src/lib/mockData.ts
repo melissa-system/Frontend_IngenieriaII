@@ -339,23 +339,23 @@ export const MOCK_AVERIAS_ADMIN: AveriaAdmin[] = [
     observaciones: [],
   },
   {
-    id: '4', tipo: 'Contador da\u00f1ado',
-    descripcion: 'Medidor no registra consumo, parece da\u00f1ado',
-    reportadoPor: 'Luc\u00eda Fern\u00e1ndez', cedula: '3-6789-0123',
+    id: '4', tipo: 'Medidor dañado',
+    descripcion: 'Medidor no registra consumo, parece dañado',
+    reportadoPor: 'Lucía Fernández', cedula: '3-6789-0123',
     telefono: '8888-6666', correo: 'lucia@email.com',
     direccion: 'Frente al cementerio, Pueblo Nuevo',
-    fecha: '2026-07-23', estado: 'En progreso', fontaneroAsignado: 'Pedro S\u00e1nchez',
+    fecha: '2026-07-23', estado: 'En progreso', fontaneroAsignado: 'Pedro Sánchez',
     historial: [
-      { fecha: '2026-07-24 09:00', estadoAnterior: 'Asignada', estadoNuevo: 'En progreso', realizadoPor: 'Pedro S\u00e1nchez', observacion: 'Revisi\u00f3n en campo iniciada.' },
-      { fecha: '2026-07-23 15:30', estadoAnterior: 'Pendiente', estadoNuevo: 'Asignada', realizadoPor: 'Administrador SIAPB', observacion: 'Asignado a Pedro S\u00e1nchez.' },
-      { fecha: '2026-07-23 11:00', estadoAnterior: '', estadoNuevo: 'Pendiente', realizadoPor: 'Luc\u00eda Fern\u00e1ndez', observacion: 'Reporte creado por el abonado.' },
+      { fecha: '2026-07-24 09:00', estadoAnterior: 'Asignada', estadoNuevo: 'En progreso', realizadoPor: 'Pedro Sánchez', observacion: 'Revisión en campo iniciada.' },
+      { fecha: '2026-07-23 15:30', estadoAnterior: 'Pendiente', estadoNuevo: 'Asignada', realizadoPor: 'Administrador SIAPB', observacion: 'Asignado a Pedro Sánchez.' },
+      { fecha: '2026-07-23 11:00', estadoAnterior: '', estadoNuevo: 'Pendiente', realizadoPor: 'Lucía Fernández', observacion: 'Reporte creado por el abonado.' },
     ],
     observaciones: [
-      { fecha: '2026-07-24 09:00', texto: 'Medidor presenta da\u00f1o f\u00edsico en la tapa y el registro. Se solicitar\u00e1 reemplazo.', realizadoPor: 'Pedro S\u00e1nchez' },
+      { fecha: '2026-07-24 09:00', texto: 'Medidor presenta daño físico en la tapa y el registro. Se solicitará reemplazo.', realizadoPor: 'Pedro Sánchez' },
     ],
   },
   {
-    id: '5', tipo: 'Fuga en la v\u00eda p\u00fablica',
+    id: '5', tipo: 'Fuga en vía pública',
     descripcion: 'Agua brotando en la calle principal cerca del sal\u00f3n comunal',
     reportadoPor: 'Diego Mora', cedula: '3-9012-3456',
     telefono: '8888-9999', correo: 'diego@email.com',
@@ -399,9 +399,9 @@ export const MOCK_SOLICITUDES_POR_TIPO = [
 ]
 
 export const MOCK_AVERIAS_POR_TIPO = [
-  { name: 'Fuga de agua', value: 12 },
-  { name: 'Tuber\u00eda rota', value: 8 },
-  { name: 'Falta de presi\u00f3n', value: 6 },
-  { name: 'Contador da\u00f1ado', value: 4 },
-  { name: 'Fuga v\u00eda p\u00fablica', value: 5 },
+  { name: 'Fuga en vía pública', value: 12 },
+  { name: 'Fuga en domicilio', value: 8 },
+  { name: 'Falta de presión / sin agua', value: 6 },
+  { name: 'Medidor dañado', value: 4 },
+  { name: 'Otro', value: 5 },
 ]

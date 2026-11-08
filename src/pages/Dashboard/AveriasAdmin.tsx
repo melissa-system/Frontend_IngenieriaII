@@ -1,3 +1,8 @@
+import Paginador from '../../components/ui/Paginador'
+import Alerta from '../../components/ui/Alerta'
+import { FilaVacia } from '../../components/ui/EmptyState'
+import ErrorState from '../../components/ui/ErrorState'
+import Cargando from '../../components/ui/Cargando'
 import { useState, useEffect, useMemo } from 'react'
 import {
   obtenerAverias,
@@ -6,17 +11,19 @@ import {
 } from '../../components/Services/averias.service'
 import { obtenerEmpleados } from '../../components/Services/empleados.service'
 import { useAuth } from '../../contexts/AuthContext'
+import Table from '../../components/ui/Table'
+import Button from '../../components/ui/Button'
+import Modal, { ModalTitulo } from '../../components/ui/Modal'
 
 const POR_PAGINA = 10
 
 const ESTADO_COLORS: Record<string, string> = {
-  Pendiente: 'bg-yellow-100 text-yellow-700',
-  'En proceso': 'bg-indigo-100 text-indigo-700',
-  Finalizado: 'bg-green-100 text-green-700',
+  Pendiente: 'bg-advertencia-100 text-advertencia-700',
+  'En proceso': 'bg-acento-100 text-acento-700',
+  'En revisión': 'bg-info-100 text-info-700',
+  Finalizado: 'bg-exito-100 text-exito-700',
 }
 
-const modalBgCls = 'fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4'
-const modalCls = 'max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-white p-6 shadow-xl'
 
 function normalizarBusqueda(s: string): string {
   return s
@@ -35,17 +42,49 @@ function nombreFontanero(a: AveriaBackend) {
   return `${a.empleado.nombre} ${a.empleado.apellido1 || ''} ${a.empleado.apellido2 || ''}`.trim()
 }
 
-function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null; onClose: () => void }) {
-  if (!viewDetail) return null
-  const a = viewDetail
-  const fontanero = nombreFontanero(a)
+function GestionModal({
+  averia,
+  onClose,
+  onGuardar,
+  asignarFontanero,
+  setAsignarFontanero,
+  asignarObs,
+  setAsignarObs,
+  nuevoEstado,
+  setNuevoEstado,
+  empleados,
+  procesando,
+  errorGestion,
+}: {
+  averia: AveriaBackend
+  onClose: () => void
+  onGuardar: () => void
+  asignarFontanero: string
+  setAsignarFontanero: (v: string) => void
+  asignarObs: string
+  setAsignarObs: (v: string) => void
+  nuevoEstado: string
+  setNuevoEstado: (v: string) => void
+  empleados: Array<{ id: number; nombre: string; cedula: string; puesto: string }>
+  procesando: boolean
+  errorGestion: string | null
+}) {
+  const a = averia
+  const esPendiente = a.estado === 'Pendiente'
+  const gestionable = a.estado !== 'Finalizado'
+  const fontaneroActual = nombreFontanero(a)
+
   return (
-    <div className={modalBgCls}>
-      <div className={modalCls}>
+    <Modal size="2xl" onCerrar={onClose}>
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">{a.tipo_averia}</h2>
+          <div className="flex items-center gap-3">
+            <ModalTitulo>{a.tipo_averia}</ModalTitulo>
+            <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>
+              {a.estado}
+            </span>
+          </div>
           <button type="button" onClick={onClose}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
+            className="rounded-full p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
             <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
@@ -53,7 +92,7 @@ function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null
         </div>
 
         <div className="space-y-5">
-          <div className="grid grid-cols-2 gap-x-6 gap-y-2 rounded-lg bg-primary-50 p-4 text-sm">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-2 break-words rounded-lg bg-primary-50 p-4 text-sm">
             <span className="font-medium text-primary-700">Código:</span>
             <span className="font-mono text-primary-900">{a.codigo_averia}</span>
             <span className="font-medium text-primary-700">Tipo:</span>
@@ -74,14 +113,8 @@ function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null
             <span className="text-primary-900">
               {new Date(a.fecha_reporte).toLocaleDateString('es-CR', { timeZone: 'America/Costa_Rica' })}
             </span>
-            <span className="font-medium text-primary-700">Estado actual:</span>
-            <span>
-              <span className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>
-                {a.estado}
-              </span>
-            </span>
             <span className="font-medium text-primary-700">Fontanero:</span>
-            <span className="text-primary-900">{fontanero || <span className="text-primary-400">Sin asignar</span>}</span>
+            <span className="text-primary-900">{fontaneroActual || <span className="text-primary-400">Sin asignar</span>}</span>
           </div>
 
           {a.imagen_url && (
@@ -106,7 +139,7 @@ function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null
                     <div className="flex-1 space-y-1">
                       <div className="flex flex-wrap items-center gap-2">
                         {h.estado_anterior && (
-                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[h.estado_anterior] || 'bg-gray-100 text-gray-600'}`}>
+                          <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[h.estado_anterior] || 'bg-primary-100 text-primary-600'}`}>
                             {h.estado_anterior}
                           </span>
                         )}
@@ -126,121 +159,81 @@ function DetailModal({ viewDetail, onClose }: { viewDetail: AveriaBackend | null
               </div>
             )}
           </div>
-        </div>
 
-        <div className="mt-6 flex justify-end">
-          <button type="button" onClick={onClose}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
-            Cerrar
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
+          {gestionable && (
+            <div className="rounded-xl border border-primary-100 p-4">
+              <h3 className="mb-3 text-sm font-semibold text-primary-900">Gestión</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">Cambiar estado</label>
+                  <select value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}
+                    disabled={!asignarFontanero && !fontaneroActual}
+                    className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
+                    <option value="">Mantener: {a.estado}</option>
+                    {/* "En proceso" no se ofrece: lo asigna el sistema al
+                        asignar el fontanero. */}
+                    {['Pendiente', 'Finalizado']
+                      .filter((e) => e !== a.estado)
+                      .map((e) => (
+                        <option key={e} value={e}>{e}</option>
+                      ))}
+                  </select>
+                  {!asignarFontanero && !fontaneroActual && (
+                    <p className="mt-1 text-xs text-advertencia-700">Debe asignar un fontanero antes de cambiar el estado.</p>
+                  )}
+                </div>
 
-function GestionModal({
-  averia,
-  onClose,
-  onGuardar,
-  asignarFontanero,
-  setAsignarFontanero,
-  asignarObs,
-  setAsignarObs,
-  nuevoEstado,
-  setNuevoEstado,
-  empleados,
-  procesando,
-}: {
-  averia: AveriaBackend
-  onClose: () => void
-  onGuardar: () => void
-  asignarFontanero: string
-  setAsignarFontanero: (v: string) => void
-  asignarObs: string
-  setAsignarObs: (v: string) => void
-  nuevoEstado: string
-  setNuevoEstado: (v: string) => void
-  empleados: Array<{ id: number; nombre: string; cedula: string; puesto: string }>
-  procesando: boolean
-}) {
-  const a = averia
-  const esPendiente = a.estado === 'Pendiente'
-  const fontaneroActual = nombreFontanero(a)
+                {esPendiente && (
+                  <div>
+                    <label className="block text-sm font-medium text-primary-700">Asignar Fontanero</label>
+                    <select value={asignarFontanero} onChange={(e) => setAsignarFontanero(e.target.value)}
+                      className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
+                      <option value="">Seleccionar fontanero...</option>
+                      {empleados.map((emp) => (
+                        <option key={emp.id} value={emp.nombre}>{emp.nombre}</option>
+                      ))}
+                    </select>
+                    <p className="mt-1 text-xs text-primary-500">
+                      Al asignar, la avería pasa a “En proceso” automáticamente.
+                    </p>
+                  </div>
+                )}
 
-  return (
-    <div className={modalBgCls}>
-      <div className="w-full max-w-lg rounded-xl bg-white p-6 shadow-xl">
-        <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-primary-900">Gestionar Avería</h2>
-          <button type="button" onClick={onClose}
-            className="rounded-lg p-1 text-primary-400 hover:bg-primary-100 hover:text-primary-700">
-            <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        <div className="space-y-2 rounded-lg bg-primary-50 p-3 text-sm">
-          <p><span className="font-medium text-primary-700">Avería:</span> {a.tipo_averia}</p>
-          <p><span className="font-medium text-primary-700">Reportado por:</span> {nombreReportante(a)}</p>
-          <p><span className="font-medium text-primary-700">Estado actual:</span> <span className={`inline-block rounded-full px-2 py-0.5 text-xs font-semibold ${ESTADO_COLORS[a.estado]}`}>{a.estado}</span></p>
-          {fontaneroActual && (
-            <p><span className="font-medium text-primary-700">Fontanero actual:</span> {fontaneroActual}</p>
-          )}
-        </div>
-
-        <div className="mt-4 space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Cambiar estado</label>
-            <select value={nuevoEstado} onChange={(e) => setNuevoEstado(e.target.value)}
-              disabled={!asignarFontanero && !fontaneroActual}
-              className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm text-primary-700 focus:border-primary-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed">
-              <option value="">Mantener: {a.estado}</option>
-              {['Pendiente', 'En proceso', 'Finalizado']
-                .filter((e) => e !== a.estado)
-                .map((e) => (
-                  <option key={e} value={e}>{e}</option>
-                ))}
-            </select>
-            {!asignarFontanero && !fontaneroActual && (
-              <p className="mt-1 text-xs text-amber-600">Debe asignar un fontanero antes de cambiar el estado.</p>
-            )}
-          </div>
-
-          {esPendiente && (
-            <div>
-              <label className="block text-sm font-medium text-primary-700">Asignar Fontanero</label>
-              <select value={asignarFontanero} onChange={(e) => setAsignarFontanero(e.target.value)}
-                className="mt-1 w-full rounded-full border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none">
-                <option value="">Seleccionar fontanero...</option>
-                {empleados.map((emp) => (
-                  <option key={emp.id} value={emp.nombre}>{emp.nombre}</option>
-                ))}
-              </select>
+                <div>
+                  <label className="block text-sm font-medium text-primary-700">Observaciones</label>
+                  <textarea value={asignarObs} onChange={(e) => setAsignarObs(e.target.value)}
+                    rows={2} maxLength={1000} placeholder="Notas o instrucciones..."
+                    className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none" />
+                  <p className="mt-1 text-right text-xs text-primary-400">{asignarObs.length}/1000</p>
+                </div>
+              </div>
             </div>
           )}
-
-          <div>
-            <label className="block text-sm font-medium text-primary-700">Observaciones</label>
-            <textarea value={asignarObs} onChange={(e) => setAsignarObs(e.target.value)}
-              rows={3} placeholder="Notas o instrucciones..."
-              className="mt-1 w-full rounded-lg border border-primary-200 px-3 py-2 text-sm focus:border-primary-500 focus:outline-none" />
-          </div>
         </div>
+
+        {errorGestion && (
+          <Alerta tipo="error" className="mt-4">
+            {errorGestion}
+          </Alerta>
+        )}
 
         <div className="mt-6 flex justify-end gap-3">
-          <button type="button" onClick={onGuardar} disabled={procesando}
-            className="rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800 disabled:opacity-50">
-            {procesando ? 'Guardando...' : 'Guardar cambios'}
-          </button>
-          <button type="button" onClick={onClose}
-            className="rounded-lg border border-primary-200 px-4 py-2 text-sm font-medium text-primary-700 hover:bg-primary-50">
-            Cancelar
-          </button>
+          {gestionable ? (
+            <>
+              <Button variant="primary" type="button" onClick={onGuardar} disabled={procesando}>
+                {procesando ? 'Guardando...' : 'Guardar cambios'}
+              </Button>
+              <Button variant="secondary" type="button" onClick={onClose}>
+                Cancelar
+              </Button>
+            </>
+          ) : (
+            <Button variant="primary" type="button" onClick={onClose}>
+              Cerrar
+            </Button>
+          )}
         </div>
-      </div>
-    </div>
+</Modal>
   )
 }
 
@@ -256,7 +249,6 @@ function AveriasAdmin() {
   const [filter, setFilter] = useState('Todas')
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc')
 
-  const [viewDetail, setViewDetail] = useState<AveriaBackend | null>(null)
   const [gestionModal, setGestionModal] = useState<AveriaBackend | null>(null)
 
   const [asignarFontanero, setAsignarFontanero] = useState('')
@@ -264,6 +256,7 @@ function AveriasAdmin() {
   const [nuevoEstado, setNuevoEstado] = useState('')
   const [empleados, setEmpleados] = useState<Array<{ id: number; nombre: string; cedula: string; puesto: string }>>([])
   const [procesando, setProcesando] = useState(false)
+  const [errorGestion, setErrorGestion] = useState<string | null>(null)
 
   const cargarAverias = async () => {
     try {
@@ -308,7 +301,6 @@ function AveriasAdmin() {
   const paginaActual = Math.min(pagina, totalPaginas)
   const primeraFila = (paginaActual - 1) * POR_PAGINA
   const filasVisibles = filtered.slice(primeraFila, primeraFila + POR_PAGINA)
-  const numerosPagina = Array.from({ length: totalPaginas }, (_, i) => i + 1)
 
   function manejarBusqueda(valor: string) {
     setSearch(valor)
@@ -320,10 +312,12 @@ function AveriasAdmin() {
     setAsignarFontanero('')
     setAsignarObs('')
     setNuevoEstado('')
+    setErrorGestion(null)
   }
 
   async function handleGestionar() {
     if (!gestionModal) return
+    setErrorGestion(null)
     try {
       setProcesando(true)
 
@@ -343,11 +337,17 @@ function AveriasAdmin() {
 
       await actualizarAveria(gestionModal.id, payload)
       await cargarAverias()
-    } catch {
-      // error manejado en servicio
+      cerrarGestion()
+    } catch (err) {
+      // Antes el error se ignoraba y el modal se cerraba como si se hubiera
+      // guardado; ahora se muestra y el modal queda abierto para corregir.
+      setErrorGestion(
+        err instanceof Error && err.message
+          ? err.message
+          : 'No se pudieron guardar los cambios. Inténtalo de nuevo.',
+      )
     } finally {
       setProcesando(false)
-      cerrarGestion()
     }
   }
 
@@ -356,27 +356,28 @@ function AveriasAdmin() {
   // ─── Loading / Error states ────────────────────────────────────
   if (cargando) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <p className="text-sm text-primary-500">Cargando averías...</p>
-      </div>
+      <Cargando texto="Cargando averías..." />
     )
   }
 
   if (errorCarga) {
     return (
-      <div className="rounded-xl border border-red-200 bg-red-50 p-6 text-center">
-        <p className="text-sm font-medium text-red-600">{errorCarga}</p>
-        <button type="button" onClick={cargarAverias}
-          className="mt-3 rounded-lg bg-primary-700 px-4 py-2 text-sm font-semibold text-white hover:bg-primary-800">
-          Reintentar
-        </button>
-      </div>
+      <ErrorState mensaje={errorCarga} onReintentar={cargarAverias} />
     )
   }
 
   // ─── Render ────────────────────────────────────────────────────
   return (
     <div className="space-y-4">
+      {/* Encabezado */}
+      <div>
+        <h1 className="text-titulo-pagina font-semibold text-primary-900">Averías</h1>
+        <p className="mt-1 text-sm text-primary-500">
+          Reportes de averías registrados desde el sitio público, con estado, fontanero asignado e
+          historial de cambios
+        </p>
+      </div>
+
       {/* Barra de búsqueda + filtros */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-96">
@@ -407,32 +408,18 @@ function AveriasAdmin() {
           <option value="Todas">Todos los estados</option>
           <option value="Pendiente">Pendiente</option>
           <option value="En proceso">En proceso</option>
+          <option value="En revisión">En revisión</option>
           <option value="Finalizado">Finalizado</option>
         </select>
       </div>
 
       {/* Tabla */}
-      <div className="overflow-x-auto rounded-xl border border-primary-100 bg-white shadow-sm">
-        <table className="min-w-full divide-y divide-primary-100 text-sm">
-          <thead className="bg-primary-50">
-            <tr>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Código</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Tipo</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Reportado por</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Cédula</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Descripción</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Fecha</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Estado</th>
-              <th className="px-4 py-3 text-left font-medium text-primary-700">Acciones</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-primary-50">
+      <Table cabecera={['Código', 'Tipo', 'Reportado por', 'Cédula', 'Descripción', 'Fecha', 'Estado', 'Acciones']} pie={<>{/* Paginación */}
+        {averias.length > 0 && (
+          <Paginador total={filtered.length} pagina={paginaActual} porPagina={POR_PAGINA} onCambiar={setPagina} etiqueta="reportes" filtro={search} />
+        )}</>}>
             {filasVisibles.length === 0 ? (
-              <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-primary-400">
-                  No hay averías con ese filtro.
-                </td>
-              </tr>
+              <FilaVacia columnas={8} titulo="No hay averías con ese filtro." />
             ) : (
               filasVisibles.map((a) => (
                 <tr key={a.id} className="hover:bg-primary-50/50">
@@ -450,60 +437,18 @@ function AveriasAdmin() {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => setViewDetail(a)}
-                        className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
-                        Ver
-                      </button>
-                      {a.estado !== 'Finalizado' && (
-                        <button type="button" onClick={() => setGestionModal(a)}
-                          className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50">
-                          Gestionar
-                        </button>
-                      )}
-                    </div>
+                    <Button
+                      variant="secondary" size="sm"
+                      type="button"
+                      onClick={() => setGestionModal(a)}>
+                      Ver / gestionar
+                    </Button>
                   </td>
                 </tr>
               ))
             )}
-          </tbody>
-        </table>
+          </Table>
 
-        {/* Paginación */}
-        {averias.length > 0 && (
-          <div className="flex flex-col gap-3 border-t border-primary-100 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-xs text-primary-500">
-              Mostrando{' '}
-              {filtered.length === 0
-                ? 0
-                : `${primeraFila + 1}–${Math.min(primeraFila + POR_PAGINA, filtered.length)}`}{' '}
-              de {filtered.length} reportes
-              {search ? ` (filtro: "${search}")` : ''}
-            </p>
-            <div className="flex items-center gap-1">
-              <button type="button" onClick={() => setPagina(paginaActual - 1)} disabled={paginaActual === 1}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
-                ‹ Anterior
-              </button>
-              {numerosPagina.map((n) => (
-                <button key={n} type="button" onClick={() => setPagina(n)} disabled={n === paginaActual}
-                  aria-current={n === paginaActual ? 'page' : undefined}
-                  className={`h-7 min-w-[28px] rounded-full px-2 text-xs font-medium ${
-                    n === paginaActual ? 'bg-primary-700 text-white' : 'text-primary-700 hover:bg-primary-50'
-                  }`}>
-                  {n}
-                </button>
-              ))}
-              <button type="button" onClick={() => setPagina(paginaActual + 1)} disabled={paginaActual === totalPaginas}
-                className="rounded-full border border-primary-200 px-3 py-1.5 text-xs font-medium text-primary-700 hover:bg-primary-50 disabled:cursor-not-allowed disabled:opacity-40">
-                Siguiente ›
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      <DetailModal viewDetail={viewDetail} onClose={() => setViewDetail(null)} />
       {gestionModal && (
         <GestionModal
           averia={gestionModal}
@@ -517,6 +462,7 @@ function AveriasAdmin() {
           setNuevoEstado={setNuevoEstado}
           empleados={empleados}
           procesando={procesando}
+          errorGestion={errorGestion}
         />
       )}
     </div>
